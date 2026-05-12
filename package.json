@@ -27,6 +27,7 @@
     "test:web-framework": "pnpm --filter @geo-workstation/web test:phase3a",
     "test:web-dashboard": "pnpm --filter @geo-workstation/web test:dashboard",
     "test:web-geo-prompts": "pnpm --filter @geo-workstation/web test:geo-prompts",
+    "test:web-expansion": "pnpm --filter @geo-workstation/web test:expansion",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "smoke:api": "node scripts/smoke-test-api.mjs",
     "format": "prettier --write .",

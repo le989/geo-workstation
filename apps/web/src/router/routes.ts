@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from "vue-router";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { navigationItems, pageMetaByPath } from "@/config/navigation";
 import DashboardView from "@/views/DashboardView.vue";
+import ExpansionView from "@/views/ExpansionView.vue";
 import GeoPromptsView from "@/views/GeoPromptsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 
@@ -37,7 +38,9 @@ export const routes: RouteRecordRaw[] = [
             ? DashboardView
             : item.path === "/geo-prompts"
               ? GeoPromptsView
-              : ModulePlaceholderView,
+              : item.path === "/expansion"
+                ? ExpansionView
+                : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path]
         }
