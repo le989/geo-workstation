@@ -270,6 +270,16 @@ pnpm --filter @geo-workstation/shared build
 - 新增 fetch API client 基础封装，统一处理后端 `{ code, message, data }` 响应结构。
 - 新增空状态、加载状态、错误状态组件和 Phase 3A 前端骨架检查脚本。
 - 不实现业务 CRUD 页面、不修改后端业务逻辑、不修改 Prisma schema、不接入真实 AI。
+
+## Phase 3B 完成内容
+
+- 将 `/dashboard` 从占位页升级为 GEO 工作台首页。
+- 调用 `GET /api/reports/geo-overview` 展示提示词资产、知识库资产、内容资产和模型覆盖效果。
+- 调用 `GET /api/reports/optimization-suggestions` 展示最多 8 条待优化建议。
+- 增加手动刷新、加载中、错误、空状态处理；后端未启动时页面保持可访问。
+- 增加快捷入口：GEO 分析、提示词导入、AI 拓词、知识库、指令库、内容生成、模型覆盖记录、GEO 报表。
+- 展示真实入库能力、Mock 能力和未做能力边界。
+- 不实现其他业务页面 CRUD、不新增图表库、不修改后端业务逻辑或 Prisma schema。
 - 新增 `pnpm smoke:api`，默认请求 `http://localhost:3000`，支持 `API_BASE_URL` 覆盖。
 - 当前 Mock 能力：GEO 分析、AI 拓词、GEO 内容生成。
 - 当前真实入库能力：提示词、知识库、txt/md/csv 文件上传解析、指令库、内容任务和内容项、模型覆盖记录、报表统计。
