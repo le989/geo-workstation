@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate": "prisma migrate dev --config prisma.config.ts",
     "prisma:seed": "prisma db seed --config prisma.config.ts",
-    "test:api": "vitest run test/api-infrastructure.spec.ts",
+    "test:api": "vitest run test/api-infrastructure.spec.ts test/geo-prompts.service.spec.ts test/geo-prompts.controller.spec.ts",
+    "test:geo-prompts": "vitest run test/geo-prompts.service.spec.ts test/geo-prompts.controller.spec.ts",
     "test:prisma": "vitest run test/prisma-schema.spec.ts"
   },
   "dependencies": {

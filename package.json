@@ -15,6 +15,7 @@
     "prisma:migrate": "pnpm --filter @geo-workstation/api prisma:migrate",
     "prisma:seed": "pnpm --filter @geo-workstation/api prisma:seed",
     "test:api": "pnpm --filter @geo-workstation/api test:api",
+    "test:geo-prompts": "pnpm --filter @geo-workstation/api test:geo-prompts",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

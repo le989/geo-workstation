@@ -213,6 +213,15 @@ MVP 要形成这条业务链：
 - 删除。
 - 导出。
 
+后端 API 第一版要求：
+
+- `GET /api/geo-prompts`：分页查询 GEO 提示词，默认排除软删除数据，支持按提示词文本、训练词、场景、来源搜索，并按词类型、产品线、用户意图、优先级、追踪开关、覆盖状态、创建人筛选。
+- `POST /api/geo-prompts`：新增单条 GEO 提示词。新增前必须检查未软删除数据中的 `promptText` 重复项，重复时拒绝创建。
+- `PATCH /api/geo-prompts/:id`：更新单条 GEO 提示词。已软删除数据不可更新；更新 `promptText` 时继续检查未软删除数据中的重复项。
+- `DELETE /api/geo-prompts/:id`：软删除 GEO 提示词，只设置 `deletedAt`，不物理删除。
+- `POST /api/geo-prompts/bulk-import`：批量导入提示词，单批最多 1000 行；逐行校验，标记批次内重复和数据库重复，合法且不重复的数据才入库。
+- `GET /api/geo-prompts/export`：按列表筛选条件导出 CSV 文本。
+
 ### 6.4 AI 拓词
 
 用于扩展 GEO 提示词资产。
@@ -1055,4 +1064,3 @@ AI 生成失败：
 - 海外模型检测。
 - 国家/地区维度统计。
 - 本地化内容生成。
-

@@ -78,6 +78,7 @@ pnpm typecheck
 pnpm build
 pnpm format:check
 pnpm test:api
+pnpm test:geo-prompts
 pnpm test:prisma
 ```
 
@@ -136,11 +137,18 @@ pnpm --filter @geo-workstation/shared build
 - 增加 GEO 业务模块骨架：GEO 分析、提示词策略、AI 拓词、企业 GEO 知识库、指令库、GEO 内容、模型覆盖记录、GEO 报表。
 - 不实现业务 CRUD、不接入真实 AI Provider、不新增前端业务页面。
 
-## Phase 2B 下一步
+## Phase 2B 完成内容
 
-Phase 2B 建议开始后端手工录入类 API：
+- 实现提示词策略库后端 API：列表查询、新增、更新、软删除、批量导入、CSV 导出。
+- 查询默认排除软删除数据，支持 GEO 提示词搜索、分页和业务筛选。
+- 新增和更新 `promptText` 时检查未软删除数据中的重复项。
+- 批量导入按行校验，标记批次内重复、数据库重复和失败行，合法且不重复的数据才入库。
+- 不实现前端页面、不做 AI 拓词、不接入 DeepSeek、不实现知识库或内容生成。
+
+## Phase 2C 下一步
+
+Phase 2C 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。
-- 提示词策略库基础 API。
 - 企业 GEO 知识库基础 API。
 - 指令库、内容任务、模型覆盖记录的非 AI、非自动化 API。
