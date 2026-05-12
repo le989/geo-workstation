@@ -498,6 +498,17 @@ MVP 要形成这条业务链：
 - 查看未覆盖提示词。
 - 标记需要补内容。
 
+后端 API 第一版要求：
+
+- `GET /api/model-inclusion-records`：分页查询模型覆盖记录，支持搜索回答摘要、模型、竞品提及，并按 GEO 提示词、模型、品牌提及、品牌推荐、官网引用、记录方式、创建人、检测时间和关联提示词的产品线/类型/意图筛选。
+- `POST /api/model-inclusion-records`：手动新增一条模型覆盖记录，校验关联 GEO 提示词存在且未软删除；第一版默认 `recordMethod = manual`。
+- `POST /api/model-inclusion-records/import`：批量导入覆盖记录，单批最多 1000 行，按行独立校验；可通过 `geoPromptId` 或 `promptText` 匹配未删除提示词，导入成功行强制记录为 `recordMethod = import`，不自动创建新提示词。
+- `GET /api/model-inclusion-records/export`：按列表相同筛选条件导出 CSV 文本，默认排除已软删除提示词关联的无效记录。
+- `GET /api/model-inclusion-records/uncovered-prompts`：查询指定模型或时间范围内没有覆盖记录的 GEO 提示词，默认只看 `trackEnabled = true` 的提示词，也允许参数控制。
+- `GET /api/model-inclusion-records/summary`：返回基础统计，包括总记录、提及/未提及、推荐/未推荐、引用官网数量、提及率、推荐率、官网引用率、模型分布和产品线分布。
+- 新增和导入成功后更新 `geo_prompts.latest_coverage_status`：推荐为 `recommended`，仅提及为 `mentioned`，未提及为 `not_mentioned`；第一版按最新 `checkedAt` 记录刷新。
+- 第一版只做手动记录和导入，不做自动检测外部 AI 平台、不接入真实 AI Provider、不做定时任务。
+
 后续阶段再做自动化检测。
 
 ### 6.9 GEO 报表
@@ -946,6 +957,8 @@ MVP 不做：
 - `POST /api/model-inclusion-records`
 - `POST /api/model-inclusion-records/import`
 - `GET /api/model-inclusion-records/export`
+- `GET /api/model-inclusion-records/uncovered-prompts`
+- `GET /api/model-inclusion-records/summary`
 
 ### Reports
 

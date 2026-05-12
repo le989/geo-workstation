@@ -84,6 +84,7 @@ pnpm test:geo-knowledge
 pnpm test:geo-knowledge-files
 pnpm test:geo-instructions
 pnpm test:geo-content
+pnpm test:model-inclusion
 pnpm test:prisma
 ```
 
@@ -197,9 +198,18 @@ pnpm --filter @geo-workstation/shared build
 - Markdown 导出只返回 Markdown 文本，不做 Word 导出、不做复杂排版、不做自动发布。
 - 不做前端页面、不接真实 AI Provider、不做权限守卫、登录注册、多租户或外部媒体发布。
 
-## Phase 2H 下一步
+## Phase 2H 完成内容
 
-Phase 2H 建议继续后端手工录入类 API：
+- 实现模型覆盖与上词记录后端 API：手动新增、分页查询、批量导入、CSV 导出、未覆盖提示词查询和基础 summary。
+- 新增记录前校验 GEO 提示词存在且未软删除；查询记录时返回关联提示词的 `promptText`、类型、产品线和用户意图。
+- 批量导入按行独立校验，支持通过 `geoPromptId` 或 `promptText` 匹配提示词；导入成功行强制写入 `recordMethod = import`，不自动创建新提示词。
+- 未覆盖提示词查询基于 `geo_prompts`，默认只查询 `trackEnabled = true` 且未软删除的提示词。
+- 新增记录和导入成功后会刷新 `geoPrompt.latestCoverageStatus`：`recommended`、`mentioned`、`not_mentioned`。
+- summary 返回品牌提及率、推荐率、官网引用率、模型分布和产品线分布。
+- 不做自动 AI 检测、不接入真实 DeepSeek/豆包/Kimi/通义、不做定时任务、不做前端页面或复杂报表图表。
+
+## Phase 2I 下一步
+
+Phase 2I 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。
-- 模型覆盖记录的非 AI、非自动化 API。
