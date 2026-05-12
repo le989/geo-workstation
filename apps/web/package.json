@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:phase3a": "node scripts/check-phase-3a.mjs",
     "test:dashboard": "node scripts/check-phase-3b.mjs",
+    "test:geo-prompts": "node scripts/check-phase-3c.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

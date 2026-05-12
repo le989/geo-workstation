@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from "vue-router";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { navigationItems, pageMetaByPath } from "@/config/navigation";
 import DashboardView from "@/views/DashboardView.vue";
+import GeoPromptsView from "@/views/GeoPromptsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 
 export const phase3aRoutePaths = [
@@ -31,7 +32,12 @@ export const routes: RouteRecordRaw[] = [
       ...navigationItems.map((item) => ({
         path: item.path.replace(/^\//, ""),
         name: routeNameFromPath(item.path),
-        component: item.path === "/dashboard" ? DashboardView : ModulePlaceholderView,
+        component:
+          item.path === "/dashboard"
+            ? DashboardView
+            : item.path === "/geo-prompts"
+              ? GeoPromptsView
+              : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path]
         }
