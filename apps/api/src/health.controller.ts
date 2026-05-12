@@ -1,32 +1,55 @@
 import { Controller, Get } from "@nestjs/common";
-import { GEO_APP_NAME, type ApiResponse } from "@geo-workstation/shared";
+import { GEO_APP_NAME } from "@geo-workstation/shared";
 
 type HealthPayload = {
   service: string;
   status: "ok";
-  phase: "phase-0";
+  phase: "phase-2a";
+  timestamp: string;
+  uptimeMs: number;
+  geoLoop: string[];
+  infrastructure: {
+    responseEnvelope: true;
+    exceptionFilter: true;
+    validationPipe: true;
+    configModule: true;
+    prismaModule: true;
+  };
 };
 
 @Controller()
 export class HealthController {
   @Get("health")
-  health(): ApiResponse<HealthPayload> {
-    return this.createHealthResponse();
+  health(): HealthPayload {
+    return this.createHealthPayload();
   }
 
   @Get("api/health")
-  apiHealth(): ApiResponse<HealthPayload> {
-    return this.createHealthResponse();
+  apiHealth(): HealthPayload {
+    return this.createHealthPayload();
   }
 
-  private createHealthResponse(): ApiResponse<HealthPayload> {
+  private createHealthPayload(): HealthPayload {
     return {
-      code: 0,
-      message: "ok",
-      data: {
-        service: GEO_APP_NAME,
-        status: "ok",
-        phase: "phase-0"
+      service: GEO_APP_NAME,
+      status: "ok",
+      phase: "phase-2a",
+      timestamp: new Date().toISOString(),
+      uptimeMs: Math.round(process.uptime() * 1000),
+      geoLoop: [
+        "GEO diagnosis",
+        "prompt strategy",
+        "enterprise GEO knowledge base",
+        "GEO content generation",
+        "model inclusion records",
+        "optimization reports"
+      ],
+      infrastructure: {
+        responseEnvelope: true,
+        exceptionFilter: true,
+        validationPipe: true,
+        configModule: true,
+        prismaModule: true
       }
     };
   }

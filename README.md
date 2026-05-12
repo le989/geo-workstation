@@ -77,6 +77,8 @@ pnpm lint
 pnpm typecheck
 pnpm build
 pnpm format:check
+pnpm test:api
+pnpm test:prisma
 ```
 
 Prisma 命令：
@@ -117,11 +119,28 @@ pnpm --filter @geo-workstation/shared build
 - 将产品 spec 归位到 `docs/specs/geo-marketing-platform-spec.md`。
 - 不连接数据库，不创建 Prisma 模型，不接入 DeepSeek，不实现业务 API 或业务页面。
 
-## Phase 1 下一步
+## Phase 1 完成内容
 
-Phase 1 将开始数据库模型与 Prisma：
-
-- 创建 Prisma schema 和迁移。
+- 创建 Prisma schema、迁移和 seed。
 - 建立 GEO 业务数据表：`geo_analysis_tasks`、`geo_prompts`、`knowledge_bases`、`knowledge_chunks`、`instruction_templates`、`content_tasks`、`model_inclusion_records` 等。
-- 添加 seed 数据和基础模型验证。
+- 添加 Prisma Client、`PrismaModule`、`PrismaService` 和基础模型验证。
 - 继续保持所有命名优先表达 GEO 业务语义。
+
+## Phase 2A 完成内容
+
+- 增加统一 API 响应封装，接口返回 `{ code, message, data }`。
+- 增加全局异常过滤器和全局 DTO 校验管道。
+- 增加后端配置管理，支持根目录 `.env`。
+- 将 `PrismaService` 接入配置管理。
+- 升级 health 接口为 Phase 2A 基础设施检查。
+- 增加 GEO 业务模块骨架：GEO 分析、提示词策略、AI 拓词、企业 GEO 知识库、指令库、GEO 内容、模型覆盖记录、GEO 报表。
+- 不实现业务 CRUD、不接入真实 AI Provider、不新增前端业务页面。
+
+## Phase 2B 下一步
+
+Phase 2B 建议开始后端手工录入类 API：
+
+- GEO 分析任务基础 API。
+- 提示词策略库基础 API。
+- 企业 GEO 知识库基础 API。
+- 指令库、内容任务、模型覆盖记录的非 AI、非自动化 API。
