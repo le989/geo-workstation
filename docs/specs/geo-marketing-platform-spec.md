@@ -330,6 +330,19 @@ MVP 要形成这条业务链：
 - 标签。
 - 更新时间。
 
+后端 API 第一版要求：
+
+- `GET /api/knowledge-bases`：分页查询企业 GEO 知识库，默认排除软删除数据，支持搜索名称、产品线、描述，并按产品线、状态、创建人筛选。
+- `POST /api/knowledge-bases`：创建知识库，同一产品线下的未删除同名知识库应拒绝重复创建。
+- `GET /api/knowledge-bases/:id`：查看知识库详情，返回文件数量、知识片段数量和最近 5 条知识片段。
+- `PATCH /api/knowledge-bases/:id`：更新知识库基础信息，已软删除知识库不可更新。
+- `DELETE /api/knowledge-bases/:id`：软删除知识库，并软删除关联文件和知识片段。
+- `POST /api/knowledge-bases/:id/text-import`：通过粘贴文本创建一条知识片段，`fileId` 为空，默认继承知识库产品线，不处理真实文件解析。
+- `GET /api/knowledge-bases/:id/chunks`：分页查询知识片段，默认排除软删除数据，支持搜索标题/正文，并按来源、产品线、资料类型、标签筛选。
+- `PATCH /api/knowledge-chunks/:id`：编辑知识片段标题、正文、来源、产品线、资料类型和标签。
+- `DELETE /api/knowledge-chunks/:id`：软删除知识片段。
+- 第一版 `sourceType` 和 `materialType` 先按字符串处理，后续可以按 GEO 资料类型枚举化。
+
 ### 6.6 指令库
 
 指令库用于沉淀 GEO 内容生产方法。

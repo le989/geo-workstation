@@ -80,6 +80,7 @@ pnpm format:check
 pnpm test:api
 pnpm test:geo-prompts
 pnpm test:geo-expansion
+pnpm test:geo-knowledge
 pnpm test:prisma
 ```
 
@@ -155,10 +156,18 @@ pnpm --filter @geo-workstation/shared build
 - Mock AI 调用也写入 `ai_call_logs`，保留后续真实 Provider 替换空间。
 - 不实现前端页面、不做知识库解析、不做内容生成、不做登录注册或权限守卫。
 
-## Phase 2D 下一步
+## Phase 2D 完成内容
 
-Phase 2D 建议继续后端手工录入类 API：
+- 实现企业 GEO 知识库后端 API：知识库列表、创建、详情、更新、软删除。
+- 实现粘贴文本导入 `text-import`，创建可编辑的 GEO 知识片段，文本导入不关联文件，`fileId` 保持为空。
+- 知识片段支持分页查询、标题/正文搜索、来源、产品线、资料类型和标签筛选。
+- 知识片段支持编辑和软删除，知识库软删除会同步软删除关联文件和知识片段。
+- `sourceType` 和 `materialType` 第一版先按字符串处理，后续可枚举化为 GEO 资料类型。
+- 不做真实文件上传、PDF/Word/Excel 解析、URL 抓取、RAG、向量数据库、前端页面、内容生成或真实 AI Provider。
+
+## Phase 2E 下一步
+
+Phase 2E 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。
-- 企业 GEO 知识库基础 API。
 - 指令库、内容任务、模型覆盖记录的非 AI、非自动化 API。
