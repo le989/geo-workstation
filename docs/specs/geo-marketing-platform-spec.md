@@ -343,6 +343,15 @@ MVP 要形成这条业务链：
 - `DELETE /api/knowledge-chunks/:id`：软删除知识片段。
 - 第一版 `sourceType` 和 `materialType` 先按字符串处理，后续可以按 GEO 资料类型枚举化。
 
+文件上传与基础解析 API 第一版要求：
+
+- `POST /api/knowledge-bases/:id/files`：使用 `multipart/form-data` 的 `file` 字段上传 `.txt`、`.md`、`.csv` 文件，保存到本地 `LOCAL_STORAGE_ROOT/uploads/knowledge-bases/{knowledgeBaseId}/`，创建 `knowledge_file` 后同步解析为 `knowledge_chunks`。
+- `GET /api/knowledge-bases/:id/files`：分页查询知识库文件，默认排除软删除数据，支持 `parseStatus`、`fileType` 和文件名搜索。
+- `GET /api/knowledge-files/:id`：查看文件详情，返回文件记录、片段数量和最近知识片段。
+- `POST /api/knowledge-files/:id/reparse`：重新解析未删除文件；解析成功时软删除旧片段并创建新片段，解析失败时保留文件记录并写入 `failed` 状态和错误信息。
+- `DELETE /api/knowledge-files/:id`：软删除文件，并同步软删除关联知识片段；第一版不物理删除本地文件。
+- 第一版只支持 txt、md、csv 基础解析，不支持 PDF、Word/docx、Excel/xlsx、URL 抓取、RAG 或向量数据库。
+
 ### 6.6 指令库
 
 指令库用于沉淀 GEO 内容生产方法。

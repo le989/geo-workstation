@@ -81,6 +81,7 @@ pnpm test:api
 pnpm test:geo-prompts
 pnpm test:geo-expansion
 pnpm test:geo-knowledge
+pnpm test:geo-knowledge-files
 pnpm test:prisma
 ```
 
@@ -165,9 +166,19 @@ pnpm --filter @geo-workstation/shared build
 - `sourceType` 和 `materialType` 第一版先按字符串处理，后续可枚举化为 GEO 资料类型。
 - 不做真实文件上传、PDF/Word/Excel 解析、URL 抓取、RAG、向量数据库、前端页面、内容生成或真实 AI Provider。
 
-## Phase 2E 下一步
+## Phase 2E 完成内容
 
-Phase 2E 建议继续后端手工录入类 API：
+- 实现企业 GEO 知识库文件 API：上传文件、文件列表、文件详情、重新解析、文件软删除。
+- 文件上传使用 `multipart/form-data` 的 `file` 字段，第一版支持 `.txt`、`.md`、`.csv`，文件大小限制为 10MB。
+- 本地文件存储路径为 `LOCAL_STORAGE_ROOT/uploads/knowledge-bases/{knowledgeBaseId}/`，默认落在 `.env.example` 的 `./storage` 下。
+- 上传后创建 `knowledge_files` 记录，并同步解析为 `knowledge_chunks`；解析失败时保留文件记录，设置 `parseStatus = failed` 并写入 `errorMessage`。
+- `reparse` 成功时软删除旧片段并创建新片段；失败时更新文件解析状态和错误信息，不让接口崩溃。
+- 文件软删除会设置 `knowledge_files.deletedAt`，并同步软删除关联 `knowledge_chunks`；第一版不物理删除本地文件。
+- 不做 PDF/Word/Excel 解析、URL 抓取、整站采集、RAG、向量数据库、前端页面、内容生成或真实 AI Provider。
+
+## Phase 2F 下一步
+
+Phase 2F 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。
 - 指令库、内容任务、模型覆盖记录的非 AI、非自动化 API。
