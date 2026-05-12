@@ -79,6 +79,24 @@ pnpm build
 pnpm format:check
 ```
 
+Prisma 命令：
+
+```bash
+pnpm prisma:validate
+pnpm prisma:generate
+pnpm prisma:migrate
+pnpm prisma:seed
+```
+
+Phase 1 使用 `docker-compose.yml` 中的 PostgreSQL。首次本地执行前可复制环境变量文件：
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+pnpm prisma:migrate
+pnpm prisma:seed
+```
+
 也可以单独检查某个工作区：
 
 ```bash

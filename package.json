@@ -10,6 +10,10 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "build": "pnpm -r build",
+    "prisma:validate": "pnpm --filter @geo-workstation/api prisma:validate",
+    "prisma:generate": "pnpm --filter @geo-workstation/api prisma:generate",
+    "prisma:migrate": "pnpm --filter @geo-workstation/api prisma:migrate",
+    "prisma:seed": "pnpm --filter @geo-workstation/api prisma:seed",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -25,6 +29,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@nestjs/core",
+      "@prisma/engines",
+      "prisma",
       "esbuild"
     ]
   }

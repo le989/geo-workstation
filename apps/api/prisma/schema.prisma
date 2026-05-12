@@ -1,0 +1,400 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  admin
+  geo_operator
+  content_editor
+  viewer
+}
+
+enum UserStatus {
+  active
+  disabled
+}
+
+enum TaskStatus {
+  pending
+  running
+  succeeded
+  failed
+  cancelled
+}
+
+enum GeoPromptType {
+  base
+  distilled
+  brand
+  scene
+}
+
+enum UserIntent {
+  selection
+  purchase
+  manufacturer_recommendation
+  domestic_alternative
+  comparison
+  troubleshooting
+  application_solution
+  brand_verification
+}
+
+enum ExpansionMode {
+  rule
+  ai
+}
+
+enum ParseStatus {
+  pending
+  parsing
+  succeeded
+  failed
+}
+
+enum RecordMethod {
+  manual
+  api
+  import
+}
+
+enum AiCallStatus {
+  pending
+  succeeded
+  failed
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  name                  String
+  email                 String                 @unique
+  role                  UserRole               @default(viewer)
+  status                UserStatus             @default(active)
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  geoAnalysisTasks      GeoAnalysisTask[]
+  geoPrompts            GeoPrompt[]
+  expansionJobs         ExpansionJob[]
+  knowledgeBases        KnowledgeBase[]
+  knowledgeFiles        KnowledgeFile[]
+  instructionTemplates  InstructionTemplate[]
+  contentTasks          ContentTask[]
+  modelInclusionRecords ModelInclusionRecord[]
+
+  @@map("users")
+}
+
+model GeoAnalysisTask {
+  id                String           @id @default(cuid())
+  name              String
+  brandName         String           @map("brand_name")
+  websiteUrl        String?          @map("website_url")
+  productLine       String?          @map("product_line")
+  targetModels      Json?            @map("target_models")
+  status            TaskStatus       @default(pending)
+  summary           Json?
+  contentGaps       Json?            @map("content_gaps")
+  knowledgeGaps     Json?            @map("knowledge_gaps")
+  promptSuggestions Json?            @map("prompt_suggestions")
+  createdById       String           @map("created_by")
+  createdBy         User             @relation(fields: [createdById], references: [id])
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  modelResults      GeoModelResult[]
+
+  @@index([createdById])
+  @@index([brandName])
+  @@index([productLine])
+  @@index([status])
+  @@map("geo_analysis_tasks")
+}
+
+model GeoModelResult {
+  id                String          @id @default(cuid())
+  analysisTaskId    String          @map("analysis_task_id")
+  analysisTask      GeoAnalysisTask @relation(fields: [analysisTaskId], references: [id], onDelete: Cascade)
+  promptText        String          @map("prompt_text")
+  model             String
+  brandMentioned    Boolean         @default(false) @map("brand_mentioned")
+  brandRecommended  Boolean         @default(false) @map("brand_recommended")
+  rankingPosition   Int?            @map("ranking_position")
+  citedOfficialSite Boolean         @default(false) @map("cited_official_site")
+  answerSummary     String?         @map("answer_summary")
+  competitors       Json?
+  rawAnswer         String?         @map("raw_answer")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@index([analysisTaskId])
+  @@index([model])
+  @@map("geo_model_results")
+}
+
+model KnowledgeBase {
+  id           String           @id @default(cuid())
+  name         String
+  productLine  String?          @map("product_line")
+  description  String?
+  status       String            @default("active")
+  createdById  String           @map("created_by")
+  createdBy    User             @relation(fields: [createdById], references: [id])
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  deletedAt    DateTime?        @map("deleted_at")
+  files        KnowledgeFile[]
+  chunks       KnowledgeChunk[]
+  contentTasks ContentTask[]
+
+  @@index([createdById])
+  @@index([productLine])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("knowledge_bases")
+}
+
+model KnowledgeFile {
+  id              String           @id @default(cuid())
+  knowledgeBaseId String           @map("knowledge_base_id")
+  knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  fileName        String           @map("file_name")
+  fileType        String           @map("file_type")
+  fileSize        Int?             @map("file_size")
+  storagePath     String?          @map("storage_path")
+  parseStatus     ParseStatus      @default(pending) @map("parse_status")
+  errorMessage    String?          @map("error_message")
+  createdById     String           @map("created_by")
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  chunks          KnowledgeChunk[]
+
+  @@index([knowledgeBaseId])
+  @@index([createdById])
+  @@index([parseStatus])
+  @@index([deletedAt])
+  @@map("knowledge_files")
+}
+
+model KnowledgeChunk {
+  id              String         @id @default(cuid())
+  knowledgeBaseId String         @map("knowledge_base_id")
+  knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  fileId          String?        @map("file_id")
+  file            KnowledgeFile? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  title           String
+  content         String
+  sourceType      String         @map("source_type")
+  productLine     String?        @map("product_line")
+  materialType    String?        @map("material_type")
+  tags            Json?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  deletedAt       DateTime?      @map("deleted_at")
+
+  @@index([knowledgeBaseId])
+  @@index([fileId])
+  @@index([productLine])
+  @@index([materialType])
+  @@index([deletedAt])
+  @@map("knowledge_chunks")
+}
+
+model GeoPrompt {
+  id                   String                 @id @default(cuid())
+  type                 GeoPromptType          @map("type")
+  baseWord             String?                @map("base_word")
+  promptText           String                 @map("prompt_text")
+  productLine          String?                @map("product_line")
+  scenario             String?
+  userIntent           UserIntent             @default(selection) @map("user_intent")
+  priority             Int                    @default(3)
+  targetModels         Json?                  @map("target_models")
+  source               String?
+  trackEnabled         Boolean                @default(false) @map("track_enabled")
+  latestCoverageStatus String?                @map("latest_coverage_status")
+  createdById          String                 @map("created_by")
+  createdBy            User                   @relation(fields: [createdById], references: [id])
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  deletedAt            DateTime?              @map("deleted_at")
+  expansionCandidates  ExpansionCandidate[]   @relation("SavedPrompt")
+  contentItems         ContentItem[]
+  inclusionRecords     ModelInclusionRecord[]
+
+  @@index([createdById])
+  @@index([type])
+  @@index([promptText])
+  @@index([productLine])
+  @@index([userIntent])
+  @@index([trackEnabled])
+  @@index([deletedAt])
+  @@map("geo_prompts")
+}
+
+model ExpansionJob {
+  id           String               @id @default(cuid())
+  mode         ExpansionMode
+  promptType   GeoPromptType         @map("prompt_type")
+  inputPayload Json                 @map("input_payload")
+  provider     String?
+  model        String?
+  status       TaskStatus            @default(pending)
+  createdById  String               @map("created_by")
+  createdBy    User                 @relation(fields: [createdById], references: [id])
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  candidates   ExpansionCandidate[]
+
+  @@index([createdById])
+  @@index([mode])
+  @@index([promptType])
+  @@index([status])
+  @@map("expansion_jobs")
+}
+
+model ExpansionCandidate {
+  id                     String        @id @default(cuid())
+  jobId                  String        @map("job_id")
+  job                    ExpansionJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  baseWord               String?       @map("base_word")
+  promptText             String        @map("prompt_text")
+  userIntent             UserIntent?   @map("user_intent")
+  priority               Int           @default(3)
+  recommendedContentType String?       @map("recommended_content_type")
+  selected               Boolean       @default(false)
+  savedPromptId          String?       @map("saved_prompt_id")
+  savedPrompt            GeoPrompt?    @relation("SavedPrompt", fields: [savedPromptId], references: [id], onDelete: SetNull)
+  createdAt              DateTime      @default(now()) @map("created_at")
+
+  @@index([jobId])
+  @@index([savedPromptId])
+  @@index([selected])
+  @@map("expansion_candidates")
+}
+
+model InstructionTemplate {
+  id               String         @id @default(cuid())
+  name             String
+  instructionType  String         @map("instruction_type")
+  contentType      String         @map("content_type")
+  targetPromptType GeoPromptType? @map("target_prompt_type")
+  targetModel      String?        @map("target_model")
+  instruction      String
+  outputFormat     String?        @map("output_format")
+  qualityRules     String?        @map("quality_rules")
+  forbiddenRules   String?        @map("forbidden_rules")
+  createdById      String         @map("created_by")
+  createdBy        User           @relation(fields: [createdById], references: [id])
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  deletedAt        DateTime?      @map("deleted_at")
+  contentTasks     ContentTask[]
+
+  @@index([createdById])
+  @@index([instructionType])
+  @@index([contentType])
+  @@index([targetPromptType])
+  @@index([deletedAt])
+  @@map("instruction_templates")
+}
+
+model ContentTask {
+  id                    String               @id @default(cuid())
+  name                  String
+  productLine           String?              @map("product_line")
+  knowledgeBaseId       String?              @map("knowledge_base_id")
+  knowledgeBase         KnowledgeBase?       @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  instructionTemplateId String?              @map("instruction_template_id")
+  instructionTemplate   InstructionTemplate? @relation(fields: [instructionTemplateId], references: [id], onDelete: SetNull)
+  generationType        String               @map("generation_type")
+  targetModel           String?              @map("target_model")
+  status                TaskStatus           @default(pending)
+  provider              String?
+  model                 String?
+  createdById           String               @map("created_by")
+  createdBy             User                 @relation(fields: [createdById], references: [id])
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  contentItems          ContentItem[]
+
+  @@index([createdById])
+  @@index([productLine])
+  @@index([knowledgeBaseId])
+  @@index([instructionTemplateId])
+  @@index([status])
+  @@map("content_tasks")
+}
+
+model ContentItem {
+  id                      String       @id @default(cuid())
+  taskId                  String       @map("task_id")
+  task                    ContentTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  geoPromptId             String?      @map("geo_prompt_id")
+  geoPrompt               GeoPrompt?   @relation(fields: [geoPromptId], references: [id], onDelete: SetNull)
+  title                   String
+  body                    String
+  geoOptimizationPoints   Json?        @map("geo_optimization_points")
+  suggestedPublishChannel String?      @map("suggested_publish_channel")
+  status                  String       @default("draft")
+  errorMessage            String?      @map("error_message")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+  deletedAt               DateTime?    @map("deleted_at")
+
+  @@index([taskId])
+  @@index([geoPromptId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("content_items")
+}
+
+model ModelInclusionRecord {
+  id                String       @id @default(cuid())
+  geoPromptId       String       @map("geo_prompt_id")
+  geoPrompt         GeoPrompt    @relation(fields: [geoPromptId], references: [id], onDelete: Cascade)
+  model             String
+  checkedAt         DateTime     @default(now()) @map("checked_at")
+  brandMentioned    Boolean      @default(false) @map("brand_mentioned")
+  brandRecommended  Boolean      @default(false) @map("brand_recommended")
+  rankingPosition   Int?         @map("ranking_position")
+  citedOfficialSite Boolean      @default(false) @map("cited_official_site")
+  answerSummary     String?      @map("answer_summary")
+  competitors       Json?
+  recordMethod      RecordMethod @default(manual) @map("record_method")
+  createdById       String       @map("created_by")
+  createdBy         User         @relation(fields: [createdById], references: [id])
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  @@index([geoPromptId])
+  @@index([createdById])
+  @@index([model])
+  @@index([checkedAt])
+  @@index([brandMentioned])
+  @@index([brandRecommended])
+  @@map("model_inclusion_records")
+}
+
+model AiCallLog {
+  id           String       @id @default(cuid())
+  provider     String
+  model        String
+  purpose      String
+  relatedType  String?      @map("related_type")
+  relatedId    String?      @map("related_id")
+  tokenInput   Int?         @map("token_input")
+  tokenOutput  Int?         @map("token_output")
+  costEstimate Decimal?     @map("cost_estimate") @db.Decimal(12, 6)
+  status       AiCallStatus @default(pending)
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([provider])
+  @@index([model])
+  @@index([purpose])
+  @@index([relatedType, relatedId])
+  @@index([status])
+  @@map("ai_call_logs")
+}
