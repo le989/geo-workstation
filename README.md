@@ -43,6 +43,8 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 项目约束：`AGENTS.md`
 - 产品规格：`docs/specs/geo-marketing-platform-spec.md`
 - 实施计划：`docs/implementation-plan.md`
+- 后端 API 文档：`docs/api/backend-api.md`
+- GEO MVP 联调流程：`docs/api/geo-mvp-flow.md`
 
 根目录原始 spec 已归位到 `docs/specs/geo-marketing-platform-spec.md`，该路径是正式 spec 路径。
 
@@ -88,7 +90,10 @@ pnpm test:model-inclusion
 pnpm test:geo-reports
 pnpm test:geo-analysis
 pnpm test:prisma
+pnpm smoke:api
 ```
+
+`pnpm smoke:api` 需要 API 服务已经启动；默认请求 `http://localhost:3000`，可通过 `API_BASE_URL` 覆盖。
 
 Prisma 命令：
 
@@ -106,6 +111,23 @@ cp .env.example .env
 docker compose up -d postgres
 pnpm prisma:migrate
 pnpm prisma:seed
+```
+
+后端 MVP 冒烟测试：
+
+```bash
+# 终端 1
+docker compose up -d postgres
+pnpm dev:api
+
+# 终端 2
+pnpm smoke:api
+```
+
+如果 API 不在默认端口：
+
+```bash
+API_BASE_URL=http://localhost:3001 pnpm smoke:api
 ```
 
 也可以单独检查某个工作区：
@@ -231,8 +253,16 @@ pnpm --filter @geo-workstation/shared build
 - 当前 schema 没有分析任务到内容任务的关系字段，详情接口第一版返回 `relatedContentTasks: []`，后续可在需要时补关系模型。
 - 不修改 Prisma schema，不做真实 AI、外部检测、网页爬取、SEO 扫描、前端页面、定时任务或权限系统。
 
-## Phase 2K 下一步
+## Phase 2K 完成内容
 
-Phase 2K 建议继续后端基础能力收尾：
+- 补充后端 API 交接文档：统一响应、错误结构、环境变量、启动方式和全部后端模块接口清单。
+- 补充 GEO MVP 端到端联调流程文档，说明从分析任务到报表建议的业务路径。
+- 新增 `scripts/smoke-test-api.mjs`，用 HTTP 请求跑通本地后端 MVP 主链路。
+- 新增 `pnpm smoke:api`，默认请求 `http://localhost:3000`，支持 `API_BASE_URL` 覆盖。
+- 当前 Mock 能力：GEO 分析、AI 拓词、GEO 内容生成。
+- 当前真实入库能力：提示词、知识库、txt/md/csv 文件上传解析、指令库、内容任务和内容项、模型覆盖记录、报表统计。
+- 不修改 Prisma schema，不新增业务模块、不做前端页面、不接真实 AI、不做外部检测、爬虫、定时任务、登录注册、权限守卫、多租户或外部媒体发布。
 
-- GEO 工作台聚合 API 或后端阶段验收整理。
+## Phase 3A 下一步
+
+Phase 3A 建议进入前端基础布局与后台框架。
