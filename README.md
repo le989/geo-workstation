@@ -83,6 +83,7 @@ pnpm test:geo-expansion
 pnpm test:geo-knowledge
 pnpm test:geo-knowledge-files
 pnpm test:geo-instructions
+pnpm test:geo-content
 pnpm test:prisma
 ```
 
@@ -186,9 +187,19 @@ pnpm --filter @geo-workstation/shared build
 - `contentType` 在 API 中可选；第一版省略时默认写入 `geo_content`，以满足当前 Prisma 必填字段。
 - 不做前端页面、不做内容生成、不接入 DeepSeek 或真实 AI Provider。
 
-## Phase 2G 下一步
+## Phase 2G 完成内容
 
-Phase 2G 建议继续后端手工录入类 API：
+- 实现 GEO 内容生成后端 API：内容任务列表、创建、详情、失败重试，以及内容项列表、编辑、软删除、Markdown 导出。
+- 创建内容任务时校验 GEO 提示词、知识库和指令模板存在且未删除；任务状态从 `running` 流转到 `succeeded` 或 `failed`。
+- 第一版使用 `mock-content-v1` 同步生成内容，不接入真实 DeepSeek，不使用真实 API Key。
+- 每个目标 GEO 提示词生成一个 `content_item`，生成结果包含标题、正文、GEO 优化点和建议发布位置。
+- `retry` 只重新生成失败内容项，已成功内容项不会重复生成；每次生成或重试都会写入 `ai_call_logs`。
+- Markdown 导出只返回 Markdown 文本，不做 Word 导出、不做复杂排版、不做自动发布。
+- 不做前端页面、不接真实 AI Provider、不做权限守卫、登录注册、多租户或外部媒体发布。
+
+## Phase 2H 下一步
+
+Phase 2H 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。
-- 内容任务、模型覆盖记录的非 AI、非自动化 API。
+- 模型覆盖记录的非 AI、非自动化 API。

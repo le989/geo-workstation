@@ -460,6 +460,18 @@ MVP 要形成这条业务链：
 - 失败重试。
 - 导出 Markdown/Word。
 
+后端 API 第一版要求：
+
+- `GET /api/content-tasks`：分页查询 GEO 内容任务，支持搜索任务名称、产品线、生成类型、目标模型，并按产品线、状态、生成类型、目标模型、创建人筛选。
+- `POST /api/content-tasks`：创建内容任务，校验 GEO 提示词、知识库、指令模板存在且未删除；第一版同步使用 Mock 生成器生成 `content_items`，任务状态从 `running` 流转到 `succeeded` 或 `failed`。
+- `GET /api/content-tasks/:id`：查看任务详情，返回任务、生成内容项、关联知识库、指令模板、目标提示词和最近 Mock AI 调用日志。
+- `POST /api/content-tasks/:id/retry`：重试失败内容项，已成功的 `content_items` 不重复生成；再次记录 `ai_call_logs`。
+- `GET /api/content-items`：分页查询生成结果，默认排除软删除数据，支持搜索标题、正文、建议发布位置，并按任务、GEO 提示词、状态筛选。
+- `PATCH /api/content-items/:id`：编辑生成结果的标题、正文、GEO 优化点、建议发布位置和状态。
+- `DELETE /api/content-items/:id`：软删除生成结果，重复删除按幂等结果返回。
+- `GET /api/content-items/:id/export`：导出 Markdown 文本，包含标题、目标提示词、正文、GEO 优化点、建议发布位置和生成时间。
+- 第一版只使用 Mock 内容生成器，不接入真实 DeepSeek 或其他真实 AI Provider，不做 Word 导出、不做自动发布。
+
 ### 6.8 模型覆盖与上词记录
 
 第一版不要求全自动检测，但必须保留 GEO 效果记录模块。
