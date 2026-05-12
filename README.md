@@ -63,6 +63,7 @@ pnpm dev:web
 ```
 
 前端默认地址：`http://localhost:5173`
+前端 API 地址默认读取 `VITE_API_BASE_URL`，未配置时使用 `http://localhost:3000`。前端环境变量示例见 `apps/web/.env.example`。
 
 启动后端：
 
@@ -79,6 +80,7 @@ pnpm lint
 pnpm typecheck
 pnpm build
 pnpm format:check
+pnpm test:web-framework
 pnpm test:api
 pnpm test:geo-prompts
 pnpm test:geo-expansion
@@ -258,6 +260,16 @@ pnpm --filter @geo-workstation/shared build
 - 补充后端 API 交接文档：统一响应、错误结构、环境变量、启动方式和全部后端模块接口清单。
 - 补充 GEO MVP 端到端联调流程文档，说明从分析任务到报表建议的业务路径。
 - 新增 `scripts/smoke-test-api.mjs`，用 HTTP 请求跑通本地后端 MVP 主链路。
+
+## Phase 3A 完成内容
+
+- 搭建 Vue Router 后台路由，`/` 默认跳转 `/dashboard`。
+- 搭建 Element Plus 后台布局、左侧 GEO 菜单、顶部环境标识和后端健康状态入口。
+- 创建 GEO 工作台、GEO 分析、提示词策略库、AI 拓词、企业 GEO 知识库、指令库、GEO 内容生成、模型覆盖记录、GEO 报表、系统设置占位页。
+- 接入 Pinia，用于保存前端环境标识和 API Base URL。
+- 新增 fetch API client 基础封装，统一处理后端 `{ code, message, data }` 响应结构。
+- 新增空状态、加载状态、错误状态组件和 Phase 3A 前端骨架检查脚本。
+- 不实现业务 CRUD 页面、不修改后端业务逻辑、不修改 Prisma schema、不接入真实 AI。
 - 新增 `pnpm smoke:api`，默认请求 `http://localhost:3000`，支持 `API_BASE_URL` 覆盖。
 - 当前 Mock 能力：GEO 分析、AI 拓词、GEO 内容生成。
 - 当前真实入库能力：提示词、知识库、txt/md/csv 文件上传解析、指令库、内容任务和内容项、模型覆盖记录、报表统计。
