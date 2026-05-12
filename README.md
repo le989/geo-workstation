@@ -82,6 +82,7 @@ pnpm test:geo-prompts
 pnpm test:geo-expansion
 pnpm test:geo-knowledge
 pnpm test:geo-knowledge-files
+pnpm test:geo-instructions
 pnpm test:prisma
 ```
 
@@ -176,9 +177,18 @@ pnpm --filter @geo-workstation/shared build
 - 文件软删除会设置 `knowledge_files.deletedAt`，并同步软删除关联 `knowledge_chunks`；第一版不物理删除本地文件。
 - 不做 PDF/Word/Excel 解析、URL 抓取、整站采集、RAG、向量数据库、前端页面、内容生成或真实 AI Provider。
 
-## Phase 2F 下一步
+## Phase 2F 完成内容
 
-Phase 2F 建议继续后端手工录入类 API：
+- 实现 GEO 指令库后端 API：指令模板列表、创建、详情、编辑、复制、软删除。
+- 列表默认排除软删除数据，支持名称/正文/内容类型/指令类型搜索，以及指令类型、内容类型、目标提示词类型、目标模型、创建人筛选。
+- 创建和编辑会按同一 `instructionType + name` 检查未软删除模板重名。
+- 复制指令会保留 GEO 内容生产方法字段，默认生成“原名称 副本”，名称冲突时自动追加序号。
+- `contentType` 在 API 中可选；第一版省略时默认写入 `geo_content`，以满足当前 Prisma 必填字段。
+- 不做前端页面、不做内容生成、不接入 DeepSeek 或真实 AI Provider。
+
+## Phase 2G 下一步
+
+Phase 2G 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。
-- 指令库、内容任务、模型覆盖记录的非 AI、非自动化 API。
+- 内容任务、模型覆盖记录的非 AI、非自动化 API。

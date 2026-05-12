@@ -372,12 +372,24 @@ MVP 要形成这条业务链：
 字段：
 
 - 指令名称。
+- 指令类型。
 - 适用内容类型。
 - 适用提示词类型。
 - 适用模型。
 - 指令正文。
 - 输出结构。
 - 质量要求。
+- 禁用规则。
+
+后端 API 第一版要求：
+
+- `GET /api/instruction-templates`：分页查询 GEO 指令模板，默认排除软删除数据，支持搜索名称、指令正文、内容类型、指令类型，并按指令类型、内容类型、目标提示词类型、目标模型、创建人筛选。
+- `POST /api/instruction-templates`：创建指令模板，要求 `name`、`instructionType`、`instruction` 必填，`targetPromptType` 使用 GEO 提示词类型枚举；同一 `instructionType + name` 下未删除模板不允许重复。
+- `GET /api/instruction-templates/:id`：查看未删除指令模板详情。
+- `PATCH /api/instruction-templates/:id`：编辑指令模板，不允许编辑已软删除模板；修改名称或指令类型时继续检查同类型重名。
+- `POST /api/instruction-templates/:id/duplicate`：复制指令模板，保留指令类型、内容类型、目标提示词类型、目标模型、正文、输出格式、质量规则和禁用规则；复制名称重复时自动追加序号。
+- `DELETE /api/instruction-templates/:id`：软删除指令模板，重复删除按幂等结果返回。
+- 第一版只做模板管理，不触发内容生成、不接入真实 AI Provider。
 - 禁止事项。
 
 功能：
@@ -900,7 +912,9 @@ MVP 不做：
 
 - `GET /api/instruction-templates`
 - `POST /api/instruction-templates`
+- `GET /api/instruction-templates/:id`
 - `PATCH /api/instruction-templates/:id`
+- `POST /api/instruction-templates/:id/duplicate`
 - `DELETE /api/instruction-templates/:id`
 
 ### Content

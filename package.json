@@ -19,6 +19,7 @@
     "test:geo-expansion": "pnpm --filter @geo-workstation/api test:geo-expansion",
     "test:geo-knowledge": "pnpm --filter @geo-workstation/api test:geo-knowledge",
     "test:geo-knowledge-files": "pnpm --filter @geo-workstation/api test:geo-knowledge-files",
+    "test:geo-instructions": "pnpm --filter @geo-workstation/api test:geo-instructions",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
