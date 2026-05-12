@@ -23,6 +23,7 @@
     "test:geo-content": "pnpm --filter @geo-workstation/api test:geo-content",
     "test:model-inclusion": "pnpm --filter @geo-workstation/api test:model-inclusion",
     "test:geo-reports": "pnpm --filter @geo-workstation/api test:geo-reports",
+    "test:geo-analysis": "pnpm --filter @geo-workstation/api test:geo-analysis",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

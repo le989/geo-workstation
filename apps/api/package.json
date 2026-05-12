@@ -13,7 +13,7 @@
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate": "prisma migrate dev --config prisma.config.ts",
     "prisma:seed": "prisma db seed --config prisma.config.ts",
-    "test:api": "vitest run test/api-infrastructure.spec.ts test/geo-prompts.service.spec.ts test/geo-prompts.controller.spec.ts test/geo-expansion.service.spec.ts test/geo-expansion.controller.spec.ts test/knowledge-bases.service.spec.ts test/knowledge.controller.spec.ts test/knowledge-file-parser.service.spec.ts test/knowledge-files.service.spec.ts test/knowledge-files.controller.spec.ts test/instruction-templates.service.spec.ts test/instruction-templates.controller.spec.ts test/content-tasks.service.spec.ts test/content-items.service.spec.ts test/content.controller.spec.ts test/model-inclusion-records.service.spec.ts test/model-inclusion-records.controller.spec.ts test/reports.service.spec.ts test/reports.controller.spec.ts",
+    "test:api": "vitest run test/api-infrastructure.spec.ts test/geo-prompts.service.spec.ts test/geo-prompts.controller.spec.ts test/geo-expansion.service.spec.ts test/geo-expansion.controller.spec.ts test/knowledge-bases.service.spec.ts test/knowledge.controller.spec.ts test/knowledge-file-parser.service.spec.ts test/knowledge-files.service.spec.ts test/knowledge-files.controller.spec.ts test/instruction-templates.service.spec.ts test/instruction-templates.controller.spec.ts test/content-tasks.service.spec.ts test/content-items.service.spec.ts test/content.controller.spec.ts test/model-inclusion-records.service.spec.ts test/model-inclusion-records.controller.spec.ts test/reports.service.spec.ts test/reports.controller.spec.ts test/geo-analysis-tasks.service.spec.ts test/geo-analysis-tasks.controller.spec.ts",
     "test:geo-prompts": "vitest run test/geo-prompts.service.spec.ts test/geo-prompts.controller.spec.ts",
     "test:geo-expansion": "vitest run test/geo-expansion.service.spec.ts test/geo-expansion.controller.spec.ts",
     "test:geo-knowledge": "vitest run test/knowledge-bases.service.spec.ts test/knowledge.controller.spec.ts",
@@ -22,6 +22,7 @@
     "test:geo-content": "vitest run test/content-tasks.service.spec.ts test/content-items.service.spec.ts test/content.controller.spec.ts",
     "test:model-inclusion": "vitest run test/model-inclusion-records.service.spec.ts test/model-inclusion-records.controller.spec.ts",
     "test:geo-reports": "vitest run test/reports.service.spec.ts test/reports.controller.spec.ts",
+    "test:geo-analysis": "vitest run test/geo-analysis-tasks.service.spec.ts test/geo-analysis-tasks.controller.spec.ts",
     "test:prisma": "vitest run test/prisma-schema.spec.ts"
   },
   "dependencies": {

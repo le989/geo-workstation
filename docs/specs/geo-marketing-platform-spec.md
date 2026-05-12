@@ -164,6 +164,17 @@ MVP 要形成这条业务链：
 - succeeded
 - failed
 
+后端 API 第一版要求：
+
+- `GET /api/geo-analysis-tasks`：分页查询 GEO 分析任务，支持搜索任务名称、品牌、官网 URL、产品线，并按状态、产品线、创建人、目标模型和创建时间筛选。
+- `POST /api/geo-analysis-tasks`：创建 GEO 分析任务，要求 `name`、`brandName`、`targetModels` 必填；初始状态为 `pending`，不自动执行分析。
+- `GET /api/geo-analysis-tasks/:id`：查看分析任务详情，返回任务、`geo_model_results`、通过分析建议转入的相关提示词；由于第一版 schema 暂无分析任务到内容任务关系，内容任务关联可暂为空。
+- `PATCH /api/geo-analysis-tasks/:id`：编辑任务基础信息，不允许编辑 `running` 状态任务。
+- `POST /api/geo-analysis-tasks/:id/run`：执行 Mock GEO 分析，将状态从 `running` 流转到 `succeeded` 或 `failed`，保存 `summary`、`contentGaps`、`knowledgeGaps`、`promptSuggestions` 和 `geo_model_results`。
+- `POST /api/geo-analysis-tasks/:id/convert-prompts`：将 `promptSuggestions` 转入 `geo_prompts`，保存前检查未软删除提示词重复；第一版用 `source = geo_analysis:{taskId}` 追溯来源。
+- `POST /api/geo-analysis-tasks/:id/create-content-task`：基于分析任务和已转入提示词创建 GEO 内容任务，复用内容生成模块的 Mock 生成逻辑。
+- 第一版只做 Mock 分析，不接入真实 DeepSeek、豆包、Kimi、通义，不访问真实外部网站，不做网页爬取、SEO 扫描器、定时任务或自动检测外部 AI 平台。
+
 ### 6.3 提示词策略库
 
 提示词库是 GEO 的核心资产，不只是关键词表。
@@ -908,6 +919,7 @@ MVP 不做：
 - `GET /api/geo-analysis-tasks`
 - `POST /api/geo-analysis-tasks`
 - `GET /api/geo-analysis-tasks/:id`
+- `PATCH /api/geo-analysis-tasks/:id`
 - `POST /api/geo-analysis-tasks/:id/run`
 - `POST /api/geo-analysis-tasks/:id/convert-prompts`
 - `POST /api/geo-analysis-tasks/:id/create-content-task`

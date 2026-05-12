@@ -86,6 +86,7 @@ pnpm test:geo-instructions
 pnpm test:geo-content
 pnpm test:model-inclusion
 pnpm test:geo-reports
+pnpm test:geo-analysis
 pnpm test:prisma
 ```
 
@@ -220,8 +221,18 @@ pnpm --filter @geo-workstation/shared build
 - 优化建议第一版使用规则生成，不接入 AI，不做自动检测或前端图表。
 - 不修改 Prisma schema，不做前端页面、不接真实 AI Provider、不做 Word/PDF 报告导出或复杂月报。
 
-## Phase 2J 下一步
+## Phase 2J 完成内容
 
-Phase 2J 建议继续后端手工录入类 API：
+- 实现 GEO 分析任务后端 API：列表、创建、详情、编辑、Mock 执行、提示词建议转入提示词库、基于分析建议创建内容任务。
+- 创建任务时保存品牌、官网、产品线、目标模型和基础训练词输入；由于当前 schema 没有 `baseWords` 字段，第一版将其保存在 `summary.inputBaseWords`。
+- Mock GEO 分析不调用真实 AI、不访问真实网站，生成 summary、内容缺口、知识库缺口、提示词建议和 `geo_model_results`。
+- `convert-prompts` 将 `promptSuggestions` 转入 `geo_prompts`，使用 `source = geo_analysis:{taskId}` 作为轻量追溯标记，保存前按未软删除 `promptText` 去重。
+- `create-content-task` 复用 Phase 2G 的 `ContentTasksService` 和 Mock 内容生成逻辑，不重复实现内容生成。
+- 当前 schema 没有分析任务到内容任务的关系字段，详情接口第一版返回 `relatedContentTasks: []`，后续可在需要时补关系模型。
+- 不修改 Prisma schema，不做真实 AI、外部检测、网页爬取、SEO 扫描、前端页面、定时任务或权限系统。
 
-- GEO 分析任务基础 API。
+## Phase 2K 下一步
+
+Phase 2K 建议继续后端基础能力收尾：
+
+- GEO 工作台聚合 API 或后端阶段验收整理。
