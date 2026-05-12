@@ -85,6 +85,7 @@ pnpm test:geo-knowledge-files
 pnpm test:geo-instructions
 pnpm test:geo-content
 pnpm test:model-inclusion
+pnpm test:geo-reports
 pnpm test:prisma
 ```
 
@@ -208,8 +209,19 @@ pnpm --filter @geo-workstation/shared build
 - summary 返回品牌提及率、推荐率、官网引用率、模型分布和产品线分布。
 - 不做自动 AI 检测、不接入真实 DeepSeek/豆包/Kimi/通义、不做定时任务、不做前端页面或复杂报表图表。
 
-## Phase 2I 下一步
+## Phase 2I 完成内容
 
-Phase 2I 建议继续后端手工录入类 API：
+- 实现 GEO 报表后端 API：GEO 总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。
+- GEO 总览聚合提示词资产、知识库资产、内容产出、模型覆盖记录、品牌提及/推荐率、官网引用率和失败内容任务。
+- 提示词覆盖报表统计提示词类型、产品线、用户意图、最新覆盖状态和高优先级未覆盖提示词。
+- 模型覆盖报表按模型统计品牌提及率、推荐率、官网引用率，并返回推荐提示词和未提及提示词。
+- 内容覆盖报表统计内容任务、内容项、生成类型分布，以及高优先级无内容提示词。
+- 知识库覆盖报表统计知识库、文件、片段、解析状态和缺知识库产品线。
+- 优化建议第一版使用规则生成，不接入 AI，不做自动检测或前端图表。
+- 不修改 Prisma schema，不做前端页面、不接真实 AI Provider、不做 Word/PDF 报告导出或复杂月报。
+
+## Phase 2J 下一步
+
+Phase 2J 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。

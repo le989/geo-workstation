@@ -533,7 +533,18 @@ MVP 要形成这条业务链：
 - 日期筛选。
 - 产品线筛选。
 - 模型筛选。
-- 导出 Excel。
+- 导出 CSV，第一版不做 Excel、Word 或 PDF 报告。
+
+后端 API 第一版要求：
+
+- `GET /api/reports/geo-overview`：返回 GEO 总览，聚合提示词资产、知识库资产、内容任务、内容项、模型覆盖记录、品牌提及/推荐率、官网引用率、未覆盖追踪提示词和失败内容任务。
+- `GET /api/reports/prompt-coverage`：返回提示词覆盖报表，支持按产品线、提示词类型、用户意图、追踪开关、优先级、模型和日期筛选；统计覆盖率、类型分布、产品线分布、用户意图分布、最新覆盖状态和高优先级未覆盖提示词。
+- `GET /api/reports/model-coverage`：返回模型覆盖报表，支持按模型、产品线、提示词类型和日期筛选；统计模型分布、品牌提及率、推荐率、官网引用率、推荐提示词和未提及提示词。
+- `GET /api/reports/content-coverage`：返回内容覆盖报表，支持按产品线、生成类型、任务状态和日期筛选；统计内容任务、内容项、生成类型分布、产品线分布、内容状态，以及高优先级无内容提示词。
+- `GET /api/reports/knowledge-coverage`：返回轻量知识库覆盖报表，支持按产品线、资料类型和日期筛选；统计知识库、文件、片段、片段产品线、资料类型、解析状态和缺知识库产品线。
+- `GET /api/reports/optimization-suggestions`：第一版用规则生成待优化建议，包括高优先级提示词无覆盖记录、已检测但品牌未提及、高优先级提示词无内容资产、产品线缺知识库资料和失败内容任务。
+- `GET /api/reports/export`：按 `reportType` 导出 CSV 文本，支持 `geo_overview`、`prompt_coverage`、`model_coverage`、`content_coverage`、`knowledge_coverage`、`optimization_suggestions`。
+- 第一版报表只做后端统计和 CSV 导出，不做前端图表、自动 AI 检测、真实 AI Provider、定时任务、复杂月报或 Word/PDF 报告。
 
 ## 7. 非目标
 
@@ -966,6 +977,8 @@ MVP 不做：
 - `GET /api/reports/prompt-coverage`
 - `GET /api/reports/model-coverage`
 - `GET /api/reports/content-coverage`
+- `GET /api/reports/knowledge-coverage`
+- `GET /api/reports/optimization-suggestions`
 - `GET /api/reports/export`
 
 ## 12. AI Provider 设计
@@ -1097,7 +1110,7 @@ AI 生成失败：
 
 - 可以看到基础 GEO 指标。
 - 可以按日期、产品线、模型筛选。
-- 可以导出 Excel。
+- 可以导出 CSV。
 
 ## 16. 阶段规划
 
