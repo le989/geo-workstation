@@ -276,6 +276,14 @@ MVP 要形成这条业务链：
 - 保存前去重。
 - 记录 Provider、模型、Prompt、生成时间。
 
+后端 API 第一版要求：
+
+- `POST /api/expansion/rule-generate`：根据前缀、训练词、品牌/服务后缀、应用后缀生成七类组合候选词，创建 `expansion_job` 和 `expansion_candidates`，并标记批次内重复和数据库重复。
+- `POST /api/expansion/ai-generate`：使用 Mock AI Provider 生成偏 GEO 场景的候选词，创建 `expansion_job`、`expansion_candidates` 和 `ai_call_logs`；第一版不接入真实 DeepSeek，不写真实 API Key。
+- `GET /api/expansion/jobs/:id`：查看拓词任务、候选词、重复标记、保存状态和 `savedPromptId`。
+- `POST /api/expansion/jobs/:id/save-candidates`：仅保存当前任务下用户勾选的候选词到 `geo_prompts`，保存前检查未软删除提示词重复，已保存或重复候选词跳过，单个失败不影响其他候选词。
+- 规则拓词和 Mock AI 拓词都不能直接写入提示词策略库，必须先进入候选词，再由用户选择保存。
+
 ### 6.5 企业 GEO 知识库
 
 知识库是影响 AI 回答质量的事实底座。

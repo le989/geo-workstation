@@ -79,6 +79,7 @@ pnpm build
 pnpm format:check
 pnpm test:api
 pnpm test:geo-prompts
+pnpm test:geo-expansion
 pnpm test:prisma
 ```
 
@@ -145,9 +146,18 @@ pnpm --filter @geo-workstation/shared build
 - 批量导入按行校验，标记批次内重复、数据库重复和失败行，合法且不重复的数据才入库。
 - 不实现前端页面、不做 AI 拓词、不接入 DeepSeek、不实现知识库或内容生成。
 
-## Phase 2C 下一步
+## Phase 2C 完成内容
 
-Phase 2C 建议继续后端手工录入类 API：
+- 实现 AI 拓词后端 API：规则拓词、Mock AI 拓词、任务详情、勾选候选词保存到 GEO 提示词库。
+- 规则拓词覆盖七类组合规则，并在候选词阶段标记批次内重复和数据库重复。
+- Mock AI Provider 只作为流程占位，不接入真实 DeepSeek，不使用真实 API Key。
+- 候选词不会直接入库，必须通过 `save-candidates` 勾选保存，保存前继续按未软删除 `promptText` 去重。
+- Mock AI 调用也写入 `ai_call_logs`，保留后续真实 Provider 替换空间。
+- 不实现前端页面、不做知识库解析、不做内容生成、不做登录注册或权限守卫。
+
+## Phase 2D 下一步
+
+Phase 2D 建议继续后端手工录入类 API：
 
 - GEO 分析任务基础 API。
 - 企业 GEO 知识库基础 API。
