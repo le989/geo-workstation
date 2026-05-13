@@ -45,6 +45,7 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 实施计划：`docs/implementation-plan.md`
 - 后端 API 文档：`docs/api/backend-api.md`
 - GEO MVP 联调流程：`docs/api/geo-mvp-flow.md`
+- 前端 MVP 使用指南：`docs/frontend/frontend-mvp-guide.md`
 
 根目录原始 spec 已归位到 `docs/specs/geo-marketing-platform-spec.md`，该路径是正式 spec 路径。
 
@@ -73,6 +74,21 @@ pnpm dev:api
 
 后端健康检查：`http://localhost:3000/health`
 
+## 前端已完成页面
+
+- `/dashboard`：GEO 工作台，展示总览指标、优化建议、快捷入口和能力边界。
+- `/geo-prompts`：提示词策略库，支持查询、筛选、新增、编辑、软删除、批量导入和 CSV 导出。
+- `/expansion`：AI 拓词，支持手动组合、Mock AI 候选生成、重复标记、勾选保存到提示词库。
+- `/knowledge-bases`：企业 GEO 知识库，支持知识库管理、文本导入、txt/md/csv 上传解析、文件 reparse 和知识片段管理。
+- `/instruction-templates`：指令库，支持指令模板创建、编辑、查看详情、复制和软删除。
+- `/content-tasks`：GEO 内容生成，支持创建 Mock 内容任务、查看/编辑/删除内容项、Markdown 导出和失败重试入口。
+- `/model-inclusion-records`：模型覆盖记录，支持手动录入、批量导入、summary、未覆盖提示词和 CSV 导出。
+- `/reports`：GEO 报表，支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。
+- `/geo-analysis`：待前端实现页面；后端已有 Mock GEO 分析 API。
+- `/settings`：本地联调配置占位页；不包含登录权限和 Provider Key 管理。
+
+完整前端使用说明见 `docs/frontend/frontend-mvp-guide.md`。
+
 ## 检查命令
 
 ```bash
@@ -81,6 +97,15 @@ pnpm typecheck
 pnpm build
 pnpm format:check
 pnpm test:web-framework
+pnpm test:web-dashboard
+pnpm test:web-geo-prompts
+pnpm test:web-expansion
+pnpm test:web-knowledge
+pnpm test:web-instructions
+pnpm test:web-content
+pnpm test:web-model-inclusion
+pnpm test:web-reports
+pnpm test:web-mvp
 pnpm test:api
 pnpm test:geo-prompts
 pnpm test:geo-expansion
@@ -131,6 +156,14 @@ pnpm smoke:api
 ```bash
 API_BASE_URL=http://localhost:3001 pnpm smoke:api
 ```
+
+前端 MVP 路由与后端断开态冒烟测试：
+
+```bash
+pnpm test:web-mvp
+```
+
+该脚本会启动临时 Vite 服务，用无头 Chrome 检查主要路由标题，并将 API 地址指向不可用端口，确认后端未启动时页面不白屏。
 
 也可以单独检查某个工作区：
 

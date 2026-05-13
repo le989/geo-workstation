@@ -42,9 +42,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "GEO 分析",
     question: "品牌在 AI 回答里表现如何？",
     description: "用于创建分析任务，观察品牌是否被提及、推荐、引用官网以及暴露哪些缺口。",
-    phaseNote: "当前仅保留分析入口占位，不执行 Mock 分析任务。",
-    nextSteps: ["创建 GEO 分析任务", "运行 Mock 分析", "将提示词建议转入策略库"],
-    apiFocus: "后续联调 /api/geo-analysis-tasks",
+    phaseNote: "待前端实现：当前仅保留分析入口占位，不执行 Mock 分析任务。",
+    nextSteps: ["补齐分析任务列表", "创建并运行 Mock GEO 分析", "将提示词建议转入策略库"],
+    apiFocus: "后续前端联调 /api/geo-analysis-tasks",
     icon: Search
   },
   {

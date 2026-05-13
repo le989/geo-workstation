@@ -17,6 +17,7 @@
     "test:content": "node scripts/check-phase-3g.mjs",
     "test:model-inclusion": "node scripts/check-phase-3h.mjs",
     "test:reports": "node scripts/check-phase-3i.mjs",
+    "test:mvp": "node scripts/check-frontend-mvp.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
