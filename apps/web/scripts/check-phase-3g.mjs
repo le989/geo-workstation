@@ -40,6 +40,8 @@ const pageRequiredSnippets = [
   "真实 AI 接口",
   "真实 AI 接口会消耗接口额度",
   "API Key 由后端",
+  "内容任务已创建，但真实 AI 生成失败",
+  "失败原因",
   "ContentTaskFilters",
   "ContentTaskFormDialog",
   "ContentTaskDetailDrawer",

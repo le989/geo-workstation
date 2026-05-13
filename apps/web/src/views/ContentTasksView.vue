@@ -169,7 +169,22 @@ const handleCreateTask = async (payload: CreateContentTaskPayload) => {
   try {
     const created = await createContentTask(payload);
     createDialogVisible.value = false;
-    ElMessage.success("GEO 内容任务已创建，内容项已生成。");
+    const failedItems = created.items.filter((item) => item.status === "failed");
+    const firstFailureReason = failedItems.find((item) => item.errorMessage)?.errorMessage;
+
+    if (created.task.status === "failed" || failedItems.length > 0) {
+      const isRealAiTask = created.task.provider === "openai_compatible";
+      const message = isRealAiTask
+        ? "内容任务已创建，但真实 AI 生成失败，请查看失败原因。"
+        : "内容任务已创建，但部分内容项生成失败，请查看失败原因。";
+      ElMessage.warning({
+        message: firstFailureReason ? `${message}${firstFailureReason}` : message,
+        duration: 7000
+      });
+    } else {
+      ElMessage.success("GEO 内容任务已创建，内容项已生成。");
+    }
+
     await loadTasks();
     selectedTaskId.value = created.task.id;
     detail.value = created;

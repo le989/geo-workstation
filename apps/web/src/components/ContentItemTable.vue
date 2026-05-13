@@ -80,6 +80,12 @@ const getItemStatusType = (status: string) => {
         {{ formatGeoOptimizationPoints(row.geoOptimizationPoints) }}
       </template>
     </el-table-column>
+    <el-table-column label="失败原因" min-width="220">
+      <template #default="{ row }">
+        <span v-if="row.errorMessage" class="error-text">{{ row.errorMessage }}</span>
+        <span v-else>--</span>
+      </template>
+    </el-table-column>
     <el-table-column label="更新时间" width="180">
       <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
     </el-table-column>
@@ -107,3 +113,12 @@ const getItemStatusType = (status: string) => {
     </el-table-column>
   </el-table>
 </template>
+
+<style scoped>
+.error-text {
+  color: var(--el-color-danger);
+  display: inline-block;
+  max-width: 320px;
+  white-space: normal;
+}
+</style>

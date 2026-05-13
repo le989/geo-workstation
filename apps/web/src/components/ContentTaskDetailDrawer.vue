@@ -37,6 +37,29 @@ const hasFailedItems = computed(
   () => props.detail?.items.some((item) => item.status === "failed") ?? false
 );
 const canRetry = computed(() => props.detail?.task.status === "failed" || hasFailedItems.value);
+const isRealAiTask = computed(() => props.detail?.task.provider === "openai_compatible");
+const failedItemReasons = computed(
+  () =>
+    props.detail?.items
+      .filter((item) => item.status === "failed" && item.errorMessage)
+      .map((item) => item.errorMessage as string) ?? []
+);
+const failureAlertTitle = computed(() =>
+  isRealAiTask.value
+    ? "内容任务已创建，但真实 AI 生成失败，请查看失败原因。"
+    : "当前任务已创建，但部分内容项生成失败，请查看失败原因。"
+);
+const failureAlertDescription = computed(() => {
+  const firstReason = failedItemReasons.value[0];
+
+  if (firstReason) {
+    return `失败原因：${firstReason}`;
+  }
+
+  return isRealAiTask.value
+    ? "请检查后端 .env 中的 AI Provider 配置、API Key、baseURL、模型名称或网络连通性，也可以切换为模拟生成。"
+    : "请查看内容项状态后重试失败任务。";
+});
 
 const close = () => {
   emit("update:modelValue", false);
@@ -82,6 +105,16 @@ const close = () => {
       <el-skeleton v-if="loading && !detail" :rows="8" animated />
 
       <template v-else-if="detail">
+        <el-alert
+          v-if="detail.task.status === 'failed' || hasFailedItems"
+          :title="failureAlertTitle"
+          :description="failureAlertDescription"
+          type="error"
+          :closable="false"
+          show-icon
+          class="dialog-alert"
+        />
+
         <el-descriptions :column="3" border class="content-detail-summary">
           <el-descriptions-item label="任务名称">
             {{ detail.task.name }}
