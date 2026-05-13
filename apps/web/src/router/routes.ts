@@ -4,6 +4,7 @@ import { navigationItems, pageMetaByPath } from "@/config/navigation";
 import DashboardView from "@/views/DashboardView.vue";
 import ExpansionView from "@/views/ExpansionView.vue";
 import GeoPromptsView from "@/views/GeoPromptsView.vue";
+import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
 import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 
@@ -43,7 +44,9 @@ export const routes: RouteRecordRaw[] = [
                 ? ExpansionView
                 : item.path === "/knowledge-bases"
                   ? KnowledgeBasesView
-                  : ModulePlaceholderView,
+                  : item.path === "/instruction-templates"
+                    ? InstructionTemplatesView
+                    : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path]
         }

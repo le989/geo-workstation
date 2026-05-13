@@ -29,6 +29,7 @@
     "test:web-geo-prompts": "pnpm --filter @geo-workstation/web test:geo-prompts",
     "test:web-expansion": "pnpm --filter @geo-workstation/web test:expansion",
     "test:web-knowledge": "pnpm --filter @geo-workstation/web test:knowledge",
+    "test:web-instructions": "pnpm --filter @geo-workstation/web test:instructions",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "smoke:api": "node scripts/smoke-test-api.mjs",
     "format": "prettier --write .",
