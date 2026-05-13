@@ -42,6 +42,7 @@
     "smoke:api": "node scripts/smoke-test-api.mjs",
     "check:internal-mvp": "node scripts/check-internal-mvp.mjs",
     "check:deployment": "node scripts/check-deployment-readiness.mjs",
+    "check:self-use": "node scripts/check-self-use-ready.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

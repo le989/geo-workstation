@@ -53,6 +53,9 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 环境变量指南：`docs/deployment/env-guide.md`
 - 数据库备份与恢复：`docs/deployment/database-backup.md`
 - 上线前检查清单：`docs/deployment/release-checklist.md`
+- 自用操作 SOP：`docs/operation/self-use-sop.md`
+- 真实 AI 测试计划：`docs/operation/real-ai-test-plan.md`
+- 真实 AI 质量记录：`docs/operation/quality-notes.md`
 
 根目录原始 spec 已归位到 `docs/specs/geo-marketing-platform-spec.md`，该路径是正式 spec 路径。
 
@@ -141,6 +144,34 @@ Phase 4E 已加入统一 AI Provider 抽象：
 - 真实 AI 调用会消耗接口额度；缺少 key、鉴权失败、模型不可用或超时时，后端会返回可读错误并写入 `ai_call_logs`。
 
 示例配置见 `.env.example`、`.env.production.example` 和 `docs/deployment/env-guide.md`。
+
+## 自用真实流程
+
+Phase 4F 面向本地自用，不部署上线、不提交真实 Key、不做外部 AI 自动检测。
+
+推荐阅读：
+
+- 自用 SOP：`docs/operation/self-use-sop.md`
+- 真实 AI 测试计划：`docs/operation/real-ai-test-plan.md`
+- 质量记录模板：`docs/operation/quality-notes.md`
+
+自用流程建议：
+
+1. 在私有 `.env` 中配置 `AI_OPENAI_COMPATIBLE_API_KEY`，不要提交该文件。
+2. 启动 PostgreSQL、后端和前端。
+3. 登录系统。
+4. 导入“激光测距传感器”相关提示词和知识库资料。
+5. 在 `/expansion` 使用 `provider = openai_compatible` 生成候选词，人工勾选保存。
+6. 在 `/content-tasks` 使用 `provider = openai_compatible` 生成内容，人工审核后导出 Markdown。
+7. 人工录入模型覆盖记录，并在 `/reports` 复盘。
+
+自用就绪检查：
+
+```bash
+pnpm check:self-use
+```
+
+该脚本只检查文档、示例配置和脚本是否齐备，不读取或打印真实环境变量。
 
 ## 部署准备
 
@@ -252,6 +283,7 @@ pnpm test:ai-provider
 pnpm test:api
 pnpm check:internal-mvp
 pnpm check:deployment
+pnpm check:self-use
 pnpm test:geo-prompts
 pnpm test:geo-expansion
 pnpm test:geo-knowledge
