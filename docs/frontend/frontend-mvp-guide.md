@@ -133,6 +133,18 @@ pnpm test:web-mvp
 
 该脚本会启动一个临时 Vite 服务，用无头 Chrome 检查主要路由标题，并把 API 地址指向不可用端口，确认后端未启动时页面不白屏。
 
+内部演示版交付检查：
+
+```bash
+pnpm check:internal-mvp
+```
+
+演示交接文档：
+
+- `docs/demo/internal-demo-guide.md`
+- `docs/demo/mvp-feature-checklist.md`
+- `docs/demo/demo-data-notes.md`
+
 ## 常见问题
 
 ### 后端未启动

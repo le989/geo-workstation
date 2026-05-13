@@ -46,8 +46,67 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 后端 API 文档：`docs/api/backend-api.md`
 - GEO MVP 联调流程：`docs/api/geo-mvp-flow.md`
 - 前端 MVP 使用指南：`docs/frontend/frontend-mvp-guide.md`
+- 内部演示指南：`docs/demo/internal-demo-guide.md`
+- MVP 功能清单：`docs/demo/mvp-feature-checklist.md`
+- 演示数据说明：`docs/demo/demo-data-notes.md`
 
 根目录原始 spec 已归位到 `docs/specs/geo-marketing-platform-spec.md`，该路径是正式 spec 路径。
+
+## 内部演示版 MVP
+
+当前版本状态：`internal-mvp-v0.2`。
+
+一键启动顺序：
+
+```bash
+docker compose up -d postgres
+pnpm install
+pnpm prisma:migrate
+pnpm prisma:seed
+pnpm dev:api
+pnpm dev:web
+```
+
+演示入口：
+
+```text
+http://localhost:5173/dashboard
+```
+
+演示指南：
+
+- `docs/demo/internal-demo-guide.md`
+- `docs/demo/mvp-feature-checklist.md`
+- `docs/demo/demo-data-notes.md`
+
+内部演示版验收命令：
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm build
+DATABASE_URL=postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public pnpm test:api
+pnpm smoke:api
+pnpm test:web-mvp
+pnpm check:internal-mvp
+```
+
+`pnpm smoke:api` 需要先启动后端 API。
+
+当前 Mock 能力：
+
+- GEO 分析。
+- AI 拓词。
+- GEO 内容生成。
+
+当前未实现能力：
+
+- 真实外部 AI 检测。
+- 真实 AI Provider。
+- 登录权限。
+- 自动发布。
+- 线上部署。
+- 多用户协作。
 
 ## 本地启动
 
@@ -108,6 +167,7 @@ pnpm test:web-model-inclusion
 pnpm test:web-reports
 pnpm test:web-mvp
 pnpm test:api
+pnpm check:internal-mvp
 pnpm test:geo-prompts
 pnpm test:geo-expansion
 pnpm test:geo-knowledge

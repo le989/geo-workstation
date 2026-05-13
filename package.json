@@ -37,6 +37,7 @@
     "test:web-geo-analysis": "pnpm --filter @geo-workstation/web test:geo-analysis",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "smoke:api": "node scripts/smoke-test-api.mjs",
+    "check:internal-mvp": "node scripts/check-internal-mvp.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
