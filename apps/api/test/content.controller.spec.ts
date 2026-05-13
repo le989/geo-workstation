@@ -3,7 +3,7 @@ import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { GeoPromptType, UserIntent, UserRole, UserStatus } from "@prisma/client";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { configureApiApp } from "../src/common/bootstrap/configure-api-app";
@@ -172,5 +172,73 @@ describe("GeoContentController", () => {
     expect(invalid.body.code).toBe(400);
     expect(invalid.body.message).toBe("Validation failed");
     expect(invalid.body.data.errors.length).toBeGreaterThan(0);
+  });
+
+  it("uses the injected AI Provider service for openai_compatible content generation", async () => {
+    const promptId = await createGeoPrompt("真实 AI 注入提示词");
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: "真实 AI 注入测试标题",
+                body: "真实 AI 注入测试正文，用于验证内容任务通过 Nest 模块注入调用 AiProviderService，而不是访问未定义对象。",
+                geoOptimizationPoints: ["验证真实 AI Provider 注入", "保留 GEO 内容生成闭环"],
+                suggestedPublishChannel: "官网 GEO 内容专区"
+              })
+            }
+          }
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 24
+        }
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const previousApiKey = process.env.AI_OPENAI_COMPATIBLE_API_KEY;
+    process.env.AI_OPENAI_COMPATIBLE_API_KEY = "test-only-openai-compatible-key";
+
+    try {
+      const response = await request(app.getHttpServer())
+        .post("/api/content-tasks")
+        .send({
+          name: unique("真实 AI 注入任务"),
+          productLine: "激光测距传感器",
+          generationType: "article",
+          provider: "openai_compatible",
+          model: "deepseek-chat",
+          geoPromptIds: [promptId],
+          createdBy
+        })
+        .expect(201);
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(response.body).toMatchObject({
+        code: 0,
+        message: "ok",
+        data: {
+          task: {
+            name: unique("真实 AI 注入任务"),
+            provider: "openai_compatible",
+            model: "deepseek-chat",
+            status: "succeeded"
+          }
+        }
+      });
+      expect(response.body.data.items[0]).toMatchObject({
+        title: "真实 AI 注入测试标题",
+        status: "draft"
+      });
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.AI_OPENAI_COMPATIBLE_API_KEY;
+      } else {
+        process.env.AI_OPENAI_COMPATIBLE_API_KEY = previousApiKey;
+      }
+      vi.unstubAllGlobals();
+    }
   });
 });

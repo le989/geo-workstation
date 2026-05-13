@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  Optional
-} from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AiCallStatus,
   ExpansionMode,
@@ -110,7 +104,6 @@ export class GeoExpansionService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(MockAiExpansionProvider) private readonly mockAiProvider: MockAiExpansionProvider,
-    @Optional()
     @Inject(AiProviderService)
     private readonly aiProviderService?: Pick<AiProviderService, "generateText">
   ) {}

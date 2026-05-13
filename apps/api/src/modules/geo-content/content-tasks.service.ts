@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  Optional
-} from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AiCallStatus,
   Prisma,
@@ -145,7 +139,6 @@ type AiUsageSummary = {
 export class ContentTasksService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Optional()
     @Inject(AiProviderService)
     private readonly aiProviderService?: Pick<AiProviderService, "generateText">
   ) {}

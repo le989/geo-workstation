@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   MOCK_AI_PROVIDER,
@@ -18,8 +18,11 @@ export class AiProviderService implements AiTextProvider {
   readonly provider = "ai_provider_service";
 
   constructor(
+    @Inject(ConfigService)
     private readonly configService: ConfigService,
+    @Inject(MockAiProvider)
     private readonly mockAiProvider: MockAiProvider,
+    @Inject(OpenAICompatibleProvider)
     private readonly openAICompatibleProvider: OpenAICompatibleProvider
   ) {}
 

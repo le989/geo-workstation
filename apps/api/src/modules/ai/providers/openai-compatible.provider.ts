@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   OPENAI_COMPATIBLE_PROVIDER,
@@ -23,7 +23,7 @@ type ChatCompletionResponse = {
 export class OpenAICompatibleProvider implements AiTextProvider {
   readonly provider = OPENAI_COMPATIBLE_PROVIDER;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
 
   async generateText(input: GenerateTextInput): Promise<GenerateTextResult> {
     const apiKey = this.getRequiredApiKey();
