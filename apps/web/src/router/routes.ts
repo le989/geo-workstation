@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from "vue-router";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { navigationItems, pageMetaByPath } from "@/config/navigation";
 import DashboardView from "@/views/DashboardView.vue";
+import ContentTasksView from "@/views/ContentTasksView.vue";
 import ExpansionView from "@/views/ExpansionView.vue";
 import GeoPromptsView from "@/views/GeoPromptsView.vue";
 import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
@@ -46,7 +47,9 @@ export const routes: RouteRecordRaw[] = [
                   ? KnowledgeBasesView
                   : item.path === "/instruction-templates"
                     ? InstructionTemplatesView
-                    : ModulePlaceholderView,
+                    : item.path === "/content-tasks"
+                      ? ContentTasksView
+                      : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path]
         }

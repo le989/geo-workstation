@@ -1410,6 +1410,187 @@ textarea {
   line-height: 1.65;
 }
 
+.content-page,
+.content-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.content-hero,
+.content-detail-header,
+.content-filter-card,
+.content-table-card,
+.content-detail-summary,
+.content-items-section {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.content-hero,
+.content-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px;
+}
+
+.content-hero h1,
+.content-detail-header h2 {
+  margin: 10px 0;
+  color: #172326;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.content-detail-header h2 {
+  font-size: 24px;
+}
+
+.content-hero p,
+.content-detail-header p,
+.content-table-card span,
+.content-items-section p,
+.form-help {
+  margin: 0;
+  color: var(--geo-muted);
+  line-height: 1.65;
+}
+
+.content-hero strong {
+  display: inline-block;
+  margin-top: 12px;
+  color: #216350;
+  line-height: 1.5;
+}
+
+.content-hero__actions,
+.content-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 260px;
+}
+
+.content-hero__actions span {
+  width: 100%;
+  color: var(--geo-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.content-boundary-alert {
+  border-radius: 8px;
+}
+
+.content-filters,
+.content-task-form,
+.content-item-form,
+.geo-prompt-selector__toolbar {
+  display: grid;
+  gap: 14px;
+}
+
+.content-filters {
+  grid-template-columns: 1.35fr repeat(4, minmax(130px, 1fr)) auto;
+}
+
+.content-task-form,
+.content-item-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.content-filters .el-form-item,
+.content-task-form .el-form-item,
+.content-item-form .el-form-item {
+  margin-bottom: 0;
+}
+
+.content-filter-card,
+.content-table-card,
+.content-items-section {
+  padding: 18px;
+}
+
+.content-detail {
+  padding: 20px;
+}
+
+.content-detail-summary {
+  width: 100%;
+}
+
+.content-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.related-list {
+  display: grid;
+  gap: 10px;
+}
+
+.related-list.compact {
+  gap: 8px;
+}
+
+.related-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.related-item strong {
+  color: #172326;
+}
+
+.content-items-section {
+  display: grid;
+  gap: 14px;
+}
+
+.content-item-table {
+  width: 100%;
+}
+
+.prompt-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.prompt-cell span:first-child {
+  min-width: 0;
+  color: #1b2a2f;
+  font-weight: 650;
+  word-break: break-word;
+}
+
+.geo-prompt-selector {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.geo-prompt-selector__toolbar {
+  grid-template-columns: minmax(220px, 1fr) auto auto auto auto;
+  align-items: center;
+}
+
+.geo-prompt-selector__toolbar span {
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
 @media (max-width: 980px) {
   .admin-layout {
     display: block;
@@ -1469,7 +1650,9 @@ textarea {
   .instruction-filter-copy,
   .instruction-table-header,
   .instruction-detail-header,
-  .instruction-pagination {
+  .instruction-pagination,
+  .content-hero,
+  .content-detail-header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1478,7 +1661,9 @@ textarea {
   .geo-prompts-hero__actions,
   .expansion-hero__actions,
   .knowledge-hero__actions,
-  .instruction-hero__actions {
+  .instruction-hero__actions,
+  .content-hero__actions,
+  .content-detail-actions {
     align-items: flex-start;
   }
 
@@ -1494,7 +1679,12 @@ textarea {
   .knowledge-text-import-form,
   .knowledge-file-upload-form,
   .instruction-filters,
-  .instruction-template-form {
+  .instruction-template-form,
+  .content-filters,
+  .content-task-form,
+  .content-item-form,
+  .geo-prompt-selector__toolbar,
+  .content-detail-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1539,7 +1729,11 @@ textarea {
   .knowledge-file-upload,
   .instruction-hero,
   .instruction-filter-panel,
-  .instruction-table-panel {
+  .instruction-table-panel,
+  .content-hero,
+  .content-filter-card,
+  .content-table-card,
+  .content-items-section {
     padding: 16px;
   }
 
@@ -1547,7 +1741,8 @@ textarea {
   .geo-prompts-hero h1,
   .expansion-hero h1,
   .knowledge-hero h1,
-  .instruction-hero h1 {
+  .instruction-hero h1,
+  .content-hero h1 {
     font-size: 24px;
   }
 
