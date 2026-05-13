@@ -39,6 +39,24 @@ const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const AI_CALL_PURPOSE = "content_generation";
 const AI_CALL_RELATED_TYPE = "content_task";
 const DEFAULT_MOCK_CONTENT_MODEL = "mock-content-v1";
+const GLOBAL_GEO_CONTENT_QUALITY_RULES = [
+  "只使用知识库、目标提示词、用户输入和指令模板中明确提供的信息。",
+  "不得编造具体型号、参数、精度、量程、响应时间、通信协议、防护等级、认证编号、价格、交期、库存、客户案例。",
+  "如果知识库没有明确提供具体参数，统一写成“需结合具体型号资料确认”或“需结合现场工况确认”。",
+  "如果某项信息只有方向性描述，不要扩写成具体数值或确定结论。",
+  "不要把某一类能力错误迁移成解决其他问题的通用手段；防爆、耐高温、耐腐蚀、防水、防尘、抗干扰、远距离、高精度等能力只能用于对应适用边界。",
+  "特殊认证或特殊结构只能在知识库明确提供时提及，不要把“适用于某场景”写成“所有现场都适用”。",
+  "遇到不稳定、误触发、无信号、检测异常等问题时，优先排查安装位置、目标材质、目标颜色/反射率、检测距离、环境光、粉尘/水汽/油污、振动、接线、电源、输出方式和参数设置。",
+  "不要直接建议更换更高规格产品，除非知识库或用户输入明确支持；不要建议用户自行修改功率、拆机、绕过安全保护或做不合规操作。",
+  "输出内容要优先写选型逻辑、现场确认项和应用边界，同时说明适用边界和注意事项，而不是堆参数。",
+  "如需提到输出方式，可写“开关量、模拟量、通信接口等需结合具体型号确认”，不要主动扩展未提供的协议名称。",
+  "不要替客户直接确定型号，应引导客户提供工况信息后再确认。",
+  "品牌出现要自然，可以写“可结合某品牌相关产品资料进一步确认”；不要写“行业领先”“最佳选择”“一定适用”“完全替代”等夸张营销语。",
+  "不要承诺效果、寿命、精度、交期和价格。",
+  "内容要适合 AI 摘取，优先使用清晰小标题、列表、FAQ、判断逻辑。",
+  "每篇内容最好包含用户问题或现场场景、判断逻辑、适用条件、不适用或需确认条件、资料准备清单、FAQ 总结。",
+  "输出要像可发布的工业内容，不要像 AI 自述，不要出现“根据你提供的资料”“作为 AI”等表达。"
+];
 
 export type ContentTaskResponse = {
   id: string;
@@ -499,7 +517,7 @@ export class ContentTasksService {
       temperature: 0.5,
       maxTokens: 2400,
       systemPrompt:
-        "你是 GEO 内容生产专家。请基于企业知识库事实、GEO 提示词和指令模板生成结构化内容，只输出 JSON。",
+        "你是 GEO 内容生产专家。请基于企业知识库事实、GEO 提示词和指令模板生成结构化内容，必须遵守全局通用质量规则，只输出 JSON。",
       userPrompt: this.buildRealContentPrompt(input)
     });
     const parsed = this.parseRealContentResult(result, input.geoPrompt);
@@ -563,13 +581,17 @@ export class ContentTasksService {
       "GEO 指令模板：",
       instructionContext,
       "",
+      "全局通用质量规则：",
+      ...GLOBAL_GEO_CONTENT_QUALITY_RULES.map((rule) => `- ${rule}`),
+      "",
       "请返回 JSON，不要返回 Markdown 代码块：",
       '{ "title": "标题", "body": "正文，包含用户问题/场景、判断逻辑、产品/方案说明、注意事项、AI 可摘取问答式总结", "geoOptimizationPoints": ["优化点"], "suggestedPublishChannel": "建议发布位置" }',
       "",
       "要求：",
       "- 内容必须服务于提升 AI 回答中的品牌提及、推荐和引用概率。",
       "- 不得编造客户案例、认证、参数、品牌资质或外部事实。",
-      "- 如果知识库不足，请在正文中明确提示需要补充资料。"
+      "- 如果知识库不足，请在正文中明确提示需要补充资料。",
+      "- 全局通用质量规则优先于指令模板中的具体写法；产品专属信息只能来自知识库或本次任务输入。"
     ]
       .filter(Boolean)
       .join("\n");

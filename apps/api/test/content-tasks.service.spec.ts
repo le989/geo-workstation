@@ -188,6 +188,12 @@ describe("ContentTasksService", () => {
     });
 
     expect(generateText).toHaveBeenCalledOnce();
+    const generateInput = generateText.mock.calls[0]?.[0];
+    expect(generateInput?.systemPrompt).toContain("全局通用质量规则");
+    expect(generateInput?.userPrompt).toContain("不得编造具体型号、参数、精度、量程");
+    expect(generateInput?.userPrompt).toContain("需结合具体型号资料确认");
+    expect(generateInput?.userPrompt).toContain("不要建议用户自行修改功率");
+    expect(generateInput?.userPrompt).toContain("输出内容要优先写选型逻辑、现场确认项和应用边界");
     expect(result.task).toMatchObject({
       provider: "openai_compatible",
       model: "deepseek-chat",

@@ -34,6 +34,13 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
+const GLOBAL_AI_EXPANSION_RULES = [
+  "生成的是用户可能会问 AI 的问题，而不是普通关键词堆砌。",
+  "不要生成虚假型号、虚假参数、虚假认证、虚假价格、虚假库存或未经提供的客户案例。",
+  "不要把不存在于输入中的品牌、型号、认证、协议或具体数值扩写成候选词。",
+  "候选词只进入 expansion_candidates，不会直接写入 GEO 提示词库，必须等待人工选择保存。",
+  "候选词应服务于后续 GEO 内容生成、模型覆盖记录和优化复盘。"
+];
 
 export type ExpansionJobResponse = {
   id: string;
@@ -431,7 +438,7 @@ export class GeoExpansionService {
       temperature: 0.4,
       maxTokens: 1800,
       systemPrompt:
-        "你是 GEO 营销运营专家。请生成面向生成式 AI 搜索/问答场景的提示词候选，只输出 JSON。",
+        "你是 GEO 营销运营专家。请生成面向生成式 AI 搜索/问答场景的提示词候选，只输出 JSON；生成结果只是候选词等待人工选择。",
       userPrompt: this.buildRealExpansionPrompt(input)
     });
     const candidates = this.parseRealExpansionCandidates(result, input);
@@ -458,12 +465,16 @@ export class GeoExpansionService {
       input.constraints ? `约束：${input.constraints}` : undefined,
       `候选数量：${input.count}`,
       "",
+      "通用拓词规则：",
+      ...GLOBAL_AI_EXPANSION_RULES.map((rule) => `- ${rule}`),
+      "",
       "请返回 JSON，不要返回 Markdown 代码块：",
       '{ "candidates": [ { "baseWord": "训练词", "promptText": "用户会向 AI 提问的 GEO 提示词", "userIntent": "selection", "priority": 3, "recommendedContentType": "selection_guide" } ] }',
       "",
       "要求：",
-      "- 候选词必须像真实用户会问 AI 的问题。",
+      "- 候选词必须像真实用户可能会问 AI 的问题。",
       "- 不要宣传口号，不要生成无意义关键词。",
+      "- 生成结果不会直接写入 GEO 提示词库，只作为候选词等待人工选择。",
       "- priority 为 1-5。",
       "- userIntent 只能使用 selection、purchase、manufacturer_recommendation、domestic_alternative、comparison、troubleshooting、application_solution、brand_verification。"
     ]

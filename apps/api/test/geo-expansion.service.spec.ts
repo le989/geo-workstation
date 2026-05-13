@@ -197,6 +197,11 @@ describe("GeoExpansionService", () => {
     } as never);
 
     expect(generateText).toHaveBeenCalledOnce();
+    const generateInput = generateText.mock.calls[0]?.[0];
+    expect(generateInput?.systemPrompt).toContain("候选词等待人工选择");
+    expect(generateInput?.userPrompt).toContain("用户可能会问 AI 的问题");
+    expect(generateInput?.userPrompt).toContain("不要生成虚假型号、虚假参数、虚假认证");
+    expect(generateInput?.userPrompt).toContain("不会直接写入 GEO 提示词库");
     expect(result.job.provider).toBe("openai_compatible");
     expect(result.job.model).toBe("deepseek-chat");
     expect(result.candidates).toHaveLength(1);
