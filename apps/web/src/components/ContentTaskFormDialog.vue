@@ -76,6 +76,17 @@ const resetForm = () => {
   selectError.value = "";
 };
 
+watch(
+  () => form.provider,
+  (provider) => {
+    if (provider === "mock") {
+      form.model = "mock-content-v1";
+    } else if (!form.model || form.model === "mock-content-v1") {
+      form.model = "deepseek-chat";
+    }
+  }
+);
+
 const loadSelectOptions = async () => {
   loadingOptions.value = true;
   selectError.value = "";
@@ -142,7 +153,7 @@ const handleSubmit = () => {
     geoPromptIds: form.geoPromptIds,
     instructionTemplateId: trimOptional(form.instructionTemplateId),
     knowledgeBaseId: trimOptional(form.knowledgeBaseId),
-    model: trimOptional(form.model) ?? "mock-content-v1",
+    model: trimOptional(form.model) ?? (form.provider === "mock" ? "mock-content-v1" : undefined),
     name: form.name.trim(),
     productLine: trimOptional(form.productLine),
     provider: trimOptional(form.provider) ?? "mock",
@@ -160,7 +171,7 @@ const handleSubmit = () => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="当前内容生成使用 Mock 生成器，不调用真实 DeepSeek / 豆包 / Kimi / 通义。"
+      title="默认 provider 为 mock；选择 openai_compatible 会消耗真实 AI 接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
       type="warning"
       :closable="false"
       show-icon
@@ -234,10 +245,13 @@ const handleSubmit = () => {
         </p>
       </el-form-item>
       <el-form-item label="Provider">
-        <el-input v-model="form.provider" placeholder="mock" disabled />
+        <el-select v-model="form.provider">
+          <el-option label="mock：Mock 生成" value="mock" />
+          <el-option label="openai_compatible：真实 AI" value="openai_compatible" />
+        </el-select>
       </el-form-item>
       <el-form-item label="Model">
-        <el-input v-model="form.model" placeholder="mock-content-v1" disabled />
+        <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
       </el-form-item>
       <el-form-item label="创建人">
         <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
@@ -250,7 +264,7 @@ const handleSubmit = () => {
     <template #footer>
       <el-button @click="close">取消</el-button>
       <el-button type="primary" :loading="submitting" @click="handleSubmit">
-        创建并 Mock 生成内容
+        创建并生成内容
       </el-button>
     </template>
   </el-dialog>

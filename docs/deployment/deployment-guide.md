@@ -1,6 +1,6 @@
 # 部署准备指南
 
-本文档用于 `internal-mvp-v0.2` 的部署上线准备。当前阶段只提供部署方案、环境变量、示例配置和检查清单，不连接真实服务器，不配置真实域名，不写真实密码，也不接入真实 AI Provider。
+本文档用于 `internal-mvp-v0.2` 的部署上线准备。当前阶段只提供部署方案、环境变量、示例配置和检查清单，不连接真实服务器，不配置真实域名，不写真实密码，也不提交真实 AI Provider Key。
 
 ## 当前推荐部署方式
 
@@ -70,7 +70,7 @@ cp apps/web/.env.production.example apps/web/.env.production
 - 示例文件只能保留占位密码和占位域名。
 - 当前 API 代码读取 `API_PORT`，示例中同时保留 `PORT` 方便 PM2 或平台约定。
 - `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL`、`DEFAULT_ADMIN_PASSWORD` 必须在共享部署前替换。
-- `DEEPSEEK_API_KEY` 仍是后续真实 Provider 预留，当前 MVP 不需要真实 Key。
+- `AI_PROVIDER=mock` 可无 Key 运行；切换 `openai_compatible` 时只在后端私有 `.env` 配置 `AI_OPENAI_COMPATIBLE_API_KEY`。
 
 ## 数据库准备
 

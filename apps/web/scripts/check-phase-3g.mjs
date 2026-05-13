@@ -36,8 +36,10 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "GEO 内容生成",
-  "Mock 生成器",
-  "不调用真实 DeepSeek",
+  "provider",
+  "openai_compatible",
+  "真实 AI 会消耗接口额度",
+  "API Key 由后端",
   "ContentTaskFilters",
   "ContentTaskFormDialog",
   "ContentTaskDetailDrawer",
@@ -103,6 +105,8 @@ for (const snippet of pageRequiredSnippets) {
 for (const field of contentFields) {
   assert(pageSource.includes(field), `Content tasks page missing field ${field}`);
 }
+
+assert(!pageSource.includes("API Key 输入"), "Content tasks page must not expose API Key inputs");
 
 const routesSource = await readSource("src/router/routes.ts");
 assert(

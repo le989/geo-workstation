@@ -71,6 +71,8 @@ export type AiGenerateExpansionPayload = {
   count?: number;
   constraints?: string;
   targetModels?: string[];
+  provider?: "mock" | "openai_compatible";
+  model?: string;
   createdBy?: string;
 };
 

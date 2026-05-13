@@ -54,7 +54,7 @@ const requiredReadmeSnippets = [
   "GEO 分析",
   "登录和简单权限",
   "真实外部 AI 检测",
-  "真实 AI Provider"
+  "openai_compatible"
 ];
 
 const requiredDemoSnippets = [
@@ -127,7 +127,8 @@ process.stdout.write(
     "Version: internal-mvp-v0.2",
     "Pages: Login, Dashboard, GEO Analysis, GEO Prompts, Expansion, Knowledge Bases, Instructions, Content, Model Inclusion, Reports",
     "Auth: JWT Bearer login, protected API routes, current user display, logout",
-    "Mock: GEO analysis, AI expansion generation, GEO content generation",
+    "Mock: GEO analysis; AI expansion and GEO content default to mock",
+    "AI Provider: openai_compatible is available through backend environment variables",
     "Real persistence: prompts, knowledge, instructions, content tasks/items, model inclusion records, reports"
   ].join("\n") + "\n"
 );

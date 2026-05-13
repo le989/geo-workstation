@@ -290,10 +290,10 @@ MVP 要形成这条业务链：
 后端 API 第一版要求：
 
 - `POST /api/expansion/rule-generate`：根据前缀、训练词、品牌/服务后缀、应用后缀生成七类组合候选词，创建 `expansion_job` 和 `expansion_candidates`，并标记批次内重复和数据库重复。
-- `POST /api/expansion/ai-generate`：使用 Mock AI Provider 生成偏 GEO 场景的候选词，创建 `expansion_job`、`expansion_candidates` 和 `ai_call_logs`；第一版不接入真实 DeepSeek，不写真实 API Key。
+- `POST /api/expansion/ai-generate`：默认使用 Mock Provider，也可传 `provider = openai_compatible` 调用后端配置的真实 OpenAI-compatible Provider，生成偏 GEO 场景的候选词，创建 `expansion_job`、`expansion_candidates` 和 `ai_call_logs`。
 - `GET /api/expansion/jobs/:id`：查看拓词任务、候选词、重复标记、保存状态和 `savedPromptId`。
 - `POST /api/expansion/jobs/:id/save-candidates`：仅保存当前任务下用户勾选的候选词到 `geo_prompts`，保存前检查未软删除提示词重复，已保存或重复候选词跳过，单个失败不影响其他候选词。
-- 规则拓词和 Mock AI 拓词都不能直接写入提示词策略库，必须先进入候选词，再由用户选择保存。
+- 规则拓词、Mock AI 拓词和真实 AI 拓词都不能直接写入提示词策略库，必须先进入候选词，再由用户选择保存。
 
 ### 6.5 企业 GEO 知识库
 
@@ -474,14 +474,14 @@ MVP 要形成这条业务链：
 后端 API 第一版要求：
 
 - `GET /api/content-tasks`：分页查询 GEO 内容任务，支持搜索任务名称、产品线、生成类型、目标模型，并按产品线、状态、生成类型、目标模型、创建人筛选。
-- `POST /api/content-tasks`：创建内容任务，校验 GEO 提示词、知识库、指令模板存在且未删除；第一版同步使用 Mock 生成器生成 `content_items`，任务状态从 `running` 流转到 `succeeded` 或 `failed`。
-- `GET /api/content-tasks/:id`：查看任务详情，返回任务、生成内容项、关联知识库、指令模板、目标提示词和最近 Mock AI 调用日志。
+- `POST /api/content-tasks`：创建内容任务，校验 GEO 提示词、知识库、指令模板存在且未删除；默认同步使用 Mock 生成器生成 `content_items`，也可传 `provider = openai_compatible` 使用后端配置的真实 AI Provider，任务状态从 `running` 流转到 `succeeded` 或 `failed`。
+- `GET /api/content-tasks/:id`：查看任务详情，返回任务、生成内容项、关联知识库、指令模板、目标提示词和最近 AI 调用日志。
 - `POST /api/content-tasks/:id/retry`：重试失败内容项，已成功的 `content_items` 不重复生成；再次记录 `ai_call_logs`。
 - `GET /api/content-items`：分页查询生成结果，默认排除软删除数据，支持搜索标题、正文、建议发布位置，并按任务、GEO 提示词、状态筛选。
 - `PATCH /api/content-items/:id`：编辑生成结果的标题、正文、GEO 优化点、建议发布位置和状态。
 - `DELETE /api/content-items/:id`：软删除生成结果，重复删除按幂等结果返回。
 - `GET /api/content-items/:id/export`：导出 Markdown 文本，包含标题、目标提示词、正文、GEO 优化点、建议发布位置和生成时间。
-- 第一版只使用 Mock 内容生成器，不接入真实 DeepSeek 或其他真实 AI Provider，不做 Word 导出、不做自动发布。
+- 当前默认使用 Mock 内容生成器；自用真实流程可选择 OpenAI-compatible Provider。不做 Word 导出、不做自动发布，不做外部 AI 自动检测。
 
 ### 6.8 模型覆盖与上词记录
 
@@ -1003,13 +1003,15 @@ interface AiProvider {
 }
 ```
 
-第一版实现：
+当前实现：
 
-- DeepSeek Provider。
+- Mock Provider：默认能力，适合演示、测试和无 Key 环境。
+- OpenAI-compatible Provider：通过 `AI_OPENAI_COMPATIBLE_BASE_URL`、`AI_OPENAI_COMPATIBLE_API_KEY` 和 `AI_OPENAI_COMPATIBLE_MODEL` 配置，可用于 DeepSeek、硅基流动或其他兼容 Chat Completions 的服务。
 
 后续可扩展：
 
-- OpenAI Provider。
+- DeepSeek 专属 Provider。
+- OpenAI 专属 Provider。
 - 通义 Provider。
 - 豆包 Provider。
 - Kimi Provider。
@@ -1032,6 +1034,14 @@ AI 调用用途：
 - status
 - token_input
 - token_output
+
+安全要求：
+
+- API Key 只允许在后端私有环境变量中配置。
+- 前端不得读取、输入、保存或展示 API Key。
+- 缺少 Key、鉴权失败、模型不可用和请求超时必须返回可读错误。
+- 错误消息、日志和测试输出不得包含完整 API Key。
+- Mock 模式必须在无 Key 环境下继续可用。
 
 ## 13. 错误处理
 

@@ -30,8 +30,10 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "AI 拓词",
-  "Mock AI",
-  "不会调用真实 DeepSeek",
+  "provider",
+  "openai_compatible",
+  "API Key 由后端",
+  "候选词不会自动入库",
   "生成候选词",
   "保存选中候选词到提示词策略库",
   "ExpansionCandidateTable",
@@ -89,6 +91,8 @@ for (const snippet of pageRequiredSnippets) {
 for (const field of candidateRequiredFields) {
   assert(pageSource.includes(field), `Expansion candidate table missing ${field}`);
 }
+
+assert(!pageSource.includes("API Key 输入"), "Expansion page must not expose API Key inputs");
 
 const routesSource = await readSource("src/router/routes.ts");
 assert(routesSource.includes("ExpansionView"), "Router must use ExpansionView for /expansion");

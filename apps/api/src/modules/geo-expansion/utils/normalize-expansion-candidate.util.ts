@@ -33,6 +33,8 @@ export type NormalizedAiExpansionInput = {
   count: number;
   constraints?: string;
   targetModels: string[];
+  provider: string;
+  model?: string;
   createdBy?: string;
 };
 
@@ -67,6 +69,8 @@ export function normalizeRuleExpansionInput(
 export function normalizeAiExpansionInput(
   input: Partial<NormalizedAiExpansionInput>
 ): NormalizedAiExpansionInput {
+  const provider = trimOptionalString(input.provider) ?? "mock";
+
   return {
     baseWord: String(input.baseWord ?? "").trim(),
     knowledgeBaseId: trimOptionalString(input.knowledgeBaseId),
@@ -77,6 +81,9 @@ export function normalizeAiExpansionInput(
     count: toOptionalInt(input.count) ?? 10,
     constraints: trimOptionalString(input.constraints),
     targetModels: toTargetModels(input.targetModels),
+    provider,
+    model:
+      trimOptionalString(input.model) ?? (provider === "mock" ? "mock-expansion-v1" : undefined),
     createdBy: trimOptionalString(input.createdBy)
   };
 }

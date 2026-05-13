@@ -24,7 +24,7 @@
 - Auth：登录、当前用户、退出登录。
 - GEO Analysis：分析任务列表、创建、详情、编辑、Mock 运行、建议转提示词、创建内容任务。
 - GEO Prompts：列表、新增、编辑、软删除、批量导入、CSV 导出。
-- GEO Expansion：规则拓词、Mock AI 拓词、任务详情、候选词保存到提示词库。
+- GEO Expansion：规则拓词、默认 Mock / 可选 `openai_compatible` AI 拓词、任务详情、候选词保存到提示词库。
 - GEO Knowledge Bases：知识库 CRUD、文本导入、知识片段查询/编辑/软删除。
 - GEO Knowledge Files：txt/md/csv 上传、本地存储、解析、reparse、文件列表、文件软删除。
 - GEO Instructions：指令模板 CRUD、复制、软删除、筛选。
@@ -49,14 +49,14 @@
 ## Mock 能力
 
 - GEO 分析任务执行是 Mock，不调用真实外部 AI，不访问真实网站。
-- AI 拓词生成是 Mock Provider，不调用真实 DeepSeek、豆包、Kimi 或通义。
-- GEO 内容生成是 Mock 内容生成器，不调用真实 AI Provider。
-- Mock 能力用于打通 GEO 闭环和内部演示，不代表真实检测结果或真实 AI 生成质量。
+- AI 拓词生成默认是 Mock Provider，也可选择 `openai_compatible`。
+- GEO 内容生成默认是 Mock 内容生成器，也可选择 `openai_compatible`。
+- Mock 能力用于打通 GEO 闭环和内部演示；真实 AI 能力用于自用生成，仍需要人工审核。
 
 ## 未实现能力
 
 - 真实外部 AI 自动检测。
-- 真实 DeepSeek / 豆包 / Kimi / 通义 Provider 接入。
+- 外部 AI 平台自动检测和定时任务。
 - 开放注册、忘记密码、短信/邮箱验证码、OAuth、多租户和复杂菜单级权限。
 - 多用户协作、审批流和操作审计页面。
 - 自动发布到官网、公众号、B2B 页面或外部媒体。
@@ -68,7 +68,8 @@
 ## 当前已知限制
 
 - 当前是最小登录保护，适合内部演示或受控环境试用；没有团队管理、开放注册或菜单级权限配置。
-- GEO 分析和内容生成结果是 Mock，不能用于对外承诺真实模型表现。
+- GEO 分析结果是 Mock，不能用于对外承诺真实模型表现。
+- `openai_compatible` 只用于 AI 拓词和 GEO 内容生成，不代表外部 AI 平台覆盖检测。
 - 分析任务没有删除接口，演示数据会保留在本地数据库中。
 - 部分数据采用软删除，列表默认隐藏，但数据库仍保留记录。
 - 本地上传文件位于 `storage/uploads`，该目录被 `.gitignore` 排除。
@@ -96,18 +97,18 @@ git diff --check
 
 ## 下一阶段建议
 
-1. Phase 4E：真实 AI Provider 接入
+1. Phase 4F：外部 AI 检测自动化
 
-   在演示闭环稳定后，再接 DeepSeek Provider，并保留 Provider 抽象和调用日志。
+   在真实内容生成链路稳定后，再做多模型自动检测、定时任务和更复杂的模型覆盖分析。
 
-2. Phase 4F：外部 AI 检测自动化
-
-   最后再做多模型自动检测、定时任务和更复杂的模型覆盖分析。
-
-3. Phase 4G：正式部署执行
+2. Phase 4G：正式部署执行
 
    在部署准备文档和示例配置稳定后，再连接真实服务器、配置真实域名、真实数据库密码和生产访问控制。
 
-4. 后续权限增强
+3. 后续权限增强
 
    当前只做最小登录保护。多人协作阶段再补用户管理、角色分配、操作审计和更细的菜单/接口权限。
+
+4. 多 Provider 扩展
+
+   当前统一走 OpenAI-compatible Provider；后续再按需要接入专属 SDK 或更多模型平台。

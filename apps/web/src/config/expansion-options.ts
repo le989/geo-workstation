@@ -1,7 +1,7 @@
 import type { ExpansionMode, ExpansionTaskStatus } from "@/api/expansion";
 
 export const expansionModeLabelMap: Record<ExpansionMode, string> = {
-  ai: "Mock AI 拓词",
+  ai: "AI 拓词",
   rule: "手动组合"
 };
 

@@ -102,7 +102,7 @@ const handleAiGenerate = async (payload: AiGenerateExpansionPayload) => {
   try {
     const result = await aiGenerateExpansion(payload);
     setJobDetail(result);
-    ElMessage.success(`Mock AI 已生成 ${result.candidates.length} 条候选词。`);
+    ElMessage.success(`AI 已生成 ${result.candidates.length} 条候选词。`);
   } catch (error) {
     generationError.value = getErrorMessage(error);
   } finally {
@@ -190,7 +190,7 @@ const goGeoPrompts = () => {
         <el-tag type="warning" effect="plain">GEO Expansion</el-tag>
         <h1>AI 拓词</h1>
         <p>
-          通过手动组合规则或 Mock AI 生成候选 GEO
+          通过手动组合规则、Mock 或 openai_compatible 生成候选 GEO
           提示词，人工筛选后保存到提示词策略库，用于后续内容生成和模型覆盖追踪。
         </p>
         <strong>先生成候选词，不直接入库；保存前会检查重复，结果服务于 GEO 优化闭环。</strong>
@@ -233,7 +233,7 @@ const goGeoPrompts = () => {
 
       <el-empty
         v-if="!hasJob"
-        description="暂无拓词候选，请先使用手动组合或 Mock AI 生成。"
+        description="暂无拓词候选，请先使用手动组合或 AI 模式生成。"
         class="app-empty-state"
       >
         <template #image>

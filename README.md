@@ -14,7 +14,7 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - ORM：Prisma，Phase 1 开始接入
 - 队列：Redis + BullMQ，后续 AI 和解析任务使用
 - 文件存储：本地存储起步
-- AI 接入：DeepSeek Provider 起步，并保留 Provider 抽象，Phase 4 开始接入
+- AI 接入：默认 Mock，支持 OpenAI-compatible Provider；可通过后端环境变量配置 DeepSeek、硅基流动或其他兼容服务
 - 包管理：pnpm workspace
 
 ## 目录结构
@@ -104,13 +104,13 @@ pnpm check:internal-mvp
 当前 Mock 能力：
 
 - GEO 分析。
-- AI 拓词。
-- GEO 内容生成。
+- AI 拓词默认 Mock，可切换 `openai_compatible`。
+- GEO 内容生成默认 Mock，可切换 `openai_compatible`。
 
 当前未实现能力：
 
 - 真实外部 AI 检测。
-- 真实 AI Provider。
+- 多模型批量外部检测和定时检测。
 - 开放注册、忘记密码、OAuth、多租户和复杂菜单级权限。
 - 自动发布。
 - 真实服务器部署执行。
@@ -130,9 +130,23 @@ Phase 4D 已加入内部 MVP 所需的最小访问控制：
 
 本阶段不做开放注册、忘记密码、短信/邮箱验证码、OAuth、多租户、团队管理或复杂菜单级权限。
 
+## AI Provider 配置
+
+Phase 4E 已加入统一 AI Provider 抽象：
+
+- 默认 `AI_PROVIDER=mock`，无需真实 API Key，适合演示、测试和离线开发。
+- `AI_PROVIDER=openai_compatible` 时，后端通过 OpenAI-compatible Chat Completions 接口生成内容或拓词候选。
+- 可以通过 `AI_OPENAI_COMPATIBLE_BASE_URL` 和 `AI_OPENAI_COMPATIBLE_MODEL` 配置 DeepSeek、硅基流动或其他兼容服务。
+- `AI_OPENAI_COMPATIBLE_API_KEY` 只允许放在后端私有 `.env` / `.env.production` 中，前端不会读取、输入、保存或展示 API Key。
+- 真实 AI 调用会消耗接口额度；缺少 key、鉴权失败、模型不可用或超时时，后端会返回可读错误并写入 `ai_call_logs`。
+
+示例配置见 `.env.example`、`.env.production.example` 和 `docs/deployment/env-guide.md`。
+
 ## 部署准备
 
-Phase 4C 只完成 `internal-mvp-v0.2` 的部署上线准备：补充文档、环境变量示例、PM2 示例、Nginx 示例、Docker Compose 生产示例和部署检查脚本。当前阶段未实际上线，未连接真实服务器，未配置真实域名，未配置真实数据库密码，未接入真实 AI Provider。
+Phase 4C 只完成 `internal-mvp-v0.2` 的部署上线准备：补充文档、环境变量示例、PM2 示例、Nginx 示例、Docker Compose 生产示例和部署检查脚本。当前阶段未实际上线，未连接真实服务器，未配置真实域名，未配置真实数据库密码，也不会提交真实 AI Provider Key。
+
+部署准备和真实 AI 自用配置都必须坚持：不提交真实 AI Provider Key。
 
 当前推荐部署方案：
 
@@ -204,10 +218,10 @@ pnpm dev:api
 - `/dashboard`：GEO 工作台，展示总览指标、优化建议、快捷入口和能力边界。
 - `/geo-analysis`：GEO 分析，支持创建任务、编辑 pending 任务、运行 Mock 分析、查看结果、转提示词和创建内容任务。
 - `/geo-prompts`：提示词策略库，支持查询、筛选、新增、编辑、软删除、批量导入和 CSV 导出。
-- `/expansion`：AI 拓词，支持手动组合、Mock AI 候选生成、重复标记、勾选保存到提示词库。
+- `/expansion`：AI 拓词，支持手动组合、默认 Mock 或 `openai_compatible` 候选生成、重复标记、勾选保存到提示词库。
 - `/knowledge-bases`：企业 GEO 知识库，支持知识库管理、文本导入、txt/md/csv 上传解析、文件 reparse 和知识片段管理。
 - `/instruction-templates`：指令库，支持指令模板创建、编辑、查看详情、复制和软删除。
-- `/content-tasks`：GEO 内容生成，支持创建 Mock 内容任务、查看/编辑/删除内容项、Markdown 导出和失败重试入口。
+- `/content-tasks`：GEO 内容生成，支持创建默认 Mock 或 `openai_compatible` 内容任务、查看/编辑/删除内容项、Markdown 导出和失败重试入口。
 - `/model-inclusion-records`：模型覆盖记录，支持手动录入、批量导入、summary、未覆盖提示词和 CSV 导出。
 - `/reports`：GEO 报表，支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。
 - `/settings`：本地联调配置占位页；不包含团队管理、Provider Key 管理或复杂权限配置。
@@ -234,6 +248,7 @@ pnpm test:web-reports
 pnpm test:web-mvp
 pnpm test:web-auth
 pnpm test:auth
+pnpm test:ai-provider
 pnpm test:api
 pnpm check:internal-mvp
 pnpm check:deployment

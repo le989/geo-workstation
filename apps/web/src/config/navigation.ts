@@ -63,10 +63,10 @@ export const navigationItems: GeoPageMeta[] = [
     label: "AI 拓词",
     title: "AI 拓词",
     question: "还能生成哪些适合 GEO 追踪的问题？",
-    description: "通过规则组合和 Mock AI 拓词生成候选提示词，再由运营选择保存。",
-    phaseNote: "当前仅保留拓词工作台占位，不生成候选词。",
-    nextSteps: ["规则拓词表单", "Mock AI 候选词预览", "勾选保存到提示词库"],
-    apiFocus: "后续联调 /api/expansion",
+    description: "通过规则组合或 AI Provider 拓词生成候选提示词，再由运营选择保存。",
+    phaseNote: "已支持规则拓词、默认 Mock AI、可选 openai_compatible、候选词去重和勾选保存。",
+    nextSteps: ["规则拓词表单", "AI 候选词预览", "勾选保存到提示词库"],
+    apiFocus: "POST /api/expansion/rule-generate, POST /api/expansion/ai-generate",
     icon: MagicStick
   },
   {
@@ -129,10 +129,11 @@ export const navigationItems: GeoPageMeta[] = [
     label: "系统设置",
     title: "系统设置",
     question: "本地联调环境是否准备好？",
-    description: "展示前端 API 地址、环境标识和后续联调配置入口。",
-    phaseNote: "当前不实现登录、权限、Provider Key 或外部平台配置。",
-    nextSteps: ["展示 API Base URL", "展示环境标识", "保留后续 Provider 抽象配置位置"],
-    apiFocus: "当前仅使用 VITE_API_BASE_URL 和 VITE_APP_ENV_LABEL",
+    description: "展示前端 API 地址、环境标识和 AI Provider 配置边界说明。",
+    phaseNote:
+      "AI Provider 支持 mock 和 openai_compatible；API Key 只允许在后端 .env 配置，前端不提供密钥输入框。",
+    nextSteps: ["展示 API Base URL", "说明 AI Provider 后端配置", "保留后续 Provider 状态检查入口"],
+    apiFocus: "当前使用 VITE_API_BASE_URL；AI_PROVIDER 由后端环境变量控制",
     icon: Setting
   }
 ];

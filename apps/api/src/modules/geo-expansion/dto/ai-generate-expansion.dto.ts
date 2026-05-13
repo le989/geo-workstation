@@ -68,5 +68,15 @@ export class AiGenerateExpansionDto {
   @IsOptional()
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
+  provider?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  model?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
   createdBy?: string;
 }

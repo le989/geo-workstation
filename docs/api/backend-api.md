@@ -43,18 +43,32 @@ Authorization: Bearer <token>
 
 关键环境变量：
 
-| 变量                     | 用途                      | 默认/示例                                                                                   |
-| ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------- |
-| `API_PORT`               | NestJS API 端口           | `3000`                                                                                      |
-| `DATABASE_URL`           | PostgreSQL 连接           | `postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public` |
-| `REDIS_URL`              | 后续队列预留              | `redis://localhost:6379`                                                                    |
-| `LOCAL_STORAGE_ROOT`     | 本地上传文件根目录        | `./storage`                                                                                 |
-| `JWT_SECRET`             | JWT 签名密钥              | 本地示例可用占位值，生产必须替换为长随机值                                                  |
-| `JWT_EXPIRES_IN`         | JWT 有效期                | `12h`                                                                                       |
-| `DEFAULT_ADMIN_EMAIL`    | seed 默认管理员邮箱       | `admin@geo-workstation.local`                                                               |
-| `DEFAULT_ADMIN_PASSWORD` | seed 默认管理员密码       | 本地占位值，生产和共享部署必须修改                                                          |
-| `BYPASS_AUTH_FOR_TESTS`  | 测试环境绕过鉴权开关      | `false`，仅自动化测试脚本可设为 `true`                                                      |
-| `DEEPSEEK_API_KEY`       | 后续真实 AI Provider 预留 | 空，Phase 2 不需要                                                                          |
+| 变量                            | 用途                       | 默认/示例                                                                                   |
+| ------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `API_PORT`                      | NestJS API 端口            | `3000`                                                                                      |
+| `DATABASE_URL`                  | PostgreSQL 连接            | `postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public` |
+| `REDIS_URL`                     | 后续队列预留               | `redis://localhost:6379`                                                                    |
+| `LOCAL_STORAGE_ROOT`            | 本地上传文件根目录         | `./storage`                                                                                 |
+| `JWT_SECRET`                    | JWT 签名密钥               | 本地示例可用占位值，生产必须替换为长随机值                                                  |
+| `JWT_EXPIRES_IN`                | JWT 有效期                 | `12h`                                                                                       |
+| `DEFAULT_ADMIN_EMAIL`           | seed 默认管理员邮箱        | `admin@geo-workstation.local`                                                               |
+| `DEFAULT_ADMIN_PASSWORD`        | seed 默认管理员密码        | 本地占位值，生产和共享部署必须修改                                                          |
+| `BYPASS_AUTH_FOR_TESTS`         | 测试环境绕过鉴权开关       | `false`，仅自动化测试脚本可设为 `true`                                                      |
+| `AI_PROVIDER`                   | 默认 AI Provider           | `mock`                                                                                      |
+| `AI_OPENAI_COMPATIBLE_BASE_URL` | OpenAI-compatible 服务地址 | `https://api.deepseek.com/v1`                                                               |
+| `AI_OPENAI_COMPATIBLE_API_KEY`  | OpenAI-compatible API Key  | `change_me`，真实 Key 只放后端私有 `.env`                                                   |
+| `AI_OPENAI_COMPATIBLE_MODEL`    | 默认真实 AI 模型           | `deepseek-chat`                                                                             |
+| `AI_REQUEST_TIMEOUT_MS`         | AI 请求超时                | `60000`                                                                                     |
+| `AI_MAX_TOKENS`                 | 默认最大输出 token         | `3000`                                                                                      |
+| `AI_TEMPERATURE`                | 默认生成温度               | `0.7`                                                                                       |
+
+AI Provider 错误说明：
+
+- 缺少 `AI_OPENAI_COMPATIBLE_API_KEY`：返回“AI Provider API Key 未配置”，Mock 模式不受影响。
+- 401/403：返回“AI Provider 鉴权失败，请检查后端环境变量”。
+- 400/404：返回“模型不可用或名称错误”。
+- 超时：返回“AI Provider 请求超时”。
+- 错误消息和日志不会包含完整 API Key。
 
 本地启动：
 
@@ -117,12 +131,12 @@ curl http://localhost:3000/health
 
 ### GEO Expansion
 
-| Method | Path                                      | 用途               | 主要入参                                                                                                    | 主要返回              | 备注                               |
-| ------ | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- | --------------------- | ---------------------------------- |
-| POST   | `/api/expansion/rule-generate`            | 规则组合拓词       | `baseWord`、`prefixes`、`serviceSuffixes`、`applicationSuffixes`、`promptType`、`productLine`、`userIntent` | `jobId`、`candidates` | 生成候选，不直接入库               |
-| POST   | `/api/expansion/ai-generate`              | Mock AI 拓词       | `baseWord`、`promptType`、`count`、`constraints`、`targetModels`                                            | `jobId`、`candidates` | 使用 Mock Provider，不需要 API Key |
-| GET    | `/api/expansion/jobs/:id`                 | 查看拓词任务       | `id`                                                                                                        | `job`、`candidates`   | 返回重复标记和保存状态             |
-| POST   | `/api/expansion/jobs/:id/save-candidates` | 保存候选到提示词库 | `candidateIds`、`createdBy`、`defaultProductLine`、`defaultPriority`、`defaultTrackEnabled`                 | 保存/跳过/失败汇总    | 保存前继续去重                     |
+| Method | Path                                      | 用途               | 主要入参                                                                                                    | 主要返回              | 备注                                                                                  |
+| ------ | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------- |
+| POST   | `/api/expansion/rule-generate`            | 规则组合拓词       | `baseWord`、`prefixes`、`serviceSuffixes`、`applicationSuffixes`、`promptType`、`productLine`、`userIntent` | `jobId`、`candidates` | 生成候选，不直接入库                                                                  |
+| POST   | `/api/expansion/ai-generate`              | AI 拓词            | `baseWord`、`promptType`、`count`、`constraints`、`targetModels`、`provider`、`model`                       | `jobId`、`candidates` | 默认 `provider=mock`；`openai_compatible` 会调用后端配置的真实 AI，结果仍只进入候选词 |
+| GET    | `/api/expansion/jobs/:id`                 | 查看拓词任务       | `id`                                                                                                        | `job`、`candidates`   | 返回重复标记和保存状态                                                                |
+| POST   | `/api/expansion/jobs/:id/save-candidates` | 保存候选到提示词库 | `candidateIds`、`createdBy`、`defaultProductLine`、`defaultPriority`、`defaultTrackEnabled`                 | 保存/跳过/失败汇总    | 保存前继续去重                                                                        |
 
 ### GEO Knowledge Bases
 
@@ -161,16 +175,16 @@ curl http://localhost:3000/health
 
 ### GEO Content
 
-| Method | Path                            | 用途                         | 主要入参                                                                                                                        | 主要返回                                                                         | 备注                      |
-| ------ | ------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------- |
-| GET    | `/api/content-tasks`            | 查询内容任务                 | `page`、`pageSize`、`search`、`productLine`、`status`、`generationType`、`targetModel`、`createdBy`                             | `items`、`total`、`page`、`pageSize`                                             | 按创建时间倒序            |
-| POST   | `/api/content-tasks`            | 创建内容任务并同步 Mock 生成 | `name`、`productLine`、`knowledgeBaseId`、`instructionTemplateId`、`generationType`、`targetModel`、`geoPromptIds`、`createdBy` | `task`、`items`、关联信息                                                        | 不接真实 AI               |
-| GET    | `/api/content-tasks/:id`        | 查看内容任务详情             | `id`                                                                                                                            | `task`、`items`、`knowledgeBase`、`instructionTemplate`、`prompts`、`aiCallLogs` | 返回最近 Mock 调用日志    |
-| POST   | `/api/content-tasks/:id/retry`  | 重试失败内容项               | `id`                                                                                                                            | 内容任务详情                                                                     | 已成功项不重复生成        |
-| GET    | `/api/content-items`            | 查询内容项                   | `page`、`pageSize`、`search`、`taskId`、`geoPromptId`、`status`                                                                 | `items`、`total`、`page`、`pageSize`                                             | 默认排除软删除            |
-| PATCH  | `/api/content-items/:id`        | 编辑内容项                   | `title`、`body`、`geoOptimizationPoints`、`suggestedPublishChannel`、`status`                                                   | 内容项                                                                           | `body` 至少 20 字符       |
-| DELETE | `/api/content-items/:id`        | 软删除内容项                 | `id`                                                                                                                            | 删除状态                                                                         | 不物理删除                |
-| GET    | `/api/content-items/:id/export` | 导出 Markdown                | `id`                                                                                                                            | Markdown 文本                                                                    | `data` 为 Markdown 字符串 |
+| Method | Path                            | 用途                       | 主要入参                                                                                                                                             | 主要返回                                                                         | 备注                                                               |
+| ------ | ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| GET    | `/api/content-tasks`            | 查询内容任务               | `page`、`pageSize`、`search`、`productLine`、`status`、`generationType`、`targetModel`、`createdBy`                                                  | `items`、`total`、`page`、`pageSize`                                             | 按创建时间倒序                                                     |
+| POST   | `/api/content-tasks`            | 创建内容任务并同步生成内容 | `name`、`productLine`、`knowledgeBaseId`、`instructionTemplateId`、`generationType`、`targetModel`、`provider`、`model`、`geoPromptIds`、`createdBy` | `task`、`items`、关联信息                                                        | 默认 `provider=mock`；`openai_compatible` 使用后端真实 AI Provider |
+| GET    | `/api/content-tasks/:id`        | 查看内容任务详情           | `id`                                                                                                                                                 | `task`、`items`、`knowledgeBase`、`instructionTemplate`、`prompts`、`aiCallLogs` | 返回最近 AI 调用日志                                               |
+| POST   | `/api/content-tasks/:id/retry`  | 重试失败内容项             | `id`                                                                                                                                                 | 内容任务详情                                                                     | 已成功项不重复生成                                                 |
+| GET    | `/api/content-items`            | 查询内容项                 | `page`、`pageSize`、`search`、`taskId`、`geoPromptId`、`status`                                                                                      | `items`、`total`、`page`、`pageSize`                                             | 默认排除软删除                                                     |
+| PATCH  | `/api/content-items/:id`        | 编辑内容项                 | `title`、`body`、`geoOptimizationPoints`、`suggestedPublishChannel`、`status`                                                                        | 内容项                                                                           | `body` 至少 20 字符                                                |
+| DELETE | `/api/content-items/:id`        | 软删除内容项               | `id`                                                                                                                                                 | 删除状态                                                                         | 不物理删除                                                         |
+| GET    | `/api/content-items/:id/export` | 导出 Markdown              | `id`                                                                                                                                                 | Markdown 文本                                                                    | `data` 为 Markdown 字符串                                          |
 
 ### Model Inclusion Records
 
@@ -200,8 +214,8 @@ curl http://localhost:3000/health
 Mock 能力：
 
 - GEO 分析任务执行。
-- AI 拓词。
-- GEO 内容生成。
+- AI 拓词默认 Mock，可选 `openai_compatible`。
+- GEO 内容生成默认 Mock，可选 `openai_compatible`。
 
 真实入库能力：
 

@@ -47,7 +47,8 @@ const requiredDocSnippets = new Map([
       "DEFAULT_ADMIN_EMAIL",
       "DEFAULT_ADMIN_PASSWORD",
       "VITE_API_BASE_URL",
-      "DEEPSEEK_API_KEY",
+      "AI_PROVIDER",
+      "AI_OPENAI_COMPATIBLE_API_KEY",
       "不能提交到 git"
     ]
   ],
@@ -113,7 +114,9 @@ for (const required of [
   "JWT_SECRET=change_me_to_a_long_random_secret",
   "DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local",
   "DEFAULT_ADMIN_PASSWORD=change_me_admin_password",
-  "BYPASS_AUTH_FOR_TESTS=false"
+  "BYPASS_AUTH_FOR_TESTS=false",
+  "AI_PROVIDER=mock",
+  "AI_OPENAI_COMPATIBLE_API_KEY=change_me"
 ]) {
   assert(rootProductionEnv.includes(required), `.env.production.example missing ${required}`);
 }
@@ -148,7 +151,7 @@ for (const required of [
   ".env.production.example",
   "pnpm check:deployment",
   "未实际上线",
-  "未接入真实 AI Provider"
+  "不提交真实 AI Provider Key"
 ]) {
   assert(readme.includes(required), `README.md missing deployment note: ${required}`);
 }

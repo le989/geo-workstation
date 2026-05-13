@@ -24,6 +24,7 @@
     "test:model-inclusion": "pnpm --filter @geo-workstation/api test:model-inclusion",
     "test:geo-reports": "pnpm --filter @geo-workstation/api test:geo-reports",
     "test:geo-analysis": "pnpm --filter @geo-workstation/api test:geo-analysis",
+    "test:ai-provider": "pnpm --filter @geo-workstation/api test:ai-provider",
     "test:auth": "pnpm --filter @geo-workstation/api test:auth",
     "test:web-framework": "pnpm --filter @geo-workstation/web test:phase3a",
     "test:web-dashboard": "pnpm --filter @geo-workstation/web test:dashboard",

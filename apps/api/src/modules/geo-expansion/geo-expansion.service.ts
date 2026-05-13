@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional
+} from "@nestjs/common";
 import {
   AiCallStatus,
   ExpansionMode,
@@ -14,6 +20,12 @@ import {
 import type { AiGenerateExpansionDto } from "./dto/ai-generate-expansion.dto";
 import type { RuleGenerateExpansionDto } from "./dto/rule-generate-expansion.dto";
 import type { SaveExpansionCandidatesDto } from "./dto/save-expansion-candidates.dto";
+import { AiProviderService } from "../ai/ai-provider.service";
+import {
+  isMockAiProvider,
+  normalizeAiProvider,
+  type GenerateTextResult
+} from "../ai/ai-provider.interface";
 import { generateExpansionCombinations } from "./utils/expansion-combination.util";
 import {
   MockAiExpansionProvider,
@@ -97,7 +109,10 @@ export type SaveExpansionCandidatesResponse = {
 export class GeoExpansionService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(MockAiExpansionProvider) private readonly mockAiProvider: MockAiExpansionProvider
+    @Inject(MockAiExpansionProvider) private readonly mockAiProvider: MockAiExpansionProvider,
+    @Optional()
+    @Inject(AiProviderService)
+    private readonly aiProviderService?: Pick<AiProviderService, "generateText">
   ) {}
 
   async ruleGenerate(input: RuleGenerateExpansionDto): Promise<ExpansionJobDetailResponse> {
@@ -152,18 +167,22 @@ export class GeoExpansionService {
     }
 
     const createdById = await this.resolveCreatedById(normalized.createdBy);
+    const provider = normalizeAiProvider(normalized.provider);
+    const usesMockProvider = isMockAiProvider(provider);
+    const initialModel = usesMockProvider ? this.mockAiProvider.model : normalized.model;
     const inputPayload = compactJson({
       ...normalized,
-      expansionKind: "ai_mock",
-      source: "mock_ai_expansion"
+      provider,
+      expansionKind: usesMockProvider ? "ai_mock" : "ai_openai_compatible",
+      source: usesMockProvider ? "mock_ai_expansion" : "real_ai_expansion"
     });
     const job = await this.prisma.expansionJob.create({
       data: {
         mode: ExpansionMode.ai,
         promptType: normalized.promptType,
         inputPayload: inputPayload as Prisma.InputJsonValue,
-        provider: this.mockAiProvider.provider,
-        model: this.mockAiProvider.model,
+        provider,
+        model: initialModel,
         status: TaskStatus.running,
         createdBy: {
           connect: {
@@ -174,29 +193,23 @@ export class GeoExpansionService {
     });
 
     try {
-      const aiCandidates = this.mockAiProvider.generate({
-        baseWord: normalized.baseWord,
-        promptType: normalized.promptType,
-        userIntent: normalized.userIntent,
-        scenario: normalized.scenario,
-        count: normalized.count
-      });
+      const generation = usesMockProvider
+        ? this.generateMockExpansionCandidates(normalized, inputPayload)
+        : await this.generateRealExpansionCandidates(normalized, job.id);
 
-      for (const candidate of aiCandidates) {
+      for (const candidate of generation.candidates) {
         await this.createCandidate(job.id, candidate);
       }
 
       await this.prisma.aiCallLog.create({
         data: {
-          provider: this.mockAiProvider.provider,
-          model: this.mockAiProvider.model,
+          provider: generation.provider,
+          model: generation.model,
           purpose: "geo_prompt_ai_expansion",
           relatedType: "expansion_job",
           relatedId: job.id,
-          tokenInput: this.estimateTokenCount(JSON.stringify(inputPayload)),
-          tokenOutput: this.estimateTokenCount(
-            aiCandidates.map((candidate) => candidate.promptText).join("\n")
-          ),
+          tokenInput: generation.tokenInput,
+          tokenOutput: generation.tokenOutput,
           costEstimate: 0,
           status: AiCallStatus.succeeded
         }
@@ -207,14 +220,16 @@ export class GeoExpansionService {
           id: job.id
         },
         data: {
+          provider: generation.provider,
+          model: generation.model,
           status: TaskStatus.succeeded
         }
       });
     } catch (error) {
       await this.prisma.aiCallLog.create({
         data: {
-          provider: this.mockAiProvider.provider,
-          model: this.mockAiProvider.model,
+          provider,
+          model: initialModel ?? "configured-default",
           purpose: "geo_prompt_ai_expansion",
           relatedType: "expansion_job",
           relatedId: job.id,
@@ -375,6 +390,165 @@ export class GeoExpansionService {
     };
   }
 
+  private generateMockExpansionCandidates(
+    input: ReturnType<typeof normalizeAiExpansionInput>,
+    inputPayload: Record<string, unknown>
+  ): {
+    candidates: MockAiExpansionCandidate[];
+    provider: string;
+    model: string;
+    tokenInput: number;
+    tokenOutput: number;
+  } {
+    const candidates = this.mockAiProvider.generate({
+      baseWord: input.baseWord,
+      promptType: input.promptType,
+      userIntent: input.userIntent,
+      scenario: input.scenario,
+      count: input.count
+    });
+
+    return {
+      candidates,
+      provider: this.mockAiProvider.provider,
+      model: this.mockAiProvider.model,
+      tokenInput: this.estimateTokenCount(JSON.stringify(inputPayload)),
+      tokenOutput: this.estimateTokenCount(
+        candidates.map((candidate) => candidate.promptText).join("\n")
+      )
+    };
+  }
+
+  private async generateRealExpansionCandidates(
+    input: ReturnType<typeof normalizeAiExpansionInput>,
+    jobId: string
+  ): Promise<{
+    candidates: MockAiExpansionCandidate[];
+    provider: string;
+    model: string;
+    tokenInput: number;
+    tokenOutput: number;
+  }> {
+    const result = await this.requireAiProviderService().generateText({
+      provider: input.provider,
+      model: input.model,
+      purpose: "geo_prompt_ai_expansion",
+      relatedType: "expansion_job",
+      relatedId: jobId,
+      temperature: 0.4,
+      maxTokens: 1800,
+      systemPrompt:
+        "你是 GEO 营销运营专家。请生成面向生成式 AI 搜索/问答场景的提示词候选，只输出 JSON。",
+      userPrompt: this.buildRealExpansionPrompt(input)
+    });
+    const candidates = this.parseRealExpansionCandidates(result, input);
+
+    return {
+      candidates,
+      provider: result.provider,
+      model: result.model,
+      tokenInput:
+        result.tokenInput ?? this.estimateTokenCount(this.buildRealExpansionPrompt(input)),
+      tokenOutput:
+        result.tokenOutput ??
+        this.estimateTokenCount(candidates.map((candidate) => candidate.promptText).join("\n"))
+    };
+  }
+
+  private buildRealExpansionPrompt(input: ReturnType<typeof normalizeAiExpansionInput>): string {
+    return [
+      `训练词：${input.baseWord}`,
+      `提示词类型：${input.promptType}`,
+      input.productLine ? `产品线：${input.productLine}` : undefined,
+      input.scenario ? `场景：${input.scenario}` : undefined,
+      input.userIntent ? `用户意图：${input.userIntent}` : undefined,
+      input.constraints ? `约束：${input.constraints}` : undefined,
+      `候选数量：${input.count}`,
+      "",
+      "请返回 JSON，不要返回 Markdown 代码块：",
+      '{ "candidates": [ { "baseWord": "训练词", "promptText": "用户会向 AI 提问的 GEO 提示词", "userIntent": "selection", "priority": 3, "recommendedContentType": "selection_guide" } ] }',
+      "",
+      "要求：",
+      "- 候选词必须像真实用户会问 AI 的问题。",
+      "- 不要宣传口号，不要生成无意义关键词。",
+      "- priority 为 1-5。",
+      "- userIntent 只能使用 selection、purchase、manufacturer_recommendation、domestic_alternative、comparison、troubleshooting、application_solution、brand_verification。"
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  private parseRealExpansionCandidates(
+    result: GenerateTextResult,
+    input: ReturnType<typeof normalizeAiExpansionInput>
+  ): MockAiExpansionCandidate[] {
+    const parsed = this.parseJsonFromAiText(result.text);
+    const rawCandidates = Array.isArray(parsed)
+      ? parsed
+      : isRecord(parsed) && Array.isArray(parsed.candidates)
+        ? parsed.candidates
+        : [];
+    const candidates = rawCandidates
+      .map((candidate) => this.normalizeRealExpansionCandidate(candidate, input))
+      .filter((candidate): candidate is MockAiExpansionCandidate => Boolean(candidate))
+      .slice(0, input.count);
+
+    if (candidates.length === 0) {
+      throw new BadRequestException("AI Provider 未返回有效 GEO 提示词候选。");
+    }
+
+    return candidates;
+  }
+
+  private normalizeRealExpansionCandidate(
+    candidate: unknown,
+    input: ReturnType<typeof normalizeAiExpansionInput>
+  ): MockAiExpansionCandidate | undefined {
+    if (!isRecord(candidate)) {
+      return undefined;
+    }
+
+    const promptText = this.optionalString(candidate.promptText);
+
+    if (!promptText) {
+      return undefined;
+    }
+
+    const userIntent =
+      this.optionalUserIntent(candidate.userIntent) ?? input.userIntent ?? UserIntent.selection;
+
+    return {
+      baseWord: this.optionalString(candidate.baseWord) ?? input.baseWord,
+      promptText,
+      userIntent,
+      priority: clampPriority(this.optionalNumber(candidate.priority) ?? 3),
+      recommendedContentType:
+        this.optionalString(candidate.recommendedContentType) ??
+        this.recommendContentType(userIntent) ??
+        "selection_guide"
+    };
+  }
+
+  private parseJsonFromAiText(text: string): unknown {
+    const trimmed = text.trim();
+    const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fencedMatch?.[1]?.trim() ?? extractJsonBlock(trimmed) ?? trimmed;
+
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      throw new BadRequestException("AI Provider 返回格式不是有效 JSON，无法解析候选词。");
+    }
+  }
+
+  private requireAiProviderService(): Pick<AiProviderService, "generateText"> {
+    if (!this.aiProviderService) {
+      throw new BadRequestException("AI Provider Service is not available.");
+    }
+
+    return this.aiProviderService;
+  }
+
   private async createCandidate(jobId: string, candidate: MockAiExpansionCandidate): Promise<void> {
     await this.prisma.expansionCandidate.create({
       data: {
@@ -417,7 +591,11 @@ export class GeoExpansionService {
       targetModels: this.optionalStringArray(payload.targetModels),
       source:
         this.optionalString(payload.source) ??
-        (job.mode === ExpansionMode.rule ? "rule_expansion" : "mock_ai_expansion"),
+        (job.mode === ExpansionMode.rule
+          ? "rule_expansion"
+          : job.provider === "mock"
+            ? "mock_ai_expansion"
+            : "real_ai_expansion"),
       trackEnabled,
       createdBy: {
         connect: {
@@ -581,7 +759,7 @@ export class GeoExpansionService {
   }
 
   private optionalString(value: unknown): string | undefined {
-    return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
   }
 
   private optionalNumber(value: unknown): number | undefined {
@@ -687,4 +865,38 @@ export class GeoExpansionService {
 
     return systemOperator.id;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function clampPriority(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 3;
+  }
+
+  return Math.min(Math.max(Math.trunc(value), 1), 5);
+}
+
+function extractJsonBlock(text: string): string | undefined {
+  const objectStart = text.indexOf("{");
+  const objectEnd = text.lastIndexOf("}");
+  const arrayStart = text.indexOf("[");
+  const arrayEnd = text.lastIndexOf("]");
+  const objectCandidate =
+    objectStart >= 0 && objectEnd > objectStart
+      ? text.slice(objectStart, objectEnd + 1)
+      : undefined;
+  const arrayCandidate =
+    arrayStart >= 0 && arrayEnd > arrayStart ? text.slice(arrayStart, arrayEnd + 1) : undefined;
+
+  if (!objectCandidate) {
+    return arrayCandidate;
+  }
+  if (!arrayCandidate) {
+    return objectCandidate;
+  }
+
+  return objectStart < arrayStart ? objectCandidate : arrayCandidate;
 }

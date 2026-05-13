@@ -100,7 +100,7 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
       class="expansion-candidate-table"
       row-key="id"
       border
-      empty-text="暂无候选词，请先使用手动组合或 Mock AI 生成。"
+      empty-text="暂无候选词，请先使用手动组合或 AI 拓词生成。"
     >
       <el-table-column label="勾选" width="72" fixed="left" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">

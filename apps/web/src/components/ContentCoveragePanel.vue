@@ -27,7 +27,7 @@ const metrics = computed(() => [
   {
     label: "succeededTaskCount 已完成任务",
     value: formatReportNumber(props.report?.succeededTaskCount),
-    description: "Mock 内容生成成功的任务",
+    description: "内容生成成功的任务",
     tone: "good" as const
   },
   {

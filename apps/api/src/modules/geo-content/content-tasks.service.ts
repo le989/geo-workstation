@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional
+} from "@nestjs/common";
 import {
   AiCallStatus,
   Prisma,
@@ -15,7 +21,16 @@ import {
 } from "@prisma/client";
 import type { CreateContentTaskDto } from "./dto/create-content-task.dto";
 import type { QueryContentTasksDto } from "./dto/query-content-tasks.dto";
-import { generateMockGeoContent } from "./utils/mock-content-generator";
+import { AiProviderService } from "../ai/ai-provider.service";
+import {
+  isMockAiProvider,
+  normalizeAiProvider,
+  type GenerateTextResult
+} from "../ai/ai-provider.interface";
+import {
+  generateMockGeoContent,
+  type MockContentGenerationResult
+} from "./utils/mock-content-generator";
 import { jsonStringArray } from "./utils/normalize-content-item";
 import {
   normalizeCreateContentTask,
@@ -29,6 +44,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const AI_CALL_PURPOSE = "content_generation";
 const AI_CALL_RELATED_TYPE = "content_task";
+const DEFAULT_MOCK_CONTENT_MODEL = "mock-content-v1";
 
 export type ContentTaskResponse = {
   id: string;
@@ -111,9 +127,28 @@ export type ContentTaskDetailResponse = {
   aiCallLogs: AiCallLogResponse[];
 };
 
+type GeneratedContentResult = MockContentGenerationResult & {
+  provider: string;
+  model: string;
+  tokenInput?: number;
+  tokenOutput?: number;
+};
+
+type AiUsageSummary = {
+  provider?: string;
+  model?: string;
+  tokenInput?: number;
+  tokenOutput?: number;
+};
+
 @Injectable()
 export class ContentTasksService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(AiProviderService)
+    private readonly aiProviderService?: Pick<AiProviderService, "generateText">
+  ) {}
 
   async findMany(query: QueryContentTasksDto): Promise<ContentTaskListResponse> {
     const normalized = normalizeQueryContentTasks(query);
@@ -184,17 +219,26 @@ export class ContentTasksService {
 
     const createdItems: ContentItem[] = [];
     let failedCount = 0;
+    const provider = normalizeAiProvider(normalized.provider);
+    const aiUsage: AiUsageSummary = {
+      provider,
+      model: normalized.model
+    };
 
     for (const prompt of prompts) {
       try {
-        const generated = generateMockGeoContent({
+        const generated = await this.generateGeoContent({
           geoPrompt: prompt,
           knowledgeChunks,
           instructionTemplate,
           generationType: normalized.generationType,
           productLine: normalized.productLine,
-          targetModel: normalized.targetModel
+          targetModel: normalized.targetModel,
+          provider,
+          model: normalized.model,
+          taskId: task.id
         });
+        this.mergeAiUsage(aiUsage, generated);
         const item = await this.prisma.contentItem.create({
           data: {
             task: {
@@ -228,10 +272,12 @@ export class ContentTasksService {
         id: task.id
       },
       data: {
+        provider: aiUsage.provider ?? provider,
+        model: aiUsage.model ?? normalized.model ?? this.resolveFallbackModel(provider),
         status: nextStatus
       }
     });
-    await this.recordAiCall(normalized, task.id, nextStatus, prompts, createdItems);
+    await this.recordAiCall(normalized, task.id, nextStatus, prompts, createdItems, aiUsage);
 
     return this.getDetail(task.id);
   }
@@ -314,6 +360,12 @@ export class ContentTasksService {
     const instructionTemplate = task.instructionTemplateId
       ? await this.findOptionalInstructionTemplate(task.instructionTemplateId)
       : undefined;
+    const provider = normalizeAiProvider(task.provider ?? "mock");
+    const model = task.model ?? this.resolveFallbackModel(provider);
+    const aiUsage: AiUsageSummary = {
+      provider,
+      model
+    };
 
     await this.prisma.contentTask.update({
       where: {
@@ -342,14 +394,18 @@ export class ContentTasksService {
       }
 
       try {
-        const generated = generateMockGeoContent({
+        const generated = await this.generateGeoContent({
           geoPrompt: item.geoPrompt,
           knowledgeChunks,
           instructionTemplate,
           generationType: task.generationType,
           productLine: task.productLine ?? undefined,
-          targetModel: task.targetModel ?? undefined
+          targetModel: task.targetModel ?? undefined,
+          provider,
+          model,
+          taskId: task.id
         });
+        this.mergeAiUsage(aiUsage, generated);
         await this.prisma.contentItem.update({
           where: {
             id: item.id
@@ -371,7 +427,7 @@ export class ContentTasksService {
           },
           data: {
             status: "failed",
-            errorMessage: error instanceof Error ? error.message : "Mock content generation failed."
+            errorMessage: error instanceof Error ? error.message : "GEO content generation failed."
           }
         });
       }
@@ -391,6 +447,8 @@ export class ContentTasksService {
         id
       },
       data: {
+        provider: aiUsage.provider ?? provider,
+        model: aiUsage.model ?? model,
         status: nextStatus
       }
     });
@@ -402,8 +460,8 @@ export class ContentTasksService {
         instructionTemplateId: task.instructionTemplateId ?? undefined,
         generationType: task.generationType,
         targetModel: task.targetModel ?? undefined,
-        provider: task.provider ?? "mock",
-        model: task.model ?? "mock-content-v1",
+        provider: aiUsage.provider ?? provider,
+        model: aiUsage.model ?? model,
         geoPromptIds: activeItems
           .map((item) => item.geoPromptId)
           .filter((promptId): promptId is string => Boolean(promptId))
@@ -413,10 +471,152 @@ export class ContentTasksService {
       activeItems
         .map((item) => item.geoPrompt)
         .filter((prompt): prompt is GeoPrompt => Boolean(prompt)),
-      activeItems
+      activeItems,
+      aiUsage
     );
 
     return this.getDetail(id);
+  }
+
+  private async generateGeoContent(input: {
+    geoPrompt: GeoPrompt;
+    knowledgeChunks: KnowledgeChunk[];
+    instructionTemplate?: InstructionTemplate | null;
+    generationType: string;
+    productLine?: string;
+    targetModel?: string;
+    provider: string;
+    model?: string;
+    taskId: string;
+  }): Promise<GeneratedContentResult> {
+    if (isMockAiProvider(input.provider)) {
+      return {
+        ...generateMockGeoContent(input),
+        provider: "mock",
+        model: input.model ?? DEFAULT_MOCK_CONTENT_MODEL
+      };
+    }
+
+    const result = await this.requireAiProviderService().generateText({
+      provider: input.provider,
+      model: input.model,
+      purpose: AI_CALL_PURPOSE,
+      relatedType: AI_CALL_RELATED_TYPE,
+      relatedId: input.taskId,
+      temperature: 0.5,
+      maxTokens: 2400,
+      systemPrompt:
+        "你是 GEO 内容生产专家。请基于企业知识库事实、GEO 提示词和指令模板生成结构化内容，只输出 JSON。",
+      userPrompt: this.buildRealContentPrompt(input)
+    });
+    const parsed = this.parseRealContentResult(result, input.geoPrompt);
+
+    return {
+      ...parsed,
+      provider: result.provider,
+      model: result.model,
+      tokenInput: result.tokenInput,
+      tokenOutput: result.tokenOutput
+    };
+  }
+
+  private buildRealContentPrompt(input: {
+    geoPrompt: GeoPrompt;
+    knowledgeChunks: KnowledgeChunk[];
+    instructionTemplate?: InstructionTemplate | null;
+    generationType: string;
+    productLine?: string;
+    targetModel?: string;
+  }): string {
+    const knowledgeContext =
+      input.knowledgeChunks.length > 0
+        ? input.knowledgeChunks
+            .slice(0, 5)
+            .map(
+              (chunk, index) => `${index + 1}. ${chunk.title}：${summarizeText(chunk.content, 500)}`
+            )
+            .join("\n")
+        : "暂无知识库片段。不要编造企业事实，只保留可验证的 GEO 内容结构。";
+    const instructionContext = input.instructionTemplate
+      ? [
+          `指令名称：${input.instructionTemplate.name}`,
+          `指令类型：${input.instructionTemplate.instructionType}`,
+          `指令正文：${input.instructionTemplate.instruction}`,
+          input.instructionTemplate.outputFormat
+            ? `输出格式：${input.instructionTemplate.outputFormat}`
+            : undefined,
+          input.instructionTemplate.qualityRules
+            ? `质量规则：${input.instructionTemplate.qualityRules}`
+            : undefined,
+          input.instructionTemplate.forbiddenRules
+            ? `禁用规则：${input.instructionTemplate.forbiddenRules}`
+            : undefined
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "未选择指令模板，请使用基础 GEO 内容结构。";
+
+    return [
+      `目标 GEO 提示词：${input.geoPrompt.promptText}`,
+      `提示词类型：${input.geoPrompt.type}`,
+      `产品线：${input.productLine ?? input.geoPrompt.productLine ?? "未指定"}`,
+      `应用场景：${input.geoPrompt.scenario ?? "未指定"}`,
+      `生成类型：${input.generationType}`,
+      input.targetModel ? `目标模型：${input.targetModel}` : undefined,
+      "",
+      "企业知识库事实：",
+      knowledgeContext,
+      "",
+      "GEO 指令模板：",
+      instructionContext,
+      "",
+      "请返回 JSON，不要返回 Markdown 代码块：",
+      '{ "title": "标题", "body": "正文，包含用户问题/场景、判断逻辑、产品/方案说明、注意事项、AI 可摘取问答式总结", "geoOptimizationPoints": ["优化点"], "suggestedPublishChannel": "建议发布位置" }',
+      "",
+      "要求：",
+      "- 内容必须服务于提升 AI 回答中的品牌提及、推荐和引用概率。",
+      "- 不得编造客户案例、认证、参数、品牌资质或外部事实。",
+      "- 如果知识库不足，请在正文中明确提示需要补充资料。"
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  private parseRealContentResult(
+    result: GenerateTextResult,
+    geoPrompt: GeoPrompt
+  ): MockContentGenerationResult {
+    const parsed = tryParseJsonFromAiText(result.text);
+
+    if (isRecord(parsed)) {
+      const title =
+        optionalString(parsed.title) ?? `GEO内容：${summarizeText(geoPrompt.promptText, 60)}`;
+      const body = optionalString(parsed.body) ?? result.text;
+      const geoOptimizationPoints = Array.isArray(parsed.geoOptimizationPoints)
+        ? parsed.geoOptimizationPoints.map((item) => String(item).trim()).filter(Boolean)
+        : [
+            `覆盖目标提示词：${geoPrompt.promptText}`,
+            "由 OpenAI-compatible Provider 生成，已进入人工可编辑内容项"
+          ];
+
+      return {
+        title,
+        body,
+        geoOptimizationPoints,
+        suggestedPublishChannel:
+          optionalString(parsed.suggestedPublishChannel) ?? "官网知识库 / 公众号 / B2B 产品页"
+      };
+    }
+
+    return {
+      title: `GEO内容：${summarizeText(geoPrompt.promptText, 60)}`,
+      body: result.text,
+      geoOptimizationPoints: [
+        `覆盖目标提示词：${geoPrompt.promptText}`,
+        "AI 返回非标准 JSON，已将原文作为正文保存"
+      ],
+      suggestedPublishChannel: "官网知识库 / 公众号 / B2B 产品页"
+    };
   }
 
   private buildWhere(query: NormalizedQueryContentTasks): Prisma.ContentTaskWhereInput {
@@ -575,10 +775,10 @@ export class ContentTasksService {
             id: prompt.id
           }
         },
-        title: `Mock GEO内容生成失败：${prompt.promptText}`,
-        body: "Mock 内容生成失败占位内容，用于保留 GEO 提示词与任务的重试关系。",
+        title: `GEO内容生成失败：${prompt.promptText}`,
+        body: "内容生成失败占位内容，用于保留 GEO 提示词与任务的重试关系。",
         status: "failed",
-        errorMessage: error instanceof Error ? error.message : "Mock content generation failed."
+        errorMessage: error instanceof Error ? error.message : "GEO content generation failed."
       }
     });
   }
@@ -599,7 +799,8 @@ export class ContentTasksService {
     taskId: string,
     status: TaskStatus,
     prompts: GeoPrompt[],
-    items: Array<ContentItem | { body?: string }>
+    items: Array<ContentItem | { body?: string }>,
+    usage?: AiUsageSummary
   ): Promise<void> {
     const inputText = JSON.stringify({
       name: input.name,
@@ -614,13 +815,13 @@ export class ContentTasksService {
 
     await this.prisma.aiCallLog.create({
       data: {
-        provider: input.provider,
-        model: input.model,
+        provider: usage?.provider ?? input.provider,
+        model: usage?.model ?? input.model ?? this.resolveFallbackModel(input.provider),
         purpose: AI_CALL_PURPOSE,
         relatedType: AI_CALL_RELATED_TYPE,
         relatedId: taskId,
-        tokenInput: this.estimateTokenCount(inputText),
-        tokenOutput: this.estimateTokenCount(outputText),
+        tokenInput: usage?.tokenInput ?? this.estimateTokenCount(inputText),
+        tokenOutput: usage?.tokenOutput ?? this.estimateTokenCount(outputText),
         costEstimate: 0,
         status: status === TaskStatus.failed ? AiCallStatus.failed : AiCallStatus.succeeded
       }
@@ -629,6 +830,30 @@ export class ContentTasksService {
 
   private estimateTokenCount(text: string): number {
     return Math.max(Math.ceil(text.length / 4), 1);
+  }
+
+  private mergeAiUsage(usage: AiUsageSummary, result: GeneratedContentResult): void {
+    usage.provider = result.provider;
+    usage.model = result.model;
+
+    if (result.tokenInput !== undefined) {
+      usage.tokenInput = (usage.tokenInput ?? 0) + result.tokenInput;
+    }
+    if (result.tokenOutput !== undefined) {
+      usage.tokenOutput = (usage.tokenOutput ?? 0) + result.tokenOutput;
+    }
+  }
+
+  private resolveFallbackModel(provider?: string): string {
+    return isMockAiProvider(provider) ? DEFAULT_MOCK_CONTENT_MODEL : "configured-default";
+  }
+
+  private requireAiProviderService(): Pick<AiProviderService, "generateText"> {
+    if (!this.aiProviderService) {
+      throw new BadRequestException("AI Provider Service is not available.");
+    }
+
+    return this.aiProviderService;
   }
 
   private toTaskResponse(task: ContentTask): ContentTaskResponse {
@@ -780,4 +1005,37 @@ export class ContentTasksService {
 
     return systemOperator.id;
   }
+}
+
+function tryParseJsonFromAiText(text: string): unknown {
+  const trimmed = text.trim();
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fencedMatch?.[1]?.trim() ?? extractJsonBlock(trimmed) ?? trimmed;
+
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return undefined;
+  }
+}
+
+function extractJsonBlock(text: string): string | undefined {
+  const objectStart = text.indexOf("{");
+  const objectEnd = text.lastIndexOf("}");
+  return objectStart >= 0 && objectEnd > objectStart
+    ? text.slice(objectStart, objectEnd + 1)
+    : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function summarizeText(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength)}...`;
 }

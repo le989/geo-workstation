@@ -34,7 +34,7 @@ const actions: QuickAction[] = [
   },
   {
     title: "AI 拓词",
-    description: "用规则或 Mock AI 生成可筛选的候选提示词。",
+    description: "用规则或 AI Provider 生成可筛选的候选提示词。",
     to: "/expansion",
     icon: MagicStick
   },

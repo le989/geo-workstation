@@ -168,7 +168,7 @@ const handleCreateTask = async (payload: CreateContentTaskPayload) => {
   try {
     const created = await createContentTask(payload);
     createDialogVisible.value = false;
-    ElMessage.success("GEO 内容任务已创建，Mock 内容项已生成。");
+    ElMessage.success("GEO 内容任务已创建，内容项已生成。");
     await loadTasks();
     selectedTaskId.value = created.task.id;
     detail.value = created;
@@ -311,7 +311,7 @@ onMounted(() => {
           基于 GEO 提示词、企业知识库和指令模板生成可编辑的内容资产，用于支撑 AI
           问答、选型指南、应用方案、FAQ、国产替代和品牌可信度建设。
         </p>
-        <strong> 当前内容生成使用 Mock 生成器，不调用真实 DeepSeek / 豆包 / Kimi / 通义。 </strong>
+        <strong> 默认使用 mock；选择 openai_compatible 时真实 AI 会消耗接口额度。 </strong>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -321,7 +321,7 @@ onMounted(() => {
     </header>
 
     <el-alert
-      title="第一版内容任务和内容项真实入库，但正文由 Mock 生成器生成；不做 Word 导出、自动发布或外部媒体发布。"
+      title="内容任务和内容项真实入库；API Key 由后端 .env 管理，前端不展示或保存密钥；不做 Word 导出、自动发布或外部媒体发布。"
       type="warning"
       :closable="false"
       show-icon
@@ -344,7 +344,7 @@ onMounted(() => {
           <div>
             <p class="section-kicker">Content Tasks</p>
             <h2>GEO 内容任务列表</h2>
-            <span>查看每个任务服务的提示词、知识库、指令模板和 Mock 生成状态。</span>
+            <span>查看每个任务服务的提示词、知识库、指令模板和 AI 生成状态。</span>
           </div>
           <strong>{{ total }} 个任务</strong>
         </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { reactive, ref, watch } from "vue";
 import type { AiGenerateExpansionPayload } from "@/api/expansion";
 import type { UserIntent } from "@/api/geo-prompts";
 import { splitCommaValues, userIntentOptions } from "@/config/geo-prompt-options";
@@ -17,8 +17,10 @@ const form = reactive({
   constraints: "",
   count: 10,
   knowledgeBaseId: "",
+  model: "mock-expansion-v1",
   productLine: "",
   promptType: "distilled" as AiGenerateExpansionPayload["promptType"],
+  provider: "mock" as "mock" | "openai_compatible",
   scenario: "",
   targetModelsText: "",
   userIntent: "selection" as UserIntent
@@ -30,6 +32,17 @@ const trimOptional = (value: string) => {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
 };
+
+watch(
+  () => form.provider,
+  (provider) => {
+    if (provider === "mock") {
+      form.model = "mock-expansion-v1";
+    } else if (!form.model || form.model === "mock-expansion-v1") {
+      form.model = "deepseek-chat";
+    }
+  }
+);
 
 const handleSubmit = () => {
   localError.value = "";
@@ -49,8 +62,10 @@ const handleSubmit = () => {
     constraints: trimOptional(form.constraints),
     count: form.count,
     knowledgeBaseId: trimOptional(form.knowledgeBaseId),
+    model: trimOptional(form.model),
     productLine: trimOptional(form.productLine),
     promptType: form.promptType,
+    provider: form.provider,
     scenario: trimOptional(form.scenario),
     targetModels: splitCommaValues(form.targetModelsText),
     userIntent: form.userIntent
@@ -62,15 +77,15 @@ const handleSubmit = () => {
   <section class="expansion-form-panel">
     <div class="expansion-form-header">
       <div>
-        <p class="section-kicker">Mock AI Expansion</p>
-        <h2>Mock AI 拓词</h2>
-        <p>模拟真实 AI 拓词流程，生成偏 GEO 场景的候选问法；结果仍需人工勾选保存。</p>
+        <p class="section-kicker">AI Expansion</p>
+        <h2>AI 拓词</h2>
+        <p>支持 Mock 或 openai_compatible 生成偏 GEO 场景的候选问法；结果仍需人工勾选保存。</p>
       </div>
-      <el-tag type="warning" effect="plain">不会调用真实 AI Provider</el-tag>
+      <el-tag type="warning" effect="plain">候选词不会自动入库</el-tag>
     </div>
 
     <el-alert
-      title="当前是 Mock AI 拓词，不会调用真实 DeepSeek / 豆包 / Kimi / 通义，也不需要 API Key。"
+      title="默认 provider 为 mock；选择 openai_compatible 会消耗真实 AI 接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
       type="warning"
       :closable="false"
       show-icon
@@ -109,6 +124,15 @@ const handleSubmit = () => {
       <el-form-item label="生成数量">
         <el-input-number v-model="form.count" :min="1" :max="50" />
       </el-form-item>
+      <el-form-item label="provider">
+        <el-select v-model="form.provider">
+          <el-option label="mock：Mock 生成" value="mock" />
+          <el-option label="openai_compatible：真实 AI" value="openai_compatible" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="model">
+        <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
+      </el-form-item>
       <el-form-item label="知识库 ID">
         <el-input v-model="form.knowledgeBaseId" placeholder="可选，第一版可手动输入" />
       </el-form-item>
@@ -133,7 +157,7 @@ const handleSubmit = () => {
 
     <div class="expansion-form-actions">
       <el-button type="primary" :loading="props.loading" @click="handleSubmit">
-        Mock AI 生成候选词
+        AI 生成候选词
       </el-button>
     </div>
   </section>

@@ -15,6 +15,13 @@ export type ApiEnvironment = {
   DEFAULT_ADMIN_EMAIL: string;
   DEFAULT_ADMIN_PASSWORD: string;
   BYPASS_AUTH_FOR_TESTS?: string;
+  AI_PROVIDER: string;
+  AI_OPENAI_COMPATIBLE_BASE_URL: string;
+  AI_OPENAI_COMPATIBLE_API_KEY?: string;
+  AI_OPENAI_COMPATIBLE_MODEL: string;
+  AI_REQUEST_TIMEOUT_MS: number;
+  AI_MAX_TOKENS: number;
+  AI_TEMPERATURE: number;
 };
 
 export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvironment {
@@ -31,7 +38,17 @@ export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvi
     JWT_EXPIRES_IN: getString(config.JWT_EXPIRES_IN, "12h"),
     DEFAULT_ADMIN_EMAIL: getString(config.DEFAULT_ADMIN_EMAIL, "admin@geo-workstation.local"),
     DEFAULT_ADMIN_PASSWORD: getString(config.DEFAULT_ADMIN_PASSWORD, "change_me_admin_password"),
-    BYPASS_AUTH_FOR_TESTS: getOptionalString(config.BYPASS_AUTH_FOR_TESTS)
+    BYPASS_AUTH_FOR_TESTS: getOptionalString(config.BYPASS_AUTH_FOR_TESTS),
+    AI_PROVIDER: getString(config.AI_PROVIDER, "mock"),
+    AI_OPENAI_COMPATIBLE_BASE_URL: getString(
+      config.AI_OPENAI_COMPATIBLE_BASE_URL,
+      "https://api.deepseek.com/v1"
+    ),
+    AI_OPENAI_COMPATIBLE_API_KEY: getOptionalString(config.AI_OPENAI_COMPATIBLE_API_KEY),
+    AI_OPENAI_COMPATIBLE_MODEL: getString(config.AI_OPENAI_COMPATIBLE_MODEL, "deepseek-chat"),
+    AI_REQUEST_TIMEOUT_MS: getPositiveNumber(config.AI_REQUEST_TIMEOUT_MS, 60000),
+    AI_MAX_TOKENS: getPositiveNumber(config.AI_MAX_TOKENS, 3000),
+    AI_TEMPERATURE: getPositiveNumber(config.AI_TEMPERATURE, 0.7)
   };
 }
 
@@ -59,6 +76,16 @@ function getPort(value: unknown, fallback: number): number {
   }
 
   return port;
+}
+
+function getPositiveNumber(value: unknown, fallback: number): number {
+  const numericValue = typeof value === "number" ? value : Number(value ?? fallback);
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return fallback;
+  }
+
+  return numericValue;
 }
 
 function getJwtSecret(value: unknown, nodeEnv: string): string {

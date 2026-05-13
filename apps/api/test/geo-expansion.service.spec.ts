@@ -7,7 +7,7 @@ import {
   UserRole,
   UserStatus
 } from "@prisma/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { GeoExpansionService } from "../src/modules/geo-expansion/geo-expansion.service";
 import { generateExpansionCombinations } from "../src/modules/geo-expansion/utils/expansion-combination.util";
@@ -155,6 +155,115 @@ describe("GeoExpansionService", () => {
       }
     });
     expect(aiLog?.status).toBe("succeeded");
+  });
+
+  it("ai-generate can use an openai_compatible provider without saving candidates directly", async () => {
+    const baseWord = uniqueBase("真实Provider");
+    const generateText = vi.fn(async () => ({
+      text: JSON.stringify({
+        candidates: [
+          {
+            baseWord,
+            promptText: `${baseWord}怎么选真实AI建议`,
+            userIntent: UserIntent.selection,
+            priority: 2,
+            recommendedContentType: "selection_guide"
+          }
+        ]
+      }),
+      provider: "openai_compatible",
+      model: "deepseek-chat",
+      tokenInput: 12,
+      tokenOutput: 18,
+      raw: { id: "chatcmpl-expansion-test" }
+    }));
+    const providerAwareService = new (GeoExpansionService as unknown as new (
+      prisma: PrismaService,
+      mockAiProvider: MockAiExpansionProvider,
+      aiProviderService: { generateText: typeof generateText }
+    ) => GeoExpansionService)(prisma as unknown as PrismaService, new MockAiExpansionProvider(), {
+      generateText
+    });
+
+    const result = await providerAwareService.aiGenerate({
+      baseWord,
+      promptType: GeoPromptType.distilled,
+      userIntent: UserIntent.selection,
+      productLine: "激光测距传感器",
+      count: 1,
+      provider: "openai_compatible",
+      model: "deepseek-chat",
+      createdBy
+    } as never);
+
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(result.job.provider).toBe("openai_compatible");
+    expect(result.job.model).toBe("deepseek-chat");
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]).toMatchObject({
+      promptText: `${baseWord}怎么选真实AI建议`,
+      selected: false,
+      savedPromptId: null
+    });
+
+    const savedPrompt = await prisma.geoPrompt.findFirst({
+      where: {
+        promptText: `${baseWord}怎么选真实AI建议`,
+        deletedAt: null
+      }
+    });
+    expect(savedPrompt).toBeNull();
+
+    const aiLog = await prisma.aiCallLog.findFirst({
+      where: {
+        relatedType: "expansion_job",
+        relatedId: result.job.id,
+        provider: "openai_compatible",
+        model: "deepseek-chat"
+      }
+    });
+    expect(aiLog).toMatchObject({
+      status: "succeeded",
+      tokenInput: 12,
+      tokenOutput: 18
+    });
+  });
+
+  it("ai-generate records failed openai_compatible calls without leaking API keys", async () => {
+    const generateText = vi.fn(async () => {
+      throw new Error("AI Provider 鉴权失败，请检查后端环境变量。");
+    });
+    const providerAwareService = new (GeoExpansionService as unknown as new (
+      prisma: PrismaService,
+      mockAiProvider: MockAiExpansionProvider,
+      aiProviderService: { generateText: typeof generateText }
+    ) => GeoExpansionService)(prisma as unknown as PrismaService, new MockAiExpansionProvider(), {
+      generateText
+    });
+
+    await expect(
+      providerAwareService.aiGenerate({
+        baseWord: uniqueBase("真实Provider失败"),
+        promptType: GeoPromptType.distilled,
+        provider: "openai_compatible",
+        model: "deepseek-chat",
+        createdBy
+      } as never)
+    ).rejects.toThrow("AI Provider 鉴权失败");
+
+    const failedLog = await prisma.aiCallLog.findFirst({
+      where: {
+        relatedType: "expansion_job",
+        provider: "openai_compatible",
+        model: "deepseek-chat",
+        status: "failed"
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    expect(failedLog).toBeTruthy();
+    expect(JSON.stringify(failedLog)).not.toContain("sk-test");
   });
 
   it("rejects base prompt type for AI expansion output", async () => {

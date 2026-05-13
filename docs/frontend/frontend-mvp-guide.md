@@ -14,10 +14,10 @@
 | `/dashboard`               | GEO 工作台      | 查看提示词、知识库、内容、模型覆盖和优化建议的总览，并进入主要操作路径。                |
 | `/geo-analysis`            | GEO 分析        | 创建 GEO 分析任务，运行 Mock 分析，查看模型结果、缺口和建议，并转提示词或创建内容任务。 |
 | `/geo-prompts`             | 提示词策略库    | 维护训练词、蒸馏词、品牌词、场景词，支持筛选、新增、编辑、软删除、批量导入、CSV 导出。  |
-| `/expansion`               | AI 拓词         | 使用手动组合或 Mock AI 生成候选 GEO 提示词，人工勾选后保存到提示词策略库。              |
+| `/expansion`               | AI 拓词         | 使用手动组合、默认 Mock 或 `openai_compatible` 生成候选 GEO 提示词，人工勾选后保存。    |
 | `/knowledge-bases`         | 企业 GEO 知识库 | 创建知识库，文本导入知识片段，上传 txt/md/csv 并查看解析状态、片段和 reparse。          |
 | `/instruction-templates`   | 指令库          | 管理 GEO 内容生成指令模板，支持创建、编辑、查看详情、复制和软删除。                     |
-| `/content-tasks`           | GEO 内容生成    | 选择提示词、知识库和指令模板创建 Mock 内容任务，查看、编辑、删除内容项，导出 Markdown。 |
+| `/content-tasks`           | GEO 内容生成    | 选择提示词、知识库和指令模板创建默认 Mock 或 `openai_compatible` 内容任务，编辑和导出。 |
 | `/model-inclusion-records` | 模型覆盖记录    | 手动录入或批量导入提示词在 AI 模型中的提及、推荐、官网引用和竞品情况。                  |
 | `/reports`                 | GEO 报表        | 查看总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖和优化建议，并导出 CSV。            |
 | `/settings`                | 系统设置        | 当前为本地联调配置占位页，不包含团队管理、Provider Key 管理或复杂权限配置。             |
@@ -29,10 +29,10 @@
 3. 进入 `/geo-analysis`，创建品牌或产品线分析任务，运行 Mock GEO 分析，查看品牌提及、推荐、官网引用、竞品出现、内容缺口、知识库缺口和提示词建议。
 4. 在分析详情中将 promptSuggestions 转入提示词策略库，也可以直接基于分析任务创建内容任务。
 5. 进入 `/geo-prompts`，新增或批量导入 GEO 提示词。提示词是后续拓词、内容生成、模型覆盖和报表复盘的核心资产。
-6. 进入 `/expansion`，用手动组合或 Mock AI 生成候选提示词。候选词不会自动入库，必须人工勾选保存。
+6. 进入 `/expansion`，用手动组合、默认 Mock 或 `openai_compatible` 生成候选提示词。候选词不会自动入库，必须人工勾选保存。
 7. 进入 `/knowledge-bases`，创建企业 GEO 知识库，通过文本导入或 txt/md/csv 上传沉淀知识片段。
 8. 进入 `/instruction-templates`，创建选型指南、FAQ、AI 问答素材、应用方案等 GEO 内容生成指令。
-9. 进入 `/content-tasks`，选择 GEO 提示词、知识库和指令模板创建内容任务。当前内容正文由 Mock 生成器生成，生成结果真实入库并可编辑、删除和导出 Markdown。
+9. 进入 `/content-tasks`，选择 GEO 提示词、知识库和指令模板创建内容任务。默认使用 Mock 生成器；自用真实流程可选择 `openai_compatible`，生成结果真实入库并可编辑、删除和导出 Markdown。
 10. 进入 `/model-inclusion-records`，人工录入或导入模型覆盖记录，记录品牌是否被提及、推荐、引用官网，以及竞品出现情况。
 11. 进入 `/reports`，复盘提示词覆盖、模型表现、内容覆盖、知识库覆盖和优化建议。
 12. 回到 `/dashboard`，刷新总览，观察提示词、知识库、内容、覆盖记录和优化建议变化。演示结束可以从顶部栏退出登录。
@@ -41,7 +41,7 @@
 
 - 提示词策略库：新增、编辑、软删除、批量导入、CSV 导出。
 - GEO 分析任务：创建、编辑 pending 任务、运行 Mock 分析、保存模型结果、转提示词、创建内容任务。
-- AI 拓词候选保存：规则或 Mock AI 生成候选，勾选后保存为 GEO 提示词。
+- AI 拓词候选保存：规则、Mock 或 `openai_compatible` 生成候选，勾选后保存为 GEO 提示词。
 - 企业 GEO 知识库：知识库、知识片段、txt/md/csv 文件记录、解析状态和片段入库。
 - 指令库：指令模板创建、编辑、复制、软删除。
 - GEO 内容任务与内容项：任务、内容项、编辑、软删除、Markdown 导出。
@@ -52,14 +52,15 @@
 ## Mock 能力
 
 - GEO 分析：`/geo-analysis` 使用 Mock 分析器，不调用真实外部 AI 平台，也不访问真实网站。
-- AI 拓词生成：`/expansion` 的 AI 模式使用 Mock Provider，不调用真实 DeepSeek、豆包、Kimi 或通义。
-- GEO 内容生成：`/content-tasks` 使用 Mock 内容生成器，结果仅用于流程测试和内部演示。
+- AI 拓词生成：`/expansion` 默认使用 Mock Provider，也可选择 `openai_compatible`；真实 AI 会消耗接口额度。
+- GEO 内容生成：`/content-tasks` 默认使用 Mock 内容生成器，也可选择 `openai_compatible` 生成真实 AI 内容。
+- API Key 管理：真实 AI Key 只在后端 `.env` / `.env.production` 配置，前端不会读取、输入、保存或展示。
 
 ## 未实现能力
 
 - 开放注册、忘记密码、短信/邮箱验证码、OAuth、多租户和复杂菜单级权限。
 - 多租户、计费、审批流。
-- 真实 DeepSeek / 豆包 / Kimi / 通义 Provider 接入。
+- 外部 AI 平台自动检测和定时任务。
 - 外部 AI 平台自动检测和定时任务。
 - 自动发布到外部媒体。
 - PDF / Word / Excel 报告导出。
@@ -189,6 +190,6 @@ pnpm prisma:seed
 
 暂不支持 PDF、Word、Excel、URL 抓取或整站采集。
 
-### Mock 能力提示
+### Mock 与真实 AI Provider 提示
 
-看到 Mock 提示是正常的。当前阶段的 GEO 分析、AI 拓词生成和内容生成均不调用真实 AI Provider；真实 Provider 接入应在 Phase 4 后单独推进。
+看到 Mock 提示是正常的。GEO 分析仍使用 Mock 分析器；AI 拓词和 GEO 内容生成默认使用 Mock，也可以在表单中选择 `openai_compatible`。真实 AI 会消耗接口额度，API Key 只允许在后端环境变量中配置，前端不提供密钥配置入口。

@@ -22,14 +22,14 @@ const handleTabChange = (name: string | number) => {
       <p>先生成候选词，再由运营人工判断是否保存到提示词策略库。</p>
     </div>
     <el-alert
-      title="当前阶段使用 Mock AI，不会调用真实 DeepSeek / 豆包 / Kimi / 通义。"
+      title="AI 模式默认使用 mock，也可选择 openai_compatible；候选词不会自动入库，真实 AI 会消耗接口额度。"
       type="warning"
       :closable="false"
       show-icon
     />
     <el-tabs :model-value="modelValue" class="expansion-tabs" @tab-change="handleTabChange">
       <el-tab-pane label="手动组合" name="rule" />
-      <el-tab-pane label="Mock AI 拓词" name="ai" />
+      <el-tab-pane label="AI 拓词" name="ai" />
     </el-tabs>
   </section>
 </template>

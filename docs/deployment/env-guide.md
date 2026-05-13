@@ -31,6 +31,13 @@ JWT_EXPIRES_IN=12h
 DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
 DEFAULT_ADMIN_PASSWORD=change_me_admin_password
 BYPASS_AUTH_FOR_TESTS=false
+AI_PROVIDER=mock
+AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
+AI_OPENAI_COMPATIBLE_API_KEY=change_me
+AI_OPENAI_COMPATIBLE_MODEL=deepseek-chat
+AI_REQUEST_TIMEOUT_MS=60000
+AI_MAX_TOKENS=3000
+AI_TEMPERATURE=0.7
 ```
 
 ## 根目录 `.env.production`
@@ -49,6 +56,13 @@ JWT_EXPIRES_IN=12h
 DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
 DEFAULT_ADMIN_PASSWORD=change_me_admin_password
 BYPASS_AUTH_FOR_TESTS=false
+AI_PROVIDER=mock
+AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
+AI_OPENAI_COMPATIBLE_API_KEY=change_me
+AI_OPENAI_COMPATIBLE_MODEL=deepseek-chat
+AI_REQUEST_TIMEOUT_MS=60000
+AI_MAX_TOKENS=3000
+AI_TEMPERATURE=0.7
 ```
 
 说明：
@@ -174,15 +188,39 @@ VITE_API_BASE_URL=http://your-domain.example.com
 pnpm --filter @geo-workstation/web build
 ```
 
-## AI Provider Key 预留
+## AI Provider
 
-当前 `internal-mvp-v0.2` 不接入真实 AI Provider。
-
-后续接入 DeepSeek 或其他 Provider 时，可以使用：
+Phase 4E 已接入统一 AI Provider 抽象。默认使用 `mock`，不需要真实 Key；自用真实流程可以切换为 OpenAI-compatible Provider。
 
 ```env
-DEEPSEEK_API_KEY=
-DEEPSEEK_MODEL=deepseek-chat
+AI_PROVIDER=mock
+AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
+AI_OPENAI_COMPATIBLE_API_KEY=change_me
+AI_OPENAI_COMPATIBLE_MODEL=deepseek-chat
+AI_REQUEST_TIMEOUT_MS=60000
+AI_MAX_TOKENS=3000
+AI_TEMPERATURE=0.7
+```
+
+说明：
+
+- `AI_PROVIDER`：默认 `mock`。内容生成和 AI 拓词接口也可以按请求传入 `provider=mock` 或 `provider=openai_compatible`。
+- `AI_OPENAI_COMPATIBLE_BASE_URL`：OpenAI-compatible 服务地址。DeepSeek 示例为 `https://api.deepseek.com/v1`；硅基流动或其他兼容服务可替换为对应 base URL。
+- `AI_OPENAI_COMPATIBLE_API_KEY`：真实 API Key，只能放在后端私有环境变量文件中，示例文件只能使用 `change_me`。
+- `AI_OPENAI_COMPATIBLE_MODEL`：默认模型，例如 `deepseek-chat` 或服务商提供的兼容模型名。
+- `AI_REQUEST_TIMEOUT_MS`：真实 AI 请求超时时间。
+- `AI_MAX_TOKENS`：默认最大输出 token。
+- `AI_TEMPERATURE`：默认生成温度。
+
+前端只传 `provider` 和 `model`，不会读取、输入、保存或展示 API Key。真实 AI 调用会消耗额度；缺少 Key、鉴权失败、模型不可用或请求超时时，后端会返回可读错误并写入 `ai_call_logs`。
+
+兼容服务示例：
+
+```env
+AI_PROVIDER=openai_compatible
+AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
+AI_OPENAI_COMPATIBLE_API_KEY=change_me_private_key
+AI_OPENAI_COMPATIBLE_MODEL=deepseek-chat
 ```
 
 安全要求：
@@ -191,6 +229,7 @@ DEEPSEEK_MODEL=deepseek-chat
 - 不要把真实 API Key 写入 README 或部署文档。
 - 不要在普通日志中输出完整 Key。
 - 外部 AI 调用前需要明确哪些知识库内容会发送给模型。
+- 生产环境不应使用 `change_me` 作为真实 Key。
 
 ## 不能提交到 git 的变量文件
 

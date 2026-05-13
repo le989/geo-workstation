@@ -93,7 +93,7 @@ const close = () => {
           <el-descriptions-item label="目标模型">
             {{ formatOptional(detail.task.targetModel) }}
           </el-descriptions-item>
-          <el-descriptions-item label="Mock Provider / Model">
+          <el-descriptions-item label="Provider / Model">
             {{ formatOptional(detail.task.provider) }} / {{ formatOptional(detail.task.model) }}
           </el-descriptions-item>
           <el-descriptions-item label="知识库">
@@ -147,7 +147,7 @@ const close = () => {
           </el-card>
 
           <el-card shadow="never">
-            <template #header>Mock AI 调用日志</template>
+            <template #header>AI 调用日志</template>
             <div v-if="detail.aiCallLogs.length > 0" class="related-list compact">
               <div v-for="log in detail.aiCallLogs" :key="log.id" class="related-item">
                 <strong>{{ log.provider }} / {{ log.model }}</strong>
@@ -158,7 +158,7 @@ const close = () => {
                 <span>{{ formatDateTime(log.createdAt) }}</span>
               </div>
             </div>
-            <el-empty v-else description="暂无 Mock 调用日志" />
+            <el-empty v-else description="暂无 AI 调用日志" />
           </el-card>
         </div>
 

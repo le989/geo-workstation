@@ -15,7 +15,7 @@ export type NormalizedCreateContentTask = {
   generationType: string;
   targetModel?: string;
   provider: string;
-  model: string;
+  model?: string;
   geoPromptIds: string[];
   createdBy?: string;
 };
@@ -34,6 +34,7 @@ export type NormalizedQueryContentTasks = {
 export function normalizeCreateContentTask(
   input: CreateContentTaskDto
 ): NormalizedCreateContentTask {
+  const provider = trimOptional(input.provider) ?? DEFAULT_PROVIDER;
   const normalized = {
     name: trimRequired(input.name),
     productLine: trimOptional(input.productLine),
@@ -41,8 +42,8 @@ export function normalizeCreateContentTask(
     instructionTemplateId: trimOptional(input.instructionTemplateId),
     generationType: trimRequired(input.generationType),
     targetModel: trimOptional(input.targetModel),
-    provider: trimOptional(input.provider) ?? DEFAULT_PROVIDER,
-    model: trimOptional(input.model) ?? DEFAULT_MODEL,
+    provider,
+    model: trimOptional(input.model) ?? (provider === DEFAULT_PROVIDER ? DEFAULT_MODEL : undefined),
     geoPromptIds: uniqueStrings(toStringArray(input.geoPromptIds)),
     createdBy: trimOptional(input.createdBy)
   };

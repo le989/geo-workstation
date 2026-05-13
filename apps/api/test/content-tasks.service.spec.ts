@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { GeoPromptType, TaskStatus, UserIntent, UserRole, UserStatus } from "@prisma/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ContentTasksService } from "../src/modules/geo-content/content-tasks.service";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
@@ -155,6 +155,107 @@ describe("ContentTasksService", () => {
       }
     });
     expect(aiCallLog?.status).toBe("succeeded");
+  });
+
+  it("creates content with an openai_compatible provider when selected", async () => {
+    const prompt = await createGeoPrompt("真实Provider内容提示词");
+    const generateText = vi.fn(async () => ({
+      text: JSON.stringify({
+        title: "真实 AI GEO 内容标题",
+        body: "真实 AI 生成正文，用于验证 OpenAI-compatible Provider 可以参与 GEO 内容生成流程，并保持内容项真实入库。",
+        geoOptimizationPoints: ["围绕提示词回答", "补充品牌可引用事实"],
+        suggestedPublishChannel: "官网 GEO 内容专区"
+      }),
+      provider: "openai_compatible",
+      model: "deepseek-chat",
+      tokenInput: 21,
+      tokenOutput: 34,
+      raw: { id: "chatcmpl-content-test" }
+    }));
+    const providerAwareService = new (ContentTasksService as unknown as new (
+      prisma: PrismaService,
+      aiProviderService: { generateText: typeof generateText }
+    ) => ContentTasksService)(prisma as unknown as PrismaService, { generateText });
+
+    const result = await providerAwareService.create({
+      name: unique("真实Provider内容任务"),
+      productLine: "激光测距传感器",
+      generationType: "article",
+      provider: "openai_compatible",
+      model: "deepseek-chat",
+      geoPromptIds: [prompt.id],
+      createdBy
+    });
+
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(result.task).toMatchObject({
+      provider: "openai_compatible",
+      model: "deepseek-chat",
+      status: TaskStatus.succeeded
+    });
+    expect(result.items[0]).toMatchObject({
+      title: "真实 AI GEO 内容标题",
+      body: expect.stringContaining("真实 AI 生成正文"),
+      suggestedPublishChannel: "官网 GEO 内容专区",
+      status: "draft"
+    });
+
+    const aiCallLog = await prisma.aiCallLog.findFirst({
+      where: {
+        relatedType: "content_task",
+        relatedId: result.task.id,
+        provider: "openai_compatible",
+        model: "deepseek-chat",
+        purpose: "content_generation"
+      }
+    });
+    expect(aiCallLog).toMatchObject({
+      status: "succeeded",
+      tokenInput: 21,
+      tokenOutput: 34
+    });
+  });
+
+  it("keeps content tasks viewable and records failed logs when openai_compatible generation fails", async () => {
+    const prompt = await createGeoPrompt("真实Provider失败提示词");
+    const generateText = vi.fn(async () => {
+      throw new Error("模型不可用或名称错误，请检查后端 AI Provider 配置。");
+    });
+    const providerAwareService = new (ContentTasksService as unknown as new (
+      prisma: PrismaService,
+      aiProviderService: { generateText: typeof generateText }
+    ) => ContentTasksService)(prisma as unknown as PrismaService, { generateText });
+
+    const result = await providerAwareService.create({
+      name: unique("真实Provider失败任务"),
+      productLine: "激光测距传感器",
+      generationType: "article",
+      provider: "openai_compatible",
+      model: "missing-model",
+      geoPromptIds: [prompt.id],
+      createdBy
+    });
+
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(result.task.status).toBe(TaskStatus.failed);
+    expect(result.items[0]).toMatchObject({
+      status: "failed",
+      errorMessage: expect.stringContaining("模型不可用")
+    });
+
+    const detail = await providerAwareService.getDetail(result.task.id);
+    expect(detail.items).toHaveLength(1);
+
+    const aiCallLog = await prisma.aiCallLog.findFirst({
+      where: {
+        relatedType: "content_task",
+        relatedId: result.task.id,
+        provider: "openai_compatible",
+        model: "missing-model",
+        purpose: "content_generation"
+      }
+    });
+    expect(aiCallLog?.status).toBe("failed");
   });
 
   it("rejects empty prompt selections, missing prompts, and deleted knowledge bases", async () => {
