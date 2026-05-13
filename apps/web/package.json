@@ -12,6 +12,7 @@
     "test:dashboard": "node scripts/check-phase-3b.mjs",
     "test:geo-prompts": "node scripts/check-phase-3c.mjs",
     "test:expansion": "node scripts/check-phase-3d.mjs",
+    "test:knowledge": "node scripts/check-phase-3e.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
