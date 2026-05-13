@@ -49,6 +49,10 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 内部演示指南：`docs/demo/internal-demo-guide.md`
 - MVP 功能清单：`docs/demo/mvp-feature-checklist.md`
 - 演示数据说明：`docs/demo/demo-data-notes.md`
+- 部署准备指南：`docs/deployment/deployment-guide.md`
+- 环境变量指南：`docs/deployment/env-guide.md`
+- 数据库备份与恢复：`docs/deployment/database-backup.md`
+- 上线前检查清单：`docs/deployment/release-checklist.md`
 
 根目录原始 spec 已归位到 `docs/specs/geo-marketing-platform-spec.md`，该路径是正式 spec 路径。
 
@@ -105,8 +109,49 @@ pnpm check:internal-mvp
 - 真实 AI Provider。
 - 登录权限。
 - 自动发布。
-- 线上部署。
+- 真实服务器部署执行。
 - 多用户协作。
+
+## 部署准备
+
+Phase 4C 只完成 `internal-mvp-v0.2` 的部署上线准备：补充文档、环境变量示例、PM2 示例、Nginx 示例、Docker Compose 生产示例和部署检查脚本。当前阶段未实际上线，未连接真实服务器，未配置真实域名，未配置真实数据库密码，未接入真实 AI Provider。
+
+当前推荐部署方案：
+
+- 单 VPS 或内网测试服务器。
+- PostgreSQL 使用 Docker Compose。
+- NestJS API 构建后使用 PM2 运行。
+- Vite Web 构建后由 Nginx 托管静态文件。
+- Nginx 将 `/api` 和 `/health` 反向代理到本机 API。
+
+后续可选方案：
+
+- `deploy/docker-compose.production.example.yml` 提供一体化 Docker Compose 结构示例。
+- 该示例不替换当前本地开发 `docker-compose.yml`。
+
+部署文档：
+
+- `docs/deployment/deployment-guide.md`
+- `docs/deployment/env-guide.md`
+- `docs/deployment/database-backup.md`
+- `docs/deployment/release-checklist.md`
+
+生产环境变量示例：
+
+- `.env.production.example`
+- `apps/web/.env.production.example`
+
+部署示例配置：
+
+- `deploy/ecosystem.config.cjs`
+- `deploy/nginx.geo-workstation.example.conf`
+- `deploy/docker-compose.production.example.yml`
+
+部署准备检查：
+
+```bash
+pnpm check:deployment
+```
 
 ## 本地启动
 
@@ -168,6 +213,7 @@ pnpm test:web-reports
 pnpm test:web-mvp
 pnpm test:api
 pnpm check:internal-mvp
+pnpm check:deployment
 pnpm test:geo-prompts
 pnpm test:geo-expansion
 pnpm test:geo-knowledge

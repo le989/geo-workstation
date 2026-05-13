@@ -1,0 +1,60 @@
+# Production-style deployment example for later VPS or internal server use.
+# This file is intentionally separate from the local development docker-compose.yml.
+# Replace placeholder passwords and domains in a private .env.production file before real deployment.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: geo_workstation
+      POSTGRES_USER: geo_user
+      POSTGRES_PASSWORD: change_me
+    volumes:
+      - geo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geo_user -d geo_workstation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: geo-workstation-api:internal-mvp-v0.2
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      PORT: 3000
+      DATABASE_URL: postgresql://geo_user:change_me@postgres:5432/geo_workstation
+      LOCAL_STORAGE_ROOT: /app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - geo_uploads:/app/storage
+    expose:
+      - "3000"
+    # Build or publish the image in a later deployment execution phase.
+    # Example build context:
+    # build:
+    #   context: ..
+    #   dockerfile: deploy/api.Dockerfile
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    volumes:
+      - ../apps/web/dist:/usr/share/nginx/html:ro
+      - ./nginx.geo-workstation.example.conf:/etc/nginx/conf.d/default.conf:ro
+    # This example assumes apps/web/dist has already been built on the host.
+    # A dedicated web image can be added later when formal deployment starts.
+
+volumes:
+  geo_postgres_data:
+  geo_uploads:

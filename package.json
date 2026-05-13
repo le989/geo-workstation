@@ -38,6 +38,7 @@
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "smoke:api": "node scripts/smoke-test-api.mjs",
     "check:internal-mvp": "node scripts/check-internal-mvp.mjs",
+    "check:deployment": "node scripts/check-deployment-readiness.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
