@@ -214,6 +214,23 @@ const navigateAndRead = async (client, route) => {
   return result.result.value || "";
 };
 
+const waitForBodyText = async (client, predicate, timeoutMs = 8000) => {
+  const startedAt = Date.now();
+  let text = "";
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await client.send("Runtime.evaluate", {
+      expression: "document.body.innerText",
+      returnByValue: true
+    });
+    text = result.result.value || "";
+    if (predicate(text)) {
+      return text;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  return text;
+};
+
 for (const file of requiredFiles) {
   await access(path.join(repoRoot, file));
 }
@@ -241,13 +258,17 @@ try {
     assert(text.trim().length > 120, `${route} rendered too little content`);
     if (route === "/geo-analysis") {
       assert(
-        text.includes("待前端实现"),
-        "/geo-analysis must be clearly marked as pending frontend work"
+        text.includes("Mock GEO 分析") && text.includes("不调用真实外部 AI 平台"),
+        "/geo-analysis must render the real Mock GEO analysis page"
       );
     }
   }
 
-  const dashboardText = await navigateAndRead(client, "/dashboard");
+  await client.send("Page.navigate", { url: `${baseUrl}/dashboard` });
+  const dashboardText = await waitForBodyText(
+    client,
+    (text) => text.includes("后端未连接") || text.includes("加载失败")
+  );
   assert(
     dashboardText.includes("后端未连接") || dashboardText.includes("加载失败"),
     "Dashboard must show a clear disconnected-backend state"

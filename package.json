@@ -34,6 +34,7 @@
     "test:web-model-inclusion": "pnpm --filter @geo-workstation/web test:model-inclusion",
     "test:web-reports": "pnpm --filter @geo-workstation/web test:reports",
     "test:web-mvp": "pnpm --filter @geo-workstation/web test:mvp",
+    "test:web-geo-analysis": "pnpm --filter @geo-workstation/web test:geo-analysis",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "smoke:api": "node scripts/smoke-test-api.mjs",
     "format": "prettier --write .",

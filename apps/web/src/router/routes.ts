@@ -4,6 +4,7 @@ import { navigationItems, pageMetaByPath } from "@/config/navigation";
 import DashboardView from "@/views/DashboardView.vue";
 import ContentTasksView from "@/views/ContentTasksView.vue";
 import ExpansionView from "@/views/ExpansionView.vue";
+import GeoAnalysisView from "@/views/GeoAnalysisView.vue";
 import GeoPromptsView from "@/views/GeoPromptsView.vue";
 import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
 import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
@@ -41,21 +42,23 @@ export const routes: RouteRecordRaw[] = [
         component:
           item.path === "/dashboard"
             ? DashboardView
-            : item.path === "/geo-prompts"
-              ? GeoPromptsView
-              : item.path === "/expansion"
-                ? ExpansionView
-                : item.path === "/knowledge-bases"
-                  ? KnowledgeBasesView
-                  : item.path === "/instruction-templates"
-                    ? InstructionTemplatesView
-                    : item.path === "/content-tasks"
-                      ? ContentTasksView
-                      : item.path === "/model-inclusion-records"
-                        ? ModelInclusionRecordsView
-                        : item.path === "/reports"
-                          ? ReportsView
-                          : ModulePlaceholderView,
+            : item.path === "/geo-analysis"
+              ? GeoAnalysisView
+              : item.path === "/geo-prompts"
+                ? GeoPromptsView
+                : item.path === "/expansion"
+                  ? ExpansionView
+                  : item.path === "/knowledge-bases"
+                    ? KnowledgeBasesView
+                    : item.path === "/instruction-templates"
+                      ? InstructionTemplatesView
+                      : item.path === "/content-tasks"
+                        ? ContentTasksView
+                        : item.path === "/model-inclusion-records"
+                          ? ModelInclusionRecordsView
+                          : item.path === "/reports"
+                            ? ReportsView
+                            : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path]
         }

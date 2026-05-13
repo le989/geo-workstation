@@ -11,7 +11,7 @@
 | 路由                       | 页面            | 用途                                                                                    |
 | -------------------------- | --------------- | --------------------------------------------------------------------------------------- |
 | `/dashboard`               | GEO 工作台      | 查看提示词、知识库、内容、模型覆盖和优化建议的总览，并进入主要操作路径。                |
-| `/geo-analysis`            | GEO 分析        | 当前为待前端实现占位页；后端已有 Mock 分析 API，后续补齐任务页面。                      |
+| `/geo-analysis`            | GEO 分析        | 创建 GEO 分析任务，运行 Mock 分析，查看模型结果、缺口和建议，并转提示词或创建内容任务。 |
 | `/geo-prompts`             | 提示词策略库    | 维护训练词、蒸馏词、品牌词、场景词，支持筛选、新增、编辑、软删除、批量导入、CSV 导出。  |
 | `/expansion`               | AI 拓词         | 使用手动组合或 Mock AI 生成候选 GEO 提示词，人工勾选后保存到提示词策略库。              |
 | `/knowledge-bases`         | 企业 GEO 知识库 | 创建知识库，文本导入知识片段，上传 txt/md/csv 并查看解析状态、片段和 reparse。          |
@@ -24,18 +24,21 @@
 ## 完整 GEO MVP 使用流程
 
 1. 打开 `/dashboard`，查看当前 GEO 资产、模型覆盖效果和优化建议。后端未启动时页面仍可访问，并显示清晰错误提示。
-2. 进入 `/geo-prompts`，新增或批量导入 GEO 提示词。提示词是后续拓词、内容生成、模型覆盖和报表复盘的核心资产。
-3. 进入 `/expansion`，用手动组合或 Mock AI 生成候选提示词。候选词不会自动入库，必须人工勾选保存。
-4. 进入 `/knowledge-bases`，创建企业 GEO 知识库，通过文本导入或 txt/md/csv 上传沉淀知识片段。
-5. 进入 `/instruction-templates`，创建选型指南、FAQ、AI 问答素材、应用方案等 GEO 内容生成指令。
-6. 进入 `/content-tasks`，选择 GEO 提示词、知识库和指令模板创建内容任务。当前内容正文由 Mock 生成器生成，生成结果真实入库并可编辑、删除和导出 Markdown。
-7. 进入 `/model-inclusion-records`，人工录入或导入模型覆盖记录，记录品牌是否被提及、推荐、引用官网，以及竞品出现情况。
-8. 进入 `/reports`，复盘提示词覆盖、模型表现、内容覆盖、知识库覆盖和优化建议。
-9. 回到 `/dashboard`，刷新总览，观察提示词、知识库、内容、覆盖记录和优化建议变化。
+2. 进入 `/geo-analysis`，创建品牌或产品线分析任务，运行 Mock GEO 分析，查看品牌提及、推荐、官网引用、竞品出现、内容缺口、知识库缺口和提示词建议。
+3. 在分析详情中将 promptSuggestions 转入提示词策略库，也可以直接基于分析任务创建内容任务。
+4. 进入 `/geo-prompts`，新增或批量导入 GEO 提示词。提示词是后续拓词、内容生成、模型覆盖和报表复盘的核心资产。
+5. 进入 `/expansion`，用手动组合或 Mock AI 生成候选提示词。候选词不会自动入库，必须人工勾选保存。
+6. 进入 `/knowledge-bases`，创建企业 GEO 知识库，通过文本导入或 txt/md/csv 上传沉淀知识片段。
+7. 进入 `/instruction-templates`，创建选型指南、FAQ、AI 问答素材、应用方案等 GEO 内容生成指令。
+8. 进入 `/content-tasks`，选择 GEO 提示词、知识库和指令模板创建内容任务。当前内容正文由 Mock 生成器生成，生成结果真实入库并可编辑、删除和导出 Markdown。
+9. 进入 `/model-inclusion-records`，人工录入或导入模型覆盖记录，记录品牌是否被提及、推荐、引用官网，以及竞品出现情况。
+10. 进入 `/reports`，复盘提示词覆盖、模型表现、内容覆盖、知识库覆盖和优化建议。
+11. 回到 `/dashboard`，刷新总览，观察提示词、知识库、内容、覆盖记录和优化建议变化。
 
 ## 真实入库能力
 
 - 提示词策略库：新增、编辑、软删除、批量导入、CSV 导出。
+- GEO 分析任务：创建、编辑 pending 任务、运行 Mock 分析、保存模型结果、转提示词、创建内容任务。
 - AI 拓词候选保存：规则或 Mock AI 生成候选，勾选后保存为 GEO 提示词。
 - 企业 GEO 知识库：知识库、知识片段、txt/md/csv 文件记录、解析状态和片段入库。
 - 指令库：指令模板创建、编辑、复制、软删除。
@@ -45,7 +48,7 @@
 
 ## Mock 能力
 
-- GEO 分析：后端已有 Mock 分析 API，前端页面仍为待实现占位。
+- GEO 分析：`/geo-analysis` 使用 Mock 分析器，不调用真实外部 AI 平台，也不访问真实网站。
 - AI 拓词生成：`/expansion` 的 AI 模式使用 Mock Provider，不调用真实 DeepSeek、豆包、Kimi 或通义。
 - GEO 内容生成：`/content-tasks` 使用 Mock 内容生成器，结果仅用于流程测试和内部演示。
 
@@ -112,6 +115,7 @@ pnpm format:check
 ```bash
 pnpm test:web-framework
 pnpm test:web-dashboard
+pnpm test:web-geo-analysis
 pnpm test:web-geo-prompts
 pnpm test:web-expansion
 pnpm test:web-knowledge
