@@ -7,6 +7,7 @@ import ExpansionView from "@/views/ExpansionView.vue";
 import GeoPromptsView from "@/views/GeoPromptsView.vue";
 import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
 import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
+import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 
 export const phase3aRoutePaths = [
@@ -49,7 +50,9 @@ export const routes: RouteRecordRaw[] = [
                     ? InstructionTemplatesView
                     : item.path === "/content-tasks"
                       ? ContentTasksView
-                      : ModulePlaceholderView,
+                      : item.path === "/model-inclusion-records"
+                        ? ModelInclusionRecordsView
+                        : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path]
         }

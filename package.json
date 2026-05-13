@@ -31,6 +31,7 @@
     "test:web-knowledge": "pnpm --filter @geo-workstation/web test:knowledge",
     "test:web-instructions": "pnpm --filter @geo-workstation/web test:instructions",
     "test:web-content": "pnpm --filter @geo-workstation/web test:content",
+    "test:web-model-inclusion": "pnpm --filter @geo-workstation/web test:model-inclusion",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "smoke:api": "node scripts/smoke-test-api.mjs",
     "format": "prettier --write .",

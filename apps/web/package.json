@@ -15,6 +15,7 @@
     "test:knowledge": "node scripts/check-phase-3e.mjs",
     "test:instructions": "node scripts/check-phase-3f.mjs",
     "test:content": "node scripts/check-phase-3g.mjs",
+    "test:model-inclusion": "node scripts/check-phase-3h.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
