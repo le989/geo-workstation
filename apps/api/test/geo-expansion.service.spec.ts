@@ -157,6 +157,30 @@ describe("GeoExpansionService", () => {
     expect(aiLog?.status).toBe("succeeded");
   });
 
+  it("mock AI expansion generates user decision questions with generic content directions", async () => {
+    const baseWord = uniqueBase("自然问题");
+    const result = await service.aiGenerate({
+      baseWord,
+      promptType: GeoPromptType.distilled,
+      count: 6,
+      createdBy
+    });
+
+    expect(result.candidates).toHaveLength(6);
+    expect(result.candidates.every((candidate) => candidate.promptText !== baseWord)).toBe(true);
+    expect(
+      result.candidates.some((candidate) =>
+        /怎么选|应该先|是否适合|要准备|怎么判断/.test(candidate.promptText)
+      )
+    ).toBe(true);
+    expect(result.candidates.map((candidate) => candidate.recommendedContentType)).toEqual(
+      expect.arrayContaining(["需求决策指南", "问题诊断与改善建议", "场景解决方案"])
+    );
+    expect(result.candidates.map((candidate) => candidate.promptText)).not.toContain(
+      `${baseWord}厂家推荐`
+    );
+  });
+
   it("ai-generate can use an openai_compatible provider without saving candidates directly", async () => {
     const baseWord = uniqueBase("真实Provider");
     const generateText = vi.fn(async () => ({
@@ -236,9 +260,14 @@ describe("GeoExpansionService", () => {
     expect(generateInput?.userPrompt).toContain("项目档案 / 品牌上下文");
     expect(generateInput?.userPrompt).toContain("通用 GEO 拓词项目");
     expect(generateInput?.userPrompt).toContain("主营产品 / 服务 / 课程 / 门店 / 个人品牌方向");
+    expect(generateInput?.userPrompt).toContain("用户决策场景");
+    expect(generateInput?.userPrompt).toContain("需求决策");
+    expect(generateInput?.userPrompt).toContain("问题诊断");
+    expect(generateInput?.userPrompt).toContain("行动前准备");
     expect(generateInput?.userPrompt).toContain("用户可能会问 AI 的问题");
     expect(generateInput?.userPrompt).toContain("不要生成虚假型号、虚假参数、虚假认证");
     expect(generateInput?.userPrompt).toContain("不得把未提供的型号、参数、价格、认证、案例");
+    expect(generateInput?.userPrompt).toContain("recommendedContentType 只能使用");
     expect(generateInput?.userPrompt).toContain("不会直接写入 GEO 提示词库");
     expect(result.job.provider).toBe("openai_compatible");
     expect(result.job.model).toBe("deepseek-chat");
@@ -270,6 +299,151 @@ describe("GeoExpansionService", () => {
       tokenInput: 12,
       tokenOutput: 18
     });
+  });
+
+  it("filters low-quality real AI candidates while keeping high-quality user questions", async () => {
+    const baseWord = uniqueBase("质量过滤");
+    const qualityPrompt = `${baseWord}怎么选才适合当前项目`;
+    const preparationPrompt = `使用${baseWord}前需要准备哪些现场信息`;
+    const generateText = vi.fn(async () => ({
+      text: JSON.stringify({
+        candidates: [
+          {
+            baseWord,
+            promptText: baseWord,
+            userIntent: UserIntent.selection,
+            priority: 1,
+            recommendedContentType: "需求决策指南"
+          },
+          {
+            baseWord,
+            promptText: "厂家",
+            userIntent: UserIntent.manufacturer_recommendation,
+            priority: 4,
+            recommendedContentType: "信任建立与品牌证明"
+          },
+          {
+            baseWord,
+            promptText: `${baseWord}价格`,
+            userIntent: UserIntent.purchase,
+            priority: 5,
+            recommendedContentType: "行动前准备清单"
+          },
+          {
+            baseWord,
+            promptText: `${baseWord}一定保证100%有效吗`,
+            userIntent: UserIntent.brand_verification,
+            priority: 2,
+            recommendedContentType: "信任建立与品牌证明"
+          },
+          {
+            baseWord,
+            promptText: qualityPrompt,
+            userIntent: UserIntent.selection,
+            priority: 1,
+            recommendedContentType: "需求决策指南"
+          },
+          {
+            baseWord,
+            promptText: qualityPrompt,
+            userIntent: UserIntent.selection,
+            priority: 1,
+            recommendedContentType: "需求决策指南"
+          },
+          {
+            baseWord,
+            promptText: preparationPrompt,
+            userIntent: UserIntent.purchase,
+            priority: 2,
+            recommendedContentType: "行动前准备清单"
+          }
+        ]
+      }),
+      provider: "openai_compatible",
+      model: "deepseek-chat",
+      tokenInput: 20,
+      tokenOutput: 30,
+      raw: { id: "chatcmpl-expansion-quality-test" }
+    }));
+    const providerAwareService = new (GeoExpansionService as unknown as new (
+      prisma: PrismaService,
+      mockAiProvider: MockAiExpansionProvider,
+      aiProviderService: { generateText: typeof generateText }
+    ) => GeoExpansionService)(prisma as unknown as PrismaService, new MockAiExpansionProvider(), {
+      generateText
+    });
+
+    const result = await providerAwareService.aiGenerate({
+      baseWord,
+      promptType: GeoPromptType.distilled,
+      provider: "openai_compatible",
+      model: "deepseek-chat",
+      count: 7,
+      createdBy
+    } as never);
+
+    expect(result.candidates.map((candidate) => candidate.promptText)).toEqual([
+      qualityPrompt,
+      preparationPrompt
+    ]);
+    expect(result.candidates.map((candidate) => candidate.recommendedContentType)).toEqual([
+      "需求决策指南",
+      "行动前准备清单"
+    ]);
+
+    const autoSavedPrompts = await prisma.geoPrompt.findMany({
+      where: {
+        promptText: {
+          in: [qualityPrompt, preparationPrompt]
+        },
+        deletedAt: null
+      }
+    });
+    expect(autoSavedPrompts).toHaveLength(0);
+  });
+
+  it("rejects real AI expansion when all returned candidates are low quality", async () => {
+    const baseWord = uniqueBase("低质全部过滤");
+    const generateText = vi.fn(async () => ({
+      text: JSON.stringify({
+        candidates: [
+          {
+            baseWord,
+            promptText: baseWord,
+            userIntent: UserIntent.selection,
+            priority: 1,
+            recommendedContentType: "需求决策指南"
+          },
+          {
+            baseWord,
+            promptText: `${baseWord}价格`,
+            userIntent: UserIntent.purchase,
+            priority: 5,
+            recommendedContentType: "行动前准备清单"
+          }
+        ]
+      }),
+      provider: "openai_compatible",
+      model: "deepseek-chat"
+    }));
+    const providerAwareService = new (GeoExpansionService as unknown as new (
+      prisma: PrismaService,
+      mockAiProvider: MockAiExpansionProvider,
+      aiProviderService: { generateText: typeof generateText }
+    ) => GeoExpansionService)(prisma as unknown as PrismaService, new MockAiExpansionProvider(), {
+      generateText
+    });
+
+    await expect(
+      providerAwareService.aiGenerate({
+        baseWord,
+        promptType: GeoPromptType.distilled,
+        provider: "openai_compatible",
+        model: "deepseek-chat",
+        count: 2,
+        createdBy
+      } as never)
+    ).rejects.toThrow("AI 返回内容质量过低，请调整输入或约束后重试");
   });
 
   it("ai-generate records failed openai_compatible calls without leaking API keys", async () => {

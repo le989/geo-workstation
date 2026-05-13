@@ -34,6 +34,8 @@ const pageRequiredSnippets = [
   "openai_compatible",
   "API Key 由后端",
   "候选词不会自动入库",
+  "用户可能会向 AI 提出的问题候选",
+  "推荐内容方向",
   "生成候选词",
   "保存选中候选词到提示词策略库",
   "ExpansionCandidateTable",

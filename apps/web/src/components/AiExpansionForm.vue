@@ -80,13 +80,13 @@ const handleSubmit = () => {
       <div>
         <p class="section-kicker">AI 拓词</p>
         <h2>AI 拓词</h2>
-        <p>支持模拟生成或真实 AI 接口生成偏 GEO 场景的候选问法；结果仍需人工勾选保存。</p>
+        <p>生成用户可能会向 AI 提出的问题候选，人工筛选后再保存到提示词策略库。</p>
       </div>
       <el-tag type="warning" effect="plain">候选词不会自动入库</el-tag>
     </div>
 
     <el-alert
-      title="默认使用模拟生成；选择真实 AI 接口会消耗接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
+      title="默认使用模拟生成；选择真实 AI 接口会消耗接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。建议输入具体产品、服务、课程、门店或个人品牌方向，结果太泛时可补充目标客户、场景或限制条件。"
       type="warning"
       :closable="false"
       show-icon
@@ -164,7 +164,7 @@ const handleSubmit = () => {
           v-model="form.constraints"
           type="textarea"
           :rows="4"
-          placeholder="可选，例如：优先生成用户决策、顾虑解答、场景方案或品牌信任类问题"
+          placeholder="例如：不要生成价格词；优先生成家长会问的问题；围绕选型、对比、顾虑和场景展开。"
         />
       </el-form-item>
     </el-form>

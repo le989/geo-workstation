@@ -191,10 +191,13 @@ const goGeoPrompts = () => {
         <el-tag type="warning" effect="plain">GEO 拓词</el-tag>
         <h1>AI 拓词</h1>
         <p>
-          通过手动组合规则、模拟生成或真实 AI 接口生成候选 GEO
-          提示词，人工筛选后保存到提示词策略库，用于后续内容生成和模型覆盖追踪。
+          通过手动组合规则、模拟生成或真实 AI 接口，生成用户可能会向 AI
+          提出的问题候选，人工筛选后保存到提示词策略库。
         </p>
-        <strong>先生成候选词，不直接入库；保存前会检查重复，结果服务于 GEO 优化闭环。</strong>
+        <strong>
+          候选词不会自动入库；保存前会检查重复，结果服务于后续内容生成、模型覆盖追踪和 GEO
+          优化闭环。
+        </strong>
       </div>
       <div class="expansion-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>

@@ -100,7 +100,7 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
       class="expansion-candidate-table"
       row-key="id"
       border
-      empty-text="暂无候选词，请先使用手动组合或 AI 拓词生成。"
+      empty-text="暂无候选词，请调整输入或补充场景约束后重试。"
     >
       <el-table-column label="勾选" width="72" fixed="left" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
@@ -128,12 +128,17 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           {{ row.userIntent ? userIntentLabelMap[row.userIntent] : "--" }}
         </template>
       </el-table-column>
-      <el-table-column prop="priority" label="优先级" width="92" align="center">
+      <el-table-column prop="priority" label="优先级" width="104" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
-          <el-tag effect="plain">P{{ row.priority }}</el-tag>
+          <el-tag
+            :type="row.priority <= 2 ? 'danger' : row.priority === 3 ? 'warning' : 'info'"
+            effect="plain"
+          >
+            P{{ row.priority }}
+          </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="recommendedContentType" label="推荐内容类型" min-width="176">
+      <el-table-column prop="recommendedContentType" label="推荐内容方向" min-width="190">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{
             row.recommendedContentType

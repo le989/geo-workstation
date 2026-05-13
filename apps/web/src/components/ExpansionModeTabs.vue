@@ -19,7 +19,7 @@ const handleTabChange = (name: string | number) => {
     <div class="expansion-mode-panel__copy">
       <p class="section-kicker">拓词方式</p>
       <h2>拓词方式</h2>
-      <p>先生成候选词，再由运营人工判断是否保存到提示词策略库。</p>
+      <p>先生成用户可能会向 AI 提出的问题候选，再由运营人工判断是否保存到提示词策略库。</p>
     </div>
     <el-alert
       title="AI 模式默认使用模拟生成，也可选择真实 AI 接口；候选词不会自动入库，真实 AI 会消耗接口额度。"

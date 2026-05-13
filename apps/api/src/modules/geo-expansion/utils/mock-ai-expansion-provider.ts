@@ -56,35 +56,39 @@ export class MockAiExpansionProvider {
     userIntent: UserIntent | undefined,
     scenario: string | undefined
   ): string[] {
-    const scenePrompt = scenario ? `${scenario}用什么${baseWord}` : `${baseWord}应用场景解决方案`;
+    const sceneLabel = scenario ?? "当前使用场景";
+    const scenePrompt = scenario
+      ? `${scenario}场景下${baseWord}是否适合`
+      : `${baseWord}适合哪些使用场景`;
     const common = [
-      `${baseWord}怎么选`,
-      `${baseWord}厂家推荐`,
+      `${baseWord}怎么选才适合当前需求`,
+      `使用${baseWord}前应该先确认哪些条件`,
       scenePrompt,
-      `${baseWord}国产替代方案`,
-      `${baseWord}和进口品牌对比`,
-      `${baseWord}应用方案`,
-      `${baseWord}常见故障怎么解决`,
-      `${baseWord}哪个品牌好`,
-      `${baseWord}选型参数怎么看`,
-      `${baseWord}厂家实力怎么判断`
+      `${baseWord}和其他方案相比应该怎么判断`,
+      `${baseWord}使用中效果不稳定应该先排查什么`,
+      `咨询${baseWord}前要准备哪些信息`,
+      `判断${baseWord}相关服务方是否可靠要看哪些资料`,
+      `${baseWord}适合哪些人群或业务场景`,
+      `${baseWord}常见顾虑应该怎么回答`,
+      `${baseWord}使用前有哪些边界需要确认`
     ];
 
     if (promptType === GeoPromptType.brand || userIntent === UserIntent.brand_verification) {
       return [
-        `${baseWord}品牌推荐`,
-        `${baseWord}厂家实力怎么样`,
-        `${baseWord}官网资料怎么看`,
-        `${baseWord}厂家电话和售后怎么确认`,
+        `${baseWord}是否可信应该看哪些资料`,
+        `选择${baseWord}相关服务方前要问清楚什么`,
+        `${baseWord}品牌资料应该如何核验`,
+        `${baseWord}服务能力是否匹配项目需求要怎么判断`,
         ...common
       ];
     }
 
     if (promptType === GeoPromptType.scene || userIntent === UserIntent.application_solution) {
       return [
-        scenePrompt,
-        `${baseWord}在${scenario ?? "工业现场"}中的应用方案`,
-        `${scenario ?? "工业现场"}${baseWord}选型建议`,
+        `${sceneLabel}中使用${baseWord}需要确认哪些条件`,
+        `${sceneLabel}选择${baseWord}时容易忽略什么`,
+        `${sceneLabel}用${baseWord}还是其他方案更合适`,
+        `${sceneLabel}落地${baseWord}前要准备哪些信息`,
         ...common
       ];
     }
@@ -111,11 +115,12 @@ export class MockAiExpansionProvider {
 
     const intents = [
       UserIntent.selection,
-      UserIntent.manufacturer_recommendation,
+      UserIntent.purchase,
       UserIntent.application_solution,
-      UserIntent.domestic_alternative,
       UserIntent.comparison,
-      UserIntent.troubleshooting
+      UserIntent.troubleshooting,
+      UserIntent.brand_verification,
+      UserIntent.manufacturer_recommendation
     ];
 
     return intents[index % intents.length] ?? UserIntent.selection;
@@ -123,14 +128,14 @@ export class MockAiExpansionProvider {
 
   private recommendContentType(userIntent: UserIntent): string {
     const contentTypes: Record<UserIntent, string> = {
-      [UserIntent.selection]: "selection_guide",
-      [UserIntent.purchase]: "purchase_guide",
-      [UserIntent.manufacturer_recommendation]: "manufacturer_recommendation",
-      [UserIntent.domestic_alternative]: "domestic_alternative_solution",
-      [UserIntent.comparison]: "comparison_article",
-      [UserIntent.troubleshooting]: "faq",
-      [UserIntent.application_solution]: "application_solution",
-      [UserIntent.brand_verification]: "brand_qa_material"
+      [UserIntent.selection]: "需求决策指南",
+      [UserIntent.purchase]: "行动前准备清单",
+      [UserIntent.manufacturer_recommendation]: "信任建立与品牌证明",
+      [UserIntent.domestic_alternative]: "对比与替代方案",
+      [UserIntent.comparison]: "对比与替代方案",
+      [UserIntent.troubleshooting]: "问题诊断与改善建议",
+      [UserIntent.application_solution]: "场景解决方案",
+      [UserIntent.brand_verification]: "信任建立与品牌证明"
     };
 
     return contentTypes[userIntent];
@@ -138,11 +143,11 @@ export class MockAiExpansionProvider {
 
   private fallbackQuestion(index: number): string {
     const fallbacks = [
-      "选型注意事项",
-      "价格影响因素",
-      "官网资料是否可信",
-      "应用案例有哪些",
-      "采购前需要确认什么"
+      "是否适合当前需求",
+      "使用前需要确认哪些条件",
+      "遇到问题应该先排查什么",
+      "和其他选择相比怎么判断",
+      "咨询前要准备哪些信息"
     ];
 
     return fallbacks[index % fallbacks.length] ?? "GEO优化问题";

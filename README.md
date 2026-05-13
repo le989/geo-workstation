@@ -111,7 +111,7 @@ pnpm check:internal-mvp
 当前 Mock 能力：
 
 - GEO 分析。
-- AI 拓词默认 Mock，可切换 `openai_compatible`。
+- AI 拓词默认 Mock，可切换 `openai_compatible`，并按用户决策场景生成“真实用户会向 AI 提问”的候选问题。
 - GEO 内容生成默认 Mock，可切换 `openai_compatible`。
 
 当前未实现能力：
