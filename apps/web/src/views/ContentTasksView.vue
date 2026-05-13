@@ -329,8 +329,9 @@ onMounted(() => {
     />
 
     <ContentTaskFilters
-      v-model="filters"
+      :model-value="filters"
       :loading="loading"
+      @update:model-value="Object.assign(filters, $event)"
       @search="handleSearch"
       @reset="handleReset"
     />

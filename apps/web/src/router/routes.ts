@@ -9,6 +9,7 @@ import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
 import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
 import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
+import ReportsView from "@/views/ReportsView.vue";
 
 export const phase3aRoutePaths = [
   "/dashboard",
@@ -52,7 +53,9 @@ export const routes: RouteRecordRaw[] = [
                       ? ContentTasksView
                       : item.path === "/model-inclusion-records"
                         ? ModelInclusionRecordsView
-                        : ModulePlaceholderView,
+                        : item.path === "/reports"
+                          ? ReportsView
+                          : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path]
         }
