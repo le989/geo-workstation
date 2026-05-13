@@ -96,24 +96,24 @@ const formatSummaryValue = (value: unknown) => {
     <section class="analysis-detail">
       <div class="analysis-detail-header">
         <div>
-          <el-tag type="success" effect="plain">GEO Analysis</el-tag>
+          <el-tag type="success" effect="plain">GEO 分析</el-tag>
           <h2>{{ detail?.task.name ?? "GEO 分析任务详情" }}</h2>
           <p>
-            从品牌提及、推荐、官网引用、竞品出现、提示词缺口、知识库缺口和内容补齐方向复盘 Mock GEO
+            从品牌提及、推荐、官网引用、竞品出现、提示词缺口、知识库缺口和内容补齐方向复盘模拟 GEO
             分析结果。
           </p>
         </div>
         <div class="analysis-detail-actions">
           <el-button :loading="loading" @click="emit('refresh')">刷新详情</el-button>
           <el-button v-if="canRun" type="warning" :loading="running" @click="emit('run')">
-            运行 Mock 分析
+            运行模拟分析
           </el-button>
           <el-button @click="close">关闭</el-button>
         </div>
       </div>
 
       <el-alert
-        title="当前阶段为 Mock GEO 分析，不调用真实外部 AI 平台，不访问真实网站，也不做 SEO 扫描器。"
+        title="当前阶段为模拟 GEO 分析，不调用真实外部 AI 平台，不访问真实网站，也不做 SEO 扫描器。"
         type="warning"
         :closable="false"
         show-icon
@@ -153,7 +153,7 @@ const formatSummaryValue = (value: unknown) => {
           <template #header>
             <div class="summary-card-header">
               <div>
-                <p class="section-kicker">Summary</p>
+                <p class="section-kicker">诊断摘要</p>
                 <h3>GEO 诊断摘要</h3>
                 <p>摘要用于快速判断品牌在 AI 回答中的可见度和下一步补齐方向。</p>
               </div>
@@ -165,9 +165,9 @@ const formatSummaryValue = (value: unknown) => {
               <strong>{{ formatSummaryValue(value) }}</strong>
             </div>
           </div>
-          <el-empty v-else description="暂无 summary，运行 Mock 分析后会生成诊断摘要" />
+          <el-empty v-else description="暂无摘要，运行模拟分析后会生成诊断摘要" />
           <el-collapse v-if="summaryJson" class="summary-json">
-            <el-collapse-item title="查看原始 summary JSON" name="summary-json">
+            <el-collapse-item title="查看原始摘要 JSON" name="summary-json">
               <pre>{{ summaryJson }}</pre>
             </el-collapse-item>
           </el-collapse>
@@ -177,14 +177,14 @@ const formatSummaryValue = (value: unknown) => {
           <AnalysisGapList
             title="内容补齐方向"
             description="需要补哪些文章、FAQ、选型指南、应用方案或对比内容资产。"
-            empty-text="暂无内容缺口，运行 Mock 分析后会给出建议。"
+            empty-text="暂无内容缺口，运行模拟分析后会给出建议。"
             :gaps="detail.task.contentGaps"
             type="content"
           />
           <AnalysisGapList
             title="知识库缺口"
             description="需要补哪些企业事实资料，让后续内容生成和 AI 引用更稳定。"
-            empty-text="暂无知识库缺口，运行 Mock 分析后会给出建议。"
+            empty-text="暂无知识库缺口，运行模拟分析后会给出建议。"
             :gaps="detail.task.knowledgeGaps"
             type="knowledge"
           />
@@ -203,7 +203,7 @@ const formatSummaryValue = (value: unknown) => {
         <div class="related-prompts-card">
           <div class="section-heading">
             <div>
-              <p class="section-kicker">Related Prompts</p>
+              <p class="section-kicker">关联提示词</p>
               <h3>已转入提示词</h3>
               <p>这些提示词已经沉淀到策略库，可继续用于内容生成和模型覆盖记录。</p>
             </div>

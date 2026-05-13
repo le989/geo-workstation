@@ -8,6 +8,11 @@ import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
 import { generationTypeLabelMap } from "@/config/content-options";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { contentTypeLabelMap, instructionTypeLabelMap } from "@/config/instruction-options";
+import {
+  aiCallPurposeLabelMap,
+  aiCallStatusLabelMap,
+  formatProviderModel
+} from "@/config/label-maps";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -50,7 +55,7 @@ const close = () => {
     <section class="content-detail">
       <div class="content-detail-header">
         <div>
-          <el-tag type="success" effect="plain">GEO Content Task</el-tag>
+          <el-tag type="success" effect="plain">GEO 内容任务</el-tag>
           <h2>{{ detail?.task.name ?? "GEO 内容任务详情" }}</h2>
           <p>
             查看提示词、企业知识库和指令模板如何共同生成内容资产，判断这些内容是否能支撑 AI
@@ -93,8 +98,8 @@ const close = () => {
           <el-descriptions-item label="目标模型">
             {{ formatOptional(detail.task.targetModel) }}
           </el-descriptions-item>
-          <el-descriptions-item label="Provider / Model">
-            {{ formatOptional(detail.task.provider) }} / {{ formatOptional(detail.task.model) }}
+          <el-descriptions-item label="AI 生成方式 / 模型">
+            {{ formatProviderModel(detail.task.provider, detail.task.model) }}
           </el-descriptions-item>
           <el-descriptions-item label="知识库">
             {{ detail.knowledgeBase?.name ?? "--" }}
@@ -150,10 +155,10 @@ const close = () => {
             <template #header>AI 调用日志</template>
             <div v-if="detail.aiCallLogs.length > 0" class="related-list compact">
               <div v-for="log in detail.aiCallLogs" :key="log.id" class="related-item">
-                <strong>{{ log.provider }} / {{ log.model }}</strong>
-                <span>{{ log.purpose }}</span>
+                <strong>{{ formatProviderModel(log.provider, log.model) }}</strong>
+                <span>{{ aiCallPurposeLabelMap[log.purpose] ?? log.purpose }}</span>
                 <el-tag :type="log.status === 'failed' ? 'danger' : 'success'" effect="plain">
-                  {{ log.status }}
+                  {{ aiCallStatusLabelMap[log.status] ?? log.status }}
                 </el-tag>
                 <span>{{ formatDateTime(log.createdAt) }}</span>
               </div>
@@ -165,7 +170,7 @@ const close = () => {
         <section class="content-items-section">
           <div class="section-heading">
             <div>
-              <p class="section-kicker">Content Items</p>
+              <p class="section-kicker">内容项</p>
               <h3>生成内容项</h3>
               <p>这些内容项服务于具体 GEO 提示词，可编辑、软删除或导出 Markdown。</p>
             </div>

@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const metrics = computed(() => [
   {
-    label: "totalRecords 覆盖记录",
+    label: "覆盖记录",
     value: formatReportNumber(props.report?.totalRecords),
     description: "当前筛选范围内的模型覆盖样本"
   }
@@ -39,30 +39,21 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
     </div>
 
     <div class="report-distribution-grid report-distribution-grid--model">
+      <ReportDistributionTable title="模型记录分布" :distribution="report?.modelDistribution" />
+      <ReportDistributionTable title="品牌提及数" :distribution="report?.mentionedByModel" />
+      <ReportDistributionTable title="品牌推荐数" :distribution="report?.recommendedByModel" />
       <ReportDistributionTable
-        title="modelDistribution 模型记录分布"
-        :distribution="report?.modelDistribution"
-      />
-      <ReportDistributionTable
-        title="mentionedByModel 品牌提及数"
-        :distribution="report?.mentionedByModel"
-      />
-      <ReportDistributionTable
-        title="recommendedByModel 品牌推荐数"
-        :distribution="report?.recommendedByModel"
-      />
-      <ReportDistributionTable
-        title="citedOfficialSiteByModel 官网引用数"
+        title="官网引用数"
         :distribution="report?.citedOfficialSiteByModel"
       />
       <ReportDistributionTable
-        title="brandMentionRateByModel 品牌提及率"
+        title="品牌提及率"
         :distribution="report?.brandMentionRateByModel"
         value-label="比例"
         value-type="rate"
       />
       <ReportDistributionTable
-        title="brandRecommendRateByModel 品牌推荐率"
+        title="品牌推荐率"
         :distribution="report?.brandRecommendRateByModel"
         value-label="比例"
         value-type="rate"
@@ -73,7 +64,7 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
       <template #header>
         <div class="report-card-header">
           <div>
-            <h3>topRecommendedPrompts 已被推荐的提示词</h3>
+            <h3>已被推荐的提示词</h3>
             <span>用于判断哪些 GEO 问法已经产生品牌推荐信号。</span>
           </div>
         </div>
@@ -109,7 +100,7 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
             />
           </template>
         </el-table-column>
-        <el-table-column label="checkedAt" width="180">
+        <el-table-column label="检测时间" width="180">
           <template #default="{ row }">{{ formatDateTime(row.checkedAt) }}</template>
         </el-table-column>
       </el-table>
@@ -119,7 +110,7 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
       <template #header>
         <div class="report-card-header">
           <div>
-            <h3>notMentionedPrompts 未提及品牌的提示词</h3>
+            <h3>未提及品牌的提示词</h3>
             <span>这些提示词需要优先补内容、补资料或继续检测。</span>
           </div>
         </div>
@@ -149,7 +140,7 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
             />
           </template>
         </el-table-column>
-        <el-table-column label="checkedAt" width="180">
+        <el-table-column label="检测时间" width="180">
           <template #default="{ row }">{{ formatDateTime(row.checkedAt) }}</template>
         </el-table-column>
       </el-table>

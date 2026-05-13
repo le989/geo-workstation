@@ -25,6 +25,7 @@ import ContentTaskFilters from "@/components/ContentTaskFilters.vue";
 import ContentTaskFormDialog from "@/components/ContentTaskFormDialog.vue";
 import ContentTaskStatusTag from "@/components/ContentTaskStatusTag.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
+import { formatProviderModel } from "@/config/label-maps";
 
 const tasks = ref<ContentTask[]>([]);
 const total = ref(0);
@@ -305,13 +306,13 @@ onMounted(() => {
   <section class="content-page">
     <header class="content-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO Content Generation</el-tag>
+        <el-tag type="success" effect="plain">GEO 内容生成</el-tag>
         <h1>GEO 内容生成</h1>
         <p>
           基于 GEO 提示词、企业知识库和指令模板生成可编辑的内容资产，用于支撑 AI
           问答、选型指南、应用方案、FAQ、国产替代和品牌可信度建设。
         </p>
-        <strong> 默认使用 mock；选择 openai_compatible 时真实 AI 会消耗接口额度。 </strong>
+        <strong> 默认使用模拟生成；选择真实 AI 接口时会消耗接口额度。 </strong>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -342,7 +343,7 @@ onMounted(() => {
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">Content Tasks</p>
+            <p class="section-kicker">内容任务</p>
             <h2>GEO 内容任务列表</h2>
             <span>查看每个任务服务的提示词、知识库、指令模板和 AI 生成状态。</span>
           </div>
@@ -376,9 +377,9 @@ onMounted(() => {
             <ContentTaskStatusTag :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column label="provider / model" min-width="190">
+        <el-table-column label="AI 生成方式 / 模型" min-width="190">
           <template #default="{ row }">
-            {{ formatOptional(row.provider) }} / {{ formatOptional(row.model) }}
+            {{ formatProviderModel(row.provider, row.model) }}
           </template>
         </el-table-column>
         <el-table-column label="创建时间" width="180">

@@ -130,7 +130,7 @@ const close = () => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="当前阶段为 Mock GEO 分析，不调用真实外部 AI 平台，也不访问真实网站。"
+      title="当前阶段为模拟 GEO 分析，不调用真实外部 AI 平台，也不访问真实网站。"
       type="warning"
       :closable="false"
       show-icon

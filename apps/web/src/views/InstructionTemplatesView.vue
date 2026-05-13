@@ -240,7 +240,7 @@ onMounted(() => {
   <section class="instruction-page">
     <header class="instruction-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO Instruction Library</el-tag>
+        <el-tag type="success" effect="plain">GEO 指令库</el-tag>
         <h1>指令库</h1>
         <p>
           沉淀适用于 GEO 内容生成的指令模板，用于指导 AI
@@ -270,7 +270,7 @@ onMounted(() => {
     <section class="instruction-table-panel">
       <div class="instruction-table-header">
         <div>
-          <p class="section-kicker">Reusable Methods</p>
+          <p class="section-kicker">可复用方法</p>
           <h2>GEO 指令模板列表</h2>
           <p>沉淀可复用的 GEO 内容生产方法，后续内容任务会选择这些模板来约束输出结构和质量。</p>
         </div>

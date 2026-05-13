@@ -12,8 +12,8 @@ defineProps<{
   <section class="model-results">
     <div class="section-heading">
       <div>
-        <p class="section-kicker">Model Results</p>
-        <h3>geo_model_results 模型表现</h3>
+        <p class="section-kicker">模型结果</p>
+        <h3>模型表现</h3>
         <p>查看每个目标模型下品牌是否被提及、推荐、引用官网，以及竞品是否出现。</p>
       </div>
     </div>
@@ -71,7 +71,7 @@ defineProps<{
       <el-table-column type="expand">
         <template #default="{ row }">
           <div class="raw-answer-block">
-            <p class="section-kicker">Raw Answer</p>
+            <p class="section-kicker">原始回答</p>
             <pre>{{ row.rawAnswer || "暂无原始回答" }}</pre>
           </div>
         </template>

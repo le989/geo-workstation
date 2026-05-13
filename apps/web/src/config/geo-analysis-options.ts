@@ -31,7 +31,7 @@ export const convertPromptReasonLabelMap: Record<string, string> = {
 export const analysisSummaryLabels: Record<string, string> = {
   brandName: "品牌名称",
   contentGapCount: "内容缺口数",
-  isMock: "Mock 分析",
+  isMock: "模拟分析",
   knowledgeGapCount: "知识库缺口数",
   modelCount: "目标模型数",
   promptSuggestionCount: "提示词建议数",

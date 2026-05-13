@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import type { AnalysisPromptSuggestion } from "@/api/geo-analysis";
+import { contentTypeLabelMap } from "@/config/expansion-options";
 import { userIntentLabelMap } from "@/config/geo-prompt-options";
 
 const props = defineProps<{
@@ -56,13 +57,18 @@ const getUserIntentLabel = (suggestion: AnalysisPromptSuggestion) =>
   suggestion.userIntent
     ? (userIntentLabelMap[suggestion.userIntent] ?? suggestion.userIntent)
     : "--";
+
+const getContentTypeLabel = (suggestion: AnalysisPromptSuggestion) =>
+  suggestion.recommendedContentType
+    ? (contentTypeLabelMap[suggestion.recommendedContentType] ?? suggestion.recommendedContentType)
+    : "--";
 </script>
 
 <template>
   <section class="analysis-suggestions">
     <div class="suggestion-toolbar">
       <div>
-        <p class="section-kicker">Prompt Suggestions</p>
+        <p class="section-kicker">提示词建议</p>
         <h3>提示词缺口建议</h3>
         <p>这些问题更接近用户向 AI 提问的方式，可勾选后转入提示词策略库。</p>
       </div>
@@ -109,7 +115,7 @@ const getUserIntentLabel = (suggestion: AnalysisPromptSuggestion) =>
       </el-table-column>
       <el-table-column label="推荐内容类型" width="150">
         <template #default="{ row }">
-          {{ row.recommendedContentType || "--" }}
+          {{ getContentTypeLabel(row) }}
         </template>
       </el-table-column>
     </el-table>

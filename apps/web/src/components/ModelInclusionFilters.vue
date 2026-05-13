@@ -34,7 +34,7 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
         <el-input
           :model-value="modelValue.search"
           clearable
-          placeholder="搜索 answerSummary / model / competitors"
+          placeholder="搜索回答摘要、模型或竞品"
           @keyup.enter="emit('search')"
           @update:model-value="updateField('search', $event)"
         />
@@ -43,7 +43,7 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
         <el-input
           :model-value="modelValue.geoPromptId"
           clearable
-          placeholder="按 geoPromptId 精准筛选"
+          placeholder="按 GEO 提示词 ID 精准筛选"
           @keyup.enter="emit('search')"
           @update:model-value="updateField('geoPromptId', $event)"
         />

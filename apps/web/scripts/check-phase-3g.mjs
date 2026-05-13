@@ -37,8 +37,8 @@ const apiRequiredSnippets = [
 const pageRequiredSnippets = [
   "GEO 内容生成",
   "provider",
-  "openai_compatible",
-  "真实 AI 会消耗接口额度",
+  "真实 AI 接口",
+  "真实 AI 接口会消耗接口额度",
   "API Key 由后端",
   "ContentTaskFilters",
   "ContentTaskFormDialog",

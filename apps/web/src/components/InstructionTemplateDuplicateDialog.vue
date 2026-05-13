@@ -69,7 +69,7 @@ const handleSubmit = () => {
     />
 
     <div class="instruction-duplicate-copy">
-      <p class="section-kicker">Duplicate Instruction</p>
+      <p class="section-kicker">复制指令</p>
       <h3>{{ template?.name ?? "待复制指令模板" }}</h3>
       <p>不输入新名称时使用后端默认规则；如果名称重复，后端会自动追加序号。</p>
     </div>

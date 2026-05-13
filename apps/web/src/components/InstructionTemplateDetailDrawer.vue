@@ -37,7 +37,7 @@ const close = () => {
     <section class="instruction-detail">
       <div class="instruction-detail-header">
         <div>
-          <el-tag type="success" effect="plain">GEO Instruction Library</el-tag>
+          <el-tag type="success" effect="plain">GEO 指令库</el-tag>
           <h2>{{ props.template?.name ?? "指令模板详情" }}</h2>
           <p>查看这条指令如何指导 GEO 内容生成，而不是作为普通 prompt 收藏。</p>
         </div>
@@ -74,23 +74,23 @@ const close = () => {
         </el-descriptions>
 
         <div class="instruction-readable-block">
-          <p class="section-kicker">Instruction</p>
+          <p class="section-kicker">指令正文</p>
           <h3>指令正文</h3>
           <pre>{{ formatInstructionText(template.instruction) }}</pre>
         </div>
         <div class="instruction-readable-grid">
           <div class="instruction-readable-block">
-            <p class="section-kicker">Output Format</p>
+            <p class="section-kicker">输出格式</p>
             <h3>输出格式</h3>
             <pre>{{ formatInstructionText(template.outputFormat) }}</pre>
           </div>
           <div class="instruction-readable-block">
-            <p class="section-kicker">Quality Rules</p>
+            <p class="section-kicker">质量要求</p>
             <h3>质量要求</h3>
             <pre>{{ formatInstructionText(template.qualityRules) }}</pre>
           </div>
           <div class="instruction-readable-block">
-            <p class="section-kicker">Forbidden Rules</p>
+            <p class="section-kicker">禁用规则</p>
             <h3>禁用规则</h3>
             <pre>{{ formatInstructionText(template.forbiddenRules) }}</pre>
           </div>

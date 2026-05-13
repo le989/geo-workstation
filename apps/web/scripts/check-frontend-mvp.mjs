@@ -307,8 +307,8 @@ try {
     assert(text.trim().length > 120, `${route} rendered too little content`);
     if (route === "/geo-analysis") {
       assert(
-        text.includes("Mock GEO 分析") && text.includes("不调用真实外部 AI 平台"),
-        "/geo-analysis must render the real Mock GEO analysis page"
+        text.includes("模拟 GEO 分析") && text.includes("不调用真实外部 AI 平台"),
+        "/geo-analysis must render the real GEO analysis page"
       );
     }
   }

@@ -122,16 +122,16 @@ const handleSubmit = () => {
     <template #header>
       <div class="content-task-panel-header">
         <div>
-          <p class="section-kicker">Create Content Task</p>
+          <p class="section-kicker">创建内容任务</p>
           <h3>基于分析任务创建内容任务</h3>
-          <p>把提示词缺口转为 GEO 内容补齐动作，复用 Mock 内容生成链路，不接真实 AI。</p>
+          <p>把提示词缺口转为 GEO 内容补齐动作，复用模拟内容生成链路，不接真实 AI。</p>
         </div>
-        <el-tag type="warning" effect="plain">Mock 内容生成</el-tag>
+        <el-tag type="warning" effect="plain">模拟内容生成</el-tag>
       </div>
     </template>
 
     <el-alert
-      title="如果不手动选择 geoPromptIds，后端会优先使用已由本分析任务转入的提示词；没有时会尝试自动转入建议。"
+      title="如果不手动选择 GEO 提示词，后端会优先使用已由本分析任务转入的提示词；没有时会尝试自动转入建议。"
       type="info"
       :closable="false"
       show-icon
@@ -213,7 +213,7 @@ const handleSubmit = () => {
           >
             使用已转入提示词
           </el-button>
-          <span>已选择 {{ form.geoPromptIds.length }} 个 geoPromptIds</span>
+          <span>已选择 {{ form.geoPromptIds.length }} 个 GEO 提示词</span>
         </div>
         <GeoPromptSelector v-model="form.geoPromptIds" :disabled="submitting" />
       </el-form-item>

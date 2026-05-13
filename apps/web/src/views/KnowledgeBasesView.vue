@@ -36,7 +36,7 @@ import KnowledgeBaseFilters from "@/components/KnowledgeBaseFilters.vue";
 import KnowledgeBaseFormDialog from "@/components/KnowledgeBaseFormDialog.vue";
 import KnowledgeChunkFormDialog from "@/components/KnowledgeChunkFormDialog.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
-import { knowledgeBaseStatusLabelMap } from "@/config/knowledge-options";
+import { knowledgeBaseStatusLabelMap, parseStatusLabelMap } from "@/config/knowledge-options";
 
 const knowledgeBases = ref<KnowledgeBase[]>([]);
 const total = ref(0);
@@ -393,8 +393,11 @@ const handleFileDetail = async (file: KnowledgeFile) => {
     const fileDetail = await getKnowledgeFile(file.id);
     const latestChunks =
       fileDetail.latestChunks.map((chunk) => `- ${chunk.title}`).join("\n") || "暂无最近知识片段";
+    const parseStatusLabel =
+      parseStatusLabelMap[fileDetail.knowledgeFile.parseStatus] ??
+      fileDetail.knowledgeFile.parseStatus;
     await ElMessageBox.alert(
-      `文件：${fileDetail.knowledgeFile.fileName}\n解析状态：${fileDetail.knowledgeFile.parseStatus}\n知识片段数：${fileDetail.chunksCount}\n最近片段：\n${latestChunks}`,
+      `文件：${fileDetail.knowledgeFile.fileName}\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"
@@ -559,7 +562,7 @@ onMounted(() => {
   <section class="knowledge-page">
     <header class="knowledge-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO Knowledge Base</el-tag>
+        <el-tag type="success" effect="plain">企业 GEO 知识库</el-tag>
         <h1>企业 GEO 知识库</h1>
         <p>
           沉淀产品、参数、场景、案例、资质、FAQ 等企业事实资料，作为 GEO 内容生成和 AI
@@ -589,7 +592,7 @@ onMounted(() => {
     <section class="knowledge-table-panel">
       <div class="knowledge-table-header">
         <div>
-          <p class="section-kicker">Fact Foundation</p>
+          <p class="section-kicker">事实底座</p>
           <h2>企业事实资料库</h2>
           <p>查看各产品线的知识资产建设情况，并进入详情完成文本导入、文件解析和片段维护。</p>
         </div>

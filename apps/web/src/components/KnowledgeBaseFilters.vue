@@ -38,7 +38,7 @@ watch(
   <section class="knowledge-filter-panel">
     <div class="knowledge-filter-copy">
       <div>
-        <p class="section-kicker">Knowledge Assets</p>
+        <p class="section-kicker">知识资产</p>
         <h2>知识库筛选</h2>
         <p>按产品线、状态和关键词查看哪些企业事实资料已经沉淀为 GEO 知识资产。</p>
       </div>
@@ -50,7 +50,7 @@ watch(
         <el-input
           v-model="localFilters.search"
           clearable
-          placeholder="搜索 name / productLine / description"
+          placeholder="搜索名称、产品线或说明"
           @keyup.enter="emit('search')"
         />
       </el-form-item>
@@ -68,7 +68,7 @@ watch(
         </el-select>
       </el-form-item>
       <el-form-item label="创建人">
-        <el-input v-model="localFilters.createdBy" clearable placeholder="createdBy" />
+        <el-input v-model="localFilters.createdBy" clearable placeholder="创建人 ID" />
       </el-form-item>
     </el-form>
 

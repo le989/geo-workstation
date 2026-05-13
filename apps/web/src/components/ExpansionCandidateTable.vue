@@ -81,7 +81,7 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
   <section class="expansion-candidate-panel">
     <div class="expansion-candidate-header">
       <div>
-        <p class="section-kicker">Candidates</p>
+        <p class="section-kicker">候选词</p>
         <h2>候选词结果</h2>
         <p>候选词不会自动进入策略库，重复项默认不建议保存，需要人工勾选后提交。</p>
       </div>
@@ -111,29 +111,29 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           />
         </template>
       </el-table-column>
-      <el-table-column prop="promptText" label="promptText" min-width="270" fixed="left">
+      <el-table-column prop="promptText" label="GEO 候选提示词" min-width="270" fixed="left">
         <template #default="{ row }: { row: ExpansionCandidate }">
           <strong class="prompt-text-cell">{{ row.promptText }}</strong>
           <small v-if="row.duplicateInDatabase" class="candidate-hint">库内重复，不建议保存</small>
           <small v-else-if="row.duplicateInBatch" class="candidate-hint">本批重复</small>
         </template>
       </el-table-column>
-      <el-table-column prop="baseWord" label="baseWord" min-width="150">
+      <el-table-column prop="baseWord" label="训练词" min-width="150">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{ formatOptional(row.baseWord) }}
         </template>
       </el-table-column>
-      <el-table-column prop="userIntent" label="userIntent" width="126">
+      <el-table-column prop="userIntent" label="用户意图" width="126">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{ row.userIntent ? userIntentLabelMap[row.userIntent] : "--" }}
         </template>
       </el-table-column>
-      <el-table-column prop="priority" label="priority" width="92" align="center">
+      <el-table-column prop="priority" label="优先级" width="92" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
           <el-tag effect="plain">P{{ row.priority }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="recommendedContentType" label="recommendedContentType" min-width="176">
+      <el-table-column prop="recommendedContentType" label="推荐内容类型" min-width="176">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{
             row.recommendedContentType
@@ -142,18 +142,13 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           }}
         </template>
       </el-table-column>
-      <el-table-column prop="duplicateInBatch" label="duplicateInBatch" width="152" align="center">
+      <el-table-column prop="duplicateInBatch" label="本批重复" width="152" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
           <el-tag v-if="row.duplicateInBatch" type="warning" effect="plain">本批重复</el-tag>
           <span v-else>--</span>
         </template>
       </el-table-column>
-      <el-table-column
-        prop="duplicateInDatabase"
-        label="duplicateInDatabase"
-        width="168"
-        align="center"
-      >
+      <el-table-column prop="duplicateInDatabase" label="库内重复" width="168" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
           <el-tag v-if="row.duplicateInDatabase" type="danger" effect="plain">
             库内重复，不建议保存
@@ -161,7 +156,7 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           <span v-else>--</span>
         </template>
       </el-table-column>
-      <el-table-column prop="duplicateReason" label="duplicateReason" min-width="178">
+      <el-table-column prop="duplicateReason" label="重复原因" min-width="178">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{
             row.duplicateReason
@@ -170,14 +165,14 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           }}
         </template>
       </el-table-column>
-      <el-table-column prop="selected" label="selected" width="104" align="center">
+      <el-table-column prop="selected" label="保存结果" width="104" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
           <el-tag :type="row.selected ? 'success' : 'info'" effect="plain">
             {{ row.selected ? "已保存" : "未保存" }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="savedPromptId" label="savedPromptId" min-width="190">
+      <el-table-column prop="savedPromptId" label="已保存提示词 ID" min-width="190">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{ row.savedPromptId ?? "--" }}
         </template>
@@ -198,7 +193,7 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createdAt" label="createdAt" min-width="176">
+      <el-table-column prop="createdAt" label="创建时间" min-width="176">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{ formatDateTime(row.createdAt) }}
         </template>

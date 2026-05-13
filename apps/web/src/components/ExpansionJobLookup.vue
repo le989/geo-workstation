@@ -28,9 +28,9 @@ const handleLookup = () => {
 <template>
   <section class="expansion-lookup-panel">
     <div>
-      <p class="section-kicker">Job Lookup</p>
+      <p class="section-kicker">任务查询</p>
       <h2>查询拓词任务详情</h2>
-      <p>输入 jobId 可查看历史拓词候选、重复标记和保存状态。</p>
+      <p>输入拓词任务 ID 可查看历史拓词候选、重复标记和保存状态。</p>
     </div>
     <el-alert
       v-if="localError"
@@ -41,7 +41,7 @@ const handleLookup = () => {
       class="dialog-alert"
     />
     <div class="expansion-lookup-form">
-      <el-input v-model="jobId" placeholder="输入 expansion jobId" @keyup.enter="handleLookup" />
+      <el-input v-model="jobId" placeholder="输入拓词任务 ID" @keyup.enter="handleLookup" />
       <el-button type="primary" :loading="loading" @click="handleLookup">查询任务详情</el-button>
     </div>
   </section>

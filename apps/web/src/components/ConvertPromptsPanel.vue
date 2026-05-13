@@ -87,9 +87,9 @@ const handleSubmit = () => {
     <template #header>
       <div class="convert-header">
         <div>
-          <p class="section-kicker">Convert To GEO Prompts</p>
+          <p class="section-kicker">转入 GEO 提示词</p>
           <h3>转入提示词库</h3>
-          <p>将分析任务中的 promptSuggestions 转入提示词策略库，后端会按未软删除提示词去重。</p>
+          <p>将分析任务中的提示词建议转入提示词策略库，后端会按未软删除提示词去重。</p>
         </div>
         <el-tag type="success" effect="plain">默认追踪</el-tag>
       </div>

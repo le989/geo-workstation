@@ -61,9 +61,9 @@ const handleSubmit = () => {
   <section class="knowledge-file-upload">
     <div class="knowledge-tab-header">
       <div>
-        <p class="section-kicker">File Import</p>
+        <p class="section-kicker">文件导入</p>
         <h3>上传可解析资料</h3>
-        <p>第一版只支持 txt/md/csv，不支持 PDF/Word/Excel；上传后会解析为 knowledge_chunks。</p>
+        <p>第一版只支持 txt/md/csv，不支持 PDF/Word/Excel；上传后会解析为知识片段。</p>
       </div>
       <el-tag type="info" effect="plain">本地存储 + 同步解析</el-tag>
     </div>

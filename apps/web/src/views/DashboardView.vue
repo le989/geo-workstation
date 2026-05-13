@@ -315,7 +315,7 @@ const modelMetrics = computed(() => [
 
     <DashboardSection
       title="当前能力边界"
-      description="明确哪些能力已经真实入库，哪些仍是 Mock，避免把演示流程误判为自动化检测。"
+      description="明确哪些能力已经真实入库，哪些仍是模拟生成，避免把演示流程误判为自动化检测。"
     >
       <CapabilityBoundaryCard />
     </DashboardSection>

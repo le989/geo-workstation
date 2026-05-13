@@ -21,7 +21,7 @@ const failedReasonLabelMap: Record<string, string> = {
   <section v-if="result" class="save-candidates-result">
     <div class="save-candidates-result__header">
       <div>
-        <p class="section-kicker">Save Result</p>
+        <p class="section-kicker">保存结果</p>
         <h2>保存结果反馈</h2>
         <p>保存前后端会再次检查重复，单个候选失败不会影响其他候选。</p>
       </div>

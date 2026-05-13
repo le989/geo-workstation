@@ -22,7 +22,8 @@ import ExpansionModeTabs from "@/components/ExpansionModeTabs.vue";
 import RuleExpansionForm from "@/components/RuleExpansionForm.vue";
 import SaveCandidatesResult from "@/components/SaveCandidatesResult.vue";
 import { expansionModeLabelMap, expansionStatusLabelMap } from "@/config/expansion-options";
-import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
+import { formatDateTime, formatOptional, geoPromptTypeLabelMap } from "@/config/geo-prompt-options";
+import { formatAiProvider } from "@/config/label-maps";
 
 const router = useRouter();
 
@@ -187,10 +188,10 @@ const goGeoPrompts = () => {
   <section class="expansion-page">
     <header class="expansion-hero">
       <div>
-        <el-tag type="warning" effect="plain">GEO Expansion</el-tag>
+        <el-tag type="warning" effect="plain">GEO 拓词</el-tag>
         <h1>AI 拓词</h1>
         <p>
-          通过手动组合规则、Mock 或 openai_compatible 生成候选 GEO
+          通过手动组合规则、模拟生成或真实 AI 接口生成候选 GEO
           提示词，人工筛选后保存到提示词策略库，用于后续内容生成和模型覆盖追踪。
         </p>
         <strong>先生成候选词，不直接入库；保存前会检查重复，结果服务于 GEO 优化闭环。</strong>
@@ -217,7 +218,7 @@ const goGeoPrompts = () => {
     <section class="expansion-result-panel">
       <div class="expansion-result-header">
         <div>
-          <p class="section-kicker">Expansion Job</p>
+          <p class="section-kicker">拓词任务</p>
           <h2>拓词任务结果</h2>
           <p>查看任务状态、候选词重复标记和保存状态。候选词必须勾选后才会进入策略库。</p>
         </div>
@@ -243,26 +244,26 @@ const goGeoPrompts = () => {
 
       <template v-else-if="currentJob">
         <el-descriptions :column="4" border class="expansion-job-summary">
-          <el-descriptions-item label="jobId">{{ currentJob.id }}</el-descriptions-item>
-          <el-descriptions-item label="mode">
+          <el-descriptions-item label="任务 ID">{{ currentJob.id }}</el-descriptions-item>
+          <el-descriptions-item label="拓词方式">
             {{ expansionModeLabelMap[currentJob.mode] }}
           </el-descriptions-item>
-          <el-descriptions-item label="status">
+          <el-descriptions-item label="任务状态">
             {{ expansionStatusLabelMap[currentJob.status] ?? currentJob.status }}
           </el-descriptions-item>
-          <el-descriptions-item label="promptType">
-            {{ currentJob.promptType }}
+          <el-descriptions-item label="输出词类型">
+            {{ geoPromptTypeLabelMap[currentJob.promptType] ?? currentJob.promptType }}
           </el-descriptions-item>
-          <el-descriptions-item label="provider">
-            {{ formatOptional(currentJob.provider) }}
+          <el-descriptions-item label="AI 生成方式">
+            {{ formatAiProvider(currentJob.provider) }}
           </el-descriptions-item>
-          <el-descriptions-item label="model">
+          <el-descriptions-item label="模型名称">
             {{ formatOptional(currentJob.model) }}
           </el-descriptions-item>
-          <el-descriptions-item label="baseWord">
+          <el-descriptions-item label="训练词">
             {{ formatOptional(currentJob.baseWord) }}
           </el-descriptions-item>
-          <el-descriptions-item label="createdAt">
+          <el-descriptions-item label="创建时间">
             {{ formatDateTime(currentJob.createdAt) }}
           </el-descriptions-item>
         </el-descriptions>
@@ -276,7 +277,7 @@ const goGeoPrompts = () => {
         <section class="save-candidates-panel">
           <div class="save-candidates-panel__header">
             <div>
-              <p class="section-kicker">Save Candidates</p>
+              <p class="section-kicker">保存候选词</p>
               <h2>保存选中候选词到提示词策略库</h2>
               <p>
                 当前已勾选 {{ selectedCount }} 条，可保存候选
@@ -298,22 +299,22 @@ const goGeoPrompts = () => {
           <AppErrorState v-if="saveError" title="候选词保存失败" :message="saveError" />
 
           <el-form label-position="top" class="save-candidates-form">
-            <el-form-item label="createdBy">
+            <el-form-item label="创建人">
               <el-input
                 v-model="saveDefaults.createdBy"
                 placeholder="可选，默认由后端使用系统 GEO 运营用户"
               />
             </el-form-item>
-            <el-form-item label="defaultProductLine">
+            <el-form-item label="默认产品线">
               <el-input
                 v-model="saveDefaults.defaultProductLine"
                 placeholder="可选，覆盖保存时的产品线"
               />
             </el-form-item>
-            <el-form-item label="defaultPriority">
+            <el-form-item label="默认优先级">
               <el-input-number v-model="saveDefaults.defaultPriority" :min="1" :max="5" />
             </el-form-item>
-            <el-form-item label="defaultTrackEnabled">
+            <el-form-item label="默认追踪状态">
               <el-switch
                 v-model="saveDefaults.defaultTrackEnabled"
                 active-text="追踪"

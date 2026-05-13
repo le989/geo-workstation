@@ -147,7 +147,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
     <section class="knowledge-detail">
       <div class="knowledge-detail-header">
         <div>
-          <el-tag type="success" effect="plain">GEO Knowledge Base</el-tag>
+          <el-tag type="success" effect="plain">企业 GEO 知识库</el-tag>
           <h2>{{ detail?.knowledgeBase.name ?? "企业 GEO 知识库详情" }}</h2>
           <p>
             AI
@@ -196,7 +196,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
             <section class="knowledge-tab-panel">
               <div class="knowledge-tab-header">
                 <div>
-                  <p class="section-kicker">Knowledge Chunks</p>
+                  <p class="section-kicker">知识片段</p>
                   <h3>可被 GEO 内容引用的知识片段</h3>
                   <p>查看、筛选和编辑企业事实资料，避免把知识库做成普通文件柜。</p>
                 </div>
@@ -207,7 +207,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                   <el-input
                     v-model="chunkFilters.search"
                     clearable
-                    placeholder="搜索 title / content"
+                    placeholder="搜索标题或内容"
                     @keyup.enter="handleChunkSearch"
                   />
                 </el-form-item>
@@ -275,9 +275,9 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
             <section class="knowledge-tab-panel">
               <div class="knowledge-tab-header">
                 <div>
-                  <p class="section-kicker">Parsed Files</p>
+                  <p class="section-kicker">解析文件</p>
                   <h3>文件解析状态</h3>
-                  <p>解析失败会保留 errorMessage，可重新解析；删除文件会同步软删除关联知识片段。</p>
+                  <p>解析失败会保留错误信息，可重新解析；删除文件会同步软删除关联知识片段。</p>
                 </div>
               </div>
 
@@ -286,7 +286,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                   <el-input
                     v-model="fileFilters.search"
                     clearable
-                    placeholder="搜索 fileName"
+                    placeholder="搜索文件名"
                     @keyup.enter="handleFileSearch"
                   />
                 </el-form-item>

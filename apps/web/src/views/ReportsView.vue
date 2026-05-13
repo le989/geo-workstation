@@ -203,109 +203,109 @@ const handleExport = async (reportType: ReportExportType) => {
 
 const overviewMetrics = computed<ReportMetric[]>(() => [
   {
-    label: "promptTotal 提示词总量",
+    label: "提示词总量",
     value: formatReportNumber(overview.value?.promptTotal),
     description: "GEO 提示词资产总规模"
   },
   {
-    label: "basePromptCount 训练词",
+    label: "训练词",
     value: formatReportNumber(overview.value?.basePromptCount),
     description: "用于诊断和拓词的基础词"
   },
   {
-    label: "distilledPromptCount 蒸馏词",
+    label: "蒸馏词",
     value: formatReportNumber(overview.value?.distilledPromptCount),
     description: "用户会向 AI 提问的选择型问法"
   },
   {
-    label: "brandPromptCount 品牌词",
+    label: "品牌词",
     value: formatReportNumber(overview.value?.brandPromptCount),
     description: "品牌验证和推荐相关提示词"
   },
   {
-    label: "scenePromptCount 场景词",
+    label: "场景词",
     value: formatReportNumber(overview.value?.scenePromptCount),
     description: "应用场景驱动的 GEO 问法"
   },
   {
-    label: "trackedPromptCount 追踪词",
+    label: "追踪词",
     value: formatReportNumber(overview.value?.trackedPromptCount),
     description: "需要持续检测模型表现的提示词"
   },
   {
-    label: "highPriorityPromptCount 高优先级词",
+    label: "高优先级词",
     value: formatReportNumber(overview.value?.highPriorityPromptCount),
     description: "优先补检测、内容和资料的提示词",
     tone: "warning"
   },
   {
-    label: "knowledgeBaseCount 知识库",
+    label: "知识库",
     value: formatReportNumber(overview.value?.knowledgeBaseCount),
     description: "企业 GEO 知识资产集合"
   },
   {
-    label: "knowledgeChunkCount 知识片段",
+    label: "知识片段",
     value: formatReportNumber(overview.value?.knowledgeChunkCount),
     description: "可供内容生成引用的事实资料"
   },
   {
-    label: "contentTaskCount 内容任务",
+    label: "内容任务",
     value: formatReportNumber(overview.value?.contentTaskCount),
     description: "围绕提示词创建的内容任务"
   },
   {
-    label: "contentItemCount 内容项",
+    label: "内容项",
     value: formatReportNumber(overview.value?.contentItemCount),
     description: "已沉淀的 GEO 内容资产"
   },
   {
-    label: "failedContentTaskCount 失败任务",
+    label: "失败任务",
     value: formatReportNumber(overview.value?.failedContentTaskCount),
     description: "需要重试或补输入的内容任务",
     tone: (overview.value?.failedContentTaskCount ?? 0) > 0 ? "danger" : "default"
   },
   {
-    label: "modelInclusionRecordCount 覆盖记录",
+    label: "覆盖记录",
     value: formatReportNumber(overview.value?.modelInclusionRecordCount),
     description: "人工录入或导入的模型表现记录"
   },
   {
-    label: "brandMentionedCount 品牌提及",
+    label: "品牌提及",
     value: formatReportNumber(overview.value?.brandMentionedCount),
     description: "AI 回答中提及品牌的次数",
     tone: "good"
   },
   {
-    label: "brandRecommendedCount 品牌推荐",
+    label: "品牌推荐",
     value: formatReportNumber(overview.value?.brandRecommendedCount),
     description: "AI 明确推荐品牌的次数",
     tone: "good"
   },
   {
-    label: "brandMentionRate 品牌提及率",
+    label: "品牌提及率",
     value: formatReportPercent(overview.value?.brandMentionRate),
     description: "覆盖记录中提及品牌的比例",
     percent: toReportPercent(overview.value?.brandMentionRate)
   },
   {
-    label: "brandRecommendRate 品牌推荐率",
+    label: "品牌推荐率",
     value: formatReportPercent(overview.value?.brandRecommendRate),
     description: "覆盖记录中推荐品牌的比例",
     percent: toReportPercent(overview.value?.brandRecommendRate)
   },
   {
-    label: "citedOfficialSiteCount 官网引用",
+    label: "官网引用",
     value: formatReportNumber(overview.value?.citedOfficialSiteCount),
     description: "AI 回答引用官网或可信资料次数"
   },
   {
-    label: "citedOfficialSiteRate 官网引用率",
+    label: "官网引用率",
     value: formatReportPercent(overview.value?.citedOfficialSiteRate),
     description: "覆盖记录中官网引用比例",
     percent: toReportPercent(overview.value?.citedOfficialSiteRate)
   },
   {
-    label: "uncoveredTrackedPromptCount 未覆盖追踪词",
+    label: "未覆盖追踪词",
     value: formatReportNumber(overview.value?.uncoveredTrackedPromptCount),
     description: "追踪提示词中尚无覆盖记录的数量",
     tone: (overview.value?.uncoveredTrackedPromptCount ?? 0) > 0 ? "warning" : "default"
@@ -337,7 +337,7 @@ onMounted(() => {
   <section class="reports-page">
     <header class="reports-hero">
       <div>
-        <span class="reports-hero__eyebrow">GEO Review Center</span>
+        <span class="reports-hero__eyebrow">GEO 复盘中心</span>
         <h1>GEO 报表</h1>
         <p>
           从提示词资产、内容产出、知识库覆盖和模型覆盖记录中复盘 GEO
@@ -347,7 +347,7 @@ onMounted(() => {
       <div class="reports-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading[activeTab]" @click="refreshCurrentReport">
-          刷新当前 Tab
+          刷新当前报表
         </el-button>
       </div>
     </header>
@@ -364,7 +364,7 @@ onMounted(() => {
       <el-tab-pane v-for="tab in reportTabs" :key="tab.name" :label="tab.label" :name="tab.name">
         <div class="report-tab-toolbar">
           <div>
-            <p class="section-kicker">Report Export</p>
+            <p class="section-kicker">报表导出</p>
             <h2>{{ tab.label }}</h2>
           </div>
           <ReportExportButton
@@ -414,7 +414,7 @@ onMounted(() => {
         <section v-if="tab.name === 'optimization_suggestions'" class="report-panel">
           <el-card class="suggestion-limit-card" shadow="never">
             <el-form label-position="top">
-              <el-form-item label="limit 优化建议数量">
+              <el-form-item label="优化建议数量">
                 <el-input-number v-model="suggestionLimit" :max="200" :min="1" />
               </el-form-item>
             </el-form>

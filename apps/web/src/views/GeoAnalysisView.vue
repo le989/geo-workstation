@@ -149,7 +149,7 @@ const openCreateDialog = () => {
 
 const openEditDialog = (task: GeoAnalysisTask) => {
   if (task.status !== "pending") {
-    ElMessage.warning("仅 pending 状态的 GEO 分析任务允许编辑。");
+    ElMessage.warning("仅待执行状态的 GEO 分析任务允许编辑。");
     return;
   }
 
@@ -178,7 +178,7 @@ const handleSubmitTask = async (
     }
 
     const created = await createGeoAnalysisTask(payload as CreateGeoAnalysisTaskPayload);
-    ElMessage.success("GEO 分析任务已创建，可运行 Mock 分析。");
+    ElMessage.success("GEO 分析任务已创建，可运行模拟分析。");
     formVisible.value = false;
     await loadTasks();
     selectedTaskId.value = created.id;
@@ -225,8 +225,8 @@ const runTask = async (task?: GeoAnalysisTask) => {
 
   try {
     await ElMessageBox.confirm(
-      "当前为 Mock 分析，不会调用真实外部 AI 平台，也不会访问真实网站。确认运行吗？",
-      "运行 Mock GEO 分析",
+      "当前为模拟分析，不会调用真实外部 AI 平台，也不会访问真实网站。确认运行吗？",
+      "运行模拟 GEO 分析",
       {
         cancelButtonText: "取消",
         confirmButtonText: "运行分析",
@@ -241,11 +241,11 @@ const runTask = async (task?: GeoAnalysisTask) => {
     detailVisible.value = true;
     convertResult.value = null;
     convertError.value = "";
-    ElMessage.success("Mock GEO 分析已完成。");
+    ElMessage.success("模拟 GEO 分析已完成。");
     await loadTasks();
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error instanceof Error ? error.message : "运行 Mock 分析失败。");
+      ElMessage.error(error instanceof Error ? error.message : "运行模拟分析失败。");
     }
   } finally {
     running.value = false;
@@ -283,7 +283,7 @@ const handleCreateContentTask = async (payload: CreateAnalysisContentTaskPayload
     await createAnalysisContentTask(selectedTaskId.value, payload);
     await loadDetail();
     await ElMessageBox.confirm(
-      "已基于分析任务创建 GEO 内容任务，并复用 Mock 内容生成链路。是否前往内容生成页面查看？",
+      "已基于分析任务创建 GEO 内容任务，并复用模拟内容生成链路。是否前往内容生成页面查看？",
       "内容任务已创建",
       {
         cancelButtonText: "留在分析详情",
@@ -311,10 +311,10 @@ onMounted(() => {
   <section class="geo-analysis-page">
     <header class="page-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO Diagnosis</el-tag>
+        <el-tag type="success" effect="plain">GEO 诊断</el-tag>
         <h1>GEO 分析</h1>
         <p>
-          通过 Mock GEO 分析任务，模拟品牌、产品线和目标模型在 AI 问答场景中的表现，识别
+          通过模拟 GEO 分析任务，模拟品牌、产品线和目标模型在 AI 问答场景中的表现，识别
           提示词缺口、知识库缺口和内容补齐方向。
         </p>
       </div>
@@ -325,7 +325,7 @@ onMounted(() => {
     </header>
 
     <el-alert
-      title="当前阶段为 Mock 分析，不调用真实外部 AI 平台，不访问真实网站，不做 SEO 扫描器。"
+      title="当前阶段为模拟分析，不调用真实外部 AI 平台，不访问真实网站，不做 SEO 扫描器。"
       type="warning"
       :closable="false"
       show-icon
@@ -346,7 +346,7 @@ onMounted(() => {
     <section class="table-panel">
       <div class="table-panel-header">
         <div>
-          <p class="section-kicker">Analysis Tasks</p>
+          <p class="section-kicker">分析任务</p>
           <h2>分析任务列表</h2>
           <p>
             查看品牌是否被提及、推荐、引用官网，以及哪些任务已经生成提示词建议和内容缺口。
@@ -419,7 +419,7 @@ onMounted(() => {
       <AppEmptyState
         v-if="isEmpty && !hasTableError"
         title="暂无 GEO 分析任务"
-        description="先创建一个品牌或产品线分析任务，再运行 Mock 分析识别提示词、知识库和内容缺口。"
+        description="先创建一个品牌或产品线分析任务，再运行模拟分析识别提示词、知识库和内容缺口。"
       />
 
       <div class="pagination-row">

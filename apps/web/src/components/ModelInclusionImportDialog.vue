@@ -74,7 +74,7 @@ const parseRows = () => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="第一版支持粘贴 JSON rows。布尔值可用 true/false、1/0、是/否、yes/no；单行失败不会影响其他行。"
+      title="第一版支持粘贴 JSON 数据行。布尔值可用 true/false、1/0、是/否、yes/no；单行失败不会影响其他行。"
       type="info"
       :closable="false"
       show-icon
@@ -89,7 +89,7 @@ const parseRows = () => {
       class="dialog-alert"
     />
 
-    <el-input v-model="rowsText" type="textarea" :rows="14" placeholder="粘贴 JSON rows 数组" />
+    <el-input v-model="rowsText" type="textarea" :rows="14" placeholder="粘贴 JSON 数据行数组" />
 
     <section v-if="result" class="model-import-result">
       <div class="model-import-result__metrics">
@@ -98,7 +98,7 @@ const parseRows = () => {
         <span>失败：{{ result.failedCount }}</span>
       </div>
       <el-collapse v-if="failedRows.length > 0">
-        <el-collapse-item title="查看 failedRows" name="failedRows">
+        <el-collapse-item title="查看失败行" name="failedRows">
           <div v-for="row in failedRows" :key="row.rowIndex" class="failed-row">
             <strong>第 {{ row.rowIndex }} 行</strong>
             <p>{{ row.errors.join("；") }}</p>

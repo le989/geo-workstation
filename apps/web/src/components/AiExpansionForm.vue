@@ -3,6 +3,7 @@ import { reactive, ref, watch } from "vue";
 import type { AiGenerateExpansionPayload } from "@/api/expansion";
 import type { UserIntent } from "@/api/geo-prompts";
 import { splitCommaValues, userIntentOptions } from "@/config/geo-prompt-options";
+import { aiProviderOptions } from "@/config/label-maps";
 
 const props = defineProps<{
   loading?: boolean;
@@ -48,7 +49,7 @@ const handleSubmit = () => {
   localError.value = "";
 
   if (!form.baseWord.trim()) {
-    localError.value = "训练词 baseWord 不能为空。";
+    localError.value = "训练词不能为空。";
     return;
   }
 
@@ -77,15 +78,15 @@ const handleSubmit = () => {
   <section class="expansion-form-panel">
     <div class="expansion-form-header">
       <div>
-        <p class="section-kicker">AI Expansion</p>
+        <p class="section-kicker">AI 拓词</p>
         <h2>AI 拓词</h2>
-        <p>支持 Mock 或 openai_compatible 生成偏 GEO 场景的候选问法；结果仍需人工勾选保存。</p>
+        <p>支持模拟生成或真实 AI 接口生成偏 GEO 场景的候选问法；结果仍需人工勾选保存。</p>
       </div>
       <el-tag type="warning" effect="plain">候选词不会自动入库</el-tag>
     </div>
 
     <el-alert
-      title="默认 provider 为 mock；选择 openai_compatible 会消耗真实 AI 接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
+      title="默认使用模拟生成；选择真实 AI 接口会消耗接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
       type="warning"
       :closable="false"
       show-icon
@@ -101,7 +102,7 @@ const handleSubmit = () => {
     />
 
     <el-form label-position="top" class="expansion-form-grid">
-      <el-form-item label="训练词 baseWord" required>
+      <el-form-item label="训练词" required>
         <el-input v-model="form.baseWord" placeholder="例如：激光测距传感器" />
       </el-form-item>
       <el-form-item label="输出词类型" required>
@@ -124,13 +125,17 @@ const handleSubmit = () => {
       <el-form-item label="生成数量">
         <el-input-number v-model="form.count" :min="1" :max="50" />
       </el-form-item>
-      <el-form-item label="provider">
+      <el-form-item label="AI 生成方式">
         <el-select v-model="form.provider">
-          <el-option label="mock：Mock 生成" value="mock" />
-          <el-option label="openai_compatible：真实 AI" value="openai_compatible" />
+          <el-option
+            v-for="option in aiProviderOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
         </el-select>
       </el-form-item>
-      <el-form-item label="model">
+      <el-form-item label="模型名称">
         <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
       </el-form-item>
       <el-form-item label="知识库 ID">

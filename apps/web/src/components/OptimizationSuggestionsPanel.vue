@@ -25,7 +25,7 @@ const typeTag = (type: string) => {
       <template #header>
         <div class="report-card-header">
           <div>
-            <h3>optimization suggestions GEO 优化建议</h3>
+            <h3>GEO 优化建议</h3>
             <span>用规则把缺检测、缺内容、缺资料和失败任务整理为下一步运营动作。</span>
           </div>
         </div>
@@ -45,21 +45,21 @@ const typeTag = (type: string) => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="priority" width="90" prop="priority" />
+        <el-table-column label="优先级" width="90" prop="priority" />
         <el-table-column label="建议" min-width="260">
           <template #default="{ row }">
             <strong>{{ row.title }}</strong>
             <p class="table-subtext">{{ row.reason }}</p>
           </template>
         </el-table-column>
-        <el-table-column label="suggestedAction" min-width="260" prop="suggestedAction" />
-        <el-table-column label="relatedPromptText" min-width="240">
+        <el-table-column label="建议动作" min-width="260" prop="suggestedAction" />
+        <el-table-column label="关联提示词" min-width="240">
           <template #default="{ row }">{{ formatOptional(row.relatedPromptText) }}</template>
         </el-table-column>
-        <el-table-column label="relatedProductLine" width="170">
+        <el-table-column label="关联产品线" width="170">
           <template #default="{ row }">{{ formatOptional(row.relatedProductLine) }}</template>
         </el-table-column>
-        <el-table-column label="relatedModel" width="150">
+        <el-table-column label="关联模型" width="150">
           <template #default="{ row }">{{ formatOptional(row.relatedModel) }}</template>
         </el-table-column>
       </el-table>

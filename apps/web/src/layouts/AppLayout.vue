@@ -54,7 +54,7 @@ const handleLogout = async () => {
     <el-container class="admin-main">
       <el-header class="admin-header">
         <div>
-          <p class="header-eyebrow">GEO Marketing Operations</p>
+          <p class="header-eyebrow">GEO 营销运营</p>
           <h2>GEO 营销运营系统</h2>
         </div>
         <div class="header-actions">

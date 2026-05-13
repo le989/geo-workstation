@@ -43,7 +43,7 @@ watch(
   <section class="instruction-filter-panel">
     <div class="instruction-filter-copy">
       <div>
-        <p class="section-kicker">Instruction Assets</p>
+        <p class="section-kicker">指令资产</p>
         <h2>指令模板筛选</h2>
         <p>按 GEO 内容生产方法、内容类型、适用提示词类型和模型筛选可复用指令。</p>
       </div>
@@ -55,7 +55,7 @@ watch(
         <el-input
           v-model="localFilters.search"
           clearable
-          placeholder="搜索 name / instruction / contentType / instructionType"
+          placeholder="搜索名称、指令正文、内容类型或指令类型"
           @keyup.enter="emit('search')"
         />
       </el-form-item>
@@ -105,7 +105,7 @@ watch(
         <el-input v-model="localFilters.targetModel" clearable placeholder="例如 deepseek-chat" />
       </el-form-item>
       <el-form-item label="创建人">
-        <el-input v-model="localFilters.createdBy" clearable placeholder="createdBy" />
+        <el-input v-model="localFilters.createdBy" clearable placeholder="创建人 ID" />
       </el-form-item>
     </el-form>
 

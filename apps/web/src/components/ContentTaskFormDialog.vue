@@ -7,6 +7,7 @@ import GeoPromptSelector from "@/components/GeoPromptSelector.vue";
 import { generationTypeOptions } from "@/config/content-options";
 import { contentTypeLabelMap, instructionTypeLabelMap } from "@/config/instruction-options";
 import { formatOptional } from "@/config/geo-prompt-options";
+import { aiProviderOptions } from "@/config/label-maps";
 
 type ContentTaskFormState = {
   name: string;
@@ -171,7 +172,7 @@ const handleSubmit = () => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="默认 provider 为 mock；选择 openai_compatible 会消耗真实 AI 接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
+      title="默认使用模拟生成；选择真实 AI 接口会消耗接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
       type="warning"
       :closable="false"
       show-icon
@@ -244,13 +245,17 @@ const handleSubmit = () => {
           内容类型：{{ getInstructionContentTypeLabel(selectedInstructionTemplate) }}
         </p>
       </el-form-item>
-      <el-form-item label="Provider">
+      <el-form-item label="AI 生成方式">
         <el-select v-model="form.provider">
-          <el-option label="mock：Mock 生成" value="mock" />
-          <el-option label="openai_compatible：真实 AI" value="openai_compatible" />
+          <el-option
+            v-for="option in aiProviderOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
         </el-select>
       </el-form-item>
-      <el-form-item label="Model">
+      <el-form-item label="模型名称">
         <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
       </el-form-item>
       <el-form-item label="创建人">

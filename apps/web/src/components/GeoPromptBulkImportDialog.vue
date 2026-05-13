@@ -8,6 +8,11 @@ import type {
 } from "@/api/geo-prompts";
 import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
 
+const duplicateReasonLabelMap: Record<string, string> = {
+  duplicate_in_batch: "本批重复",
+  duplicate_in_database: "策略库已存在"
+};
+
 const props = defineProps<{
   modelValue: boolean;
   submitting?: boolean;
@@ -116,7 +121,7 @@ const handleSubmit = () => {
       <el-form-item label="默认产品线" class="form-span-2">
         <el-input v-model="form.productLine" placeholder="可选，例如 工业传感器" />
       </el-form-item>
-      <el-form-item label="多行 promptText" class="form-span-2">
+      <el-form-item label="多行 GEO 提示词" class="form-span-2">
         <el-input
           v-model="form.promptTexts"
           type="textarea"
@@ -142,7 +147,9 @@ const handleSubmit = () => {
         <el-collapse-item v-if="result.duplicateRows.length" title="重复行" name="duplicates">
           <ul class="import-row-list">
             <li v-for="row in result.duplicateRows" :key="`${row.rowIndex}-${row.promptText}`">
-              第 {{ row.rowIndex }} 行：{{ row.promptText }}（{{ row.reason }}）
+              第 {{ row.rowIndex }} 行：{{ row.promptText }}（{{
+                duplicateReasonLabelMap[row.reason] ?? row.reason
+              }}）
             </li>
           </ul>
         </el-collapse-item>

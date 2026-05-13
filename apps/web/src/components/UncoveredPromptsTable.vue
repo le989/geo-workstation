@@ -49,7 +49,7 @@ const getUserIntentLabel = (prompt: UncoveredPrompt) =>
         </el-tag>
       </template>
     </el-table-column>
-    <el-table-column label="latestCoverageStatus" width="150">
+    <el-table-column label="最新覆盖状态" width="150">
       <template #default="{ row }">
         <GeoPromptStatusTag :status="row.latestCoverageStatus || 'unknown'" />
       </template>

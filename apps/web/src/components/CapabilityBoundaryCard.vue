@@ -10,7 +10,7 @@ const realCapabilities = [
   "登录与路由保护"
 ];
 
-const mockCapabilities = ["GEO 分析", "AI 拓词默认 Mock", "内容生成默认 Mock"];
+const mockCapabilities = ["GEO 分析", "AI 拓词默认模拟生成", "内容生成默认模拟生成"];
 
 const pendingCapabilities = [
   "真实外部 AI 自动检测",
@@ -29,7 +29,7 @@ const pendingCapabilities = [
       </ul>
     </article>
     <article class="capability-column capability-column--mock">
-      <el-tag type="warning" effect="plain">Mock 能力</el-tag>
+      <el-tag type="warning" effect="plain">模拟能力</el-tag>
       <ul>
         <li v-for="item in mockCapabilities" :key="item">{{ item }}</li>
       </ul>

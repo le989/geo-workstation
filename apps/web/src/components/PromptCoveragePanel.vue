@@ -15,30 +15,30 @@ const props = defineProps<{
 
 const metrics = computed(() => [
   {
-    label: "提示词总数 totalPrompts",
+    label: "提示词总数",
     value: formatReportNumber(props.report?.totalPrompts),
     description: "当前筛选条件下的 GEO 提示词资产"
   },
   {
-    label: "追踪提示词 trackedPrompts",
+    label: "追踪提示词",
     value: formatReportNumber(props.report?.trackedPrompts),
     description: "需要持续检测模型表现的提示词"
   },
   {
-    label: "已有覆盖 promptsWithRecords",
+    label: "已有覆盖",
     value: formatReportNumber(props.report?.promptsWithRecords),
     description: "已有模型覆盖记录的提示词",
     tone: "good" as const
   },
   {
-    label: "未覆盖 promptsWithoutRecords",
+    label: "未覆盖",
     value: formatReportNumber(props.report?.promptsWithoutRecords),
     description: "下一步需要补检测的提示词",
     tone:
       (props.report?.promptsWithoutRecords ?? 0) > 0 ? ("warning" as const) : ("default" as const)
   },
   {
-    label: "覆盖率 coverageRate",
+    label: "覆盖率",
     value: formatReportPercent(props.report?.coverageRate),
     description: "有覆盖记录的提示词 / 提示词总数",
     percent: toReportPercent(props.report?.coverageRate)
@@ -65,17 +65,11 @@ const getUserIntentLabel = (row: ReportPromptSummary) =>
     </div>
 
     <div class="report-distribution-grid">
-      <ReportDistributionTable title="byType 提示词类型分布" :distribution="report?.byType" />
+      <ReportDistributionTable title="提示词类型分布" :distribution="report?.byType" />
+      <ReportDistributionTable title="产品线分布" :distribution="report?.byProductLine" />
+      <ReportDistributionTable title="用户意图分布" :distribution="report?.byUserIntent" />
       <ReportDistributionTable
-        title="byProductLine 产品线分布"
-        :distribution="report?.byProductLine"
-      />
-      <ReportDistributionTable
-        title="byUserIntent 用户意图分布"
-        :distribution="report?.byUserIntent"
-      />
-      <ReportDistributionTable
-        title="byLatestCoverageStatus 最新覆盖状态"
+        title="最新覆盖状态"
         :distribution="report?.byLatestCoverageStatus"
       />
     </div>
@@ -84,7 +78,7 @@ const getUserIntentLabel = (row: ReportPromptSummary) =>
       <template #header>
         <div class="report-card-header">
           <div>
-            <h3>highPriorityUncoveredPrompts 高优先级未覆盖提示词</h3>
+            <h3>高优先级未覆盖提示词</h3>
             <span>这些词适合优先补模型检测，必要时同步补内容和知识库事实。</span>
           </div>
         </div>
@@ -107,8 +101,8 @@ const getUserIntentLabel = (row: ReportPromptSummary) =>
         <el-table-column label="用户意图" width="130">
           <template #default="{ row }">{{ getUserIntentLabel(row) }}</template>
         </el-table-column>
-        <el-table-column label="priority" width="90" prop="priority" />
-        <el-table-column label="latestCoverageStatus" width="160">
+        <el-table-column label="优先级" width="90" prop="priority" />
+        <el-table-column label="最新覆盖状态" width="160">
           <template #default="{ row }">
             <GeoPromptStatusTag :status="row.latestCoverageStatus || 'unknown'" />
           </template>

@@ -265,7 +265,7 @@ onMounted(() => {
   <section class="geo-prompts-page">
     <header class="geo-prompts-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO Prompt Strategy</el-tag>
+        <el-tag type="success" effect="plain">GEO 提示词策略</el-tag>
         <h1>提示词策略库</h1>
         <p>沉淀训练词、蒸馏词、品牌词和场景词，用于指导 GEO 内容生成、模型覆盖记录和后续优化。</p>
         <strong>用户会怎么问 AI？哪些词需要追踪？哪些产品线还要补充提示词？</strong>
@@ -297,7 +297,7 @@ onMounted(() => {
     <section class="geo-prompts-table-panel">
       <div class="geo-prompts-table-header">
         <div>
-          <p class="section-kicker">Prompt Assets</p>
+          <p class="section-kicker">提示词资产</p>
           <h2>GEO 提示词列表</h2>
           <p>从策略词、追踪状态和覆盖结果判断下一步应该补词、补内容还是补检测。</p>
         </div>

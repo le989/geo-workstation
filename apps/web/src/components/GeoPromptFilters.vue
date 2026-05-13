@@ -68,7 +68,7 @@ const handleTabChange = (name: string | number) => {
         <el-input
           v-model="localFilters.search"
           clearable
-          placeholder="搜索 promptText / baseWord / scenario / source"
+          placeholder="搜索提示词、训练词、应用场景或来源"
           @keyup.enter="emit('search')"
         />
       </el-form-item>

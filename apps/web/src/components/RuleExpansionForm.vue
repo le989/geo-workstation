@@ -25,7 +25,7 @@ const form = reactive({
   promptType: "distilled" as GeoPromptType,
   scenario: "",
   serviceSuffixesText: "厂家\n品牌\n国产替代",
-  source: "rule_expansion",
+  source: "规则拓词",
   targetModelsText: "",
   trackEnabled: false,
   userIntent: "selection" as UserIntent
@@ -47,7 +47,7 @@ const clearForm = () => {
   form.promptType = "distilled";
   form.scenario = "";
   form.serviceSuffixesText = "";
-  form.source = "rule_expansion";
+  form.source = "规则拓词";
   form.targetModelsText = "";
   form.trackEnabled = false;
   form.userIntent = "selection";
@@ -58,7 +58,7 @@ const handleSubmit = () => {
   localError.value = "";
 
   if (!form.baseWord.trim()) {
-    localError.value = "训练词 baseWord 不能为空。";
+    localError.value = "训练词不能为空。";
     return;
   }
 
@@ -76,7 +76,7 @@ const handleSubmit = () => {
     promptType: form.promptType,
     scenario: trimOptional(form.scenario),
     serviceSuffixes: splitCommaValues(form.serviceSuffixesText),
-    source: trimOptional(form.source) ?? "rule_expansion",
+    source: trimOptional(form.source) ?? "规则拓词",
     targetModels: splitCommaValues(form.targetModelsText),
     trackEnabled: form.trackEnabled,
     userIntent: form.userIntent
@@ -88,7 +88,7 @@ const handleSubmit = () => {
   <section class="expansion-form-panel">
     <div class="expansion-form-header">
       <div>
-        <p class="section-kicker">Rule Expansion</p>
+        <p class="section-kicker">规则拓词</p>
         <h2>手动组合拓词</h2>
         <p>按“前缀、训练词、品牌/服务后缀、应用后缀”生成七类 GEO 候选问法。</p>
       </div>
@@ -113,7 +113,7 @@ const handleSubmit = () => {
     />
 
     <el-form label-position="top" class="expansion-form-grid">
-      <el-form-item label="训练词 baseWord" required>
+      <el-form-item label="训练词" required>
         <el-input v-model="form.baseWord" placeholder="例如：激光测距传感器" />
       </el-form-item>
       <el-form-item label="输出词类型">
@@ -173,7 +173,7 @@ const handleSubmit = () => {
         <el-input v-model="form.targetModelsText" placeholder="多个模型用逗号分隔" />
       </el-form-item>
       <el-form-item label="来源">
-        <el-input v-model="form.source" placeholder="rule_expansion" />
+        <el-input v-model="form.source" placeholder="例如：规则拓词" />
       </el-form-item>
       <el-form-item label="是否追踪">
         <el-switch v-model="form.trackEnabled" active-text="追踪" inactive-text="不追踪" />

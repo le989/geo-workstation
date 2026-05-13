@@ -227,7 +227,7 @@ const handleCreateRecord = async (payload: CreateModelInclusionRecordPayload) =>
   try {
     await createModelInclusionRecord(payload);
     formVisible.value = false;
-    ElMessage.success("模型覆盖记录已保存，latestCoverageStatus 已由后端更新。");
+    ElMessage.success("模型覆盖记录已保存，最新覆盖状态已由后端更新。");
     await refreshAll();
   } catch (error) {
     formError.value = error instanceof Error ? error.message : "覆盖记录保存失败。";
@@ -326,7 +326,7 @@ onMounted(() => {
   <section class="model-inclusion-page">
     <header class="model-inclusion-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO Effect Review</el-tag>
+        <el-tag type="success" effect="plain">GEO 效果复盘</el-tag>
         <h1>模型覆盖记录</h1>
         <p>
           记录 GEO 提示词在不同 AI
@@ -345,14 +345,14 @@ onMounted(() => {
     </header>
 
     <el-alert
-      title="本页是 GEO 效果复盘，不是普通日志查询；记录新增或导入成功后会由后端更新对应提示词的 latestCoverageStatus。"
+      title="本页是 GEO 效果复盘，不是普通日志查询；记录新增或导入成功后会由后端更新对应提示词的最新覆盖状态。"
       type="warning"
       :closable="false"
       show-icon
       class="model-boundary-alert"
     />
 
-    <AppErrorState v-if="summaryError" title="summary 指标加载失败" :message="summaryError" />
+    <AppErrorState v-if="summaryError" title="汇总指标加载失败" :message="summaryError" />
     <ModelInclusionSummaryCards :summary="summary" :loading="summaryLoading" />
 
     <ModelInclusionFilters
@@ -371,7 +371,7 @@ onMounted(() => {
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">Model Inclusion Records</p>
+            <p class="section-kicker">模型覆盖记录</p>
             <h2>覆盖记录列表</h2>
             <span>查询品牌是否被提及、是否被推荐、推荐位置、官网引用和竞品出现情况。</span>
           </div>
@@ -408,7 +408,7 @@ onMounted(() => {
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">Uncovered Prompts</p>
+            <p class="section-kicker">未覆盖提示词</p>
             <h2>未覆盖提示词</h2>
             <span>{{ uncoveredPromptHint }}</span>
           </div>

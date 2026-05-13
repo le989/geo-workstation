@@ -42,8 +42,8 @@ export const navigationItems: GeoPageMeta[] = [
     title: "GEO 分析",
     question: "品牌在 AI 回答里表现如何？",
     description: "用于创建分析任务，观察品牌是否被提及、推荐、引用官网以及暴露哪些缺口。",
-    phaseNote: "已接入 Mock GEO 分析任务、提示词建议转入和内容任务创建流程。",
-    nextSteps: ["创建 GEO 分析任务", "运行 Mock GEO 分析", "将提示词建议转入策略库"],
+    phaseNote: "已接入模拟 GEO 分析任务、提示词建议转入和内容任务创建流程。",
+    nextSteps: ["创建 GEO 分析任务", "运行模拟 GEO 分析", "将提示词建议转入策略库"],
     apiFocus: "已联调 /api/geo-analysis-tasks",
     icon: Search
   },
@@ -63,8 +63,8 @@ export const navigationItems: GeoPageMeta[] = [
     label: "AI 拓词",
     title: "AI 拓词",
     question: "还能生成哪些适合 GEO 追踪的问题？",
-    description: "通过规则组合或 AI Provider 拓词生成候选提示词，再由运营选择保存。",
-    phaseNote: "已支持规则拓词、默认 Mock AI、可选 openai_compatible、候选词去重和勾选保存。",
+    description: "通过规则组合或 AI 接口拓词生成候选提示词，再由运营选择保存。",
+    phaseNote: "已支持规则拓词、默认模拟生成、可选真实 AI 接口、候选词去重和勾选保存。",
     nextSteps: ["规则拓词表单", "AI 候选词预览", "勾选保存到提示词库"],
     apiFocus: "POST /api/expansion/rule-generate, POST /api/expansion/ai-generate",
     icon: MagicStick
@@ -129,10 +129,10 @@ export const navigationItems: GeoPageMeta[] = [
     label: "系统设置",
     title: "系统设置",
     question: "本地联调环境是否准备好？",
-    description: "展示前端 API 地址、环境标识和 AI Provider 配置边界说明。",
+    description: "展示前端 API 地址、环境标识和 AI 接口配置边界说明。",
     phaseNote:
-      "AI Provider 支持 mock 和 openai_compatible；API Key 只允许在后端 .env 配置，前端不提供密钥输入框。",
-    nextSteps: ["展示 API Base URL", "说明 AI Provider 后端配置", "保留后续 Provider 状态检查入口"],
+      "AI 接口支持模拟生成和真实 AI 接口；API Key 只允许在后端 .env 配置，前端不提供密钥输入框。",
+    nextSteps: ["展示 API 地址", "说明 AI 接口后端配置", "保留后续接口状态检查入口"],
     apiFocus: "当前使用 VITE_API_BASE_URL；AI_PROVIDER 由后端环境变量控制",
     icon: Setting
   }

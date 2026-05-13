@@ -182,7 +182,7 @@ const handleSubmit = () => {
             <el-input
               v-model="promptSearch"
               clearable
-              placeholder="搜索 promptText / baseWord / scenario / source"
+              placeholder="搜索提示词、训练词、应用场景或来源"
               @keyup.enter="loadPrompts"
             />
             <el-button :loading="promptsLoading" @click="loadPrompts">搜索提示词</el-button>

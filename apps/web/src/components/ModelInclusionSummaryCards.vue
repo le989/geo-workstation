@@ -13,7 +13,7 @@ defineProps<{
     <template #header>
       <div class="table-card-header">
         <div>
-          <p class="section-kicker">GEO Effect Summary</p>
+          <p class="section-kicker">GEO 效果汇总</p>
           <h2>模型覆盖基础统计</h2>
           <span>快速判断品牌提及、推荐和官网引用是否已有改善迹象。</span>
         </div>

@@ -67,7 +67,7 @@ const submitLogin = async () => {
             v-model="form.email"
             :prefix-icon="Message"
             autocomplete="username"
-            placeholder="admin@geo-workstation.local"
+            placeholder="admin@example.com"
           />
         </el-form-item>
 

@@ -28,7 +28,7 @@ const updateField = <K extends keyof ContentTaskQuery>(key: K, value: ContentTas
         <el-input
           :model-value="modelValue.search"
           clearable
-          placeholder="搜索 name / productLine / generationType / targetModel"
+          placeholder="搜索任务名称、产品线、生成类型或目标模型"
           @keyup.enter="emit('search')"
           @update:model-value="updateField('search', $event)"
         />

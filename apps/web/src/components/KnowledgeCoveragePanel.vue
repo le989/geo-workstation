@@ -15,22 +15,22 @@ const missingKnowledgeHint =
 
 const metrics = computed(() => [
   {
-    label: "knowledgeBaseCount 知识库",
+    label: "知识库",
     value: formatReportNumber(props.report?.knowledgeBaseCount),
     description: "企业 GEO 知识资产集合"
   },
   {
-    label: "knowledgeFileCount 文件资料",
+    label: "文件资料",
     value: formatReportNumber(props.report?.knowledgeFileCount),
     description: "已上传并记录解析状态的资料"
   },
   {
-    label: "knowledgeChunkCount 知识片段",
+    label: "知识片段",
     value: formatReportNumber(props.report?.knowledgeChunkCount),
     description: "可被 GEO 内容生成引用的事实片段"
   },
   {
-    label: "productLinesWithoutKnowledge 缺资料产品线",
+    label: "缺资料产品线",
     value: formatReportNumber(props.report?.productLinesWithoutKnowledge.length),
     description: "有提示词但知识库资料不足的产品线",
     tone:
@@ -56,25 +56,16 @@ const metrics = computed(() => [
     </div>
 
     <div class="report-distribution-grid">
-      <ReportDistributionTable
-        title="chunksByProductLine 产品线知识片段"
-        :distribution="report?.chunksByProductLine"
-      />
-      <ReportDistributionTable
-        title="chunksByMaterialType 资料类型分布"
-        :distribution="report?.chunksByMaterialType"
-      />
-      <ReportDistributionTable
-        title="filesByParseStatus 文件解析状态"
-        :distribution="report?.filesByParseStatus"
-      />
+      <ReportDistributionTable title="产品线知识片段" :distribution="report?.chunksByProductLine" />
+      <ReportDistributionTable title="资料类型分布" :distribution="report?.chunksByMaterialType" />
+      <ReportDistributionTable title="文件解析状态" :distribution="report?.filesByParseStatus" />
     </div>
 
     <el-card class="report-table-card" shadow="never">
       <template #header>
         <div class="report-card-header">
           <div>
-            <h3>productLinesWithoutKnowledge 缺知识库资料的产品线</h3>
+            <h3>缺知识库资料的产品线</h3>
             <span>{{ missingKnowledgeHint }}</span>
           </div>
         </div>
