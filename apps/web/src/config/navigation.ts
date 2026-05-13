@@ -31,9 +31,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "GEO 工作台",
     question: "今天的 GEO 闭环推进到哪一步？",
     description: "聚合 GEO 诊断、提示词资产、知识库资料、内容产出和待优化事项。",
-    phaseNote: "Phase 3A 仅搭建后台框架，后续会接入真实总览指标与待办列表。",
-    nextSteps: ["展示核心资产概览", "展示待优化提示词", "串联后端 MVP 主流程入口"],
-    apiFocus: "后续读取 /api/reports/geo-overview 和 /api/reports/optimization-suggestions",
+    phaseNote: "已接入总览指标、优化建议和核心操作入口，适合作为内部日常运营首页。",
+    nextSteps: ["查看 GEO 资产概览", "进入待优化建议", "串联诊断、策略、内容和复盘流程"],
+    apiFocus: "读取 /api/reports/geo-overview 和 /api/reports/optimization-suggestions",
     icon: DataBoard
   },
   {
@@ -53,9 +53,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "提示词策略库",
     question: "用户会怎么问 AI？",
     description: "沉淀训练词、蒸馏词、品牌词和场景词，支撑模型覆盖追踪与内容生产。",
-    phaseNote: "当前仅保留策略库占位，不实现列表、导入或编辑。",
-    nextSteps: ["提示词分页筛选", "批量导入和去重", "覆盖状态与内容资产联动"],
-    apiFocus: "后续联调 /api/geo-prompts",
+    phaseNote: "已支持提示词查询、筛选、新增、编辑、软删除、批量导入和 CSV 导出。",
+    nextSteps: ["维护训练词和蒸馏词", "补充品牌词与场景词", "为内容生成和覆盖记录提供资产"],
+    apiFocus: "已联调 /api/geo-prompts",
     icon: CollectionTag
   },
   {
@@ -75,9 +75,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "企业 GEO 知识库",
     question: "AI 应该引用哪些企业事实资料？",
     description: "管理产品、案例、FAQ、解决方案和资质等可被内容生成引用的事实底座。",
-    phaseNote: "当前仅保留知识库占位，不上传文件或编辑片段。",
-    nextSteps: ["知识库列表", "文本导入", "txt/md/csv 上传解析与片段管理"],
-    apiFocus: "后续联调 /api/knowledge-bases 和 /api/knowledge-files",
+    phaseNote: "已支持知识库管理、文本导入、txt/md/csv 上传解析、片段编辑和解析重试。",
+    nextSteps: ["维护产品线知识库", "导入可引用事实资料", "检查解析失败文件和知识片段质量"],
+    apiFocus: "已联调 /api/knowledge-bases 和 /api/knowledge-files",
     icon: Files
   },
   {
@@ -86,9 +86,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "指令库",
     question: "内容生产应该遵循什么 GEO 方法？",
     description: "沉淀选型指南、问答素材、国产替代、FAQ 等 GEO 内容生产指令。",
-    phaseNote: "当前仅保留指令模板占位，不创建或复制指令。",
-    nextSteps: ["指令模板列表", "模板复制", "与内容任务联动"],
-    apiFocus: "后续联调 /api/instruction-templates",
+    phaseNote: "已支持指令模板查询、创建、编辑、详情查看、复制和软删除。",
+    nextSteps: ["沉淀通用内容方法", "维护产品线专属约束", "为内容任务选择合适模板"],
+    apiFocus: "已联调 /api/instruction-templates",
     icon: DocumentChecked
   },
   {
@@ -97,9 +97,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "GEO 内容生成",
     question: "应该生产什么内容来影响 AI 回答？",
     description: "基于提示词、知识库和指令模板生成服务于 AI 问答可见度的内容资产。",
-    phaseNote: "当前仅保留内容任务占位，不创建生成任务。",
-    nextSteps: ["创建内容任务", "查看生成结果", "编辑和导出 Markdown"],
-    apiFocus: "后续联调 /api/content-tasks 和 /api/content-items",
+    phaseNote: "已支持模拟生成和真实 AI 接口生成，内容项可编辑、软删除和导出 Markdown。",
+    nextSteps: ["选择提示词、知识库和指令模板", "审核生成内容", "沉淀可发布的 GEO 内容资产"],
+    apiFocus: "已联调 /api/content-tasks 和 /api/content-items",
     icon: EditPen
   },
   {
@@ -108,9 +108,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "模型覆盖记录",
     question: "哪些提示词已经被 AI 提及或推荐？",
     description: "记录不同模型下品牌是否被提及、推荐、引用官网以及排名位置。",
-    phaseNote: "当前仅保留覆盖记录占位，不录入或导入记录。",
-    nextSteps: ["手动新增覆盖记录", "批量导入", "未覆盖提示词查询"],
-    apiFocus: "后续联调 /api/model-inclusion-records",
+    phaseNote: "已支持人工录入、批量导入、未覆盖提示词查询、基础统计和 CSV 导出。",
+    nextSteps: ["记录真实模型表现", "定位未覆盖提示词", "为报表和优化建议提供依据"],
+    apiFocus: "已联调 /api/model-inclusion-records",
     icon: TrendCharts
   },
   {
@@ -119,9 +119,9 @@ export const navigationItems: GeoPageMeta[] = [
     title: "GEO 报表",
     question: "下一步应该补哪些词、资料和内容？",
     description: "围绕提示词覆盖、模型表现、内容资产和知识库覆盖输出复盘指标。",
-    phaseNote: "当前仅保留报表占位，不绘制图表或查询统计。",
-    nextSteps: ["GEO 总览", "模型覆盖报表", "优化建议列表"],
-    apiFocus: "后续联调 /api/reports",
+    phaseNote: "已支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。",
+    nextSteps: ["复盘覆盖率和推荐率", "发现内容与知识库缺口", "导出 CSV 进行运营复盘"],
+    apiFocus: "已联调 /api/reports",
     icon: PieChart
   },
   {
