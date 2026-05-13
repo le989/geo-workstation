@@ -1,7 +1,40 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
 import { routes } from "./routes";
 
 export const router = createRouter({
   history: createWebHistory(),
   routes
+});
+
+router.beforeEach(async (to) => {
+  const authStore = useAuthStore();
+  const isPublicOnly = Boolean(to.meta.publicOnly);
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+
+  if (isPublicOnly && (await authStore.ensureSession())) {
+    return "/dashboard";
+  }
+
+  if (requiresAuth && !(await authStore.ensureSession())) {
+    return {
+      path: "/login",
+      query: {
+        redirect: to.fullPath
+      }
+    };
+  }
+
+  return true;
+});
+
+window.addEventListener("geo-auth:unauthorized", () => {
+  if (router.currentRoute.value.path !== "/login") {
+    void router.replace({
+      path: "/login",
+      query: {
+        redirect: router.currentRoute.value.fullPath
+      }
+    });
+  }
 });

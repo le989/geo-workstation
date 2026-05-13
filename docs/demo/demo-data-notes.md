@@ -13,6 +13,9 @@ pnpm prisma:seed
 会写入少量基础演示数据，主要包括：
 
 - 默认 admin 用户。
+  - 邮箱来自 `DEFAULT_ADMIN_EMAIL`，未配置时为 `admin@geo-workstation.local`。
+  - 密码来自 `DEFAULT_ADMIN_PASSWORD`，会以 hash 写入 `passwordHash`。
+  - 开发占位密码可见于 `.env.example`，共享部署前必须替换。
 - 示例 GEO 提示词：
   - 训练词：激光测距传感器
   - 蒸馏词：激光测距传感器怎么选
@@ -37,6 +40,7 @@ pnpm smoke:api
 
 会通过 HTTP API 跑一条完整 GEO MVP 流程，并创建演示数据：
 
+- 先登录默认管理员，后续请求携带 JWT Bearer token。
 - GEO 分析任务。
 - Mock GEO 分析结果和 `geo_model_results`。
 - 由分析建议转入的 GEO 提示词。
@@ -51,6 +55,12 @@ pnpm smoke:api
 
 ```bash
 API_BASE_URL=http://localhost:3001 pnpm smoke:api
+```
+
+如果演示环境使用了自定义管理员账号，可以使用：
+
+```bash
+SMOKE_AUTH_EMAIL=admin@example.com SMOKE_AUTH_PASSWORD=replace_me pnpm smoke:api
 ```
 
 ## 前端演示建议使用哪些测试数据
@@ -94,6 +104,8 @@ docker compose up -d postgres
 pnpm prisma:migrate
 pnpm prisma:seed
 ```
+
+如果要修改默认管理员密码，先更新私有 `.env` 中的 `DEFAULT_ADMIN_PASSWORD`，再执行 `pnpm prisma:seed`。
 
 如果希望清空本地数据库并重新开始，可以删除本地 PostgreSQL volume 后重建。执行前请确认没有需要保留的数据：
 

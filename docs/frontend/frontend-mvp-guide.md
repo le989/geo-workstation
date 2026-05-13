@@ -10,6 +10,7 @@
 
 | 路由                       | 页面            | 用途                                                                                    |
 | -------------------------- | --------------- | --------------------------------------------------------------------------------------- |
+| `/login`                   | 登录页          | 内部系统登录入口，使用默认管理员或内部账号获取 JWT 登录态。                             |
 | `/dashboard`               | GEO 工作台      | 查看提示词、知识库、内容、模型覆盖和优化建议的总览，并进入主要操作路径。                |
 | `/geo-analysis`            | GEO 分析        | 创建 GEO 分析任务，运行 Mock 分析，查看模型结果、缺口和建议，并转提示词或创建内容任务。 |
 | `/geo-prompts`             | 提示词策略库    | 维护训练词、蒸馏词、品牌词、场景词，支持筛选、新增、编辑、软删除、批量导入、CSV 导出。  |
@@ -19,21 +20,22 @@
 | `/content-tasks`           | GEO 内容生成    | 选择提示词、知识库和指令模板创建 Mock 内容任务，查看、编辑、删除内容项，导出 Markdown。 |
 | `/model-inclusion-records` | 模型覆盖记录    | 手动录入或批量导入提示词在 AI 模型中的提及、推荐、官网引用和竞品情况。                  |
 | `/reports`                 | GEO 报表        | 查看总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖和优化建议，并导出 CSV。            |
-| `/settings`                | 系统设置        | 当前为本地联调配置占位页，不包含登录权限或 Provider Key 管理。                          |
+| `/settings`                | 系统设置        | 当前为本地联调配置占位页，不包含团队管理、Provider Key 管理或复杂权限配置。             |
 
 ## 完整 GEO MVP 使用流程
 
-1. 打开 `/dashboard`，查看当前 GEO 资产、模型覆盖效果和优化建议。后端未启动时页面仍可访问，并显示清晰错误提示。
-2. 进入 `/geo-analysis`，创建品牌或产品线分析任务，运行 Mock GEO 分析，查看品牌提及、推荐、官网引用、竞品出现、内容缺口、知识库缺口和提示词建议。
-3. 在分析详情中将 promptSuggestions 转入提示词策略库，也可以直接基于分析任务创建内容任务。
-4. 进入 `/geo-prompts`，新增或批量导入 GEO 提示词。提示词是后续拓词、内容生成、模型覆盖和报表复盘的核心资产。
-5. 进入 `/expansion`，用手动组合或 Mock AI 生成候选提示词。候选词不会自动入库，必须人工勾选保存。
-6. 进入 `/knowledge-bases`，创建企业 GEO 知识库，通过文本导入或 txt/md/csv 上传沉淀知识片段。
-7. 进入 `/instruction-templates`，创建选型指南、FAQ、AI 问答素材、应用方案等 GEO 内容生成指令。
-8. 进入 `/content-tasks`，选择 GEO 提示词、知识库和指令模板创建内容任务。当前内容正文由 Mock 生成器生成，生成结果真实入库并可编辑、删除和导出 Markdown。
-9. 进入 `/model-inclusion-records`，人工录入或导入模型覆盖记录，记录品牌是否被提及、推荐、引用官网，以及竞品出现情况。
-10. 进入 `/reports`，复盘提示词覆盖、模型表现、内容覆盖、知识库覆盖和优化建议。
-11. 回到 `/dashboard`，刷新总览，观察提示词、知识库、内容、覆盖记录和优化建议变化。
+1. 打开 `/login`，使用 seed 创建的默认管理员或内部账号登录。登录成功后进入 `/dashboard`。
+2. 打开 `/dashboard`，查看当前 GEO 资产、模型覆盖效果和优化建议。后端未启动或登录态过期时页面会给出提示并引导重新登录。
+3. 进入 `/geo-analysis`，创建品牌或产品线分析任务，运行 Mock GEO 分析，查看品牌提及、推荐、官网引用、竞品出现、内容缺口、知识库缺口和提示词建议。
+4. 在分析详情中将 promptSuggestions 转入提示词策略库，也可以直接基于分析任务创建内容任务。
+5. 进入 `/geo-prompts`，新增或批量导入 GEO 提示词。提示词是后续拓词、内容生成、模型覆盖和报表复盘的核心资产。
+6. 进入 `/expansion`，用手动组合或 Mock AI 生成候选提示词。候选词不会自动入库，必须人工勾选保存。
+7. 进入 `/knowledge-bases`，创建企业 GEO 知识库，通过文本导入或 txt/md/csv 上传沉淀知识片段。
+8. 进入 `/instruction-templates`，创建选型指南、FAQ、AI 问答素材、应用方案等 GEO 内容生成指令。
+9. 进入 `/content-tasks`，选择 GEO 提示词、知识库和指令模板创建内容任务。当前内容正文由 Mock 生成器生成，生成结果真实入库并可编辑、删除和导出 Markdown。
+10. 进入 `/model-inclusion-records`，人工录入或导入模型覆盖记录，记录品牌是否被提及、推荐、引用官网，以及竞品出现情况。
+11. 进入 `/reports`，复盘提示词覆盖、模型表现、内容覆盖、知识库覆盖和优化建议。
+12. 回到 `/dashboard`，刷新总览，观察提示词、知识库、内容、覆盖记录和优化建议变化。演示结束可以从顶部栏退出登录。
 
 ## 真实入库能力
 
@@ -45,6 +47,7 @@
 - GEO 内容任务与内容项：任务、内容项、编辑、软删除、Markdown 导出。
 - 模型覆盖记录：手动新增、批量导入、summary、未覆盖提示词、CSV 导出。
 - GEO 报表：总览、覆盖报表、知识库覆盖、优化建议、CSV 导出。
+- 登录和简单权限：JWT Bearer 登录态、路由保护、当前用户展示和退出登录。
 
 ## Mock 能力
 
@@ -54,7 +57,7 @@
 
 ## 未实现能力
 
-- 登录注册和权限系统。
+- 开放注册、忘记密码、短信/邮箱验证码、OAuth、多租户和复杂菜单级权限。
 - 多租户、计费、审批流。
 - 真实 DeepSeek / 豆包 / Kimi / 通义 Provider 接入。
 - 外部 AI 平台自动检测和定时任务。
@@ -80,6 +83,8 @@ pnpm prisma:migrate
 pnpm prisma:seed
 ```
 
+`pnpm prisma:seed` 会创建默认管理员并写入密码 hash。开发环境可使用 `.env.example` 的占位账号密码；共享部署前必须修改 `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL` 和 `DEFAULT_ADMIN_PASSWORD`。
+
 启动后端：
 
 ```bash
@@ -95,6 +100,7 @@ pnpm dev:web
 默认访问：
 
 - 前端：`http://localhost:5173`
+- 登录页：`http://localhost:5173/login`
 - 后端：`http://localhost:3000`
 
 前端默认使用 `VITE_API_BASE_URL`，未设置时指向 `http://localhost:3000`。
@@ -123,6 +129,7 @@ pnpm test:web-instructions
 pnpm test:web-content
 pnpm test:web-model-inclusion
 pnpm test:web-reports
+pnpm test:web-auth
 ```
 
 前端 MVP 路由与断网态冒烟：
@@ -149,13 +156,24 @@ pnpm check:internal-mvp
 
 ### 后端未启动
 
-页面会显示“后端未连接”或“加载失败”，但前端路由不应白屏。先确认：
+登录页或业务页面会显示“后端未连接”“登录失败”或“加载失败”，但前端路由不应白屏。先确认：
 
 ```bash
 docker compose up -d postgres
 pnpm dev:api
 curl http://localhost:3000/health
 ```
+
+### 登录失败或登录态过期
+
+先确认已经执行 migration 和 seed：
+
+```bash
+pnpm prisma:migrate
+pnpm prisma:seed
+```
+
+如果是共享部署，确认私有环境变量中的 `DEFAULT_ADMIN_PASSWORD` 已在 seed 前设置，并且 `JWT_SECRET` 没有在 API 重启后被意外改动。登录态过期或 API 返回 401 时，前端会清理本地 token 并跳转 `/login`。
 
 ### CSV 导出
 

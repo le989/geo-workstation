@@ -29,20 +29,32 @@
 常见错误码：
 
 - `400`：参数校验失败、业务输入不合法、重复数据。
+- `401`：未登录、登录态无效或登录态过期。
 - `404`：资源不存在或已不可访问。
 - `500`：未捕获的服务端异常。
+
+除 `/health`、`/api/health` 和 `/api/auth/login` 外，当前所有 `/api/*` 业务接口默认需要登录。前端使用 JWT Bearer 登录态，请在请求头中携带：
+
+```http
+Authorization: Bearer <token>
+```
 
 ## 环境与启动
 
 关键环境变量：
 
-| 变量                 | 用途                      | 默认/示例                                                                                   |
-| -------------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
-| `API_PORT`           | NestJS API 端口           | `3000`                                                                                      |
-| `DATABASE_URL`       | PostgreSQL 连接           | `postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public` |
-| `REDIS_URL`          | 后续队列预留              | `redis://localhost:6379`                                                                    |
-| `LOCAL_STORAGE_ROOT` | 本地上传文件根目录        | `./storage`                                                                                 |
-| `DEEPSEEK_API_KEY`   | 后续真实 AI Provider 预留 | 空，Phase 2 不需要                                                                          |
+| 变量                     | 用途                      | 默认/示例                                                                                   |
+| ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------- |
+| `API_PORT`               | NestJS API 端口           | `3000`                                                                                      |
+| `DATABASE_URL`           | PostgreSQL 连接           | `postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public` |
+| `REDIS_URL`              | 后续队列预留              | `redis://localhost:6379`                                                                    |
+| `LOCAL_STORAGE_ROOT`     | 本地上传文件根目录        | `./storage`                                                                                 |
+| `JWT_SECRET`             | JWT 签名密钥              | 本地示例可用占位值，生产必须替换为长随机值                                                  |
+| `JWT_EXPIRES_IN`         | JWT 有效期                | `12h`                                                                                       |
+| `DEFAULT_ADMIN_EMAIL`    | seed 默认管理员邮箱       | `admin@geo-workstation.local`                                                               |
+| `DEFAULT_ADMIN_PASSWORD` | seed 默认管理员密码       | 本地占位值，生产和共享部署必须修改                                                          |
+| `BYPASS_AUTH_FOR_TESTS`  | 测试环境绕过鉴权开关      | `false`，仅自动化测试脚本可设为 `true`                                                      |
+| `DEEPSEEK_API_KEY`       | 后续真实 AI Provider 预留 | 空，Phase 2 不需要                                                                          |
 
 本地启动：
 
@@ -69,6 +81,16 @@ curl http://localhost:3000/health
 | ------ | ------------- | ---------------- | -------- | ------------------------------------ | ------------------------ |
 | GET    | `/health`     | API 健康检查     | 无       | 服务名、状态、GEO 闭环、基础设施状态 | 统一响应包装             |
 | GET    | `/api/health` | API 健康检查别名 | 无       | 同上                                 | 便于统一 `/api` 前缀联调 |
+
+### Auth
+
+| Method | Path               | 用途         | 主要入参            | 主要返回                                | 备注                                      |
+| ------ | ------------------ | ------------ | ------------------- | --------------------------------------- | ----------------------------------------- |
+| POST   | `/api/auth/login`  | 登录         | `email`、`password` | `token`、`user`                         | 校验 `active` 用户，不返回 `passwordHash` |
+| GET    | `/api/auth/me`     | 获取当前用户 | Bearer token        | `id`、`name`、`email`、`role`、`status` | 需要登录                                  |
+| POST   | `/api/auth/logout` | 退出登录     | Bearer token        | `loggedOut: true`                       | JWT Bearer 方案下由前端清理 token         |
+
+登录失败统一返回账号或密码错误，避免暴露邮箱是否存在或用户状态等细节。
 
 ### GEO Analysis
 
@@ -183,6 +205,7 @@ Mock 能力：
 
 真实入库能力：
 
+- 登录和当前用户查询。
 - GEO 提示词增删改查、批量导入、CSV 导出。
 - 企业知识库、文本导入、txt/md/csv 文件上传解析。
 - 指令模板管理。

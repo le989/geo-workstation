@@ -26,6 +26,11 @@ CORS_ORIGIN=
 DATABASE_URL=postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public
 REDIS_URL=redis://localhost:6379
 LOCAL_STORAGE_ROOT=./storage
+JWT_SECRET=change_me_local_jwt_secret
+JWT_EXPIRES_IN=12h
+DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
+DEFAULT_ADMIN_PASSWORD=change_me_admin_password
+BYPASS_AUTH_FOR_TESTS=false
 ```
 
 ## 根目录 `.env.production`
@@ -39,6 +44,11 @@ API_PORT=3000
 DATABASE_URL=postgresql://geo_user:change_me@localhost:5432/geo_workstation
 LOCAL_STORAGE_ROOT=/var/www/geo-workstation/storage
 CORS_ORIGIN=http://your-domain.example.com
+JWT_SECRET=change_me_to_a_long_random_secret
+JWT_EXPIRES_IN=12h
+DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
+DEFAULT_ADMIN_PASSWORD=change_me_admin_password
+BYPASS_AUTH_FOR_TESTS=false
 ```
 
 说明：
@@ -46,6 +56,34 @@ CORS_ORIGIN=http://your-domain.example.com
 - `PORT`：通用平台端口变量，便于 PM2 或后续容器平台识别。
 - `API_PORT`：当前 NestJS API 实际读取的端口变量。
 - 当前阶段建议两者保持一致。
+
+## 登录与 JWT
+
+Phase 4D 使用 JWT Bearer 作为内部 MVP 登录态。
+
+```env
+JWT_SECRET=change_me_to_a_long_random_secret
+JWT_EXPIRES_IN=12h
+DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
+DEFAULT_ADMIN_PASSWORD=change_me_admin_password
+BYPASS_AUTH_FOR_TESTS=false
+```
+
+说明：
+
+- `JWT_SECRET`：JWT 签名密钥。生产或共享部署必须替换为长随机值，不允许使用示例值。
+- `JWT_EXPIRES_IN`：登录 token 有效期，默认 `12h`。
+- `DEFAULT_ADMIN_EMAIL`：`pnpm prisma:seed` 创建或更新默认管理员时使用的邮箱。
+- `DEFAULT_ADMIN_PASSWORD`：`pnpm prisma:seed` 创建或更新默认管理员时使用的密码，会以 hash 写入数据库。
+- `BYPASS_AUTH_FOR_TESTS`：仅自动化测试可设为 `true`。生产环境必须保持 `false`。
+
+如果修改了默认管理员密码，需要重新执行：
+
+```bash
+pnpm prisma:seed
+```
+
+不要把真实管理员密码、真实 JWT 密钥或 token 写入 README、部署文档、日志或 git。
 
 ## `DATABASE_URL`
 

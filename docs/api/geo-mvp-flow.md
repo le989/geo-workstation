@@ -1,6 +1,16 @@
 # GEO MVP Flow
 
-这条流程用于运营、前端和后端一起验证 MVP 是否真的围绕 GEO 闭环工作，而不是只验证单个 CRUD。第一版里，GEO 分析、AI 拓词和内容生成使用 Mock；提示词、知识库、指令、内容任务、覆盖记录和报表都是真实写入数据库的能力。
+这条流程用于运营、前端和后端一起验证 MVP 是否真的围绕 GEO 闭环工作，而不是只验证单个 CRUD。第一版里，GEO 分析、AI 拓词和内容生成使用 Mock；登录、提示词、知识库、指令、内容任务、覆盖记录和报表都是真实写入数据库的能力。
+
+## 0. 登录内部系统
+
+接口：`POST /api/auth/login`
+
+运营先使用 seed 创建的默认管理员或内部账号登录。后续 API 请求携带 `Authorization: Bearer <token>`。
+
+意义：内部 MVP 已具备基础访问控制，不再是完全开放后台。
+
+第一版状态：真实鉴权；不做开放注册、忘记密码、OAuth、多租户或复杂菜单级权限。
 
 ## 1. 创建 GEO 分析任务
 
@@ -137,6 +147,8 @@
 2. 运行 `pnpm prisma:migrate && pnpm prisma:seed`。
 3. 运行 `pnpm dev:api`。
 4. 另一个终端运行 `pnpm smoke:api`。
+
+`pnpm smoke:api` 会先登录默认管理员。如果使用自定义管理员账号，可以设置 `SMOKE_AUTH_EMAIL` 和 `SMOKE_AUTH_PASSWORD`。
 
 成功时会看到：
 

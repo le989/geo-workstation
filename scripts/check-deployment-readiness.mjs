@@ -43,6 +43,9 @@ const requiredDocSnippets = new Map([
       "PORT",
       "API_PORT",
       "LOCAL_STORAGE_ROOT",
+      "JWT_SECRET",
+      "DEFAULT_ADMIN_EMAIL",
+      "DEFAULT_ADMIN_PASSWORD",
       "VITE_API_BASE_URL",
       "DEEPSEEK_API_KEY",
       "不能提交到 git"
@@ -106,7 +109,11 @@ for (const required of [
   "PORT=3000",
   "DATABASE_URL=postgresql://geo_user:change_me@localhost:5432/geo_workstation",
   "LOCAL_STORAGE_ROOT=/var/www/geo-workstation/storage",
-  "CORS_ORIGIN=http://your-domain.example.com"
+  "CORS_ORIGIN=http://your-domain.example.com",
+  "JWT_SECRET=change_me_to_a_long_random_secret",
+  "DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local",
+  "DEFAULT_ADMIN_PASSWORD=change_me_admin_password",
+  "BYPASS_AUTH_FOR_TESTS=false"
 ]) {
   assert(rootProductionEnv.includes(required), `.env.production.example missing ${required}`);
 }

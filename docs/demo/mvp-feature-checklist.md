@@ -6,6 +6,7 @@
 
 | 页面            | 路由                       | 状态       |
 | --------------- | -------------------------- | ---------- |
+| 登录页          | `/login`                   | 已完成     |
 | GEO 工作台      | `/dashboard`               | 已完成     |
 | GEO 分析        | `/geo-analysis`            | 已完成     |
 | 提示词策略库    | `/geo-prompts`             | 已完成     |
@@ -20,6 +21,7 @@
 ## 已完成后端 API 清单
 
 - Health：`GET /health`、`GET /api/health`
+- Auth：登录、当前用户、退出登录。
 - GEO Analysis：分析任务列表、创建、详情、编辑、Mock 运行、建议转提示词、创建内容任务。
 - GEO Prompts：列表、新增、编辑、软删除、批量导入、CSV 导出。
 - GEO Expansion：规则拓词、Mock AI 拓词、任务详情、候选词保存到提示词库。
@@ -35,6 +37,9 @@
 - 用户、提示词、知识库、知识文件、知识片段、指令模板、内容任务、内容项、模型覆盖记录等核心数据真实写入 PostgreSQL。
 - Prisma schema、migration 和 seed 已建立。
 - 后端统一响应、异常处理、DTO 校验已接入。
+- 后端已启用最小 JWT 鉴权，除健康检查和登录外的 `/api/*` 默认需要登录。
+- seed 默认管理员会写入密码 hash，不保存明文密码。
+- 前端已接入登录页、路由保护、当前用户展示和退出登录。
 - 前端所有核心页面已接入真实 API。
 - 批量导入类能力有失败行、重复行或跳过项说明。
 - 删除类能力采用软删除。
@@ -52,7 +57,7 @@
 
 - 真实外部 AI 自动检测。
 - 真实 DeepSeek / 豆包 / Kimi / 通义 Provider 接入。
-- 登录注册、权限守卫和角色授权。
+- 开放注册、忘记密码、短信/邮箱验证码、OAuth、多租户和复杂菜单级权限。
 - 多用户协作、审批流和操作审计页面。
 - 自动发布到官网、公众号、B2B 页面或外部媒体。
 - 真实服务器部署执行和生产环境安全加固。
@@ -62,7 +67,7 @@
 
 ## 当前已知限制
 
-- 当前没有登录权限，默认适合本地内部演示或受控环境试用。
+- 当前是最小登录保护，适合内部演示或受控环境试用；没有团队管理、开放注册或菜单级权限配置。
 - GEO 分析和内容生成结果是 Mock，不能用于对外承诺真实模型表现。
 - 分析任务没有删除接口，演示数据会保留在本地数据库中。
 - 部分数据采用软删除，列表默认隐藏，但数据库仍保留记录。
@@ -78,6 +83,8 @@ pnpm lint
 pnpm typecheck
 pnpm build
 DATABASE_URL=postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public pnpm test:api
+pnpm test:auth
+pnpm test:web-auth
 pnpm smoke:api
 pnpm test:web-mvp
 pnpm check:internal-mvp
@@ -89,18 +96,18 @@ git diff --check
 
 ## 下一阶段建议
 
-1. Phase 4D：登录和简单权限
-
-   当前没有权限系统，进入多人内部试用前建议补最小登录、用户身份和角色授权。
-
-2. Phase 4E：真实 AI Provider 接入
+1. Phase 4E：真实 AI Provider 接入
 
    在演示闭环稳定后，再接 DeepSeek Provider，并保留 Provider 抽象和调用日志。
 
-3. Phase 4F：外部 AI 检测自动化
+2. Phase 4F：外部 AI 检测自动化
 
    最后再做多模型自动检测、定时任务和更复杂的模型覆盖分析。
 
-4. Phase 4G：正式部署执行
+3. Phase 4G：正式部署执行
 
    在部署准备文档和示例配置稳定后，再连接真实服务器、配置真实域名、真实数据库密码和生产访问控制。
+
+4. 后续权限增强
+
+   当前只做最小登录保护。多人协作阶段再补用户管理、角色分配、操作审计和更细的菜单/接口权限。

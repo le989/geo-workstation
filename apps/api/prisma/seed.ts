@@ -7,6 +7,7 @@ import {
   UserRole,
   UserStatus
 } from "@prisma/client";
+import { hashPassword } from "../src/modules/auth/utils/password-hash.util";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 
 const prisma = createPrismaClient();
@@ -75,18 +76,24 @@ async function findOrCreateInstructionTemplate(input: {
 }
 
 async function main() {
+  const defaultAdminEmail = process.env.DEFAULT_ADMIN_EMAIL || "admin@geo-workstation.local";
+  const defaultAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD || "change_me_admin_password";
+  const passwordHash = await hashPassword(defaultAdminPassword);
+
   const admin = await prisma.user.upsert({
-    where: { email: "admin@geo-workstation.local" },
+    where: { email: defaultAdminEmail },
     update: {
       name: "GEO Admin",
       role: UserRole.admin,
-      status: UserStatus.active
+      status: UserStatus.active,
+      passwordHash
     },
     create: {
-      email: "admin@geo-workstation.local",
+      email: defaultAdminEmail,
       name: "GEO Admin",
       role: UserRole.admin,
-      status: UserStatus.active
+      status: UserStatus.active,
+      passwordHash
     }
   });
 

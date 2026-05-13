@@ -3,5 +3,9 @@ dist
 coverage
 pnpm-lock.yaml
 .DS_Store
+.prettierignore
 AGENTS.md
 docs/specs/*.md
+*.prisma
+.env*
+apps/web/.env*

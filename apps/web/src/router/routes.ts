@@ -11,6 +11,7 @@ import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
 import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 import ReportsView from "@/views/ReportsView.vue";
+import LoginView from "@/views/LoginView.vue";
 
 export const phase3aRoutePaths = [
   "/dashboard",
@@ -60,10 +61,19 @@ export const routes: RouteRecordRaw[] = [
                             ? ReportsView
                             : ModulePlaceholderView,
         meta: {
-          geoPage: pageMetaByPath[item.path]
+          geoPage: pageMetaByPath[item.path],
+          requiresAuth: true
         }
       }))
     ]
+  },
+  {
+    path: "/login",
+    name: "login",
+    component: LoginView,
+    meta: {
+      publicOnly: true
+    }
   },
   {
     path: "/:pathMatch(.*)*",

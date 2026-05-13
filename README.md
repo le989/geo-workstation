@@ -71,10 +71,12 @@ pnpm dev:api
 pnpm dev:web
 ```
 
+默认管理员由 seed 创建。开发环境可使用 `.env.example` 中的占位账号和密码；共享部署或生产环境必须先在私有 `.env` / `.env.production` 中修改 `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL` 和 `DEFAULT_ADMIN_PASSWORD`，再执行 seed。
+
 演示入口：
 
 ```text
-http://localhost:5173/dashboard
+http://localhost:5173/login
 ```
 
 演示指南：
@@ -92,10 +94,12 @@ pnpm build
 DATABASE_URL=postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public pnpm test:api
 pnpm smoke:api
 pnpm test:web-mvp
+pnpm test:auth
+pnpm test:web-auth
 pnpm check:internal-mvp
 ```
 
-`pnpm smoke:api` 需要先启动后端 API。
+`pnpm smoke:api` 需要先启动后端 API，并会先使用默认管理员账号登录。可以通过 `SMOKE_AUTH_EMAIL` 和 `SMOKE_AUTH_PASSWORD` 覆盖冒烟测试使用的登录账号。
 
 当前 Mock 能力：
 
@@ -107,10 +111,24 @@ pnpm check:internal-mvp
 
 - 真实外部 AI 检测。
 - 真实 AI Provider。
-- 登录权限。
+- 开放注册、忘记密码、OAuth、多租户和复杂菜单级权限。
 - 自动发布。
 - 真实服务器部署执行。
 - 多用户协作。
+
+## 登录和简单权限
+
+Phase 4D 已加入内部 MVP 所需的最小访问控制：
+
+- 后端使用 JWT Bearer 登录态。
+- `POST /api/auth/login` 校验邮箱、密码和用户状态。
+- `GET /api/auth/me` 返回当前登录用户。
+- `POST /api/auth/logout` 用于前端清理登录态。
+- `/health` 和 `/api/auth/login` 可匿名访问，其他 `/api/*` 默认需要登录。
+- 前端 `/login` 提供登录页，业务路由会在未登录时跳转登录页。
+- 顶部栏显示当前用户、角色和退出登录入口。
+
+本阶段不做开放注册、忘记密码、短信/邮箱验证码、OAuth、多租户、团队管理或复杂菜单级权限。
 
 ## 部署准备
 
@@ -170,6 +188,8 @@ pnpm dev:web
 前端默认地址：`http://localhost:5173`
 前端 API 地址默认读取 `VITE_API_BASE_URL`，未配置时使用 `http://localhost:3000`。前端环境变量示例见 `apps/web/.env.example`。
 
+登录页：`http://localhost:5173/login`
+
 启动后端：
 
 ```bash
@@ -180,6 +200,7 @@ pnpm dev:api
 
 ## 前端已完成页面
 
+- `/login`：内部登录页，使用邮箱和密码获取 JWT 登录态。
 - `/dashboard`：GEO 工作台，展示总览指标、优化建议、快捷入口和能力边界。
 - `/geo-analysis`：GEO 分析，支持创建任务、编辑 pending 任务、运行 Mock 分析、查看结果、转提示词和创建内容任务。
 - `/geo-prompts`：提示词策略库，支持查询、筛选、新增、编辑、软删除、批量导入和 CSV 导出。
@@ -189,7 +210,7 @@ pnpm dev:api
 - `/content-tasks`：GEO 内容生成，支持创建 Mock 内容任务、查看/编辑/删除内容项、Markdown 导出和失败重试入口。
 - `/model-inclusion-records`：模型覆盖记录，支持手动录入、批量导入、summary、未覆盖提示词和 CSV 导出。
 - `/reports`：GEO 报表，支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。
-- `/settings`：本地联调配置占位页；不包含登录权限和 Provider Key 管理。
+- `/settings`：本地联调配置占位页；不包含团队管理、Provider Key 管理或复杂权限配置。
 
 完整前端使用说明见 `docs/frontend/frontend-mvp-guide.md`。
 
@@ -211,6 +232,8 @@ pnpm test:web-content
 pnpm test:web-model-inclusion
 pnpm test:web-reports
 pnpm test:web-mvp
+pnpm test:web-auth
+pnpm test:auth
 pnpm test:api
 pnpm check:internal-mvp
 pnpm check:deployment
@@ -227,7 +250,7 @@ pnpm test:prisma
 pnpm smoke:api
 ```
 
-`pnpm smoke:api` 需要 API 服务已经启动；默认请求 `http://localhost:3000`，可通过 `API_BASE_URL` 覆盖。
+`pnpm smoke:api` 需要 API 服务已经启动；默认请求 `http://localhost:3000`，可通过 `API_BASE_URL` 覆盖。脚本会先登录默认管理员，登录账号可通过 `SMOKE_AUTH_EMAIL` / `SMOKE_AUTH_PASSWORD` 覆盖。
 
 Prisma 命令：
 
@@ -237,6 +260,8 @@ pnpm prisma:generate
 pnpm prisma:migrate
 pnpm prisma:seed
 ```
+
+`pnpm prisma:seed` 会为默认管理员写入密码 hash。共享部署前请先修改私有环境变量中的 `DEFAULT_ADMIN_PASSWORD`，不要使用示例占位密码。
 
 Phase 1 使用 `docker-compose.yml` 中的 PostgreSQL。首次本地执行前可复制环境变量文件：
 
@@ -262,6 +287,12 @@ pnpm smoke:api
 
 ```bash
 API_BASE_URL=http://localhost:3001 pnpm smoke:api
+```
+
+如果冒烟测试需要使用非默认管理员账号：
+
+```bash
+SMOKE_AUTH_EMAIL=admin@example.com SMOKE_AUTH_PASSWORD=replace_me pnpm smoke:api
 ```
 
 前端 MVP 路由与后端断开态冒烟测试：
@@ -422,7 +453,7 @@ pnpm --filter @geo-workstation/shared build
 - 不实现其他业务页面 CRUD、不新增图表库、不修改后端业务逻辑或 Prisma schema。
 - 新增 `pnpm smoke:api`，默认请求 `http://localhost:3000`，支持 `API_BASE_URL` 覆盖。
 - 当前 Mock 能力：GEO 分析、AI 拓词、GEO 内容生成。
-- 当前真实入库能力：提示词、知识库、txt/md/csv 文件上传解析、指令库、内容任务和内容项、模型覆盖记录、报表统计。
+- 当前真实入库能力：登录、提示词、知识库、txt/md/csv 文件上传解析、指令库、内容任务和内容项、模型覆盖记录、报表统计。
 - 不修改 Prisma schema，不新增业务模块、不做前端页面、不接真实 AI、不做外部检测、爬虫、定时任务、登录注册、权限守卫、多租户或外部媒体发布。
 
 ## Phase 3A 下一步

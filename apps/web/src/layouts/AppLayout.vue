@@ -1,14 +1,33 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { Connection } from "@element-plus/icons-vue";
+import { Connection, SwitchButton } from "@element-plus/icons-vue";
 import { navigationItems } from "@/config/navigation";
 import { useAppStore } from "@/stores/app";
+import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();
 const appStore = useAppStore();
+const authStore = useAuthStore();
 
 const activeMenu = computed(() => route.path);
+
+const roleLabel = computed(() => {
+  const role = authStore.currentUser?.role;
+  const labels = {
+    admin: "管理员",
+    geo_operator: "GEO 运营",
+    content_editor: "内容编辑",
+    viewer: "查看者"
+  };
+
+  return role ? labels[role] : "未登录";
+});
+
+const handleLogout = async () => {
+  await authStore.logout();
+  window.location.assign("/login");
+};
 </script>
 
 <template>
@@ -42,9 +61,15 @@ const activeMenu = computed(() => route.path);
           <el-tag type="success" effect="plain">
             {{ appStore.environmentLabel }}
           </el-tag>
+          <div v-if="authStore.currentUser" class="header-user">
+            <strong>{{ authStore.currentUser.name }}</strong>
+            <span>{{ authStore.currentUser.email }}</span>
+            <el-tag size="small" effect="plain">{{ roleLabel }}</el-tag>
+          </div>
           <el-tooltip :content="appStore.healthUrl" placement="bottom">
             <el-button :icon="Connection" plain> 后端健康状态 </el-button>
           </el-tooltip>
+          <el-button :icon="SwitchButton" plain @click="handleLogout">退出登录</el-button>
         </div>
       </el-header>
 

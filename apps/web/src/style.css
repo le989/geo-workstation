@@ -152,11 +152,121 @@ textarea {
   gap: 10px;
 }
 
+.header-user {
+  display: grid;
+  max-width: 260px;
+  padding: 6px 10px;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #f8fbfa;
+  gap: 2px;
+}
+
+.header-user strong {
+  overflow: hidden;
+  color: #172326;
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-user span {
+  overflow: hidden;
+  color: var(--geo-muted);
+  font-size: 12px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-content {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
   padding: 28px;
+}
+
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 32px 18px;
+  background:
+    linear-gradient(135deg, rgb(31 122 109 / 10%), transparent 38%),
+    linear-gradient(315deg, rgb(168 117 53 / 12%), transparent 42%), var(--geo-page);
+  place-items: center;
+}
+
+.login-panel {
+  width: min(440px, 100%);
+  padding: 30px;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 20px 60px rgb(29 37 40 / 12%);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.login-brand-mark {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--geo-accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.login-brand p {
+  margin: 0 0 4px;
+  color: var(--geo-warm);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.login-brand h1 {
+  margin: 0;
+  color: #172326;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.login-copy,
+.login-note {
+  margin: 0;
+  color: var(--geo-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.login-alert {
+  margin: 18px 0 0;
+}
+
+.login-form {
+  display: grid;
+  gap: 4px;
+  margin-top: 22px;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.login-note {
+  margin-top: 18px;
+  font-size: 12px;
 }
 
 .page-shell {

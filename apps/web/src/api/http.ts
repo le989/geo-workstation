@@ -2,6 +2,9 @@ import type { ApiResponse } from "./types";
 
 export const DEFAULT_API_BASE_URL = "http://localhost:3000";
 
+let authTokenGetter: (() => string | null) | undefined;
+let unauthorizedHandler: (() => void) | undefined;
+
 export class ApiClientError extends Error {
   readonly status: number;
   readonly code?: number;
@@ -16,15 +19,30 @@ export class ApiClientError extends Error {
   }
 }
 
-export const getApiBaseUrl = () =>
-  (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/+$/, "");
+export const setAuthTokenGetter = (getter: () => string | null) => {
+  authTokenGetter = getter;
+};
+
+export const setUnauthorizedHandler = (handler: () => void) => {
+  unauthorizedHandler = handler;
+};
+
+export const getApiBaseUrl = () => {
+  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  const baseUrl = configuredBaseUrl === undefined ? DEFAULT_API_BASE_URL : configuredBaseUrl;
+
+  return baseUrl.replace(/\/+$/, "");
+};
 
 export const resolveApiUrl = (path: string) => {
   if (/^https?:\/\//.test(path)) {
     return path;
   }
 
-  return `${getApiBaseUrl()}/${path.replace(/^\/+/, "")}`;
+  const apiBaseUrl = getApiBaseUrl();
+  const normalizedPath = path.replace(/^\/+/, "");
+
+  return apiBaseUrl ? `${apiBaseUrl}/${normalizedPath}` : `/${normalizedPath}`;
 };
 
 const hasRequestBody = (body: unknown) => body !== undefined && body !== null;
@@ -45,6 +63,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers.set("Content-Type", headers.get("Content-Type") || "application/json");
   }
 
+  const token = authTokenGetter?.();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const response = await fetch(resolveApiUrl(path), {
     ...init,
     headers
@@ -53,6 +76,10 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const payload = (await response.json().catch(() => null)) as ApiResponse<T> | null;
 
   if (!response.ok) {
+    if (response.status === 401) {
+      unauthorizedHandler?.();
+    }
+
     throw new ApiClientError(payload?.message || response.statusText || "Request failed", {
       status: response.status,
       code: payload?.code,

@@ -15,6 +15,7 @@ const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || "http://127.0.0.
 
 const requiredFiles = [
   "docs/frontend/frontend-mvp-guide.md",
+  "apps/web/src/views/LoginView.vue",
   "apps/web/src/views/DashboardView.vue",
   "apps/web/src/views/GeoPromptsView.vue",
   "apps/web/src/views/ExpansionView.vue",
@@ -40,6 +41,8 @@ const routeChecks = [
 ];
 
 const requiredGuideSnippets = [
+  "登录页",
+  "退出登录",
   "前端页面总览",
   "完整 GEO MVP 使用流程",
   "真实入库能力",
@@ -231,6 +234,30 @@ const waitForBodyText = async (client, predicate, timeoutMs = 8000) => {
   return text;
 };
 
+const clearAuthSession = async (client) => {
+  await client.send("Runtime.evaluate", {
+    expression:
+      "localStorage.removeItem('geo-workstation.auth-token'); localStorage.removeItem('geo-workstation.auth-user');",
+    returnByValue: true
+  });
+};
+
+const seedAuthSession = async (client) => {
+  await client.send("Runtime.evaluate", {
+    expression: `
+      localStorage.setItem('geo-workstation.auth-token', 'frontend-mvp-offline-token');
+      localStorage.setItem('geo-workstation.auth-user', JSON.stringify({
+        id: 'frontend-mvp-user',
+        name: '前端验收用户',
+        email: 'frontend-mvp@example.com',
+        role: 'admin',
+        status: 'active'
+      }));
+    `,
+    returnByValue: true
+  });
+};
+
 for (const file of requiredFiles) {
   await access(path.join(repoRoot, file));
 }
@@ -248,6 +275,28 @@ try {
   const client = await connectCdp(chrome.wsUrl);
   await client.send("Runtime.enable");
   await client.send("Page.enable");
+
+  await clearAuthSession(client);
+  await client.send("Page.navigate", { url: `${baseUrl}/dashboard` });
+  const unauthenticatedText = await waitForBodyText(
+    client,
+    (text) => text.includes("内部访问控制") && text.includes("登录")
+  );
+  assert(
+    unauthenticatedText.includes("内部访问控制") && unauthenticatedText.includes("登录"),
+    "Unauthenticated /dashboard visit must redirect to /login"
+  );
+  assert(
+    unauthenticatedText.includes("邮箱") && unauthenticatedText.includes("密码"),
+    "/login must render the login form fields"
+  );
+
+  await seedAuthSession(client);
+  await client.send("Page.navigate", { url: `${baseUrl}/dashboard` });
+  await waitForBodyText(
+    client,
+    (text) => text.includes("前端验收用户") && text.includes("退出登录")
+  );
 
   for (const [route, title] of routeChecks) {
     const text = await navigateAndRead(client, route);

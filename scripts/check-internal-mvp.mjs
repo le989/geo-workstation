@@ -18,6 +18,7 @@ const requiredDocs = [
 ];
 
 const requiredFrontendFiles = [
+  "apps/web/src/views/LoginView.vue",
   "apps/web/src/views/DashboardView.vue",
   "apps/web/src/views/GeoAnalysisView.vue",
   "apps/web/src/views/GeoPromptsView.vue",
@@ -28,10 +29,12 @@ const requiredFrontendFiles = [
   "apps/web/src/views/ModelInclusionRecordsView.vue",
   "apps/web/src/views/ReportsView.vue",
   "apps/web/scripts/check-frontend-mvp.mjs",
+  "apps/web/scripts/check-phase-4d.mjs",
   "apps/web/scripts/check-phase-4a.mjs"
 ];
 
 const requiredApiDocsSnippets = [
+  "Auth",
   "GEO Analysis",
   "GEO Prompts",
   "GEO Expansion",
@@ -47,7 +50,9 @@ const requiredReadmeSnippets = [
   "docs/demo/internal-demo-guide.md",
   "pnpm smoke:api",
   "pnpm test:web-mvp",
+  "pnpm test:web-auth",
   "GEO 分析",
+  "登录和简单权限",
   "真实外部 AI 检测",
   "真实 AI Provider"
 ];
@@ -78,6 +83,8 @@ for (const file of [...requiredDocs, ...requiredFrontendFiles]) {
 const packageJson = JSON.parse(await read("package.json"));
 assert(packageJson.scripts["smoke:api"], "package.json must include smoke:api");
 assert(packageJson.scripts["test:web-mvp"], "package.json must include test:web-mvp");
+assert(packageJson.scripts["test:web-auth"], "package.json must include test:web-auth");
+assert(packageJson.scripts["test:auth"], "package.json must include test:auth");
 assert(
   packageJson.scripts["test:web-geo-analysis"],
   "package.json must include test:web-geo-analysis"
@@ -96,6 +103,8 @@ for (const snippet of requiredApiDocsSnippets) {
 }
 
 const frontendGuide = await read("docs/frontend/frontend-mvp-guide.md");
+assert(frontendGuide.includes("/login"), "frontend guide must include login page");
+assert(frontendGuide.includes("退出登录"), "frontend guide must include logout behavior");
 assert(frontendGuide.includes("/geo-analysis"), "frontend guide must include GEO analysis page");
 assert(
   !frontendGuide.includes("前端页面仍为待实现占位"),
@@ -116,7 +125,8 @@ process.stdout.write(
   [
     "Internal MVP check passed",
     "Version: internal-mvp-v0.2",
-    "Pages: Dashboard, GEO Analysis, GEO Prompts, Expansion, Knowledge Bases, Instructions, Content, Model Inclusion, Reports",
+    "Pages: Login, Dashboard, GEO Analysis, GEO Prompts, Expansion, Knowledge Bases, Instructions, Content, Model Inclusion, Reports",
+    "Auth: JWT Bearer login, protected API routes, current user display, logout",
     "Mock: GEO analysis, AI expansion generation, GEO content generation",
     "Real persistence: prompts, knowledge, instructions, content tasks/items, model inclusion records, reports"
   ].join("\n") + "\n"

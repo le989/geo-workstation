@@ -1,5 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { GEO_APP_NAME } from "@geo-workstation/shared";
+import { Public } from "./modules/auth/public.decorator";
 
 type HealthPayload = {
   service: string;
@@ -17,6 +18,7 @@ type HealthPayload = {
   };
 };
 
+@Public()
 @Controller()
 export class HealthController {
   @Get("health")

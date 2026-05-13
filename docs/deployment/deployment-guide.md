@@ -69,6 +69,7 @@ cp apps/web/.env.production.example apps/web/.env.production
 - `.env.production` 和 `apps/web/.env.production` 不要提交到 git。
 - 示例文件只能保留占位密码和占位域名。
 - 当前 API 代码读取 `API_PORT`，示例中同时保留 `PORT` 方便 PM2 或平台约定。
+- `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL`、`DEFAULT_ADMIN_PASSWORD` 必须在共享部署前替换。
 - `DEEPSEEK_API_KEY` 仍是后续真实 Provider 预留，当前 MVP 不需要真实 Key。
 
 ## 数据库准备
@@ -85,6 +86,8 @@ docker compose up -d postgres
 pnpm prisma:migrate
 pnpm prisma:seed
 ```
+
+`pnpm prisma:seed` 会创建或更新默认管理员，并把 `DEFAULT_ADMIN_PASSWORD` 以 hash 写入数据库。生产或共享部署前必须先修改私有环境变量中的默认管理员密码。
 
 如果服务器使用独立 PostgreSQL，也可以只配置 `DATABASE_URL`，不启动本地 Docker PostgreSQL。
 
@@ -110,6 +113,16 @@ pm2 status
 ```bash
 pm2 logs geo-workstation-api
 ```
+
+确认登录接口可用：
+
+```bash
+curl -X POST http://127.0.0.1:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@geo-workstation.local","password":"replace_with_private_password"}'
+```
+
+不要在命令历史或团队文档中保留真实密码。
 
 重启 API：
 

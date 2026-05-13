@@ -5,7 +5,7 @@
 ## 上线边界
 
 - [ ] 本次只是内部演示版或内部试用部署。
-- [ ] 已确认没有登录权限，部署环境需要网络层面限制访问。
+- [ ] 已确认已启用最小登录保护，但仍需要内网、VPN 或服务器访问控制配合。
 - [ ] 已确认 GEO 分析、AI 拓词生成、GEO 内容生成仍是 Mock。
 - [ ] 未承诺真实外部 AI 检测结果。
 
@@ -16,6 +16,8 @@
 - [ ] `pnpm typecheck` 通过。
 - [ ] `pnpm build` 通过。
 - [ ] `pnpm test:web-mvp` 通过。
+- [ ] `pnpm test:auth` 通过。
+- [ ] `pnpm test:web-auth` 通过。
 - [ ] `DATABASE_URL=... pnpm test:api` 通过。
 - [ ] `pnpm smoke:api` 通过。
 - [ ] `pnpm check:internal-mvp` 通过。
@@ -28,6 +30,10 @@
 - [ ] `.env.production` 已从 `.env.production.example` 复制。
 - [ ] `apps/web/.env.production` 已从 `apps/web/.env.production.example` 复制。
 - [ ] `DATABASE_URL` 使用真实私有密码，不是 `change_me`。
+- [ ] `JWT_SECRET` 使用长随机值，不是示例占位值。
+- [ ] `DEFAULT_ADMIN_EMAIL` 已确认。
+- [ ] `DEFAULT_ADMIN_PASSWORD` 已替换为私有强密码，并已在替换后执行 `pnpm prisma:seed`。
+- [ ] `BYPASS_AUTH_FOR_TESTS=false`。
 - [ ] `LOCAL_STORAGE_ROOT` 指向服务器持久化目录。
 - [ ] `CORS_ORIGIN` 与访问域名一致。
 - [ ] `VITE_API_BASE_URL` 与 Nginx 反代方案一致。
@@ -67,6 +73,9 @@
 
 - [ ] 后端健康检查通过。
 - [ ] `pnpm smoke:api` 跑通完整 MVP API 链路。
+- [ ] 浏览器访问 `/login` 正常。
+- [ ] 默认管理员可以登录。
+- [ ] 未登录访问 `/dashboard` 会跳转 `/login`。
 - [ ] 前端 `/dashboard` 可访问。
 - [ ] `/geo-analysis` 可创建并运行 Mock 分析任务。
 - [ ] `/geo-prompts` 可查询提示词。
@@ -85,13 +94,14 @@
 ## 安全边界检查
 
 - [ ] 未提交真实数据库密码。
+- [ ] 未提交真实 JWT 密钥、管理员密码或登录 token。
 - [ ] 未提交真实 API Key。
 - [ ] 未提交 `.env`。
 - [ ] 未提交 `storage/` 或 `storage/uploads/`。
 - [ ] 未提交数据库数据目录。
 - [ ] Nginx 没有暴露不必要目录。
 - [ ] 服务器防火墙只开放必要端口。
-- [ ] 当前无登录权限，已通过内网、VPN 或访问控制限制入口。
+- [ ] 登录保护已启用，但没有开放注册、忘记密码、OAuth、多租户或复杂菜单级权限。
 
 ## 发布后观察
 

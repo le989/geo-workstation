@@ -11,7 +11,8 @@ async function createTestUser() {
       email: `phase1-${runId}-${crypto.randomUUID()}@example.com`,
       name: "Phase 1 GEO Operator",
       role: UserRole.geo_operator,
-      status: UserStatus.active
+      status: UserStatus.active,
+      passwordHash: "scrypt$test-salt$test-hash"
     }
   });
 }
@@ -230,5 +231,12 @@ describe("Phase 1 Prisma GEO schema", () => {
 
     expect(activePrompts.map((prompt) => prompt.id)).toContain(activePrompt.id);
     expect(activePrompts).toHaveLength(1);
+  });
+
+  it("stores password hashes on users without storing plaintext passwords", async () => {
+    const user = await createTestUser();
+
+    expect(user.passwordHash).toContain("scrypt$");
+    expect(user.passwordHash).not.toContain("change_me_admin_password");
   });
 });

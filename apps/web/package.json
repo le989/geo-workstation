@@ -19,6 +19,7 @@
     "test:reports": "node scripts/check-phase-3i.mjs",
     "test:mvp": "node scripts/check-frontend-mvp.mjs",
     "test:geo-analysis": "node scripts/check-phase-4a.mjs",
+    "test:auth": "node scripts/check-phase-4d.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

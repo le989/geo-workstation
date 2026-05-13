@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 
 const API_BASE_URL = (process.env.API_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const AUTH_EMAIL =
+  process.env.SMOKE_AUTH_EMAIL ?? process.env.DEFAULT_ADMIN_EMAIL ?? "admin@geo-workstation.local";
+const AUTH_PASSWORD =
+  process.env.SMOKE_AUTH_PASSWORD ??
+  process.env.DEFAULT_ADMIN_PASSWORD ??
+  "change_me_admin_password";
 const runId = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 const productLine = `Smoke GEO 激光测距传感器 ${runId}`;
+let authToken = "";
 
 async function main() {
   log(`API base URL: ${API_BASE_URL}`);
@@ -10,6 +17,19 @@ async function main() {
   await step("A. GET /health", async () => {
     const health = await request("GET", "/health");
     assert(health.status === "ok", "health status is not ok");
+  });
+
+  await step("A1. POST /api/auth/login", async () => {
+    const login = await request("POST", "/api/auth/login", {
+      email: AUTH_EMAIL,
+      password: AUTH_PASSWORD
+    });
+    assert(
+      typeof login.token === "string" && login.token.length > 20,
+      "login did not return token"
+    );
+    authToken = login.token;
+    return login;
   });
 
   const analysisTask = await step("B. POST /api/geo-analysis-tasks", async () => {
@@ -138,9 +158,15 @@ async function step(label, action) {
 }
 
 async function request(method, path, body) {
+  const headers = body === undefined ? {} : { "content-type": "application/json" };
+
+  if (authToken) {
+    headers.authorization = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body)
   }).catch((error) => {
     throw new Error(

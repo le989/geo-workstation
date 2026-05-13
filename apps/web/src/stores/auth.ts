@@ -1,0 +1,110 @@
+import { computed, ref } from "vue";
+import { defineStore } from "pinia";
+import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "@/api/auth";
+import type { AuthUser } from "@/api/auth";
+import { setAuthTokenGetter, setUnauthorizedHandler } from "@/api/http";
+
+const TOKEN_STORAGE_KEY = "geo-workstation.auth-token";
+const USER_STORAGE_KEY = "geo-workstation.auth-user";
+
+const readStoredUser = (): AuthUser | null => {
+  const raw = window.localStorage.getItem(USER_STORAGE_KEY);
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    window.localStorage.removeItem(USER_STORAGE_KEY);
+    return null;
+  }
+};
+
+export const useAuthStore = defineStore("auth", () => {
+  const token = ref<string | null>(window.localStorage.getItem(TOKEN_STORAGE_KEY));
+  const currentUser = ref<AuthUser | null>(readStoredUser());
+  const loading = ref(false);
+
+  const isAuthenticated = computed(() => Boolean(token.value && currentUser.value));
+
+  const persistSession = (nextToken: string, user: AuthUser) => {
+    token.value = nextToken;
+    currentUser.value = user;
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
+    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  };
+
+  const clearSession = () => {
+    token.value = null;
+    currentUser.value = null;
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(USER_STORAGE_KEY);
+  };
+
+  const login = async (payload: { email: string; password: string }) => {
+    loading.value = true;
+    try {
+      const result = await loginRequest(payload);
+      persistSession(result.token, result.user);
+      return result.user;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const ensureSession = async () => {
+    if (!token.value) {
+      clearSession();
+      return false;
+    }
+
+    if (currentUser.value) {
+      return true;
+    }
+
+    try {
+      currentUser.value = await getCurrentUser();
+      window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser.value));
+      return true;
+    } catch {
+      clearSession();
+      return false;
+    }
+  };
+
+  const refreshCurrentUser = async () => {
+    currentUser.value = await getCurrentUser();
+    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(currentUser.value));
+    return currentUser.value;
+  };
+
+  const logout = async () => {
+    try {
+      if (token.value) {
+        await logoutRequest();
+      }
+    } finally {
+      clearSession();
+    }
+  };
+
+  setAuthTokenGetter(() => token.value);
+  setUnauthorizedHandler(() => {
+    clearSession();
+    window.dispatchEvent(new CustomEvent("geo-auth:unauthorized"));
+  });
+
+  return {
+    token,
+    currentUser,
+    loading,
+    isAuthenticated,
+    login,
+    logout,
+    ensureSession,
+    refreshCurrentUser,
+    clearSession
+  };
+});

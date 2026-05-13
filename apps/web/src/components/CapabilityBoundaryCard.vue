@@ -6,7 +6,8 @@ const realCapabilities = [
   "指令库",
   "内容任务与内容项",
   "模型覆盖记录",
-  "GEO 报表"
+  "GEO 报表",
+  "登录与路由保护"
 ];
 
 const mockCapabilities = ["GEO 分析", "AI 拓词生成", "内容生成"];
@@ -15,7 +16,7 @@ const pendingCapabilities = [
   "真实外部 AI 自动检测",
   "真实 DeepSeek / 豆包 / Kimi / 通义接入",
   "自动发布",
-  "登录权限"
+  "开放注册 / OAuth / 复杂权限"
 ];
 </script>
 
