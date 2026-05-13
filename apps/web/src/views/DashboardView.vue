@@ -223,6 +223,37 @@ const modelMetrics = computed(() => [
     tone: report.value.uncoveredTrackedPromptCount > 0 ? ("warning" as const) : ("default" as const)
   }
 ]);
+
+const todayActions = computed(() => {
+  const actions = [
+    {
+      title: "优先补模型覆盖记录",
+      description: "高优先级追踪词如果缺少覆盖记录，报表无法判断品牌是否被提及或推荐。",
+      value: formatNumber(report.value.uncoveredTrackedPromptCount),
+      unit: "个未覆盖追踪词",
+      to: "/model-inclusion-records",
+      tone: report.value.uncoveredTrackedPromptCount > 0 ? "warning" : "default"
+    },
+    {
+      title: "补齐可引用知识资料",
+      description: "知识片段越完整，真实 AI 内容生成越不容易出现未经证实的参数和结论。",
+      value: formatNumber(report.value.knowledgeChunkCount),
+      unit: "条知识片段",
+      to: "/knowledge-bases",
+      tone: report.value.knowledgeChunkCount > 0 ? "good" : "warning"
+    },
+    {
+      title: "处理失败内容任务",
+      description: "失败任务通常来自输入不足或真实 AI 配置问题，建议及时查看失败原因。",
+      value: formatNumber(report.value.failedContentTaskCount),
+      unit: "个失败任务",
+      to: "/content-tasks",
+      tone: report.value.failedContentTaskCount > 0 ? "danger" : "default"
+    }
+  ];
+
+  return actions;
+});
 </script>
 
 <template>
@@ -245,6 +276,36 @@ const modelMetrics = computed(() => [
     </header>
 
     <AppErrorState v-if="hasOverviewError" title="GEO 总览加载失败" :message="overviewError" />
+
+    <section class="dashboard-focus-grid">
+      <article class="dashboard-focus-card dashboard-focus-card--primary">
+        <p class="section-kicker">今日建议</p>
+        <h2>先处理最影响 GEO 闭环的数据缺口</h2>
+        <p>
+          工作台会把提示词、知识库、内容和覆盖记录串起来。建议先补检测记录，再补知识资料和内容任务。
+        </p>
+        <div class="dashboard-focus-card__footer">
+          <el-tag effect="plain" type="success">内部运营工作台</el-tag>
+          <span>{{
+            suggestions.length > 0
+              ? `当前有 ${suggestions.length} 条待优化建议`
+              : "暂无明显待优化项"
+          }}</span>
+        </div>
+      </article>
+
+      <RouterLink
+        v-for="action in todayActions"
+        :key="action.title"
+        :to="action.to"
+        :class="['dashboard-action-card', `dashboard-action-card--${action.tone}`]"
+      >
+        <span>{{ action.title }}</span>
+        <strong>{{ action.value }}</strong>
+        <small>{{ action.unit }}</small>
+        <p>{{ action.description }}</p>
+      </RouterLink>
+    </section>
 
     <DashboardSection
       title="GEO 资产概览"

@@ -58,6 +58,30 @@ const selectedKnowledgeBase = computed(() =>
 const selectedInstructionTemplate = computed(() =>
   instructionTemplates.value.find((item) => item.id === form.instructionTemplateId)
 );
+const activeStep = computed(() => {
+  if (
+    form.geoPromptIds.length > 0 &&
+    form.name.trim() &&
+    form.generationType.trim() &&
+    form.provider
+  ) {
+    return 4;
+  }
+
+  if (form.knowledgeBaseId || form.instructionTemplateId) {
+    return 3;
+  }
+
+  if (form.name.trim() && form.generationType.trim()) {
+    return 2;
+  }
+
+  if (form.geoPromptIds.length > 0) {
+    return 1;
+  }
+
+  return 0;
+});
 
 const getInstructionContentTypeLabel = (template: InstructionTemplate) =>
   contentTypeLabelMap[template.contentType] ?? template.contentType;
@@ -187,83 +211,141 @@ const handleSubmit = () => {
       class="dialog-alert"
     />
 
+    <el-steps class="content-create-steps" :active="activeStep" finish-status="success" simple>
+      <el-step title="选择提示词" />
+      <el-step title="任务信息" />
+      <el-step title="知识与指令" />
+      <el-step title="生成方式" />
+      <el-step title="确认生成" />
+    </el-steps>
+
     <el-form class="content-task-form" label-position="top">
-      <el-form-item label="任务名称" required>
-        <el-input v-model="form.name" placeholder="例如：激光测距传感器 GEO 内容补齐任务" />
-      </el-form-item>
-      <el-form-item label="产品线">
-        <el-input v-model="form.productLine" placeholder="例如：激光测距传感器" />
-      </el-form-item>
-      <el-form-item label="生成类型" required>
-        <el-select v-model="form.generationType" filterable allow-create placeholder="选择生成类型">
-          <el-option
-            v-for="option in generationTypeOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="目标模型">
-        <el-input v-model="form.targetModel" placeholder="例如 deepseek-chat / doubao" />
-      </el-form-item>
-      <el-form-item label="知识库">
-        <el-select
-          v-model="form.knowledgeBaseId"
-          clearable
-          filterable
-          :loading="loadingOptions"
-          placeholder="可选：选择企业 GEO 知识库"
-        >
-          <el-option
-            v-for="item in knowledgeBases"
-            :key="item.id"
-            :label="`${item.name} / ${formatOptional(item.productLine)}`"
-            :value="item.id"
-          />
-        </el-select>
-        <p v-if="selectedKnowledgeBase" class="form-help">
-          将引用 {{ selectedKnowledgeBase.name }} 中的企业事实资料。
-        </p>
-      </el-form-item>
-      <el-form-item label="指令模板">
-        <el-select
-          v-model="form.instructionTemplateId"
-          clearable
-          filterable
-          :loading="loadingOptions"
-          placeholder="可选：选择 GEO 指令模板"
-        >
-          <el-option
-            v-for="item in instructionTemplates"
-            :key="item.id"
-            :label="`${item.name} / ${instructionTypeLabelMap[item.instructionType] ?? item.instructionType}`"
-            :value="item.id"
-          />
-        </el-select>
-        <p v-if="selectedInstructionTemplate" class="form-help">
-          内容类型：{{ getInstructionContentTypeLabel(selectedInstructionTemplate) }}
-        </p>
-      </el-form-item>
-      <el-form-item label="AI 生成方式">
-        <el-select v-model="form.provider">
-          <el-option
-            v-for="option in aiProviderOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="模型名称">
-        <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
-      </el-form-item>
-      <el-form-item label="创建人">
-        <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
-      </el-form-item>
-      <el-form-item label="选择 GEO 提示词" required class="form-span-2">
-        <GeoPromptSelector v-model="form.geoPromptIds" :disabled="submitting" />
-      </el-form-item>
+      <section class="content-form-section content-form-section--prompts">
+        <div class="content-form-section__header">
+          <span>01</span>
+          <div>
+            <h3>选择要服务的 GEO 提示词</h3>
+            <p>每个提示词会生成一个内容项，内容目标围绕 AI 问答中的品牌提及和推荐。</p>
+          </div>
+        </div>
+        <el-form-item label="选择 GEO 提示词" required>
+          <GeoPromptSelector v-model="form.geoPromptIds" :disabled="submitting" />
+        </el-form-item>
+      </section>
+
+      <section class="content-form-section">
+        <div class="content-form-section__header">
+          <span>02</span>
+          <div>
+            <h3>填写任务基础信息</h3>
+            <p>让任务名称、产品线和生成类型清楚对应到 GEO 内容资产。</p>
+          </div>
+        </div>
+        <div class="content-form-grid">
+          <el-form-item label="任务名称" required>
+            <el-input v-model="form.name" placeholder="例如：激光测距传感器 GEO 内容补齐任务" />
+          </el-form-item>
+          <el-form-item label="产品线">
+            <el-input v-model="form.productLine" placeholder="例如：激光测距传感器" />
+          </el-form-item>
+          <el-form-item label="生成类型" required>
+            <el-select
+              v-model="form.generationType"
+              filterable
+              allow-create
+              placeholder="选择生成类型"
+            >
+              <el-option
+                v-for="option in generationTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="目标模型">
+            <el-input v-model="form.targetModel" placeholder="例如 deepseek-chat / doubao" />
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="content-form-section">
+        <div class="content-form-section__header">
+          <span>03</span>
+          <div>
+            <h3>选择知识库与指令模板</h3>
+            <p>知识库提供事实边界，指令模板控制内容结构和质量规则。</p>
+          </div>
+        </div>
+        <div class="content-form-grid">
+          <el-form-item label="知识库">
+            <el-select
+              v-model="form.knowledgeBaseId"
+              clearable
+              filterable
+              :loading="loadingOptions"
+              placeholder="可选：选择企业 GEO 知识库"
+            >
+              <el-option
+                v-for="item in knowledgeBases"
+                :key="item.id"
+                :label="`${item.name} / ${formatOptional(item.productLine)}`"
+                :value="item.id"
+              />
+            </el-select>
+            <p v-if="selectedKnowledgeBase" class="form-help">
+              将引用 {{ selectedKnowledgeBase.name }} 中的企业事实资料。
+            </p>
+          </el-form-item>
+          <el-form-item label="指令模板">
+            <el-select
+              v-model="form.instructionTemplateId"
+              clearable
+              filterable
+              :loading="loadingOptions"
+              placeholder="可选：选择 GEO 指令模板"
+            >
+              <el-option
+                v-for="item in instructionTemplates"
+                :key="item.id"
+                :label="`${item.name} / ${instructionTypeLabelMap[item.instructionType] ?? item.instructionType}`"
+                :value="item.id"
+              />
+            </el-select>
+            <p v-if="selectedInstructionTemplate" class="form-help">
+              内容类型：{{ getInstructionContentTypeLabel(selectedInstructionTemplate) }}
+            </p>
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="content-form-section">
+        <div class="content-form-section__header">
+          <span>04</span>
+          <div>
+            <h3>选择生成方式</h3>
+            <p>默认使用模拟生成；真实 AI 接口由后端环境变量管理，会消耗接口额度。</p>
+          </div>
+        </div>
+        <div class="content-form-grid">
+          <el-form-item label="AI 生成方式">
+            <el-select v-model="form.provider">
+              <el-option
+                v-for="option in aiProviderOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="模型名称">
+            <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
+          </el-form-item>
+          <el-form-item label="创建人">
+            <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
+          </el-form-item>
+        </div>
+      </section>
     </el-form>
 
     <template #footer>

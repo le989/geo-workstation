@@ -146,37 +146,60 @@ const close = () => {
     />
 
     <el-form class="analysis-task-form" label-position="top">
-      <el-form-item label="任务名称" required>
-        <el-input v-model="form.name" placeholder="例如：凯基特激光测距传感器 GEO 诊断" />
-      </el-form-item>
-      <el-form-item label="品牌名称" required>
-        <el-input v-model="form.brandName" placeholder="例如：凯基特" />
-      </el-form-item>
-      <el-form-item label="官网">
-        <el-input v-model="form.websiteUrl" placeholder="例如：https://example.com" />
-      </el-form-item>
-      <el-form-item label="产品线">
-        <el-input v-model="form.productLine" placeholder="例如：激光测距传感器" />
-      </el-form-item>
-      <el-form-item v-if="mode === 'create'" label="核心训练词">
-        <el-input
-          v-model="form.baseWordsText"
-          type="textarea"
-          :rows="3"
-          placeholder="逗号或换行分隔，例如：激光测距传感器，行车防撞传感器"
-        />
-      </el-form-item>
-      <el-form-item label="目标模型" required>
-        <el-input
-          v-model="form.targetModelsText"
-          type="textarea"
-          :rows="3"
-          placeholder="逗号或换行分隔，例如：deepseek-chat，doubao，kimi"
-        />
-      </el-form-item>
-      <el-form-item v-if="mode === 'create'" label="创建人">
-        <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
-      </el-form-item>
+      <section class="analysis-form-section">
+        <div class="analysis-form-section__header">
+          <span>1</span>
+          <div>
+            <h3>诊断对象</h3>
+            <p>明确品牌、官网和产品线，后续分析结果会围绕这些信息生成。</p>
+          </div>
+        </div>
+        <div class="analysis-form-grid">
+          <el-form-item label="任务名称" required>
+            <el-input v-model="form.name" placeholder="例如：凯基特激光测距传感器 GEO 诊断" />
+          </el-form-item>
+          <el-form-item label="品牌名称" required>
+            <el-input v-model="form.brandName" placeholder="例如：凯基特" />
+          </el-form-item>
+          <el-form-item label="官网">
+            <el-input v-model="form.websiteUrl" placeholder="例如：https://example.com" />
+          </el-form-item>
+          <el-form-item label="产品线">
+            <el-input v-model="form.productLine" placeholder="例如：激光测距传感器" />
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="analysis-form-section">
+        <div class="analysis-form-section__header">
+          <span>2</span>
+          <div>
+            <h3>分析输入</h3>
+            <p>核心训练词用于模拟用户问题簇，目标模型用于生成模型结果占位。</p>
+          </div>
+        </div>
+        <div class="analysis-form-grid">
+          <el-form-item v-if="mode === 'create'" label="核心训练词">
+            <el-input
+              v-model="form.baseWordsText"
+              type="textarea"
+              :rows="3"
+              placeholder="逗号或换行分隔，例如：激光测距传感器，行车防撞传感器"
+            />
+          </el-form-item>
+          <el-form-item label="目标模型" required>
+            <el-input
+              v-model="form.targetModelsText"
+              type="textarea"
+              :rows="3"
+              placeholder="逗号或换行分隔，例如：deepseek-chat，doubao，kimi"
+            />
+          </el-form-item>
+          <el-form-item v-if="mode === 'create'" label="创建人">
+            <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
+          </el-form-item>
+        </div>
+      </section>
     </el-form>
 
     <el-alert
@@ -205,17 +228,64 @@ const close = () => {
 <style scoped>
 .analysis-task-form {
   display: grid;
+  gap: 16px;
+}
+
+.analysis-form-section {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.analysis-form-section__header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.analysis-form-section__header > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--geo-accent-soft);
+  color: var(--geo-accent);
+  font-weight: 800;
+}
+
+.analysis-form-section__header h3 {
+  margin: 0 0 4px;
+  color: #13243a;
+  font-size: 16px;
+}
+
+.analysis-form-section__header p {
+  margin: 0;
+  color: var(--geo-muted);
+  line-height: 1.6;
+}
+
+.analysis-form-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px 16px;
 }
 
-.analysis-task-form :deep(.el-form-item:nth-child(5)),
-.analysis-task-form :deep(.el-form-item:nth-child(6)) {
+.analysis-form-grid :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.analysis-form-grid :deep(.el-form-item:has(.el-textarea)) {
   grid-column: 1 / -1;
 }
 
 @media (max-width: 760px) {
-  .analysis-task-form {
+  .analysis-form-grid {
     grid-template-columns: 1fr;
   }
 }

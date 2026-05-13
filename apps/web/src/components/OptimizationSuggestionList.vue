@@ -37,36 +37,24 @@ const priorityType = (priority: number) => {
 
     <el-empty v-else-if="items.length === 0" description="当前暂无明显待优化项" />
 
-    <el-table v-else :data="items" class="suggestion-table">
-      <el-table-column label="类型" min-width="126">
-        <template #default="{ row }">
+    <div v-else class="suggestion-task-list">
+      <article v-for="item in items" :key="`${item.type}-${item.title}`" class="suggestion-task">
+        <div class="suggestion-task__status">
           <el-tag effect="plain">
-            {{ typeLabels[row.type as OptimizationSuggestion["type"]] }}
+            {{ typeLabels[item.type as OptimizationSuggestion["type"]] }}
           </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="优先级" width="96">
-        <template #default="{ row }">
-          <el-tag :type="priorityType(row.priority)" effect="dark">P{{ row.priority }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
-      <el-table-column prop="reason" label="原因" min-width="260" show-overflow-tooltip />
-      <el-table-column
-        prop="suggestedAction"
-        label="建议动作"
-        min-width="260"
-        show-overflow-tooltip
-      />
-      <el-table-column label="关联提示词" min-width="200" show-overflow-tooltip>
-        <template #default="{ row }">{{ row.relatedPromptText || "--" }}</template>
-      </el-table-column>
-      <el-table-column label="产品线 / 模型" min-width="160">
-        <template #default="{ row }">
-          <span>{{ row.relatedProductLine || "--" }}</span>
-          <small>{{ row.relatedModel || "--" }}</small>
-        </template>
-      </el-table-column>
-    </el-table>
+          <el-tag :type="priorityType(item.priority)" effect="dark">P{{ item.priority }}</el-tag>
+        </div>
+        <div class="suggestion-task__body">
+          <strong>{{ item.title }}</strong>
+          <p>{{ item.reason }}</p>
+          <small>建议动作：{{ item.suggestedAction }}</small>
+        </div>
+        <div class="suggestion-task__meta">
+          <span>{{ item.relatedPromptText || "未关联提示词" }}</span>
+          <small>{{ item.relatedProductLine || "--" }} / {{ item.relatedModel || "--" }}</small>
+        </div>
+      </article>
+    </div>
   </div>
 </template>

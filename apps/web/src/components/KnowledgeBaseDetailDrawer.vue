@@ -187,6 +187,36 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
           </el-descriptions-item>
         </el-descriptions>
 
+        <section class="knowledge-operation-grid">
+          <button
+            class="knowledge-operation-card"
+            type="button"
+            @click="emit('update:activeTab', 'chunks')"
+          >
+            <span>知识片段</span>
+            <strong>{{ detail.chunksCount }} 条可引用资料</strong>
+            <small>查看、筛选和编辑企业事实资料，支撑后续 GEO 内容生成。</small>
+          </button>
+          <button
+            class="knowledge-operation-card"
+            type="button"
+            @click="emit('update:activeTab', 'files')"
+          >
+            <span>文件资料</span>
+            <strong>{{ detail.filesCount }} 个解析文件</strong>
+            <small>跟踪 txt / md / csv 的解析状态，失败后可重新解析。</small>
+          </button>
+          <button
+            class="knowledge-operation-card"
+            type="button"
+            @click="emit('update:activeTab', 'text-import')"
+          >
+            <span>文本导入</span>
+            <strong>快速补充事实资料</strong>
+            <small>适合先录入产品说明、FAQ、场景资料和选型边界。</small>
+          </button>
+        </section>
+
         <el-tabs
           :model-value="activeTab"
           class="knowledge-detail-tabs"

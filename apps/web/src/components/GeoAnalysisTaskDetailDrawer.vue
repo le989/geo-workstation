@@ -123,6 +123,20 @@ const formatSummaryValue = (value: unknown) => {
       <el-skeleton v-if="loading && !detail" :rows="10" animated />
 
       <template v-else-if="detail">
+        <section class="analysis-next-action-bar">
+          <div>
+            <p class="section-kicker">后续动作</p>
+            <h3>把诊断结果转成可执行资产</h3>
+            <p>先将提示词建议沉淀为策略库资产，再基于提示词、知识库和指令模板创建内容任务。</p>
+          </div>
+          <div>
+            <el-button type="primary" plain @click="emit('goToPrompts')">
+              查看提示词策略库
+            </el-button>
+            <el-button type="primary" @click="emit('goToContentTasks')"> 查看内容任务 </el-button>
+          </div>
+        </section>
+
         <el-descriptions :column="3" border class="analysis-detail-summary">
           <el-descriptions-item label="任务名称">{{ detail.task.name }}</el-descriptions-item>
           <el-descriptions-item label="品牌名称">{{ detail.task.brandName }}</el-descriptions-item>
@@ -290,6 +304,35 @@ const formatSummaryValue = (value: unknown) => {
   background: #ffffff;
 }
 
+.analysis-next-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgb(35 90 159 / 7%), transparent 44%), #ffffff;
+}
+
+.analysis-next-action-bar h3 {
+  margin: 0 0 6px;
+  color: #13243a;
+}
+
+.analysis-next-action-bar p:not(.section-kicker) {
+  margin: 0;
+  color: var(--geo-muted);
+  line-height: 1.65;
+}
+
+.analysis-next-action-bar > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -367,8 +410,10 @@ const formatSummaryValue = (value: unknown) => {
 
 @media (max-width: 980px) {
   .analysis-detail-header,
-  .section-heading {
+  .section-heading,
+  .analysis-next-action-bar {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .summary-grid,

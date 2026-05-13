@@ -145,6 +145,29 @@ const close = () => {
           </el-descriptions-item>
         </el-descriptions>
 
+        <section class="content-workflow-strip">
+          <div class="content-workflow-card">
+            <span>提示词</span>
+            <strong>{{ detail.prompts.length }} 个</strong>
+            <small>决定内容要服务的 AI 问答入口。</small>
+          </div>
+          <div class="content-workflow-card">
+            <span>知识库</span>
+            <strong>{{ detail.knowledgeBase?.name ?? "未选择" }}</strong>
+            <small>约束内容事实来源，减少未经证实的参数。</small>
+          </div>
+          <div class="content-workflow-card">
+            <span>指令模板</span>
+            <strong>{{ detail.instructionTemplate?.name ?? "未选择" }}</strong>
+            <small>控制文章结构、质量规则和禁止事项。</small>
+          </div>
+          <div class="content-workflow-card">
+            <span>生成方式</span>
+            <strong>{{ formatProviderModel(detail.task.provider, detail.task.model) }}</strong>
+            <small>真实 AI 接口会消耗额度，失败原因会保留在内容项中。</small>
+          </div>
+        </section>
+
         <div class="content-detail-grid">
           <el-card shadow="never">
             <template #header>关联 GEO 提示词</template>
