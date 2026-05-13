@@ -23,15 +23,15 @@ NODE_ENV=development
 API_PORT=3000
 WEB_PORT=5173
 CORS_ORIGIN=
-DATABASE_URL=postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public
+DATABASE_URL="postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public"
 REDIS_URL=redis://localhost:6379
 LOCAL_STORAGE_ROOT=./storage
-JWT_SECRET=change_me_local_jwt_secret
+JWT_SECRET="local_dev_jwt_secret_change_me_123456789"
 JWT_EXPIRES_IN=12h
-DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
-DEFAULT_ADMIN_PASSWORD=change_me_admin_password
+DEFAULT_ADMIN_EMAIL="admin@example.com"
+DEFAULT_ADMIN_PASSWORD="change_me_admin_password"
 BYPASS_AUTH_FOR_TESTS=false
-AI_PROVIDER=mock
+AI_PROVIDER="mock"
 AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
 AI_OPENAI_COMPATIBLE_API_KEY=change_me
 AI_OPENAI_COMPATIBLE_MODEL=deepseek-chat
@@ -39,6 +39,8 @@ AI_REQUEST_TIMEOUT_MS=60000
 AI_MAX_TOKENS=3000
 AI_TEMPERATURE=0.7
 ```
+
+从项目根目录执行 `pnpm prisma:validate`、`pnpm prisma:generate`、`pnpm prisma:migrate`、`pnpm prisma:seed` 时，Prisma 配置会显式读取根目录 `.env`，不需要手动 `export DATABASE_URL`。
 
 ## 根目录 `.env.production`
 

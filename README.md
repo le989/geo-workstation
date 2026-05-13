@@ -66,6 +66,7 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 一键启动顺序：
 
 ```bash
+cp .env.example .env # 如果本地还没有 .env
 docker compose up -d postgres
 pnpm install
 pnpm prisma:migrate
@@ -307,6 +308,8 @@ pnpm prisma:generate
 pnpm prisma:migrate
 pnpm prisma:seed
 ```
+
+这些命令可以从项目根目录直接执行。`apps/api/prisma.config.ts` 会显式加载项目根目录 `.env`，不需要手动 `export DATABASE_URL`。
 
 `pnpm prisma:seed` 会为默认管理员写入密码 hash。共享部署前请先修改私有环境变量中的 `DEFAULT_ADMIN_PASSWORD`，不要使用示例占位密码。
 
