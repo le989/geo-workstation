@@ -244,7 +244,7 @@ onMounted(() => {
         <h1>指令库</h1>
         <p>
           沉淀适用于 GEO 内容生成的指令模板，用于指导 AI
-          问答素材、选型指南、应用方案、FAQ、国产替代和对比内容的生产。
+          问答素材、需求决策指南、场景方案、FAQ、对比与替代内容的生产。
         </p>
         <strong>用什么指令指导 GEO 内容生成？哪些指令适合蒸馏词、品牌词和场景词？</strong>
       </div>
@@ -283,7 +283,7 @@ onMounted(() => {
         class="instruction-template-table"
         row-key="id"
         border
-        empty-text="暂无 GEO 指令模板，可先创建选型指南、AI 问答素材或 FAQ 指令。"
+        empty-text="暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材或 FAQ 指令。"
       >
         <el-table-column prop="name" label="指令名称" min-width="210" fixed="left">
           <template #default="{ row }: { row: InstructionTemplate }">
@@ -334,7 +334,7 @@ onMounted(() => {
           <el-empty
             :description="
               isEmpty
-                ? '暂无 GEO 指令模板，可先创建选型指南、AI 问答素材或 FAQ 指令。'
+                ? '暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材或 FAQ 指令。'
                 : '正在加载 GEO 指令模板'
             "
           >

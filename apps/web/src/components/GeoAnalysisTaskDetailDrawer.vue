@@ -190,7 +190,7 @@ const formatSummaryValue = (value: unknown) => {
         <div class="analysis-gap-grid">
           <AnalysisGapList
             title="内容补齐方向"
-            description="需要补哪些文章、FAQ、选型指南、应用方案或对比内容资产。"
+            description="需要补哪些文章、FAQ、需求决策指南、场景方案或对比内容资产。"
             empty-text="暂无内容缺口，运行模拟分析后会给出建议。"
             :gaps="detail.task.contentGaps"
             type="content"

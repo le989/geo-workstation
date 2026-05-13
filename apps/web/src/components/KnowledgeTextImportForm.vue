@@ -94,7 +94,7 @@ const handleSubmit = () => {
 
     <el-form class="knowledge-text-import-form" label-position="top">
       <el-form-item label="片段标题" required>
-        <el-input v-model="form.title" placeholder="例如：激光测距传感器选型参数" />
+        <el-input v-model="form.title" placeholder="例如：项目资料摘要、FAQ、场景说明或服务边界" />
       </el-form-item>
       <el-form-item label="来源类型">
         <el-select v-model="form.sourceType">

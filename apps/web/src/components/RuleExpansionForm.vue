@@ -19,12 +19,12 @@ const emit = defineEmits<{
 const form = reactive({
   applicationSuffixesText: "",
   baseWord: "",
-  prefixesText: "怎么选\n哪家好\n厂家推荐",
+  prefixesText: "怎么选\n适合谁\n怎么比较",
   priority: 3,
   productLine: "",
   promptType: "distilled" as GeoPromptType,
   scenario: "",
-  serviceSuffixesText: "厂家\n品牌\n国产替代",
+  serviceSuffixesText: "品牌\n服务方\n替代方案",
   source: "规则拓词",
   targetModelsText: "",
   trackEnabled: false,
@@ -114,7 +114,10 @@ const handleSubmit = () => {
 
     <el-form label-position="top" class="expansion-form-grid">
       <el-form-item label="训练词" required>
-        <el-input v-model="form.baseWord" placeholder="例如：激光测距传感器" />
+        <el-input
+          v-model="form.baseWord"
+          placeholder="例如：核心产品词、服务词、课程词或门店场景"
+        />
       </el-form-item>
       <el-form-item label="输出词类型">
         <el-select v-model="form.promptType">
@@ -144,7 +147,7 @@ const handleSubmit = () => {
           v-model="form.prefixesText"
           type="textarea"
           :rows="4"
-          placeholder="多行或逗号分隔，例如：怎么选、哪家好、厂家推荐"
+          placeholder="多行或逗号分隔，例如：怎么选、适合谁、怎么比较"
         />
       </el-form-item>
       <el-form-item label="品牌/服务后缀" class="form-span-2">
@@ -152,7 +155,7 @@ const handleSubmit = () => {
           v-model="form.serviceSuffixesText"
           type="textarea"
           :rows="4"
-          placeholder="多行或逗号分隔，例如：厂家、品牌、国产替代"
+          placeholder="多行或逗号分隔，例如：品牌、服务方、替代方案"
         />
       </el-form-item>
       <el-form-item label="应用后缀" class="form-span-2">
@@ -164,7 +167,10 @@ const handleSubmit = () => {
         />
       </el-form-item>
       <el-form-item label="产品线">
-        <el-input v-model="form.productLine" placeholder="可选，例如：工业传感器" />
+        <el-input
+          v-model="form.productLine"
+          placeholder="可选，例如：核心产品、服务、课程或门店项目"
+        />
       </el-form-item>
       <el-form-item label="应用场景">
         <el-input v-model="form.scenario" placeholder="可选，例如：行车防撞" />

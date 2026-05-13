@@ -174,8 +174,43 @@ describe("ContentTasksService", () => {
     }));
     const providerAwareService = new (ContentTasksService as unknown as new (
       prisma: PrismaService,
-      aiProviderService: { generateText: typeof generateText }
-    ) => ContentTasksService)(prisma as unknown as PrismaService, { generateText });
+      aiProviderService: { generateText: typeof generateText },
+      projectProfileService: {
+        getPromptContext: () => Promise<{
+          projectName: string;
+          brandName: string;
+          industry: string;
+          mainProducts: string[];
+          targetCustomers: string;
+          positioning: string;
+          tone: string;
+          forbiddenClaims: string[];
+          targetModels: string[];
+          createdAt: Date;
+          updatedAt: Date;
+          id: string;
+        }>;
+      }
+    ) => ContentTasksService)(
+      prisma as unknown as PrismaService,
+      { generateText },
+      {
+        getPromptContext: async () => ({
+          id: "project-profile-test",
+          projectName: "跨行业 GEO 项目",
+          brandName: "通用品牌",
+          industry: "用户自由填写行业",
+          mainProducts: ["产品", "服务", "课程", "门店"],
+          targetCustomers: "正在向 AI 咨询方案的人群",
+          positioning: "可信赖的项目上下文",
+          tone: "专业、克制、可信",
+          forbiddenClaims: ["不要承诺效果", "不要编造价格"],
+          targetModels: ["deepseek", "kimi"],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+      }
+    );
 
     const result = await providerAwareService.create({
       name: unique("真实Provider内容任务"),
@@ -190,10 +225,16 @@ describe("ContentTasksService", () => {
     expect(generateText).toHaveBeenCalledOnce();
     const generateInput = generateText.mock.calls[0]?.[0];
     expect(generateInput?.systemPrompt).toContain("全局通用质量规则");
+    expect(generateInput?.userPrompt).toContain("项目档案 / 品牌上下文");
+    expect(generateInput?.userPrompt).toContain("跨行业 GEO 项目");
+    expect(generateInput?.userPrompt).toContain("主营产品 / 服务 / 课程 / 门店 / 个人品牌方向");
+    expect(generateInput?.userPrompt).toContain("项目档案只用于品牌语气、受众和基础上下文");
     expect(generateInput?.userPrompt).toContain("不得编造具体型号、参数、精度、量程");
-    expect(generateInput?.userPrompt).toContain("需结合具体型号资料确认");
+    expect(generateInput?.userPrompt).toContain("需结合具体资料确认");
     expect(generateInput?.userPrompt).toContain("不要建议用户自行修改功率");
-    expect(generateInput?.userPrompt).toContain("输出内容要优先写选型逻辑、现场确认项和应用边界");
+    expect(generateInput?.userPrompt).toContain(
+      "输出内容要优先写需求决策逻辑、场景确认项、适用边界"
+    );
     expect(result.task).toMatchObject({
       provider: "openai_compatible",
       model: "deepseek-chat",

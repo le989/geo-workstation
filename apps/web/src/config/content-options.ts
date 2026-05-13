@@ -11,9 +11,9 @@ export const contentTaskStatusOptions: Array<{ label: string; value: TaskStatus 
 export const generationTypeOptions = [
   { label: "文章", value: "article" },
   { label: "FAQ", value: "faq" },
-  { label: "选型指南", value: "selection_guide" },
-  { label: "应用方案", value: "application_solution" },
-  { label: "国产替代内容", value: "domestic_alternative" },
+  { label: "需求决策指南", value: "selection_guide" },
+  { label: "场景解决方案", value: "application_solution" },
+  { label: "对比与替代内容", value: "domestic_alternative" },
   { label: "对比内容", value: "comparison" },
   { label: "AI 问答素材", value: "qa_material" },
   { label: "品牌实力内容", value: "brand_strength" },

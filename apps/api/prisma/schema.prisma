@@ -89,6 +89,26 @@ model User {
   @@map("users")
 }
 
+model ProjectProfile {
+  id              String   @id @default(cuid())
+  projectName     String   @map("project_name")
+  companyName     String?  @map("company_name")
+  brandName       String?  @map("brand_name")
+  websiteUrl      String?  @map("website_url")
+  industry        String?
+  mainProducts    Json?    @map("main_products")
+  targetCustomers String?  @map("target_customers")
+  positioning     String?
+  tone            String?
+  forbiddenClaims Json?    @map("forbidden_claims")
+  targetModels    Json?    @map("target_models")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("project_profiles")
+}
+
 model GeoAnalysisTask {
   id                String           @id @default(cuid())
   name              String

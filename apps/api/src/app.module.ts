@@ -11,6 +11,7 @@ import { GeoKnowledgeModule } from "./modules/geo-knowledge/geo-knowledge.module
 import { GeoPromptsModule } from "./modules/geo-prompts/geo-prompts.module";
 import { GeoReportsModule } from "./modules/geo-reports/geo-reports.module";
 import { ModelInclusionModule } from "./modules/model-inclusion/model-inclusion.module";
+import { ProjectProfileModule } from "./modules/project-profile/project-profile.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({
@@ -29,7 +30,8 @@ import { PrismaModule } from "./prisma/prisma.module";
     GeoInstructionsModule,
     GeoContentModule,
     ModelInclusionModule,
-    GeoReportsModule
+    GeoReportsModule,
+    ProjectProfileModule
   ],
   controllers: [HealthController]
 })

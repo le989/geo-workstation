@@ -106,6 +106,23 @@ curl http://localhost:3000/health
 
 登录失败统一返回账号或密码错误，避免暴露邮箱是否存在或用户状态等细节。
 
+### Project Profile
+
+项目档案用于描述当前 GEO 工作站代表的项目是谁、服务谁、应该怎么表达。它是单项目上下文，不是多租户或客户管理模块。
+
+| Method | Path                   | 用途             | 主要入参                                                                                                                                                                  | 主要返回          | 备注                     |
+| ------ | ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------ |
+| GET    | `/api/project-profile` | 获取当前项目档案 | 无                                                                                                                                                                        | 项目档案或 `null` | 无档案时返回空状态       |
+| POST   | `/api/project-profile` | 创建项目档案     | `projectName`、`companyName`、`brandName`、`websiteUrl`、`industry`、`mainProducts`、`targetCustomers`、`positioning`、`tone`、`forbiddenClaims`、`targetModels`、`notes` | 项目档案          | 第一版只允许创建一份档案 |
+| PATCH  | `/api/project-profile` | 更新项目档案     | 创建字段的子集                                                                                                                                                            | 项目档案          | 不提供删除接口           |
+
+字段说明：
+
+- `industry` 是用户自由填写字段，不是固定行业枚举。
+- `mainProducts` 兼容产品、服务、课程、门店、个人品牌方向、解决方案等表达。
+- 项目档案会作为真实 AI 内容生成和 AI 拓词的品牌/语气/受众上下文。
+- 项目档案不替代知识库事实；具体参数、承诺、案例、价格、资质等仍必须来自知识库、目标提示词或用户输入。
+
 ### GEO Analysis
 
 | Method | Path                                              | 用途                     | 主要入参                                                                                                         | 主要返回                                                        | 备注                                                           |
@@ -131,12 +148,12 @@ curl http://localhost:3000/health
 
 ### GEO Expansion
 
-| Method | Path                                      | 用途               | 主要入参                                                                                                    | 主要返回              | 备注                                                                                  |
-| ------ | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------- |
-| POST   | `/api/expansion/rule-generate`            | 规则组合拓词       | `baseWord`、`prefixes`、`serviceSuffixes`、`applicationSuffixes`、`promptType`、`productLine`、`userIntent` | `jobId`、`candidates` | 生成候选，不直接入库                                                                  |
-| POST   | `/api/expansion/ai-generate`              | AI 拓词            | `baseWord`、`promptType`、`count`、`constraints`、`targetModels`、`provider`、`model`                       | `jobId`、`candidates` | 默认 `provider=mock`；`openai_compatible` 会调用后端配置的真实 AI，结果仍只进入候选词 |
-| GET    | `/api/expansion/jobs/:id`                 | 查看拓词任务       | `id`                                                                                                        | `job`、`candidates`   | 返回重复标记和保存状态                                                                |
-| POST   | `/api/expansion/jobs/:id/save-candidates` | 保存候选到提示词库 | `candidateIds`、`createdBy`、`defaultProductLine`、`defaultPriority`、`defaultTrackEnabled`                 | 保存/跳过/失败汇总    | 保存前继续去重                                                                        |
+| Method | Path                                      | 用途               | 主要入参                                                                                                    | 主要返回              | 备注                                                                                                                        |
+| ------ | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/expansion/rule-generate`            | 规则组合拓词       | `baseWord`、`prefixes`、`serviceSuffixes`、`applicationSuffixes`、`promptType`、`productLine`、`userIntent` | `jobId`、`candidates` | 生成候选，不直接入库                                                                                                        |
+| POST   | `/api/expansion/ai-generate`              | AI 拓词            | `baseWord`、`promptType`、`count`、`constraints`、`targetModels`、`provider`、`model`                       | `jobId`、`candidates` | 默认 `provider=mock`；`openai_compatible` 会调用后端配置的真实 AI，并参考项目档案生成更贴近项目的候选词，结果仍只进入候选词 |
+| GET    | `/api/expansion/jobs/:id`                 | 查看拓词任务       | `id`                                                                                                        | `job`、`candidates`   | 返回重复标记和保存状态                                                                                                      |
+| POST   | `/api/expansion/jobs/:id/save-candidates` | 保存候选到提示词库 | `candidateIds`、`createdBy`、`defaultProductLine`、`defaultPriority`、`defaultTrackEnabled`                 | 保存/跳过/失败汇总    | 保存前继续去重                                                                                                              |
 
 ### GEO Knowledge Bases
 
@@ -175,16 +192,16 @@ curl http://localhost:3000/health
 
 ### GEO Content
 
-| Method | Path                            | 用途                       | 主要入参                                                                                                                                             | 主要返回                                                                         | 备注                                                               |
-| ------ | ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| GET    | `/api/content-tasks`            | 查询内容任务               | `page`、`pageSize`、`search`、`productLine`、`status`、`generationType`、`targetModel`、`createdBy`                                                  | `items`、`total`、`page`、`pageSize`                                             | 按创建时间倒序                                                     |
-| POST   | `/api/content-tasks`            | 创建内容任务并同步生成内容 | `name`、`productLine`、`knowledgeBaseId`、`instructionTemplateId`、`generationType`、`targetModel`、`provider`、`model`、`geoPromptIds`、`createdBy` | `task`、`items`、关联信息                                                        | 默认 `provider=mock`；`openai_compatible` 使用后端真实 AI Provider |
-| GET    | `/api/content-tasks/:id`        | 查看内容任务详情           | `id`                                                                                                                                                 | `task`、`items`、`knowledgeBase`、`instructionTemplate`、`prompts`、`aiCallLogs` | 返回最近 AI 调用日志                                               |
-| POST   | `/api/content-tasks/:id/retry`  | 重试失败内容项             | `id`                                                                                                                                                 | 内容任务详情                                                                     | 已成功项不重复生成                                                 |
-| GET    | `/api/content-items`            | 查询内容项                 | `page`、`pageSize`、`search`、`taskId`、`geoPromptId`、`status`                                                                                      | `items`、`total`、`page`、`pageSize`                                             | 默认排除软删除                                                     |
-| PATCH  | `/api/content-items/:id`        | 编辑内容项                 | `title`、`body`、`geoOptimizationPoints`、`suggestedPublishChannel`、`status`                                                                        | 内容项                                                                           | `body` 至少 20 字符                                                |
-| DELETE | `/api/content-items/:id`        | 软删除内容项               | `id`                                                                                                                                                 | 删除状态                                                                         | 不物理删除                                                         |
-| GET    | `/api/content-items/:id/export` | 导出 Markdown              | `id`                                                                                                                                                 | Markdown 文本                                                                    | `data` 为 Markdown 字符串                                          |
+| Method | Path                            | 用途                       | 主要入参                                                                                                                                             | 主要返回                                                                         | 备注                                                                                                     |
+| ------ | ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/content-tasks`            | 查询内容任务               | `page`、`pageSize`、`search`、`productLine`、`status`、`generationType`、`targetModel`、`createdBy`                                                  | `items`、`total`、`page`、`pageSize`                                             | 按创建时间倒序                                                                                           |
+| POST   | `/api/content-tasks`            | 创建内容任务并同步生成内容 | `name`、`productLine`、`knowledgeBaseId`、`instructionTemplateId`、`generationType`、`targetModel`、`provider`、`model`、`geoPromptIds`、`createdBy` | `task`、`items`、关联信息                                                        | 默认 `provider=mock`；`openai_compatible` 使用后端真实 AI Provider，并将项目档案作为品牌/语气/受众上下文 |
+| GET    | `/api/content-tasks/:id`        | 查看内容任务详情           | `id`                                                                                                                                                 | `task`、`items`、`knowledgeBase`、`instructionTemplate`、`prompts`、`aiCallLogs` | 返回最近 AI 调用日志                                                                                     |
+| POST   | `/api/content-tasks/:id/retry`  | 重试失败内容项             | `id`                                                                                                                                                 | 内容任务详情                                                                     | 已成功项不重复生成                                                                                       |
+| GET    | `/api/content-items`            | 查询内容项                 | `page`、`pageSize`、`search`、`taskId`、`geoPromptId`、`status`                                                                                      | `items`、`total`、`page`、`pageSize`                                             | 默认排除软删除                                                                                           |
+| PATCH  | `/api/content-items/:id`        | 编辑内容项                 | `title`、`body`、`geoOptimizationPoints`、`suggestedPublishChannel`、`status`                                                                        | 内容项                                                                           | `body` 至少 20 字符                                                                                      |
+| DELETE | `/api/content-items/:id`        | 软删除内容项               | `id`                                                                                                                                                 | 删除状态                                                                         | 不物理删除                                                                                               |
+| GET    | `/api/content-items/:id/export` | 导出 Markdown              | `id`                                                                                                                                                 | Markdown 文本                                                                    | `data` 为 Markdown 字符串                                                                                |
 
 ### Model Inclusion Records
 

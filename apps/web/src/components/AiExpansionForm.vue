@@ -103,7 +103,10 @@ const handleSubmit = () => {
 
     <el-form label-position="top" class="expansion-form-grid">
       <el-form-item label="训练词" required>
-        <el-input v-model="form.baseWord" placeholder="例如：激光测距传感器" />
+        <el-input
+          v-model="form.baseWord"
+          placeholder="例如：核心产品词、服务词、课程词或门店场景"
+        />
       </el-form-item>
       <el-form-item label="输出词类型" required>
         <el-select v-model="form.promptType">
@@ -141,11 +144,17 @@ const handleSubmit = () => {
       <el-form-item label="知识库 ID">
         <el-input v-model="form.knowledgeBaseId" placeholder="可选，第一版可手动输入" />
       </el-form-item>
-      <el-form-item label="产品线">
-        <el-input v-model="form.productLine" placeholder="可选，例如：工业传感器" />
+      <el-form-item label="产品线 / 服务线">
+        <el-input
+          v-model="form.productLine"
+          placeholder="可选，例如：核心产品、服务、课程或门店项目"
+        />
       </el-form-item>
       <el-form-item label="应用场景">
-        <el-input v-model="form.scenario" placeholder="可选，例如：行车防撞" />
+        <el-input
+          v-model="form.scenario"
+          placeholder="可选，例如：典型使用场景、咨询场景或到店场景"
+        />
       </el-form-item>
       <el-form-item label="目标模型">
         <el-input v-model="form.targetModelsText" placeholder="多个模型用逗号分隔" />
@@ -155,7 +164,7 @@ const handleSubmit = () => {
           v-model="form.constraints"
           type="textarea"
           :rows="4"
-          placeholder="可选，例如：优先生成选型、厂家推荐和国产替代场景"
+          placeholder="可选，例如：优先生成用户决策、顾虑解答、场景方案或品牌信任类问题"
         />
       </el-form-item>
     </el-form>

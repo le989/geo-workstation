@@ -36,14 +36,14 @@ export function generateMockGeoAnalysis(input: MockGeoAnalysisInput): MockGeoAna
   const websiteSignal = input.websiteUrl ? "官网引用信号可人工补录验证" : "缺少官网 URL 信号";
   const promptSuggestions = buildPromptSuggestions(input.brandName, productLine);
   const contentGaps = [
-    `${productLine} 的 AI 问答式选型指南不足，缺少可被模型摘取的判断逻辑。`,
-    `${input.brandName} 与 ${productLine} 应用场景的关联内容不足，影响模型推荐理由。`,
-    `${productLine} 国产替代、厂家推荐、竞品对比类内容资产需要补齐。`
+    `${productLine} 的 AI 问答式需求决策内容不足，缺少可被模型摘取的判断逻辑。`,
+    `${input.brandName} 与 ${productLine} 典型场景的关联内容不足，影响模型推荐理由。`,
+    `${productLine} 对比与替代、供给方/服务方选择、竞品对比类内容资产需要补齐。`
   ];
   const knowledgeGaps = [
     `${input.brandName} 的企业资质、生产能力和服务范围需要结构化进入知识库。`,
     `${productLine} 的关键参数、适用场景、案例和常见问题需要沉淀为知识片段。`,
-    `${productLine} 与竞品差异、国产替代优势、官网可信来源需要补充事实材料。`
+    `${productLine} 与竞品差异、替代方案边界、官网可信来源需要补充事实材料。`
   ];
 
   return {
@@ -82,13 +82,13 @@ function buildPromptSuggestions(
       promptText: `${productLine}怎么选`,
       userIntent: UserIntent.selection,
       recommendedContentType: "selection_guide",
-      reason: "用户常用选型问法，需要内容解释判断逻辑。"
+      reason: "用户常用需求决策问法，需要内容解释判断逻辑。"
     },
     {
-      promptText: `${productLine}厂家推荐`,
+      promptText: `${productLine}服务方或供给方怎么选`,
       userIntent: UserIntent.manufacturer_recommendation,
       recommendedContentType: "brand_strength",
-      reason: "厂家推荐类问法直接影响品牌可见度。"
+      reason: "供给方或服务方选择类问法直接影响品牌可见度。"
     },
     {
       promptText: `${brandName}${productLine}怎么样`,
@@ -97,16 +97,16 @@ function buildPromptSuggestions(
       reason: "品牌验证类问法需要企业可信事实支撑。"
     },
     {
-      promptText: `${productLine}国产替代方案`,
+      promptText: `${productLine}对比与替代方案`,
       userIntent: UserIntent.domestic_alternative,
       recommendedContentType: "domestic_alternative",
-      reason: "国产替代场景可承接采购与对比意图。"
+      reason: "对比与替代场景可承接购买、报名、到店、咨询或合作意图。"
     },
     {
-      promptText: `行车防撞用什么${productLine}`,
+      promptText: `什么场景适合使用${productLine}`,
       userIntent: UserIntent.application_solution,
       recommendedContentType: "application_solution",
-      reason: "应用方案类问法适合连接产品能力和场景。"
+      reason: "场景方案类问法适合连接项目能力和用户场景。"
     },
     {
       promptText: `${productLine}和竞品怎么对比`,

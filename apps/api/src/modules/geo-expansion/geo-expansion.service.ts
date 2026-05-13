@@ -31,6 +31,10 @@ import {
   normalizeRuleExpansionInput,
   normalizeSaveExpansionCandidatesInput
 } from "./utils/normalize-expansion-candidate.util";
+import {
+  ProjectProfileService,
+  type ProjectProfileResponse
+} from "../project-profile/project-profile.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
@@ -112,7 +116,9 @@ export class GeoExpansionService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(MockAiExpansionProvider) private readonly mockAiProvider: MockAiExpansionProvider,
     @Inject(AiProviderService)
-    private readonly aiProviderService?: Pick<AiProviderService, "generateText">
+    private readonly aiProviderService?: Pick<AiProviderService, "generateText">,
+    @Inject(ProjectProfileService)
+    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">
   ) {}
 
   async ruleGenerate(input: RuleGenerateExpansionDto): Promise<ExpansionJobDetailResponse> {
@@ -195,7 +201,11 @@ export class GeoExpansionService {
     try {
       const generation = usesMockProvider
         ? this.generateMockExpansionCandidates(normalized, inputPayload)
-        : await this.generateRealExpansionCandidates(normalized, job.id);
+        : await this.generateRealExpansionCandidates(
+            normalized,
+            job.id,
+            await this.findProjectProfileContext()
+          );
 
       for (const candidate of generation.candidates) {
         await this.createCandidate(job.id, candidate);
@@ -421,7 +431,8 @@ export class GeoExpansionService {
 
   private async generateRealExpansionCandidates(
     input: ReturnType<typeof normalizeAiExpansionInput>,
-    jobId: string
+    jobId: string,
+    projectProfile?: ProjectProfileResponse | null
   ): Promise<{
     candidates: MockAiExpansionCandidate[];
     provider: string;
@@ -439,24 +450,30 @@ export class GeoExpansionService {
       maxTokens: 1800,
       systemPrompt:
         "你是 GEO 营销运营专家。请生成面向生成式 AI 搜索/问答场景的提示词候选，只输出 JSON；生成结果只是候选词等待人工选择。",
-      userPrompt: this.buildRealExpansionPrompt(input)
+      userPrompt: this.buildRealExpansionPrompt(input, projectProfile)
     });
     const candidates = this.parseRealExpansionCandidates(result, input);
+    const promptText = this.buildRealExpansionPrompt(input, projectProfile);
 
     return {
       candidates,
       provider: result.provider,
       model: result.model,
-      tokenInput:
-        result.tokenInput ?? this.estimateTokenCount(this.buildRealExpansionPrompt(input)),
+      tokenInput: result.tokenInput ?? this.estimateTokenCount(promptText),
       tokenOutput:
         result.tokenOutput ??
         this.estimateTokenCount(candidates.map((candidate) => candidate.promptText).join("\n"))
     };
   }
 
-  private buildRealExpansionPrompt(input: ReturnType<typeof normalizeAiExpansionInput>): string {
+  private buildRealExpansionPrompt(
+    input: ReturnType<typeof normalizeAiExpansionInput>,
+    projectProfile?: ProjectProfileResponse | null
+  ): string {
     return [
+      "项目档案 / 品牌上下文：",
+      buildProjectProfileExpansionContext(projectProfile),
+      "",
       `训练词：${input.baseWord}`,
       `提示词类型：${input.promptType}`,
       input.productLine ? `产品线：${input.productLine}` : undefined,
@@ -474,6 +491,7 @@ export class GeoExpansionService {
       "要求：",
       "- 候选词必须像真实用户可能会问 AI 的问题。",
       "- 不要宣传口号，不要生成无意义关键词。",
+      "- 参考项目档案中的行业、主营方向、目标客户、品牌定位和禁止表达，但不要编造项目档案里没有的具体产品型号、课程效果、门店价格、认证、案例或承诺。",
       "- 生成结果不会直接写入 GEO 提示词库，只作为候选词等待人工选择。",
       "- priority 为 1-5。",
       "- userIntent 只能使用 selection、purchase、manufacturer_recommendation、domestic_alternative、comparison、troubleshooting、application_solution、brand_verification。"
@@ -551,6 +569,10 @@ export class GeoExpansionService {
     }
 
     return this.aiProviderService;
+  }
+
+  private async findProjectProfileContext(): Promise<ProjectProfileResponse | null> {
+    return this.projectProfileService?.getPromptContext() ?? null;
   }
 
   private async createCandidate(jobId: string, candidate: MockAiExpansionCandidate): Promise<void> {
@@ -903,4 +925,31 @@ function extractJsonBlock(text: string): string | undefined {
   }
 
   return objectStart < arrayStart ? objectCandidate : arrayCandidate;
+}
+
+function buildProjectProfileExpansionContext(profile?: ProjectProfileResponse | null): string {
+  if (!profile) {
+    return "尚未配置项目档案。请仅根据训练词、用户输入和通用 GEO 拓词规则生成候选问题，不要补充未经提供的品牌、行业或项目事实。";
+  }
+
+  const lines = [
+    `项目名称：${profile.projectName}`,
+    profile.companyName ? `企业名称：${profile.companyName}` : undefined,
+    profile.brandName ? `品牌名称：${profile.brandName}` : undefined,
+    profile.industry ? `所属行业：${profile.industry}` : undefined,
+    profile.mainProducts.length > 0
+      ? `主营产品 / 服务 / 课程 / 门店 / 个人品牌方向：${profile.mainProducts.join("、")}`
+      : undefined,
+    profile.targetCustomers ? `目标客户：${profile.targetCustomers}` : undefined,
+    profile.positioning ? `品牌定位：${profile.positioning}` : undefined,
+    profile.forbiddenClaims.length > 0
+      ? `禁止表达：${profile.forbiddenClaims.join("；")}`
+      : undefined,
+    profile.targetModels.length > 0 ? `目标 AI 平台：${profile.targetModels.join("、")}` : undefined
+  ].filter(Boolean);
+
+  return [
+    ...lines,
+    "使用规则：项目档案用于让候选问题更贴近真实用户需求；不得把未提供的型号、参数、价格、认证、案例、效果承诺或行业数据写成候选词。"
+  ].join("\n");
 }

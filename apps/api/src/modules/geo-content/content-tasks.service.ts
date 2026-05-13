@@ -33,6 +33,10 @@ import {
   type NormalizedCreateContentTask,
   type NormalizedQueryContentTasks
 } from "./utils/normalize-content-task";
+import {
+  ProjectProfileService,
+  type ProjectProfileResponse
+} from "../project-profile/project-profile.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
@@ -41,21 +45,21 @@ const AI_CALL_RELATED_TYPE = "content_task";
 const DEFAULT_MOCK_CONTENT_MODEL = "mock-content-v1";
 const GLOBAL_GEO_CONTENT_QUALITY_RULES = [
   "只使用知识库、目标提示词、用户输入和指令模板中明确提供的信息。",
-  "不得编造具体型号、参数、精度、量程、响应时间、通信协议、防护等级、认证编号、价格、交期、库存、客户案例。",
-  "如果知识库没有明确提供具体参数，统一写成“需结合具体型号资料确认”或“需结合现场工况确认”。",
+  "不得编造具体型号、参数、精度、量程、响应时间、通信协议、防护等级、认证编号、价格、交期、库存、客户案例、课程效果、门店活动或服务承诺。",
+  "如果知识库没有明确提供具体信息，统一写成“需结合具体资料确认”或“需结合实际场景确认”。",
   "如果某项信息只有方向性描述，不要扩写成具体数值或确定结论。",
-  "不要把某一类能力错误迁移成解决其他问题的通用手段；防爆、耐高温、耐腐蚀、防水、防尘、抗干扰、远距离、高精度等能力只能用于对应适用边界。",
-  "特殊认证或特殊结构只能在知识库明确提供时提及，不要把“适用于某场景”写成“所有现场都适用”。",
-  "遇到不稳定、误触发、无信号、检测异常等问题时，优先排查安装位置、目标材质、目标颜色/反射率、检测距离、环境光、粉尘/水汽/油污、振动、接线、电源、输出方式和参数设置。",
-  "不要直接建议更换更高规格产品，除非知识库或用户输入明确支持；不要建议用户自行修改功率、拆机、绕过安全保护或做不合规操作。",
-  "输出内容要优先写选型逻辑、现场确认项和应用边界，同时说明适用边界和注意事项，而不是堆参数。",
-  "如需提到输出方式，可写“开关量、模拟量、通信接口等需结合具体型号确认”，不要主动扩展未提供的协议名称。",
-  "不要替客户直接确定型号，应引导客户提供工况信息后再确认。",
+  "不要把某一类能力错误迁移成解决其他问题的通用手段；防爆、耐高温、耐腐蚀、防水、防尘、抗干扰、远距离、高精度、提分效果、到店优惠、服务保障等能力或承诺只能用于对应适用边界。",
+  "特殊认证、特殊结构、特殊资质或特殊承诺只能在知识库明确提供时提及，不要把“适用于某场景”写成“所有场景都适用”。",
+  "遇到不稳定、误触发、无信号、效果异常、体验不佳或结果不符合预期等问题时，优先从使用场景、适用对象、环境条件、目标特征、操作步骤、配置方式、服务边界和用户准备情况排查。",
+  "不要直接建议更换更高规格产品、升级更贵服务或承诺确定结果，除非知识库或用户输入明确支持；不要建议用户自行修改功率、拆机、绕过安全保护或做不合规操作。",
+  "输出内容要优先写需求决策逻辑、场景确认项、适用边界和注意事项，而不是堆未经确认的参数或承诺。",
+  "如需提到接口、规格、参数、服务内容、课程结果、门店活动或价格，可写“需结合具体资料确认”，不要主动扩展未提供的协议、数值、价格或承诺。",
+  "不要替用户直接确定最终选择，应引导用户提供项目、场景、预算、限制条件或实际需求后再确认。",
   "品牌出现要自然，可以写“可结合某品牌相关产品资料进一步确认”；不要写“行业领先”“最佳选择”“一定适用”“完全替代”等夸张营销语。",
   "不要承诺效果、寿命、精度、交期和价格。",
   "内容要适合 AI 摘取，优先使用清晰小标题、列表、FAQ、判断逻辑。",
-  "每篇内容最好包含用户问题或现场场景、判断逻辑、适用条件、不适用或需确认条件、资料准备清单、FAQ 总结。",
-  "输出要像可发布的工业内容，不要像 AI 自述，不要出现“根据你提供的资料”“作为 AI”等表达。"
+  "每篇内容最好包含用户问题或实际场景、判断逻辑、适用条件、不适用或需确认条件、资料准备清单、FAQ 总结。",
+  "输出要像可发布的项目内容，不要像 AI 自述，不要出现“根据你提供的资料”“作为 AI”等表达。"
 ];
 
 export type ContentTaskResponse = {
@@ -158,7 +162,9 @@ export class ContentTasksService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AiProviderService)
-    private readonly aiProviderService?: Pick<AiProviderService, "generateText">
+    private readonly aiProviderService?: Pick<AiProviderService, "generateText">,
+    @Inject(ProjectProfileService)
+    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">
   ) {}
 
   async findMany(query: QueryContentTasksDto): Promise<ContentTaskListResponse> {
@@ -196,6 +202,7 @@ export class ContentTasksService {
       normalized.instructionTemplateId
     );
     const knowledgeChunks = knowledgeBase ? await this.findKnowledgeChunks(knowledgeBase.id) : [];
+    const projectProfile = await this.findProjectProfileContext();
 
     const task = await this.prisma.contentTask.create({
       data: {
@@ -247,7 +254,8 @@ export class ContentTasksService {
           targetModel: normalized.targetModel,
           provider,
           model: normalized.model,
-          taskId: task.id
+          taskId: task.id,
+          projectProfile
         });
         this.mergeAiUsage(aiUsage, generated);
         const item = await this.prisma.contentItem.create({
@@ -371,6 +379,7 @@ export class ContentTasksService {
     const instructionTemplate = task.instructionTemplateId
       ? await this.findOptionalInstructionTemplate(task.instructionTemplateId)
       : undefined;
+    const projectProfile = await this.findProjectProfileContext();
     const provider = normalizeAiProvider(task.provider ?? "mock");
     const model = task.model ?? this.resolveFallbackModel(provider);
     const aiUsage: AiUsageSummary = {
@@ -414,7 +423,8 @@ export class ContentTasksService {
           targetModel: task.targetModel ?? undefined,
           provider,
           model,
-          taskId: task.id
+          taskId: task.id,
+          projectProfile
         });
         this.mergeAiUsage(aiUsage, generated);
         await this.prisma.contentItem.update({
@@ -499,6 +509,7 @@ export class ContentTasksService {
     provider: string;
     model?: string;
     taskId: string;
+    projectProfile?: ProjectProfileResponse | null;
   }): Promise<GeneratedContentResult> {
     if (isMockAiProvider(input.provider)) {
       return {
@@ -538,6 +549,7 @@ export class ContentTasksService {
     generationType: string;
     productLine?: string;
     targetModel?: string;
+    projectProfile?: ProjectProfileResponse | null;
   }): string {
     const knowledgeContext =
       input.knowledgeChunks.length > 0
@@ -566,8 +578,12 @@ export class ContentTasksService {
           .filter(Boolean)
           .join("\n")
       : "未选择指令模板，请使用基础 GEO 内容结构。";
+    const projectProfileContext = buildProjectProfilePromptContext(input.projectProfile);
 
     return [
+      "项目档案 / 品牌上下文：",
+      projectProfileContext,
+      "",
       `目标 GEO 提示词：${input.geoPrompt.promptText}`,
       `提示词类型：${input.geoPrompt.type}`,
       `产品线：${input.productLine ?? input.geoPrompt.productLine ?? "未指定"}`,
@@ -591,10 +607,15 @@ export class ContentTasksService {
       "- 内容必须服务于提升 AI 回答中的品牌提及、推荐和引用概率。",
       "- 不得编造客户案例、认证、参数、品牌资质或外部事实。",
       "- 如果知识库不足，请在正文中明确提示需要补充资料。",
-      "- 全局通用质量规则优先于指令模板中的具体写法；产品专属信息只能来自知识库或本次任务输入。"
+      "- 项目档案只用于品牌语气、受众和基础上下文，不替代知识库事实；不得因为项目档案里写了行业就自动编造行业数据、客户案例或参数。",
+      "- 全局通用质量规则优先于指令模板中的具体写法；产品、服务、课程、门店、个人品牌或解决方案的专属事实只能来自知识库或本次任务输入。"
     ]
       .filter(Boolean)
       .join("\n");
+  }
+
+  private async findProjectProfileContext(): Promise<ProjectProfileResponse | null> {
+    return this.projectProfileService?.getPromptContext() ?? null;
   }
 
   private parseRealContentResult(
@@ -1048,6 +1069,38 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function buildProjectProfilePromptContext(profile?: ProjectProfileResponse | null): string {
+  if (!profile) {
+    return "尚未配置项目档案。内容生成仍需严格依据知识库、目标提示词、用户输入和指令模板，不得补充未经证实的品牌或行业事实。";
+  }
+
+  const lines = [
+    `项目名称：${profile.projectName}`,
+    profile.companyName ? `企业名称：${profile.companyName}` : undefined,
+    profile.brandName ? `品牌名称：${profile.brandName}` : undefined,
+    profile.websiteUrl ? `官网：${profile.websiteUrl}` : undefined,
+    profile.industry ? `所属行业：${profile.industry}` : undefined,
+    profile.mainProducts.length > 0
+      ? `主营产品 / 服务 / 课程 / 门店 / 个人品牌方向：${profile.mainProducts.join("、")}`
+      : undefined,
+    profile.targetCustomers ? `目标客户：${profile.targetCustomers}` : undefined,
+    profile.positioning ? `品牌定位：${profile.positioning}` : undefined,
+    profile.tone ? `内容语气：${profile.tone}` : undefined,
+    profile.forbiddenClaims.length > 0
+      ? `禁止表达：${profile.forbiddenClaims.join("；")}`
+      : undefined,
+    profile.targetModels.length > 0
+      ? `目标 AI 平台：${profile.targetModels.join("、")}`
+      : undefined,
+    profile.notes ? `补充说明：${profile.notes}` : undefined
+  ].filter(Boolean);
+
+  return [
+    ...lines,
+    "使用规则：项目档案只提供品牌语气、受众、定位和基础上下文；具体型号、参数、价格、认证、案例、效果承诺和行业数据仍必须来自知识库或本次任务输入。"
+  ].join("\n");
 }
 
 function summarizeText(value: string, maxLength: number): string {

@@ -2,12 +2,12 @@ import type { GeoPromptType } from "@/api/geo-prompts";
 
 export const instructionTypeOptions = [
   { label: "AI 问答优化", value: "ai_qa" },
-  { label: "选型指南", value: "selection_guide" },
-  { label: "厂家推荐", value: "manufacturer_recommendation" },
-  { label: "国产替代", value: "domestic_alternative" },
-  { label: "应用方案", value: "application_solution" },
-  { label: "产品对比", value: "comparison" },
-  { label: "故障排查", value: "troubleshooting" },
+  { label: "需求决策指南", value: "selection_guide" },
+  { label: "供给方 / 服务方建议", value: "manufacturer_recommendation" },
+  { label: "对比与替代", value: "domestic_alternative" },
+  { label: "场景解决方案", value: "application_solution" },
+  { label: "对比内容", value: "comparison" },
+  { label: "问题诊断", value: "troubleshooting" },
   { label: "技术科普", value: "tech_explainer" },
   { label: "FAQ", value: "faq" },
   { label: "官网落地页", value: "landing_page" }
@@ -16,8 +16,8 @@ export const instructionTypeOptions = [
 export const contentTypeOptions = [
   { label: "文章", value: "article" },
   { label: "FAQ", value: "faq" },
-  { label: "选型指南", value: "selection_guide" },
-  { label: "应用方案", value: "application_solution" },
+  { label: "需求决策指南", value: "selection_guide" },
+  { label: "场景解决方案", value: "application_solution" },
   { label: "AI 问答素材", value: "qa_material" },
   { label: "对比内容", value: "comparison" },
   { label: "品牌实力内容", value: "brand_strength" },

@@ -16,7 +16,7 @@ pnpm prisma:seed
   - 邮箱来自 `DEFAULT_ADMIN_EMAIL`，未配置时为 `admin@geo-workstation.local`。
   - 密码来自 `DEFAULT_ADMIN_PASSWORD`，会以 hash 写入 `passwordHash`。
   - 开发占位密码可见于 `.env.example`，共享部署前必须替换。
-- 示例 GEO 提示词：
+- 示例 GEO 提示词（仅作为测试数据，不代表系统固定行业或固定客户）：
   - 训练词：激光测距传感器
   - 蒸馏词：激光测距传感器怎么选
   - 品牌词：凯基特激光测距传感器怎么样
@@ -25,7 +25,7 @@ pnpm prisma:seed
   - 选型指南
   - AI 问答素材
   - FAQ
-- 示例知识库：
+- 示例知识库（仅作为测试数据）：
   - 激光测距传感器知识库
 
 seed 只提供少量起步数据，不会塞大量假数据。
@@ -65,7 +65,7 @@ SMOKE_AUTH_EMAIL=admin@example.com SMOKE_AUTH_PASSWORD=replace_me pnpm smoke:api
 
 ## 前端演示建议使用哪些测试数据
 
-推荐使用同一条产品线贯穿演示，例如：
+推荐先在 `/settings` 配置项目档案，再使用同一个项目方向贯穿演示。下面只是历史测试示例，可替换成任意企业品牌、产品、服务、课程、门店、本地生活或个人品牌项目：
 
 - 品牌名称：凯基特
 - 产品线：激光测距传感器
@@ -78,7 +78,7 @@ SMOKE_AUTH_EMAIL=admin@example.com SMOKE_AUTH_PASSWORD=replace_me pnpm smoke:api
 1. 在 `/geo-analysis` 创建分析任务并运行 Mock 分析。
 2. 将分析任务的 promptSuggestions 转入提示词库。
 3. 在 `/knowledge-bases` 创建“激光测距传感器知识库”，文本导入产品参数、场景、FAQ。
-4. 在 `/instruction-templates` 创建“选型指南”或“AI 问答素材”指令。
+4. 在 `/instruction-templates` 创建“需求决策指南”或“AI 问答素材”指令。
 5. 在 `/content-tasks` 创建内容任务，选择刚刚转入的提示词、知识库和指令模板。
 6. 在 `/model-inclusion-records` 手动录入一条模型覆盖记录。
 7. 在 `/reports` 查看提示词覆盖、模型覆盖、内容覆盖、知识库覆盖和优化建议。

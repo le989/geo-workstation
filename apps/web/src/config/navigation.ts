@@ -85,7 +85,7 @@ export const navigationItems: GeoPageMeta[] = [
     label: "指令库",
     title: "指令库",
     question: "内容生产应该遵循什么 GEO 方法？",
-    description: "沉淀选型指南、问答素材、国产替代、FAQ 等 GEO 内容生产指令。",
+    description: "沉淀需求决策、问答素材、场景方案、FAQ 等 GEO 内容生产指令。",
     phaseNote: "已支持指令模板查询、创建、编辑、详情查看、复制和软删除。",
     nextSteps: ["沉淀通用内容方法", "维护产品线专属约束", "为内容任务选择合适模板"],
     apiFocus: "已联调 /api/instruction-templates",
@@ -128,12 +128,13 @@ export const navigationItems: GeoPageMeta[] = [
     path: "/settings",
     label: "系统设置",
     title: "系统设置",
-    question: "本地联调环境是否准备好？",
-    description: "展示前端 API 地址、环境标识和 AI 接口配置边界说明。",
+    question: "当前 GEO 工作站代表哪个项目？",
+    description:
+      "维护项目档案、品牌上下文、目标客户、内容语气和表达边界，让内容生成与拓词不绑定固定行业。",
     phaseNote:
-      "AI 接口支持模拟生成和真实 AI 接口；API Key 只允许在后端 .env 配置，前端不提供密钥输入框。",
-    nextSteps: ["展示 API 地址", "说明 AI 接口后端配置", "保留后续接口状态检查入口"],
-    apiFocus: "当前使用 VITE_API_BASE_URL；AI_PROVIDER 由后端环境变量控制",
+      "项目档案适用于企业品牌、产品、服务、课程、门店、本地生活、个人品牌或其他项目；具体事实仍以知识库为准。",
+    nextSteps: ["配置项目档案", "确认 AI 接口配置边界", "维护禁止表达和内容语气"],
+    apiFocus: "已联调 /api/project-profile；AI_PROVIDER 由后端环境变量控制",
     icon: Setting
   }
 ];

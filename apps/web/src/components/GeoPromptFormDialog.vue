@@ -169,14 +169,17 @@ const handleSubmit = () => {
           v-model="form.promptText"
           type="textarea"
           :rows="3"
-          placeholder="例如：激光测距传感器怎么选"
+          placeholder="例如：某产品怎么选、某服务适合什么人、某门店适合什么场景"
         />
       </el-form-item>
       <el-form-item label="训练词">
-        <el-input v-model="form.baseWord" placeholder="例如：激光测距传感器" />
+        <el-input
+          v-model="form.baseWord"
+          placeholder="例如：核心产品词、服务词、课程词或门店场景"
+        />
       </el-form-item>
       <el-form-item label="产品线">
-        <el-input v-model="form.productLine" placeholder="例如：工业传感器" />
+        <el-input v-model="form.productLine" placeholder="例如：核心产品、服务、课程或门店项目" />
       </el-form-item>
       <el-form-item label="应用场景">
         <el-input v-model="form.scenario" placeholder="例如：行车防撞" />

@@ -11,6 +11,7 @@ import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
 import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 import ReportsView from "@/views/ReportsView.vue";
+import SettingsView from "@/views/SettingsView.vue";
 import LoginView from "@/views/LoginView.vue";
 
 export const phase3aRoutePaths = [
@@ -59,7 +60,9 @@ export const routes: RouteRecordRaw[] = [
                           ? ModelInclusionRecordsView
                           : item.path === "/reports"
                             ? ReportsView
-                            : ModulePlaceholderView,
+                            : item.path === "/settings"
+                              ? SettingsView
+                              : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path],
           requiresAuth: true

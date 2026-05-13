@@ -22,7 +22,7 @@ const localError = ref("");
 
 const sampleRows = `[
   {
-    "promptText": "激光测距传感器怎么选",
+    "promptText": "某产品怎么选",
     "model": "deepseek",
     "brandMentioned": true,
     "brandRecommended": false,

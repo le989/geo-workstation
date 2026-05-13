@@ -65,7 +65,7 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
         <el-input
           :model-value="modelValue.productLine"
           clearable
-          placeholder="例如：激光测距传感器"
+          placeholder="例如：核心产品、服务、课程或门店项目"
           @update:model-value="setField(modelValue, 'productLine', $event)"
         />
       </el-form-item>

@@ -180,10 +180,44 @@ describe("GeoExpansionService", () => {
     const providerAwareService = new (GeoExpansionService as unknown as new (
       prisma: PrismaService,
       mockAiProvider: MockAiExpansionProvider,
-      aiProviderService: { generateText: typeof generateText }
-    ) => GeoExpansionService)(prisma as unknown as PrismaService, new MockAiExpansionProvider(), {
-      generateText
-    });
+      aiProviderService: { generateText: typeof generateText },
+      projectProfileService: {
+        getPromptContext: () => Promise<{
+          projectName: string;
+          brandName: string;
+          industry: string;
+          mainProducts: string[];
+          targetCustomers: string;
+          positioning: string;
+          forbiddenClaims: string[];
+          targetModels: string[];
+          createdAt: Date;
+          updatedAt: Date;
+          id: string;
+        }>;
+      }
+    ) => GeoExpansionService)(
+      prisma as unknown as PrismaService,
+      new MockAiExpansionProvider(),
+      {
+        generateText
+      },
+      {
+        getPromptContext: async () => ({
+          id: "project-profile-expansion-test",
+          projectName: "通用 GEO 拓词项目",
+          brandName: "通用品牌",
+          industry: "用户自由填写行业",
+          mainProducts: ["产品", "服务", "课程", "门店"],
+          targetCustomers: "正在向 AI 提问的潜在用户",
+          positioning: "跨行业 GEO 工作台",
+          forbiddenClaims: ["不要承诺效果", "不要编造认证"],
+          targetModels: ["deepseek", "kimi"],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+      }
+    );
 
     const result = await providerAwareService.aiGenerate({
       baseWord,
@@ -199,8 +233,12 @@ describe("GeoExpansionService", () => {
     expect(generateText).toHaveBeenCalledOnce();
     const generateInput = generateText.mock.calls[0]?.[0];
     expect(generateInput?.systemPrompt).toContain("候选词等待人工选择");
+    expect(generateInput?.userPrompt).toContain("项目档案 / 品牌上下文");
+    expect(generateInput?.userPrompt).toContain("通用 GEO 拓词项目");
+    expect(generateInput?.userPrompt).toContain("主营产品 / 服务 / 课程 / 门店 / 个人品牌方向");
     expect(generateInput?.userPrompt).toContain("用户可能会问 AI 的问题");
     expect(generateInput?.userPrompt).toContain("不要生成虚假型号、虚假参数、虚假认证");
+    expect(generateInput?.userPrompt).toContain("不得把未提供的型号、参数、价格、认证、案例");
     expect(generateInput?.userPrompt).toContain("不会直接写入 GEO 提示词库");
     expect(result.job.provider).toBe("openai_compatible");
     expect(result.job.model).toBe("deepseek-chat");

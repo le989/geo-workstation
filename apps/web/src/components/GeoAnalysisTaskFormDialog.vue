@@ -151,21 +151,24 @@ const close = () => {
           <span>1</span>
           <div>
             <h3>诊断对象</h3>
-            <p>明确品牌、官网和产品线，后续分析结果会围绕这些信息生成。</p>
+            <p>明确品牌、官网和项目方向，后续分析结果会围绕这些信息生成。</p>
           </div>
         </div>
         <div class="analysis-form-grid">
           <el-form-item label="任务名称" required>
-            <el-input v-model="form.name" placeholder="例如：凯基特激光测距传感器 GEO 诊断" />
+            <el-input v-model="form.name" placeholder="例如：核心项目 GEO 诊断" />
           </el-form-item>
           <el-form-item label="品牌名称" required>
-            <el-input v-model="form.brandName" placeholder="例如：凯基特" />
+            <el-input v-model="form.brandName" placeholder="例如：品牌名称" />
           </el-form-item>
           <el-form-item label="官网">
             <el-input v-model="form.websiteUrl" placeholder="例如：https://example.com" />
           </el-form-item>
-          <el-form-item label="产品线">
-            <el-input v-model="form.productLine" placeholder="例如：激光测距传感器" />
+          <el-form-item label="产品线 / 服务线">
+            <el-input
+              v-model="form.productLine"
+              placeholder="例如：核心产品、服务、课程或门店项目"
+            />
           </el-form-item>
         </div>
       </section>
@@ -184,7 +187,7 @@ const close = () => {
               v-model="form.baseWordsText"
               type="textarea"
               :rows="3"
-              placeholder="逗号或换行分隔，例如：激光测距传感器，行车防撞传感器"
+              placeholder="逗号或换行分隔，例如：核心产品词，典型服务场景，品牌词"
             />
           </el-form-item>
           <el-form-item label="目标模型" required>

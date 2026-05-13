@@ -8,13 +8,13 @@ export const geoPromptTypeOptions: Array<{ label: string; value: GeoPromptType }
 ];
 
 export const userIntentOptions: Array<{ label: string; value: UserIntent }> = [
-  { label: "选型", value: "selection" },
-  { label: "采购", value: "purchase" },
-  { label: "厂家推荐", value: "manufacturer_recommendation" },
-  { label: "国产替代", value: "domestic_alternative" },
+  { label: "需求决策", value: "selection" },
+  { label: "购买 / 合作意向", value: "purchase" },
+  { label: "供给方 / 服务方推荐", value: "manufacturer_recommendation" },
+  { label: "对比与替代", value: "domestic_alternative" },
   { label: "对比", value: "comparison" },
-  { label: "故障排查", value: "troubleshooting" },
-  { label: "应用方案", value: "application_solution" },
+  { label: "问题诊断", value: "troubleshooting" },
+  { label: "场景方案", value: "application_solution" },
   { label: "品牌验证", value: "brand_verification" }
 ];
 

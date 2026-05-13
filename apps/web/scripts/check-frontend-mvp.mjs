@@ -23,7 +23,9 @@ const requiredFiles = [
   "apps/web/src/views/InstructionTemplatesView.vue",
   "apps/web/src/views/ContentTasksView.vue",
   "apps/web/src/views/ModelInclusionRecordsView.vue",
-  "apps/web/src/views/ReportsView.vue"
+  "apps/web/src/views/ReportsView.vue",
+  "apps/web/src/views/SettingsView.vue",
+  "apps/web/src/api/project-profile.ts"
 ];
 
 const routeChecks = [

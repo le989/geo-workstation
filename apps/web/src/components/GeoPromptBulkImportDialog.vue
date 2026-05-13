@@ -119,7 +119,10 @@ const handleSubmit = () => {
         <el-switch v-model="form.trackEnabled" active-text="追踪" inactive-text="不追踪" />
       </el-form-item>
       <el-form-item label="默认产品线" class="form-span-2">
-        <el-input v-model="form.productLine" placeholder="可选，例如 工业传感器" />
+        <el-input
+          v-model="form.productLine"
+          placeholder="可选，例如 核心产品、服务、课程或门店项目"
+        />
       </el-form-item>
       <el-form-item label="多行 GEO 提示词" class="form-span-2">
         <el-input

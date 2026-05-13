@@ -143,7 +143,7 @@ const handleSubmit = () => {
 
     <el-form class="instruction-template-form" label-position="top">
       <el-form-item label="指令名称" required>
-        <el-input v-model="form.name" placeholder="例如：选型指南内容生成指令" />
+        <el-input v-model="form.name" placeholder="例如：需求决策内容生成指令" />
       </el-form-item>
       <el-form-item label="指令类型" required>
         <el-select

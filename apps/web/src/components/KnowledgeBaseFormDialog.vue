@@ -99,10 +99,10 @@ const handleSubmit = () => {
 
     <el-form class="knowledge-base-form" label-position="top">
       <el-form-item label="知识库名称" required>
-        <el-input v-model="form.name" placeholder="例如：激光测距传感器知识库" />
+        <el-input v-model="form.name" placeholder="例如：核心项目知识库" />
       </el-form-item>
-      <el-form-item label="产品线">
-        <el-input v-model="form.productLine" placeholder="例如：工业传感器" />
+      <el-form-item label="产品线 / 服务线">
+        <el-input v-model="form.productLine" placeholder="例如：核心产品、服务、课程或门店项目" />
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="form.status">
@@ -119,7 +119,7 @@ const handleSubmit = () => {
           v-model="form.description"
           type="textarea"
           :rows="4"
-          placeholder="说明这批企业事实资料会支撑哪些 GEO 内容、AI 问答或选型场景。"
+          placeholder="说明这批事实资料会支撑哪些 GEO 内容、AI 问答、用户决策或场景方案。"
         />
       </el-form-item>
     </el-form>

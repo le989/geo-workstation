@@ -93,6 +93,40 @@ MVP 要形成这条业务链：
 
 ## 6. MVP 功能范围
 
+### 6.0 项目档案 / 品牌档案
+
+项目档案定义当前 GEO 工作站代表的项目是谁、服务谁、应该怎么表达。它不绑定固定行业，不是多租户或客户管理模块，第一版只维护单项目档案。
+
+适用对象可以是企业品牌、产品、服务、课程、门店、本地生活、个人品牌、解决方案或其他需要做 GEO 运营的项目。
+
+字段：
+
+- 项目名称。
+- 企业名称。
+- 品牌名称。
+- 官网。
+- 所属行业，用户自由填写，不固定枚举。
+- 主营产品 / 服务 / 课程 / 门店 / 个人品牌方向。
+- 目标客户。
+- 品牌定位。
+- 内容语气。
+- 禁止表达。
+- 目标 AI 平台。
+- 补充说明。
+
+要求：
+
+- 设置页支持查看、创建和编辑项目档案，不提供删除功能。
+- 项目档案可作为真实 AI 内容生成和 AI 拓词的品牌、语气、受众和表达边界上下文。
+- 项目档案不替代知识库事实；具体参数、价格、认证、案例、效果承诺、服务细节等仍必须来自知识库、目标提示词或任务输入。
+- 不做多租户、不做客户列表、不做复杂权限。
+
+后端 API 第一版要求：
+
+- `GET /api/project-profile`：获取当前项目档案，无数据时返回 `null`。
+- `POST /api/project-profile`：创建项目档案；如果已存在，提示使用编辑更新。
+- `PATCH /api/project-profile`：更新项目档案。
+
 ### 6.1 GEO 工作台
 
 工作台不是普通内部统计，而是 GEO 作战看板。
@@ -626,6 +660,24 @@ MVP 不做：
 - email
 - role
 - status
+- created_at
+- updated_at
+
+### project_profiles
+
+- id
+- project_name
+- company_name
+- brand_name
+- website_url
+- industry
+- main_products
+- target_customers
+- positioning
+- tone
+- forbidden_claims
+- target_models
+- notes
 - created_at
 - updated_at
 

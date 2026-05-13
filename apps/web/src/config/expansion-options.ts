@@ -26,12 +26,12 @@ export const saveStatusLabelMap: Record<string, string> = {
 };
 
 export const contentTypeLabelMap: Record<string, string> = {
-  application_solution: "应用方案",
+  application_solution: "场景解决方案",
   brand_qa_material: "品牌问答素材",
   comparison_article: "对比内容",
-  domestic_alternative_solution: "国产替代方案",
+  domestic_alternative_solution: "对比与替代方案",
   faq: "FAQ",
-  manufacturer_recommendation: "厂家推荐",
-  purchase_guide: "采购指南",
-  selection_guide: "选型指南"
+  manufacturer_recommendation: "供给方 / 服务方推荐",
+  purchase_guide: "购买 / 合作指南",
+  selection_guide: "需求决策指南"
 };

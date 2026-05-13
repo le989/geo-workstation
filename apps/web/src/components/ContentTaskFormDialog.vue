@@ -238,15 +238,18 @@ const handleSubmit = () => {
           <span>02</span>
           <div>
             <h3>填写任务基础信息</h3>
-            <p>让任务名称、产品线和生成类型清楚对应到 GEO 内容资产。</p>
+            <p>让任务名称、项目方向和生成类型清楚对应到 GEO 内容资产。</p>
           </div>
         </div>
         <div class="content-form-grid">
           <el-form-item label="任务名称" required>
-            <el-input v-model="form.name" placeholder="例如：激光测距传感器 GEO 内容补齐任务" />
+            <el-input v-model="form.name" placeholder="例如：核心项目 GEO 内容补齐任务" />
           </el-form-item>
-          <el-form-item label="产品线">
-            <el-input v-model="form.productLine" placeholder="例如：激光测距传感器" />
+          <el-form-item label="产品线 / 服务线">
+            <el-input
+              v-model="form.productLine"
+              placeholder="例如：核心产品、服务、课程或门店项目"
+            />
           </el-form-item>
           <el-form-item label="生成类型" required>
             <el-select
