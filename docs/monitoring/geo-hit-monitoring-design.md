@@ -6,6 +6,8 @@
 
 > Phase Monitor-Record-1 更新：`model_inclusion_records` 已作为旧版覆盖记录的升级承载表落地多入口 GEO 命中字段，包括 `platform`、`entryPoint`、`detectionMethod`、`deviceType`、`isWebSearchEnabled`、`isLoggedIn`、`citedContentAsset`、`competitorMentioned`、`hitLevel`、`rawAnswer`、`citations`、`searchResults`、`screenshotPath` 和 `errorMessage`。本阶段仍不接真实联网搜索 Provider，不做 PC/移动/App 自动采集。
 
+> Phase Monitor-Summary-1 更新：新增 GEO 命中汇总口径，默认按 `geoPromptId + platform + entryPoint` 只取最新一条检测记录统计，避免历史测试、重复检测和失败重试污染日常效果判断。汇总核心指标为品牌提及率、品牌推荐率、未命中率和竞品占位率；官网引用率作为辅助指标展示。
+
 ## 0. 设计目标
 
 现有 `model_inclusion_records` 能记录“某提示词在某模型下是否提及/推荐品牌”，但它更接近普通模型 API 或人工录入结果。真正的 GEO 命中监测需要回答的是：用户在真实 AI 搜索、AI 问答、网页端、移动端和 App 端提问时，品牌、官网和内容资产是否进入了 AI 的答案和引用链路。
@@ -446,6 +448,16 @@ LLM 判定不能直接覆盖规则证据。若规则发现官网引用，LLM 不
 - 竞品占位率。
 - 无法判断率。
 
+Phase Monitor-Summary-1 已在报表中增加 `GET /api/reports/geo-hit-summary` 与 `/reports` 的“GEO 命中汇总”Tab。默认 `latestOnly = true` 时，统计前先按 `geoPromptId + platform + entryPoint` 选出最新检测记录，再生成：
+
+- `overview`：检测提示词数、最新记录数、品牌提及率、品牌推荐率、未命中率、竞品占位率和官网引用率。
+- `platformComparison`：Kimi、豆包 / 火山方舟、通义千问 / 阿里云百炼等平台对比。
+- `entryPointComparison`：联网搜索 API、人工录入、PC/移动/App 抽查等入口对比。
+- `promptMatrix`：每个提示词在各平台入口下的最新命中等级和整体状态。
+- `optimizationSuggestions`：根据未命中、竞品占位、提及未推荐、Kimi 缺口和无法判断结果生成待优化清单。
+
+该口径适合日常 GEO 效果复盘；`latestOnly = false` 仅用于审计历史样本，不建议作为对外复盘指标。
+
 ### `project_profile`
 
 项目档案提供品牌名、公司名、官网、目标 AI 平台、主营产品、禁用表达等监测上下文。
@@ -495,9 +507,10 @@ type WebSearchCheckOutput = {
 3. 完成 **Monitor-Web-2**：接入火山方舟 Responses API + `web_search`，作为豆包 / 火山生态方向联网 API 检测入口；保存 `web_search_call` 到 `searchResults`，即使没有结构化 URL/citations 也不视为失败。
 4. 完成 **Monitor-Web-2.1**：根据 NetDiag 结论优化火山输出控制，默认 `max_output_tokens = 1200`、`timeout = 180000ms`，请求中明确 300 字以内短回答、不生成长篇和复杂表格；`incomplete:length` 且已有回答时作为部分成功，只返回搜索调用但无最终回答时标记 `provider_incomplete_output`。
 5. 完成 **Monitor-Web-3**：接入阿里云百炼 / 通义千问 OpenAI-compatible Web Search，启用 `enable_search` 和 `search_options.forced_search`；该 Provider 第一版定位为回答型联网检测，不稳定返回结构化来源时保留 `citations = []`、`searchResults = []`，官网引用主要从回答正文判断。
-6. 升级记录字段支持 `entryPoint`、`provider`、`hitLevel`、`citations`、`searchResults` 和 `rawAnswer`。
-7. 增加 PC / 移动端人工抽查入口，先保证证据字段和报表口径一致。
-8. 最后考虑 Playwright/RPA 半自动化，且只在平台规则允许、账号安全可控时启用。
+6. 完成 **Monitor-Summary-1**：在报表中增加 GEO 命中汇总和平台对比，默认采用最新结果口径，展示提示词矩阵和待优化清单。
+7. 升级记录字段支持 `entryPoint`、`provider`、`hitLevel`、`citations`、`searchResults` 和 `rawAnswer`。
+8. 增加 PC / 移动端人工抽查入口，先保证证据字段和报表口径一致。
+9. 最后考虑 Playwright/RPA 半自动化，且只在平台规则允许、账号安全可控时启用。
 
 ### 建议 Phase 拆分
 

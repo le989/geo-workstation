@@ -161,6 +161,17 @@ describe("ReportsController", () => {
       .expect(200);
     expect(modelCoverage.body.data.modelDistribution["deepseek-chat"]).toBeGreaterThan(0);
 
+    const geoHitSummary = await request(app.getHttpServer())
+      .get("/api/reports/geo-hit-summary")
+      .query({
+        productLine,
+        latestOnly: "true"
+      })
+      .expect(200);
+    expect(geoHitSummary.body.code).toBe(0);
+    expect(geoHitSummary.body.data.overview.recordCount).toBeGreaterThan(0);
+    expect(Array.isArray(geoHitSummary.body.data.promptMatrix)).toBe(true);
+
     const contentCoverage = await request(app.getHttpServer())
       .get("/api/reports/content-coverage")
       .query({

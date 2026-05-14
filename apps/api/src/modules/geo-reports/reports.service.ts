@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 import type { ExportReportDto } from "./dto/export-report.dto";
 import type { QueryContentCoverageReportDto } from "./dto/query-content-coverage-report.dto";
+import type { QueryGeoHitSummaryReportDto } from "./dto/query-geo-hit-summary-report.dto";
 import type { QueryGeoOverviewReportDto } from "./dto/query-geo-overview-report.dto";
 import type { QueryKnowledgeCoverageReportDto } from "./dto/query-knowledge-coverage-report.dto";
 import type { QueryModelCoverageReportDto } from "./dto/query-model-coverage-report.dto";
@@ -52,6 +53,15 @@ type ModelFilterQuery = ProductLineQuery &
     platform?: string;
     entryPoint?: string;
     promptType?: string;
+  };
+
+type GeoHitSummaryQuery = ProductLineQuery &
+  DateRangeQuery & {
+    platform?: string;
+    entryPoint?: string;
+    latestOnly?: boolean;
+    priority?: number;
+    trackEnabled?: boolean;
   };
 
 type ContentFilterQuery = ProductLineQuery &
@@ -154,6 +164,87 @@ export type ModelCoverageReport = {
   entryPointDistribution: Record<string, number>;
   topRecommendedPrompts: ModelCoveragePromptSummary[];
   notMentionedPrompts: ModelCoveragePromptSummary[];
+};
+
+export type GeoHitOverallStatus =
+  | "all_recommended"
+  | "all_mentioned"
+  | "partial_hit"
+  | "not_mentioned"
+  | "competitor_only"
+  | "unclear"
+  | "unchecked";
+
+export type GeoHitSummaryOverview = {
+  promptCount: number;
+  checkedPromptCount: number;
+  recordCount: number;
+  latestRecordCount: number;
+  brandMentionedCount: number;
+  brandRecommendedCount: number;
+  citedOfficialSiteCount: number;
+  citedContentAssetCount: number;
+  competitorMentionedCount: number;
+  notMentionedCount: number;
+  unclearCount: number;
+  brandMentionRate: number;
+  brandRecommendRate: number;
+  officialSiteCitationRate: number;
+  competitorMentionRate: number;
+  notMentionedRate: number;
+};
+
+export type GeoHitComparisonItem = {
+  platform?: string;
+  entryPoint?: string;
+  recordCount: number;
+  brandMentionRate: number;
+  brandRecommendRate: number;
+  notMentionedRate: number;
+  competitorMentionRate: number;
+  hitLevelDistribution: Record<string, number>;
+};
+
+export type GeoHitPromptMatrixResult = {
+  platform: string;
+  entryPoint: string;
+  hitLevel: string;
+  brandMentioned: boolean;
+  brandRecommended: boolean;
+  citedOfficialSite: boolean;
+  competitorMentioned: boolean;
+  checkedAt: Date;
+};
+
+export type GeoHitPromptMatrixItem = {
+  geoPromptId: string;
+  promptText: string;
+  productLine?: string;
+  priority: number;
+  results: GeoHitPromptMatrixResult[];
+  overallStatus: GeoHitOverallStatus;
+};
+
+export type GeoHitOptimizationSuggestion = {
+  type:
+    | "not_mentioned"
+    | "kimi_gap"
+    | "mentioned_not_recommended"
+    | "competitor_without_brand"
+    | "unclear_results";
+  priority: "high" | "medium" | "low";
+  geoPromptId: string;
+  promptText: string;
+  reason: string;
+  suggestedAction: string;
+};
+
+export type GeoHitSummaryReport = {
+  overview: GeoHitSummaryOverview;
+  platformComparison: GeoHitComparisonItem[];
+  entryPointComparison: GeoHitComparisonItem[];
+  promptMatrix: GeoHitPromptMatrixItem[];
+  optimizationSuggestions: GeoHitOptimizationSuggestion[];
 };
 
 export type ContentCoverageReport = {
@@ -381,6 +472,87 @@ export class ReportsService {
         .filter((record) => !record.brandMentioned)
         .slice(0, DEFAULT_PROMPT_LIMIT)
         .map((record) => this.toModelCoveragePromptSummary(record))
+    };
+  }
+
+  async getGeoHitSummary(query: QueryGeoHitSummaryReportDto): Promise<GeoHitSummaryReport> {
+    const promptWhere = this.buildGeoHitSummaryPromptWhere(query);
+    const recordWhere = this.buildGeoHitSummaryRecordWhere(query);
+    const latestOnly = query.latestOnly ?? true;
+    const [prompts, records] = await Promise.all([
+      this.prisma.geoPrompt.findMany({
+        where: promptWhere,
+        orderBy: [
+          {
+            priority: "desc"
+          },
+          {
+            createdAt: "desc"
+          }
+        ]
+      }),
+      this.prisma.modelInclusionRecord.findMany({
+        where: recordWhere,
+        include: {
+          geoPrompt: true
+        },
+        orderBy: [
+          {
+            checkedAt: "desc"
+          },
+          {
+            createdAt: "desc"
+          }
+        ]
+      })
+    ]);
+    const recordsForStats = latestOnly ? this.selectLatestGeoHitRecords(records) : records;
+    const checkedPromptIds = new Set(recordsForStats.map((record) => record.geoPromptId));
+    const brandMentionedCount = recordsForStats.filter((record) => record.brandMentioned).length;
+    const brandRecommendedCount = recordsForStats.filter(
+      (record) => record.brandRecommended
+    ).length;
+    const citedOfficialSiteCount = recordsForStats.filter(
+      (record) => record.citedOfficialSite
+    ).length;
+    const citedContentAssetCount = recordsForStats.filter(
+      (record) => record.citedContentAsset
+    ).length;
+    const competitorMentionedCount = recordsForStats.filter(
+      (record) => record.competitorMentioned
+    ).length;
+    const notMentionedCount = recordsForStats.filter((record) =>
+      this.isNotMentionedRecord(record)
+    ).length;
+    const unclearCount = recordsForStats.filter(
+      (record) => this.resolveHitLevel(record) === "unclear"
+    ).length;
+    const latestRecordCount = recordsForStats.length;
+    const promptMatrix = this.buildGeoHitPromptMatrix(prompts, recordsForStats);
+
+    return {
+      overview: {
+        promptCount: prompts.length,
+        checkedPromptCount: checkedPromptIds.size,
+        recordCount: records.length,
+        latestRecordCount,
+        brandMentionedCount,
+        brandRecommendedCount,
+        citedOfficialSiteCount,
+        citedContentAssetCount,
+        competitorMentionedCount,
+        notMentionedCount,
+        unclearCount,
+        brandMentionRate: calculateRate(brandMentionedCount, latestRecordCount),
+        brandRecommendRate: calculateRate(brandRecommendedCount, latestRecordCount),
+        officialSiteCitationRate: calculateRate(citedOfficialSiteCount, latestRecordCount),
+        competitorMentionRate: calculateRate(competitorMentionedCount, latestRecordCount),
+        notMentionedRate: calculateRate(notMentionedCount, latestRecordCount)
+      },
+      platformComparison: this.buildGeoHitComparison(recordsForStats, "platform"),
+      entryPointComparison: this.buildGeoHitComparison(recordsForStats, "entryPoint"),
+      promptMatrix,
+      optimizationSuggestions: this.buildGeoHitOptimizationSuggestions(promptMatrix)
     };
   }
 
@@ -756,6 +928,289 @@ export class ReportsService {
       ...(query.materialType ? { materialType: query.materialType } : {}),
       ...(createdAt ? { createdAt } : {})
     } satisfies Prisma.KnowledgeChunkWhereInput;
+  }
+
+  private buildGeoHitSummaryPromptWhere(query: GeoHitSummaryQuery): Prisma.GeoPromptWhereInput {
+    return {
+      deletedAt: null,
+      ...(query.productLine ? { productLine: query.productLine } : {}),
+      ...(query.priority !== undefined ? { priority: query.priority } : {}),
+      ...(query.trackEnabled !== undefined ? { trackEnabled: query.trackEnabled } : {})
+    };
+  }
+
+  private buildGeoHitSummaryRecordWhere(
+    query: GeoHitSummaryQuery
+  ): Prisma.ModelInclusionRecordWhereInput {
+    const checkedAt = buildDateRangeFilter(query);
+
+    return {
+      geoPrompt: this.buildGeoHitSummaryPromptWhere(query),
+      ...(query.platform ? { platform: query.platform } : {}),
+      ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
+      ...(checkedAt ? { checkedAt } : {})
+    };
+  }
+
+  private selectLatestGeoHitRecords(
+    records: ModelInclusionRecordWithPrompt[]
+  ): ModelInclusionRecordWithPrompt[] {
+    const latestRecords = new Map<string, ModelInclusionRecordWithPrompt>();
+
+    for (const record of records) {
+      const key = this.buildGeoHitLatestKey(record);
+      const existingRecord = latestRecords.get(key);
+
+      if (!existingRecord || this.compareLatestRecord(record, existingRecord) < 0) {
+        latestRecords.set(key, record);
+      }
+    }
+
+    return [...latestRecords.values()];
+  }
+
+  private buildGeoHitLatestKey(record: ModelInclusionRecord): string {
+    return [
+      record.geoPromptId,
+      record.platform ?? "未设置平台",
+      record.entryPoint ?? "未设置入口"
+    ].join("::");
+  }
+
+  private compareLatestRecord(left: ModelInclusionRecord, right: ModelInclusionRecord): number {
+    return (
+      right.checkedAt.getTime() - left.checkedAt.getTime() ||
+      right.createdAt.getTime() - left.createdAt.getTime()
+    );
+  }
+
+  private buildGeoHitComparison(
+    records: ModelInclusionRecordWithPrompt[],
+    key: "platform" | "entryPoint"
+  ): GeoHitComparisonItem[] {
+    const groupedRecords = records.reduce<Map<string, ModelInclusionRecordWithPrompt[]>>(
+      (grouped, record) => {
+        const groupKey = record[key] ?? (key === "platform" ? "未设置平台" : "未设置入口");
+        const group = grouped.get(groupKey) ?? [];
+        group.push(record);
+        grouped.set(groupKey, group);
+        return grouped;
+      },
+      new Map()
+    );
+
+    return [...groupedRecords.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([groupKey, group]) => ({
+        ...(key === "platform" ? { platform: groupKey } : { entryPoint: groupKey }),
+        recordCount: group.length,
+        brandMentionRate: calculateRate(
+          group.filter((record) => record.brandMentioned).length,
+          group.length
+        ),
+        brandRecommendRate: calculateRate(
+          group.filter((record) => record.brandRecommended).length,
+          group.length
+        ),
+        notMentionedRate: calculateRate(
+          group.filter((record) => this.isNotMentionedRecord(record)).length,
+          group.length
+        ),
+        competitorMentionRate: calculateRate(
+          group.filter((record) => record.competitorMentioned).length,
+          group.length
+        ),
+        hitLevelDistribution: groupCount(group, (record) => this.resolveHitLevel(record), "unclear")
+      }));
+  }
+
+  private buildGeoHitPromptMatrix(
+    prompts: GeoPrompt[],
+    records: ModelInclusionRecordWithPrompt[]
+  ): GeoHitPromptMatrixItem[] {
+    const recordsByPromptId = this.groupRecordsByPromptId(records);
+
+    return prompts.map((prompt) => {
+      const results = (recordsByPromptId.get(prompt.id) ?? [])
+        .sort(this.compareGeoHitMatrixResults)
+        .map((record) => this.toGeoHitPromptMatrixResult(record));
+
+      return {
+        geoPromptId: prompt.id,
+        promptText: prompt.promptText,
+        productLine: prompt.productLine ?? undefined,
+        priority: prompt.priority,
+        results,
+        overallStatus: this.resolveGeoHitOverallStatus(results)
+      };
+    });
+  }
+
+  private compareGeoHitMatrixResults(
+    left: ModelInclusionRecordWithPrompt,
+    right: ModelInclusionRecordWithPrompt
+  ): number {
+    return (
+      (left.platform ?? "").localeCompare(right.platform ?? "") ||
+      (left.entryPoint ?? "").localeCompare(right.entryPoint ?? "")
+    );
+  }
+
+  private toGeoHitPromptMatrixResult(
+    record: ModelInclusionRecordWithPrompt
+  ): GeoHitPromptMatrixResult {
+    return {
+      platform: record.platform ?? "未设置平台",
+      entryPoint: record.entryPoint ?? "未设置入口",
+      hitLevel: this.resolveHitLevel(record),
+      brandMentioned: record.brandMentioned,
+      brandRecommended: record.brandRecommended,
+      citedOfficialSite: record.citedOfficialSite,
+      competitorMentioned: record.competitorMentioned,
+      checkedAt: record.checkedAt
+    };
+  }
+
+  private resolveGeoHitOverallStatus(results: GeoHitPromptMatrixResult[]): GeoHitOverallStatus {
+    if (results.length === 0) {
+      return "unchecked";
+    }
+
+    if (results.every((result) => result.brandRecommended || result.hitLevel === "recommended")) {
+      return "all_recommended";
+    }
+
+    if (results.every((result) => result.brandMentioned || result.brandRecommended)) {
+      return "all_mentioned";
+    }
+
+    if (results.every((result) => this.isCompetitorOnlyResult(result))) {
+      return "competitor_only";
+    }
+
+    if (results.every((result) => this.isNotMentionedResult(result))) {
+      return "not_mentioned";
+    }
+
+    const unclearCount = results.filter((result) => result.hitLevel === "unclear").length;
+    if (unclearCount > results.length / 2) {
+      return "unclear";
+    }
+
+    const hitCount = results.filter((result) => this.isGeoHitResult(result)).length;
+    if (hitCount > 0 && hitCount < results.length) {
+      return "partial_hit";
+    }
+
+    if (hitCount > 0) {
+      return "partial_hit";
+    }
+
+    return "unclear";
+  }
+
+  private buildGeoHitOptimizationSuggestions(
+    promptMatrix: GeoHitPromptMatrixItem[]
+  ): GeoHitOptimizationSuggestion[] {
+    const suggestions: GeoHitOptimizationSuggestion[] = [];
+
+    for (const item of promptMatrix) {
+      if (this.isHighPriorityPrompt(item) && item.overallStatus === "not_mentioned") {
+        suggestions.push({
+          type: "not_mentioned",
+          priority: "high",
+          geoPromptId: item.geoPromptId,
+          promptText: item.promptText,
+          reason: "高优先级提示词在最新平台结果中均未提及品牌。",
+          suggestedAction: "补充知识库事实资料，并围绕该问法生成官网、问答或选型内容资产。"
+        });
+      }
+
+      const kimiResult = item.results.find((result) => result.platform.includes("Kimi"));
+      const volcengineResult = item.results.find(
+        (result) => result.platform.includes("豆包") || result.platform.includes("火山")
+      );
+      if (
+        kimiResult &&
+        volcengineResult &&
+        !this.isGeoHitResult(kimiResult) &&
+        this.isGeoHitResult(volcengineResult)
+      ) {
+        suggestions.push({
+          type: "kimi_gap",
+          priority: "medium",
+          geoPromptId: item.geoPromptId,
+          promptText: item.promptText,
+          reason: "豆包 / 火山方向已有命中，但 Kimi 最新结果未命中。",
+          suggestedAction: "针对 Kimi 方向补充更易被检索的外部内容、官网段落和品牌实体说明。"
+        });
+      }
+
+      if (item.results.some((result) => result.brandMentioned && !result.brandRecommended)) {
+        suggestions.push({
+          type: "mentioned_not_recommended",
+          priority: "medium",
+          geoPromptId: item.geoPromptId,
+          promptText: item.promptText,
+          reason: "品牌已经被提及，但未形成推荐命中。",
+          suggestedAction: "补充为什么选择该品牌、适用场景、参数边界和竞品对比内容。"
+        });
+      }
+
+      if (item.results.some((result) => result.competitorMentioned && !result.brandMentioned)) {
+        suggestions.push({
+          type: "competitor_without_brand",
+          priority: "high",
+          geoPromptId: item.geoPromptId,
+          promptText: item.promptText,
+          reason: "竞品出现但目标品牌未出现，存在竞品占位。",
+          suggestedAction: "围绕该提示词补充品牌内容，并记录出现的竞品供后续内容对比。"
+        });
+      }
+
+      if (item.results.filter((result) => result.hitLevel === "unclear").length >= 2) {
+        suggestions.push({
+          type: "unclear_results",
+          priority: "low",
+          geoPromptId: item.geoPromptId,
+          promptText: item.promptText,
+          reason: "该提示词存在多条无法判断结果。",
+          suggestedAction: "复测该提示词，或检查对应 Provider 的联网搜索稳定性和返回结构。"
+        });
+      }
+    }
+
+    return suggestions.slice(0, DEFAULT_SUGGESTION_LIMIT);
+  }
+
+  private isHighPriorityPrompt(prompt: { priority: number }): boolean {
+    return prompt.priority >= HIGH_PRIORITY_THRESHOLD || prompt.priority <= 2;
+  }
+
+  private isGeoHitResult(result: GeoHitPromptMatrixResult): boolean {
+    return (
+      result.brandRecommended ||
+      result.brandMentioned ||
+      result.citedOfficialSite ||
+      result.hitLevel === "recommended" ||
+      result.hitLevel === "mentioned" ||
+      result.hitLevel === "cited"
+    );
+  }
+
+  private isCompetitorOnlyResult(result: GeoHitPromptMatrixResult): boolean {
+    return (
+      result.hitLevel === "competitor_only" ||
+      (result.competitorMentioned && !result.brandMentioned)
+    );
+  }
+
+  private isNotMentionedResult(result: GeoHitPromptMatrixResult): boolean {
+    return result.hitLevel === "not_mentioned";
+  }
+
+  private isNotMentionedRecord(record: ModelInclusionRecord): boolean {
+    return this.resolveHitLevel(record) === "not_mentioned";
   }
 
   private groupModelBooleanCount(

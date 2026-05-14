@@ -12,6 +12,7 @@ export type ReportQuery = {
   userIntent?: UserIntent;
   trackEnabled?: boolean;
   priority?: number;
+  latestOnly?: boolean;
   generationType?: string;
   status?: string;
   materialType?: string;
@@ -107,6 +108,82 @@ export type ModelCoverageReport = {
   notMentionedPrompts: ModelCoveragePromptSummary[];
 };
 
+export type GeoHitOverallStatus =
+  | "all_recommended"
+  | "all_mentioned"
+  | "partial_hit"
+  | "not_mentioned"
+  | "competitor_only"
+  | "unclear"
+  | "unchecked";
+
+export type GeoHitSummaryOverview = {
+  promptCount: number;
+  checkedPromptCount: number;
+  recordCount: number;
+  latestRecordCount: number;
+  brandMentionedCount: number;
+  brandRecommendedCount: number;
+  citedOfficialSiteCount: number;
+  citedContentAssetCount: number;
+  competitorMentionedCount: number;
+  notMentionedCount: number;
+  unclearCount: number;
+  brandMentionRate: number;
+  brandRecommendRate: number;
+  officialSiteCitationRate: number;
+  competitorMentionRate: number;
+  notMentionedRate: number;
+};
+
+export type GeoHitComparisonItem = {
+  platform?: string;
+  entryPoint?: string;
+  recordCount: number;
+  brandMentionRate: number;
+  brandRecommendRate: number;
+  notMentionedRate: number;
+  competitorMentionRate: number;
+  hitLevelDistribution: ReportDistribution;
+};
+
+export type GeoHitPromptMatrixResult = {
+  platform: string;
+  entryPoint: string;
+  hitLevel: string;
+  brandMentioned: boolean;
+  brandRecommended: boolean;
+  citedOfficialSite: boolean;
+  competitorMentioned: boolean;
+  checkedAt: string;
+};
+
+export type GeoHitPromptMatrixItem = {
+  geoPromptId: string;
+  promptText: string;
+  productLine?: string;
+  priority: number;
+  results: GeoHitPromptMatrixResult[];
+  overallStatus: GeoHitOverallStatus;
+};
+
+export type GeoHitOptimizationSuggestion = {
+  type: string;
+  priority: "high" | "medium" | "low";
+  geoPromptId: string;
+  promptText: string;
+  reason: string;
+  suggestedAction: string;
+};
+
+export type GeoHitSummaryReport = {
+  overview: GeoHitSummaryOverview;
+  platformComparison: GeoHitComparisonItem[];
+  entryPointComparison: GeoHitComparisonItem[];
+  promptMatrix: GeoHitPromptMatrixItem[];
+  optimizationSuggestions: GeoHitOptimizationSuggestion[];
+};
+
 export type ContentCoverageReport = {
   contentTaskCount: number;
   contentItemCount: number;
@@ -195,6 +272,7 @@ const buildReportQuery = (query: ReportQuery = {}) =>
     userIntent: query.userIntent,
     trackEnabled: query.trackEnabled,
     priority: query.priority,
+    latestOnly: query.latestOnly,
     generationType: query.generationType,
     status: query.status,
     materialType: query.materialType,
@@ -209,6 +287,9 @@ export const getPromptCoverage = (query: ReportQuery = {}) =>
 
 export const getModelCoverage = (query: ReportQuery = {}) =>
   apiGet<ModelCoverageReport>(`/api/reports/model-coverage${buildReportQuery(query)}`);
+
+export const getGeoHitSummary = (query: ReportQuery = {}) =>
+  apiGet<GeoHitSummaryReport>(`/api/reports/geo-hit-summary${buildReportQuery(query)}`);
 
 export const getContentCoverage = (query: ReportQuery = {}) =>
   apiGet<ContentCoverageReport>(`/api/reports/content-coverage${buildReportQuery(query)}`);

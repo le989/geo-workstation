@@ -5,12 +5,14 @@ import { Refresh } from "@element-plus/icons-vue";
 import {
   exportReport,
   getContentCoverage,
+  getGeoHitSummary,
   getGeoOverview,
   getKnowledgeCoverage,
   getModelCoverage,
   getOptimizationSuggestions,
   getPromptCoverage,
   type ContentCoverageReport,
+  type GeoHitSummaryReport,
   type GeoOverviewReport,
   type KnowledgeCoverageReport,
   type ModelCoverageReport,
@@ -21,6 +23,7 @@ import {
 } from "@/api/reports";
 import AppErrorState from "@/components/AppErrorState.vue";
 import ContentCoveragePanel from "@/components/ContentCoveragePanel.vue";
+import GeoHitSummaryPanel from "@/components/GeoHitSummaryPanel.vue";
 import KnowledgeCoveragePanel from "@/components/KnowledgeCoveragePanel.vue";
 import ModelCoveragePanel from "@/components/ModelCoveragePanel.vue";
 import OptimizationSuggestionsPanel from "@/components/OptimizationSuggestionsPanel.vue";
@@ -43,20 +46,26 @@ type ReportMetric = {
   tone?: "default" | "good" | "warning" | "danger";
 };
 
-const activeTab = ref<ReportExportType>("geo_overview");
-const reportFilters = reactive<ReportQuery>({});
+type ReportTabName = ReportExportType | "geo_hit_summary";
+
+const activeTab = ref<ReportTabName>("geo_overview");
+const reportFilters = reactive<ReportQuery>({
+  latestOnly: true
+});
 const suggestionLimit = ref(50);
 const lastLoadedAt = ref("");
 
 const overview = ref<GeoOverviewReport | null>(null);
 const promptCoverage = ref<PromptCoverageReport | null>(null);
 const modelCoverage = ref<ModelCoverageReport | null>(null);
+const geoHitSummary = ref<GeoHitSummaryReport | null>(null);
 const contentCoverage = ref<ContentCoverageReport | null>(null);
 const knowledgeCoverage = ref<KnowledgeCoverageReport | null>(null);
 const suggestions = ref<OptimizationSuggestion[]>([]);
 
-const loading = reactive<Record<ReportExportType, boolean>>({
+const loading = reactive<Record<ReportTabName, boolean>>({
   content_coverage: false,
+  geo_hit_summary: false,
   geo_overview: false,
   knowledge_coverage: false,
   model_coverage: false,
@@ -64,8 +73,9 @@ const loading = reactive<Record<ReportExportType, boolean>>({
   prompt_coverage: false
 });
 
-const errors = reactive<Record<ReportExportType, string>>({
+const errors = reactive<Record<ReportTabName, string>>({
   content_coverage: "",
+  geo_hit_summary: "",
   geo_overview: "",
   knowledge_coverage: "",
   model_coverage: "",
@@ -73,8 +83,9 @@ const errors = reactive<Record<ReportExportType, string>>({
   prompt_coverage: ""
 });
 
-const loadedTabs = reactive<Record<ReportExportType, boolean>>({
+const loadedTabs = reactive<Record<ReportTabName, boolean>>({
   content_coverage: false,
+  geo_hit_summary: false,
   geo_overview: false,
   knowledge_coverage: false,
   model_coverage: false,
@@ -84,10 +95,11 @@ const loadedTabs = reactive<Record<ReportExportType, boolean>>({
 
 const exporting = ref<ReportExportType | "">("");
 
-const reportTabs: Array<{ label: string; name: ReportExportType }> = [
+const reportTabs: Array<{ label: string; name: ReportTabName }> = [
   { label: "总览", name: "geo_overview" },
   { label: "提示词覆盖", name: "prompt_coverage" },
   { label: "模型覆盖", name: "model_coverage" },
+  { label: "GEO 命中汇总", name: "geo_hit_summary" },
   { label: "内容覆盖", name: "content_coverage" },
   { label: "知识库覆盖", name: "knowledge_coverage" },
   { label: "优化建议", name: "optimization_suggestions" }
@@ -102,6 +114,16 @@ const buildBaseQuery = (): ReportQuery => ({
   to: reportFilters.to
 });
 
+const buildGeoHitSummaryQuery = (): ReportQuery => ({
+  ...buildBaseQuery(),
+  latestOnly: reportFilters.latestOnly ?? true,
+  priority: reportFilters.priority,
+  trackEnabled: reportFilters.trackEnabled
+});
+
+const isExportableReport = (tab: ReportTabName): tab is ReportExportType =>
+  tab !== "geo_hit_summary";
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
     return `${error.message}。后端未连接时页面仍可访问，请先确认 API 服务是否启动。`;
@@ -114,7 +136,7 @@ const updateLoadedAt = () => {
   lastLoadedAt.value = new Date().toLocaleString();
 };
 
-const loadReport = async (tab: ReportExportType) => {
+const loadReport = async (tab: ReportTabName) => {
   loading[tab] = true;
   errors[tab] = "";
 
@@ -129,6 +151,9 @@ const loadReport = async (tab: ReportExportType) => {
     }
     if (tab === "model_coverage") {
       modelCoverage.value = await getModelCoverage(query);
+    }
+    if (tab === "geo_hit_summary") {
+      geoHitSummary.value = await getGeoHitSummary(buildGeoHitSummaryQuery());
     }
     if (tab === "content_coverage") {
       contentCoverage.value = await getContentCoverage(query);
@@ -162,15 +187,18 @@ const refreshCurrentReport = () => {
 const resetFilters = () => {
   reportFilters.from = undefined;
   reportFilters.entryPoint = undefined;
+  reportFilters.latestOnly = true;
   reportFilters.model = undefined;
   reportFilters.platform = undefined;
+  reportFilters.priority = undefined;
   reportFilters.productLine = undefined;
+  reportFilters.trackEnabled = undefined;
   reportFilters.to = undefined;
   refreshCurrentReport();
 };
 
 const handleTabChange = (name: string | number) => {
-  const tab = name as ReportExportType;
+  const tab = name as ReportTabName;
   if (!loadedTabs[tab]) {
     void loadReport(tab);
   }
@@ -372,10 +400,12 @@ onMounted(() => {
             <h2>{{ tab.label }}</h2>
           </div>
           <ReportExportButton
+            v-if="isExportableReport(tab.name)"
             :exporting="exporting === tab.name"
             :report-type="tab.name"
             @export="handleExport"
           />
+          <el-tag v-else type="info">按最新结果口径统计</el-tag>
         </div>
 
         <AppErrorState v-if="errors[tab.name]" title="报表加载失败" :message="errors[tab.name]" />
@@ -404,6 +434,11 @@ onMounted(() => {
           v-if="tab.name === 'model_coverage'"
           :loading="loading.model_coverage"
           :report="modelCoverage"
+        />
+        <GeoHitSummaryPanel
+          v-if="tab.name === 'geo_hit_summary'"
+          :loading="loading.geo_hit_summary"
+          :report="geoHitSummary"
         />
         <ContentCoveragePanel
           v-if="tab.name === 'content_coverage'"

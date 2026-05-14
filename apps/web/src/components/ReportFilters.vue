@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ReportQuery } from "@/api/reports";
-import { entryPointOptions } from "@/config/model-inclusion-options";
+import { booleanFilterOptions, entryPointOptions } from "@/config/model-inclusion-options";
 
 const props = defineProps<{
   modelValue: ReportQuery;
@@ -65,6 +65,45 @@ const updateField = <K extends keyof ReportQuery>(key: K, value: ReportQuery[K])
             :value="option.value"
           />
         </el-select>
+      </el-form-item>
+      <el-form-item label="优先级">
+        <el-select
+          :model-value="modelValue.priority"
+          clearable
+          placeholder="全部优先级"
+          @update:model-value="updateField('priority', $event)"
+        >
+          <el-option
+            v-for="priority in 5"
+            :key="priority"
+            :label="`P${priority}`"
+            :value="priority"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="是否追踪">
+        <el-select
+          :model-value="modelValue.trackEnabled"
+          clearable
+          placeholder="全部"
+          @update:model-value="updateField('trackEnabled', $event)"
+        >
+          <el-option
+            v-for="option in booleanFilterOptions"
+            :key="String(option.value)"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="只看最新结果">
+        <el-switch
+          :model-value="modelValue.latestOnly ?? true"
+          active-text="是"
+          inactive-text="否"
+          inline-prompt
+          @update:model-value="updateField('latestOnly', $event)"
+        />
       </el-form-item>
       <el-form-item label="时间从">
         <el-date-picker

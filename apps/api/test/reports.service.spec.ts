@@ -357,6 +357,174 @@ describe("ReportsService", () => {
     expect(report.notMentionedPrompts[0]?.geoPromptId).toBe(promptNotMentionedId);
   });
 
+  it("returns GEO hit summary using the latest prompt/platform/entryPoint result", async () => {
+    const summaryProductLine = `Phase Summary GEO 命中汇总 ${runId}`;
+    const promptA = await createPrompt("汇总部分命中", {
+      type: GeoPromptType.distilled,
+      userIntent: UserIntent.selection,
+      priority: 5,
+      trackEnabled: true
+    });
+    const promptB = await createPrompt("汇总全未命中", {
+      type: GeoPromptType.scene,
+      userIntent: UserIntent.application_solution,
+      priority: 5,
+      trackEnabled: true
+    });
+    const promptC = await createPrompt("汇总未检测", {
+      type: GeoPromptType.brand,
+      userIntent: UserIntent.brand_verification,
+      priority: 5,
+      trackEnabled: true
+    });
+    await prisma.geoPrompt.updateMany({
+      where: {
+        id: {
+          in: [promptA.id, promptB.id, promptC.id]
+        }
+      },
+      data: {
+        productLine: summaryProductLine
+      }
+    });
+
+    await prisma.modelInclusionRecord.createMany({
+      data: [
+        {
+          geoPromptId: promptA.id,
+          model: "kimi-old",
+          checkedAt: new Date("2026-05-14T01:00:00.000Z"),
+          brandMentioned: false,
+          brandRecommended: false,
+          citedOfficialSite: false,
+          citedContentAsset: false,
+          competitorMentioned: false,
+          hitLevel: "not_mentioned",
+          platform: "Kimi",
+          entryPoint: "web_search_api",
+          isWebSearchEnabled: true,
+          isLoggedIn: false,
+          answerSummary: "旧记录未命中。",
+          competitors: [],
+          recordMethod: RecordMethod.api,
+          createdById: createdBy
+        },
+        {
+          geoPromptId: promptA.id,
+          model: "kimi-new",
+          checkedAt: new Date("2026-05-14T02:00:00.000Z"),
+          brandMentioned: true,
+          brandRecommended: true,
+          citedOfficialSite: false,
+          citedContentAsset: false,
+          competitorMentioned: false,
+          hitLevel: "recommended",
+          platform: "Kimi",
+          entryPoint: "web_search_api",
+          isWebSearchEnabled: true,
+          isLoggedIn: false,
+          answerSummary: "最新记录推荐品牌。",
+          competitors: [],
+          recordMethod: RecordMethod.api,
+          createdById: createdBy
+        },
+        {
+          geoPromptId: promptA.id,
+          model: "doubao",
+          checkedAt: new Date("2026-05-14T02:30:00.000Z"),
+          brandMentioned: false,
+          brandRecommended: false,
+          citedOfficialSite: false,
+          citedContentAsset: false,
+          competitorMentioned: false,
+          hitLevel: "not_mentioned",
+          platform: "豆包 / 火山方舟",
+          entryPoint: "web_search_api",
+          isWebSearchEnabled: true,
+          isLoggedIn: false,
+          answerSummary: "火山未命中。",
+          competitors: [],
+          recordMethod: RecordMethod.api,
+          createdById: createdBy
+        },
+        {
+          geoPromptId: promptB.id,
+          model: "kimi",
+          checkedAt: new Date("2026-05-14T03:00:00.000Z"),
+          brandMentioned: false,
+          brandRecommended: false,
+          citedOfficialSite: false,
+          citedContentAsset: false,
+          competitorMentioned: false,
+          hitLevel: "not_mentioned",
+          platform: "Kimi",
+          entryPoint: "web_search_api",
+          isWebSearchEnabled: true,
+          isLoggedIn: false,
+          answerSummary: "Kimi 未命中。",
+          competitors: [],
+          recordMethod: RecordMethod.api,
+          createdById: createdBy
+        },
+        {
+          geoPromptId: promptB.id,
+          model: "bailian",
+          checkedAt: new Date("2026-05-14T03:30:00.000Z"),
+          brandMentioned: false,
+          brandRecommended: false,
+          citedOfficialSite: false,
+          citedContentAsset: false,
+          competitorMentioned: false,
+          hitLevel: "not_mentioned",
+          platform: "通义千问 / 阿里云百炼",
+          entryPoint: "web_search_api",
+          isWebSearchEnabled: true,
+          isLoggedIn: false,
+          answerSummary: "百炼未命中。",
+          competitors: [],
+          recordMethod: RecordMethod.api,
+          createdById: createdBy
+        }
+      ]
+    });
+
+    const report = await service.getGeoHitSummary({
+      productLine: summaryProductLine,
+      latestOnly: true,
+      trackEnabled: true
+    });
+
+    expect(report.overview).toMatchObject({
+      promptCount: 3,
+      checkedPromptCount: 2,
+      recordCount: 5,
+      latestRecordCount: 4,
+      brandMentionedCount: 1,
+      brandRecommendedCount: 1,
+      notMentionedCount: 3
+    });
+    expect(report.overview.brandMentionRate).toBeCloseTo(1 / 4, 5);
+    expect(report.platformComparison.find((item) => item.platform === "Kimi")).toMatchObject({
+      recordCount: 2,
+      brandMentionRate: 0.5,
+      brandRecommendRate: 0.5
+    });
+    expect(report.promptMatrix.find((item) => item.geoPromptId === promptA.id)).toMatchObject({
+      overallStatus: "partial_hit"
+    });
+    expect(report.promptMatrix.find((item) => item.geoPromptId === promptB.id)).toMatchObject({
+      overallStatus: "not_mentioned"
+    });
+    expect(report.promptMatrix.find((item) => item.geoPromptId === promptC.id)).toMatchObject({
+      overallStatus: "unchecked"
+    });
+    expect(
+      report.optimizationSuggestions.some(
+        (item) => item.type === "not_mentioned" && item.promptText === promptB.promptText
+      )
+    ).toBe(true);
+  });
+
   it("returns content and knowledge coverage reports", async () => {
     const content = await service.getContentCoverage({
       productLine

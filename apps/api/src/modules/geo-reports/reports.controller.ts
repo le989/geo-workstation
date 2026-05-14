@@ -2,6 +2,7 @@ import { Controller, Get, Inject, Query } from "@nestjs/common";
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
 import { ExportReportDto } from "./dto/export-report.dto";
 import { QueryContentCoverageReportDto } from "./dto/query-content-coverage-report.dto";
+import { QueryGeoHitSummaryReportDto } from "./dto/query-geo-hit-summary-report.dto";
 import { QueryGeoOverviewReportDto } from "./dto/query-geo-overview-report.dto";
 import { QueryKnowledgeCoverageReportDto } from "./dto/query-knowledge-coverage-report.dto";
 import { QueryModelCoverageReportDto } from "./dto/query-model-coverage-report.dto";
@@ -35,6 +36,14 @@ export class ReportsController {
     query: QueryModelCoverageReportDto
   ) {
     return this.reportsService.getModelCoverage(query);
+  }
+
+  @Get("geo-hit-summary")
+  getGeoHitSummary(
+    @Query(createValidationPipe(QueryGeoHitSummaryReportDto))
+    query: QueryGeoHitSummaryReportDto
+  ) {
+    return this.reportsService.getGeoHitSummary(query);
   }
 
   @Get("content-coverage")
