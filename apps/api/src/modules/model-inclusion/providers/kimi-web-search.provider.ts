@@ -53,6 +53,9 @@ export type KimiWebSearchResult = {
 export type KimiWebSearchInput = {
   promptText: string;
   model?: string;
+  brandName?: string;
+  companyName?: string;
+  websiteUrl?: string;
 };
 
 type KimiMessage = {
@@ -224,11 +227,12 @@ export class KimiWebSearchProvider {
     const messages: KimiMessage[] = [
       {
         role: "system",
-        content: "请使用联网搜索工具回答用户问题，并尽量在回答中说明来源。"
+        content:
+          "请使用联网搜索工具回答用户问题，并尽量在回答中说明来源。GEO 是系统检测任务名称，不是品牌名，不要把 GEO 当作被检测品牌。"
       },
       {
         role: "user",
-        content: input.promptText
+        content: this.buildSearchPrompt(input)
       }
     ];
     const observedToolCalls: KimiWebSearchToolCall[] = [];
@@ -415,6 +419,39 @@ export class KimiWebSearchProvider {
       );
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  private buildSearchPrompt(input: KimiWebSearchInput): string {
+    const brandName = input.brandName?.trim() || "未提供";
+    const companyName = input.companyName?.trim() || brandName;
+    const websiteDomain = this.extractDomain(input.websiteUrl) || "未提供";
+
+    return [
+      `检测问题：${input.promptText}`,
+      `目标品牌：${brandName}`,
+      `企业名称：${companyName}`,
+      `官网域名：${websiteDomain}`,
+      "GEO 是系统检测任务名称，不是品牌名，不要把 GEO 当作被检测品牌，不要把“GEO”写成品牌。",
+      "请判断联网搜索结果中是否提到目标品牌、是否引用目标官网、是否推荐目标品牌、是否出现竞品。",
+      "如果没有提到目标品牌，请明确说明“未提及目标品牌”。"
+    ].join("\n");
+  }
+
+  private extractDomain(url: string | undefined): string | undefined {
+    const trimmed = url?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    try {
+      return new URL(trimmed).hostname.replace(/^www\./, "");
+    } catch {
+      return trimmed
+        .replace(/^https?:\/\//i, "")
+        .replace(/^www\./i, "")
+        .split("/")[0]
+        ?.trim();
     }
   }
 

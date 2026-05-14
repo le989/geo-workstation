@@ -135,7 +135,7 @@ type WebSearchProviderRuntime = {
   provider: WebSearchProviderName;
   model: string;
   platform: string;
-  search: (input: { promptText: string; model?: string }) => Promise<{
+  search: (input: { promptText: string; model?: string } & ProjectProfileContext) => Promise<{
     finalAnswer: string;
     rawAnswer?: string;
     citations: unknown[];
@@ -330,7 +330,8 @@ export class ModelInclusionRecordsService {
         geoPrompt = await this.findActiveGeoPromptById(geoPromptId);
         const searchResult = await providerRuntime.search({
           promptText: geoPrompt.promptText,
-          model
+          model,
+          ...brandContext
         });
         const analysis = analyzeGeoHitFromAnswer({
           promptText: geoPrompt.promptText,

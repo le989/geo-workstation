@@ -175,10 +175,21 @@ describe("ModelInclusionRecordsService", () => {
     );
 
     const result = await provider.search({
-      promptText: "激光测距传感器怎么选？"
+      promptText: "激光测距传感器怎么选？",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
     });
 
+    const firstRequestBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const firstUserMessage = firstRequestBody.messages.find((item) => item.role === "user");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(firstUserMessage?.content).toContain("目标品牌：凯基特");
+    expect(firstUserMessage?.content).toContain("企业名称：凯基特");
+    expect(firstUserMessage?.content).toContain("官网域名：kjtchina.com");
+    expect(firstUserMessage?.content).toContain("GEO 是系统检测任务名称，不是品牌名");
     expect(result.finalAnswer).toContain("海伯森");
     expect(result.searchResultId).toBe("search_123");
     expect(result.toolCalls[0]).toMatchObject({
@@ -348,7 +359,10 @@ describe("ModelInclusionRecordsService", () => {
       );
 
       await provider.search({
-        promptText: "激光测距传感器怎么选？"
+        promptText: "激光测距传感器怎么选？",
+        brandName: "凯基特",
+        companyName: "凯基特",
+        websiteUrl: "https://www.kjtchina.com"
       });
 
       const requestBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
@@ -361,6 +375,16 @@ describe("ModelInclusionRecordsService", () => {
       expect(requestBody.input).toContain("不要生成长篇");
       expect(requestBody.input).toContain("不要输出复杂表格");
       expect(requestBody.input).toContain("如果没有找到品牌或官网");
+      expect(requestBody.input).toContain("目标品牌：凯基特");
+      expect(requestBody.input).toContain("企业名称：凯基特");
+      expect(requestBody.input).toContain("官网域名：kjtchina.com");
+      expect(requestBody.input).toContain("GEO 是系统检测任务名称，不是品牌名");
+      expect(requestBody.input).toContain("请判断联网搜索结果中是否提到目标品牌");
+      expect(requestBody.input).toContain("请判断是否引用目标官网");
+      expect(requestBody.input).toContain("请判断是否推荐目标品牌");
+      expect(requestBody.input).toContain("请判断是否出现竞品");
+      expect(requestBody.input).toContain("未提及目标品牌");
+      expect(requestBody.input).toContain("不要把“GEO”写成品牌");
       expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 180000);
     } finally {
       timeoutSpy.mockRestore();
@@ -655,6 +679,23 @@ describe("ModelInclusionRecordsService", () => {
       citedContentAsset: false,
       competitorMentioned: false,
       hitLevel: "recommended"
+    });
+  });
+
+  it("does not treat GEO as the target brand during GEO hit analysis", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer: "联网搜索结果提到了 GEO 检测任务，但未出现凯基特或其官网。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: false,
+      brandRecommended: false,
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
     });
   });
 
@@ -1209,6 +1250,13 @@ describe("ModelInclusionRecordsService", () => {
         }
       ],
       retryCount: 0
+    });
+    expect(volcengineProvider.search).toHaveBeenCalledWith({
+      promptText: prompt.promptText,
+      model: "doubao-seed-1-6-250615",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
     });
   });
 

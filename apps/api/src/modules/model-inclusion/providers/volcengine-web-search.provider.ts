@@ -11,6 +11,9 @@ import {
 export type VolcengineWebSearchInput = {
   promptText: string;
   model?: string;
+  brandName?: string;
+  companyName?: string;
+  websiteUrl?: string;
 };
 
 export type VolcengineWebSearchResult = {
@@ -91,7 +94,7 @@ export class VolcengineWebSearchProvider {
     input: VolcengineWebSearchInput,
     config: ReturnType<VolcengineWebSearchProvider["resolveConfig"]>
   ): Promise<Omit<VolcengineWebSearchResult, "retryCount">> {
-    const response = await this.postResponses(config, input.promptText);
+    const response = await this.postResponses(config, input);
     const finalAnswer = this.extractFinalAnswer(response);
     const citations = this.extractCitations(response);
     const searchResults = this.extractSearchResults(response);
@@ -190,7 +193,7 @@ export class VolcengineWebSearchProvider {
 
   private async postResponses(
     config: ReturnType<VolcengineWebSearchProvider["resolveConfig"]>,
-    promptText: string
+    input: VolcengineWebSearchInput
   ): Promise<VolcengineResponsesApiResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -204,7 +207,7 @@ export class VolcengineWebSearchProvider {
         },
         body: JSON.stringify({
           model: config.model,
-          input: this.buildSearchPrompt(promptText),
+          input: this.buildSearchPrompt(input),
           tools: [
             {
               type: "web_search"
@@ -274,15 +277,45 @@ export class VolcengineWebSearchProvider {
     return new VolcengineProviderError(message, classifyProviderError(error), retryCount);
   }
 
-  private buildSearchPrompt(promptText: string): string {
+  private buildSearchPrompt(input: VolcengineWebSearchInput): string {
+    const brandName = input.brandName?.trim() || "未提供";
+    const companyName = input.companyName?.trim() || brandName;
+    const websiteDomain = this.extractDomain(input.websiteUrl) || "未提供";
+
     return [
-      `请联网搜索后回答以下 GEO 命中检测问题：${promptText}`,
+      `请联网搜索后回答以下检测问题：${input.promptText}`,
+      `目标品牌：${brandName}`,
+      `企业名称：${companyName}`,
+      `官网域名：${websiteDomain}`,
+      "GEO 是系统检测任务名称，不是品牌名，不要把 GEO 当作被检测品牌，不要把“GEO”写成品牌。",
       "回答控制在 300 字以内。",
       "优先说明是否出现目标品牌、官网、相关厂家或竞品。",
+      "请判断联网搜索结果中是否提到目标品牌。",
+      "请判断是否引用目标官网。",
+      "请判断是否推荐目标品牌。",
+      "请判断是否出现竞品。",
       "不要生成长篇选型指南。",
       "不要输出复杂表格。",
+      "如果没有提到目标品牌，请明确说明“未提及目标品牌”。",
       "如果没有找到品牌或官网，也请明确说明。"
     ].join("\n");
+  }
+
+  private extractDomain(url: string | undefined): string | undefined {
+    const trimmed = url?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    try {
+      return new URL(trimmed).hostname.replace(/^www\./, "");
+    } catch {
+      return trimmed
+        .replace(/^https?:\/\//i, "")
+        .replace(/^www\./i, "")
+        .split("/")[0]
+        ?.trim();
+    }
   }
 
   private extractErrorSearchResults(error: unknown): unknown[] {
