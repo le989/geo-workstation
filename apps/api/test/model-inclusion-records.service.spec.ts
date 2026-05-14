@@ -322,8 +322,95 @@ describe("ModelInclusionRecordsService", () => {
     });
 
     expect(result.finalAnswer).toContain("凯基特");
-    expect(result.rawAnswer).toContain("[Volcengine response incomplete:length]");
+    expect(result.rawAnswer).toMatch(/^\[Volcengine response incomplete:length\]/);
     expect(result.retryCount).toBe(0);
+  });
+
+  it("uses Volcengine defaults for timeout, max output tokens, and short-answer prompts", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          id: "resp_ark_defaults",
+          output_text: "ok"
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    try {
+      const provider = new VolcengineWebSearchProvider(
+        new ConfigService({
+          VOLCENGINE_WEB_SEARCH_API_KEY: "test-key-not-real",
+          VOLCENGINE_WEB_SEARCH_RESPONSES_URL: "https://ark.cn-beijing.volces.com/api/v3/responses",
+          VOLCENGINE_WEB_SEARCH_MODEL: "doubao-test-model"
+        })
+      );
+
+      await provider.search({
+        promptText: "激光测距传感器怎么选？"
+      });
+
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+        input: string;
+        max_output_tokens: number;
+      };
+      expect(requestBody.max_output_tokens).toBe(1200);
+      expect(requestBody.input).toContain("激光测距传感器怎么选？");
+      expect(requestBody.input).toContain("300 字以内");
+      expect(requestBody.input).toContain("不要生成长篇");
+      expect(requestBody.input).toContain("不要输出复杂表格");
+      expect(requestBody.input).toContain("如果没有找到品牌或官网");
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 180000);
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+
+  it("classifies Volcengine web_search_call-only responses as incomplete output", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          id: "resp_ark_search_only",
+          status: "incomplete",
+          incomplete_details: {
+            reason: "length"
+          },
+          output: [
+            {
+              id: "ws_only",
+              type: "web_search_call",
+              status: "completed"
+            }
+          ]
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new VolcengineWebSearchProvider(
+      new ConfigService({
+        VOLCENGINE_WEB_SEARCH_API_KEY: "test-key-not-real",
+        VOLCENGINE_WEB_SEARCH_RESPONSES_URL: "https://ark.cn-beijing.volces.com/api/v3/responses",
+        VOLCENGINE_WEB_SEARCH_MODEL: "doubao-test-model",
+        VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: "1000"
+      })
+    );
+
+    await expect(
+      provider.search({
+        promptText: "激光测距传感器怎么选？"
+      })
+    ).rejects.toMatchObject({
+      category: "provider_incomplete_output",
+      retryCount: 0,
+      searchResults: [
+        expect.objectContaining({
+          webSearchCallId: "ws_only",
+          type: "web_search_call",
+          status: "completed"
+        })
+      ]
+    });
   });
 
   it("uses 120000ms as the default Kimi Web Search timeout", async () => {
@@ -1122,6 +1209,50 @@ describe("ModelInclusionRecordsService", () => {
         }
       ],
       retryCount: 0
+    });
+  });
+
+  it("stores Volcengine web_search_call evidence when incomplete output fails the check", async () => {
+    const prompt = await createGeoPrompt("火山方舟只返回搜索调用提示词");
+    const searchResults = [
+      {
+        webSearchCallId: "ws_volc_incomplete",
+        status: "completed",
+        type: "web_search_call"
+      }
+    ];
+    const providerError = Object.assign(
+      new KimiProviderError(
+        "火山 Web Search 已触发搜索，但未返回最终回答，建议提高 max_output_tokens 或缩短输出要求。",
+        "provider_incomplete_output",
+        0
+      ),
+      {
+        searchResults
+      }
+    );
+    volcengineProvider.search.mockRejectedValueOnce(providerError);
+
+    const result = await service.webSearchCheck({
+      geoPromptIds: [prompt.id],
+      provider: "volcengine_web_search",
+      brandName: "凯基特"
+    });
+
+    expect(result.successCount).toBe(0);
+    expect(result.failedCount).toBe(1);
+    expect(result.failedItems[0]).toMatchObject({
+      geoPromptId: prompt.id,
+      errorCategory: "provider_incomplete_output",
+      retryCount: 0,
+      errorMessage:
+        "[provider_incomplete_output] 火山 Web Search 已触发搜索，但未返回最终回答，建议提高 max_output_tokens 或缩短输出要求。"
+    });
+    expect(result.failedItems[0]?.record).toMatchObject({
+      hitLevel: "unclear",
+      errorCategory: "provider_incomplete_output",
+      retryCount: 0,
+      searchResults
     });
   });
 

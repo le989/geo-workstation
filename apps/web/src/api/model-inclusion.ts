@@ -34,6 +34,8 @@ export type ProviderErrorCategory =
   | "provider_insufficient_balance"
   | "provider_model_error"
   | "provider_tool_error"
+  | "provider_incomplete_output"
+  | "provider_response_parse_error"
   | "provider_bad_request"
   | "provider_unknown";
 

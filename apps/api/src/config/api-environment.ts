@@ -33,6 +33,7 @@ export type ApiEnvironment = {
   VOLCENGINE_WEB_SEARCH_RESPONSES_URL: string;
   VOLCENGINE_WEB_SEARCH_MODEL: string;
   VOLCENGINE_WEB_SEARCH_FORCE_SEARCH: string;
+  VOLCENGINE_WEB_SEARCH_MAX_OUTPUT_TOKENS: number;
   VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: number;
 };
 
@@ -84,9 +85,13 @@ export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvi
       config.VOLCENGINE_WEB_SEARCH_FORCE_SEARCH,
       "true"
     ),
+    VOLCENGINE_WEB_SEARCH_MAX_OUTPUT_TOKENS: getPositiveNumber(
+      config.VOLCENGINE_WEB_SEARCH_MAX_OUTPUT_TOKENS,
+      1200
+    ),
     VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: getPositiveNumber(
       config.VOLCENGINE_WEB_SEARCH_TIMEOUT_MS,
-      120000
+      180000
     )
   };
 }

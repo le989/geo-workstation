@@ -382,6 +382,8 @@ export class ModelInclusionRecordsService {
         const errorCategory = classifyProviderError(error);
         const retryCount = getProviderRetryCount(error);
         const errorMessage = formatProviderError(error);
+        const providerCitations = this.extractProviderErrorJsonArray(error, "citations");
+        const providerSearchResults = this.extractProviderErrorJsonArray(error, "searchResults");
         let failureRecord: ModelInclusionRecordResponse | undefined;
 
         if (geoPrompt) {
@@ -405,8 +407,8 @@ export class ModelInclusionRecordsService {
               hitLevel: "unclear",
               answerSummary: undefined,
               rawAnswer: undefined,
-              citations: [],
-              searchResults: [],
+              citations: providerCitations as Prisma.InputJsonValue,
+              searchResults: providerSearchResults as Prisma.InputJsonValue,
               screenshotPath: undefined,
               errorMessage,
               competitors: [],
@@ -470,6 +472,14 @@ export class ModelInclusionRecordsService {
     }
 
     throw new BadRequestException(`Unsupported web search provider: ${input.provider}`);
+  }
+
+  private extractProviderErrorJsonArray(
+    error: unknown,
+    field: "citations" | "searchResults"
+  ): unknown[] {
+    const value = (error as { citations?: unknown; searchResults?: unknown })?.[field];
+    return Array.isArray(value) ? value : [];
   }
 
   async exportCsv(query: QueryModelInclusionRecordsDto): Promise<string> {

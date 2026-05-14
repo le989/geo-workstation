@@ -10,6 +10,8 @@ export type ProviderErrorCategory =
   | "provider_insufficient_balance"
   | "provider_model_error"
   | "provider_tool_error"
+  | "provider_incomplete_output"
+  | "provider_response_parse_error"
   | "provider_bad_request"
   | "provider_unknown";
 
@@ -150,6 +152,12 @@ export const classifyProviderError = (error: unknown): ProviderErrorCategory => 
   }
   if (/model/.test(text)) {
     return "provider_model_error";
+  }
+  if (/incomplete output|未返回最终回答|incomplete:length/.test(text)) {
+    return "provider_incomplete_output";
+  }
+  if (/response parse|parse error|could not be parsed|响应结构/.test(text)) {
+    return "provider_response_parse_error";
   }
   if (/web_search|tool|tool_calls|reasoning_content/.test(text)) {
     return "provider_tool_error";

@@ -46,7 +46,8 @@ class VolcengineProviderError extends KimiProviderError {
     message: string,
     category: ProviderErrorCategory = "provider_unknown",
     retryCount = 0,
-    status?: number
+    status?: number,
+    readonly searchResults: unknown[] = []
   ) {
     super(message, category, retryCount, status);
     this.name = "VolcengineProviderError";
@@ -92,22 +93,37 @@ export class VolcengineWebSearchProvider {
   ): Promise<Omit<VolcengineWebSearchResult, "retryCount">> {
     const response = await this.postResponses(config, input.promptText);
     const finalAnswer = this.extractFinalAnswer(response);
+    const citations = this.extractCitations(response);
+    const searchResults = this.extractSearchResults(response);
 
     if (!finalAnswer) {
-      throw new BadRequestException("Volcengine Web Search returned no final answer.");
+      if (searchResults.length > 0) {
+        throw new VolcengineProviderError(
+          "火山 Web Search 已触发搜索，但未返回最终回答，建议提高 max_output_tokens 或缩短输出要求。",
+          "provider_incomplete_output",
+          0,
+          undefined,
+          searchResults
+        );
+      }
+
+      throw new VolcengineProviderError(
+        "Volcengine Web Search response could not be parsed.",
+        "provider_response_parse_error"
+      );
     }
 
     const incompleteReason = response.incomplete_details?.reason;
-    const incompleteMarker =
+    const rawAnswer =
       response.status === "incomplete" && incompleteReason
-        ? `\n\n[Volcengine response incomplete:${incompleteReason}]`
-        : "";
+        ? `[Volcengine response incomplete:${incompleteReason}]\n\n${finalAnswer}`
+        : finalAnswer;
 
     return {
       finalAnswer,
-      rawAnswer: `${finalAnswer}${incompleteMarker}`,
-      citations: this.extractCitations(response),
-      searchResults: this.extractSearchResults(response)
+      rawAnswer,
+      citations,
+      searchResults
     };
   }
 
@@ -136,6 +152,7 @@ export class VolcengineWebSearchProvider {
       responsesUrl,
       model,
       forceSearch: this.resolveForceSearch(),
+      maxOutputTokens: this.resolveMaxOutputTokens(),
       timeoutMs: this.resolveTimeout(),
       retryDelayMs: this.resolveRetryDelay()
     };
@@ -148,9 +165,16 @@ export class VolcengineWebSearchProvider {
 
   private resolveTimeout(): number {
     const configured = Number(
-      this.configService.get<string>("VOLCENGINE_WEB_SEARCH_TIMEOUT_MS") ?? 120000
+      this.configService.get<string>("VOLCENGINE_WEB_SEARCH_TIMEOUT_MS") ?? 180000
     );
-    return Number.isFinite(configured) && configured > 0 ? configured : 120000;
+    return Number.isFinite(configured) && configured > 0 ? configured : 180000;
+  }
+
+  private resolveMaxOutputTokens(): number {
+    const configured = Number(
+      this.configService.get<string>("VOLCENGINE_WEB_SEARCH_MAX_OUTPUT_TOKENS") ?? 1200
+    );
+    return Number.isFinite(configured) && configured > 0 ? configured : 1200;
   }
 
   private resolveRetryDelay(): number {
@@ -180,12 +204,13 @@ export class VolcengineWebSearchProvider {
         },
         body: JSON.stringify({
           model: config.model,
-          input: promptText,
+          input: this.buildSearchPrompt(promptText),
           tools: [
             {
               type: "web_search"
             }
           ],
+          max_output_tokens: config.maxOutputTokens,
           ...(config.forceSearch ? { tool_choice: "required" } : {})
         }),
         signal: controller.signal
@@ -236,11 +261,33 @@ export class VolcengineWebSearchProvider {
 
   private toProviderError(error: unknown, retryCount: number): VolcengineProviderError {
     if (error instanceof KimiProviderError) {
-      return new VolcengineProviderError(error.message, error.category, retryCount, error.status);
+      return new VolcengineProviderError(
+        error.message,
+        error.category,
+        retryCount,
+        error.status,
+        this.extractErrorSearchResults(error)
+      );
     }
 
     const message = error instanceof Error ? error.message : formatProviderError(error);
     return new VolcengineProviderError(message, classifyProviderError(error), retryCount);
+  }
+
+  private buildSearchPrompt(promptText: string): string {
+    return [
+      `请联网搜索后回答以下 GEO 命中检测问题：${promptText}`,
+      "回答控制在 300 字以内。",
+      "优先说明是否出现目标品牌、官网、相关厂家或竞品。",
+      "不要生成长篇选型指南。",
+      "不要输出复杂表格。",
+      "如果没有找到品牌或官网，也请明确说明。"
+    ].join("\n");
+  }
+
+  private extractErrorSearchResults(error: unknown): unknown[] {
+    const value = (error as { searchResults?: unknown })?.searchResults;
+    return Array.isArray(value) ? value : [];
   }
 
   private parseJson(text: string): unknown {

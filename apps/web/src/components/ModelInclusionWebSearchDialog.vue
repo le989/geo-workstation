@@ -164,7 +164,7 @@ const submit = () => {
 
 const providerBoundaryTitle = computed(() => {
   if (form.provider === "volcengine_web_search") {
-    return "当前为火山方舟 Web Search API 检测，作为豆包 / 火山生态方向联网检测入口；不等同于豆包 App 端真实用户结果，可能不返回结构化引用来源。每次检测会消耗 API 额度，建议先少量检测。";
+    return "当前为火山方舟 Web Search API 检测，作为豆包 / 火山生态方向联网检测入口；不等同于豆包 App 端真实用户结果。火山方舟 Web Search 可能耗时较长，当前检测会限制为短回答，适合判断品牌提及和官网引用，不适合生成长篇内容；可能不返回结构化引用来源。每次检测会消耗 API 额度，建议先少量检测。";
   }
 
   return "当前是 Kimi Web Search API 检测，不等同于 Kimi App 端真实用户结果；不是 App 端真实用户结果。每次检测会消耗 API 额度，建议先检测少量高优先级提示词。";
@@ -191,6 +191,8 @@ const errorCategoryLabelMap: Record<ProviderErrorCategory, string> = {
   provider_insufficient_balance: "余额不足",
   provider_model_error: "模型错误",
   provider_tool_error: "工具调用错误",
+  provider_incomplete_output: "输出不完整",
+  provider_response_parse_error: "响应解析错误",
   provider_bad_request: "请求参数错误",
   provider_unknown: "未知错误"
 };
@@ -249,6 +251,14 @@ const getFailureHelpText = (value?: ProviderErrorCategory) => {
     value === "provider_rate_limit"
   ) {
     return "请检查后端环境变量、账户额度或模型配置。";
+  }
+
+  if (value === "provider_incomplete_output") {
+    return "火山 Web Search 已触发搜索但未返回最终回答，可提高输出 tokens 或缩短输出要求。";
+  }
+
+  if (value === "provider_response_parse_error") {
+    return "Provider 返回结构暂不符合预期，请检查响应结构后再处理。";
   }
 
   return value ? "请查看错误原因后再决定是否重试。" : "";
