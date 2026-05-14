@@ -699,6 +699,143 @@ describe("ModelInclusionRecordsService", () => {
     });
   });
 
+  it("treats official site mentions in the raw answer as citation hits", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer: "回答引用目标官网资料：https://www.kjtchina.com/show-1020.html 。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      citedOfficialSite: true,
+      hitLevel: "cited"
+    });
+  });
+
+  it("treats explicit citation URLs as official site citation hits", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "行车防撞用什么激光测距传感器",
+      answer: "回答引用了目标官网来源，但没有推荐目标品牌。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com",
+      citations: [
+        {
+          title: "智能激光行车防撞系统",
+          url: "https://www.kjtchina.com/show-1020.html"
+        }
+      ]
+    });
+
+    expect(result).toMatchObject({
+      citedOfficialSite: true,
+      hitLevel: "cited"
+    });
+  });
+
+  it("does not treat search results alone as official site citations", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "行车防撞用什么激光测距传感器",
+      answer: "未提及目标品牌。未推荐目标品牌。出现竞品。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com",
+      searchResults: [
+        {
+          title: "凯基特官网候选",
+          url: "https://www.kjtchina.com/show-1020.html"
+        }
+      ]
+    });
+
+    expect(result).toMatchObject({
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
+    });
+  });
+
+  it("does not treat search query echoes as official site citations", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "行车防撞用什么激光测距传感器",
+      answer: "未提及目标品牌。未引用目标官网。未推荐目标品牌。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com",
+      searchResults: [
+        {
+          type: "web_search_call",
+          rawOutputSummary: '{"action":{"query":"kjtchina.com 激光测距传感器 行车防撞 品牌 推荐"}}'
+        }
+      ]
+    });
+
+    expect(result).toMatchObject({
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
+    });
+  });
+
+  it("lets explicit official-site denial override citation candidates", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "行车防撞用什么激光测距传感器",
+      answer: "未提及目标品牌。未引用目标官网。未推荐目标品牌。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com",
+      citations: [
+        {
+          title: "智能激光行车防撞系统",
+          url: "https://www.kjtchina.com/show-1020.html"
+        }
+      ]
+    });
+
+    expect(result).toMatchObject({
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
+    });
+  });
+
+  it("does not count negated official-site text as a citation hit", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "行车防撞用什么激光测距传感器",
+      answer: "未引用目标官网 kjtchina.com，未提及目标品牌。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
+    });
+  });
+
+  it("re-derives competitor-only hit level when official-site citation is negated", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "行车防撞用什么激光测距传感器",
+      answer: "未引用目标官网。西克被提及为行车防撞方案。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com",
+      knownCompetitors: ["西克"],
+      citations: [
+        {
+          title: "智能激光行车防撞系统",
+          url: "https://www.kjtchina.com/show-1020.html"
+        }
+      ]
+    });
+
+    expect(result).toMatchObject({
+      citedOfficialSite: false,
+      competitorMentioned: true,
+      hitLevel: "competitor_only"
+    });
+  });
+
   it("creates a manual model inclusion record and updates latestCoverageStatus", async () => {
     const prompt = await createGeoPrompt("手动记录提示词");
 

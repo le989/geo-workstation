@@ -46,6 +46,13 @@ const NEGATIVE_BRAND_MENTION_PATTERNS = [
   /不(?:包含|涉及)/
 ];
 
+const OFFICIAL_SITE_DENIAL_PATTERNS = [
+  /未(?:明确)?(?:引用|提及|找到|出现)(?:目标)?官网/,
+  /没有(?:明确)?(?:引用|提及|找到|出现)(?:目标)?官网/,
+  /无(?:明确)?(?:官网引用|官网来源|目标官网)/,
+  /不(?:引用|包含|涉及)(?:目标)?官网/
+];
+
 export function analyzeGeoHitFromAnswer(input: AnalyzeGeoHitInput): AnalyzeGeoHitResult {
   const answer = input.answer.trim();
   const citations = input.citations ?? [];
@@ -57,10 +64,7 @@ export function analyzeGeoHitFromAnswer(input: AnalyzeGeoHitInput): AnalyzeGeoHi
     brandCandidates.some((name) => isRecommendedWithBrand(answer, name, RECOMMENDATION_PATTERNS));
   const websiteDomain = extractDomain(input.websiteUrl);
   const citedOfficialSite = websiteDomain
-    ? includesLoose(
-        [answer, JSON.stringify(citations), JSON.stringify(searchResults)].join("\n"),
-        websiteDomain
-      )
+    ? hasOfficialSiteCitationEvidence(answer, citations, websiteDomain)
     : false;
   const competitors = uniqueStrings(input.knownCompetitors ?? []).filter((competitor) =>
     includesLoose(answer, competitor)
@@ -124,6 +128,44 @@ function hasAffirmativeBrandMention(text: string, brand: string): boolean {
   }
 
   return false;
+}
+
+function hasOfficialSiteCitationEvidence(
+  answer: string,
+  citations: unknown[],
+  websiteDomain: string
+): boolean {
+  if (hasOfficialSiteDenial(answer)) {
+    return false;
+  }
+
+  return includesLoose(answer, websiteDomain) || hasCitationUrlWithDomain(citations, websiteDomain);
+}
+
+function hasOfficialSiteDenial(text: string): boolean {
+  return OFFICIAL_SITE_DENIAL_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function hasCitationUrlWithDomain(value: unknown, websiteDomain: string): boolean {
+  if (!value) {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasCitationUrlWithDomain(item, websiteDomain));
+  }
+
+  if (typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  const citationUrl = record.url ?? record.uri ?? record.link;
+  if (typeof citationUrl === "string" && includesLoose(citationUrl, websiteDomain)) {
+    return true;
+  }
+
+  return Object.values(record).some((item) => hasCitationUrlWithDomain(item, websiteDomain));
 }
 
 function isRecommendedWithBrand(text: string, brand: string, patterns: string[]): boolean {
