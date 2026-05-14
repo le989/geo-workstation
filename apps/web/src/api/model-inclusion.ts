@@ -164,9 +164,14 @@ export type ImportModelInclusionRecordsResult = {
   failedRows: FailedModelInclusionImportRow[];
 };
 
+export type WebSearchProvider =
+  | "kimi_web_search"
+  | "volcengine_web_search"
+  | "aliyun_bailian_web_search";
+
 export type WebSearchCheckPayload = {
   geoPromptIds: string[];
-  provider: "kimi_web_search" | "volcengine_web_search";
+  provider: WebSearchProvider;
   model?: string;
   brandName?: string;
   companyName?: string;
@@ -186,7 +191,7 @@ export type FailedWebSearchCheckItem = {
 };
 
 export type WebSearchCheckResult = {
-  provider: "kimi_web_search" | "volcengine_web_search";
+  provider: WebSearchProvider;
   successCount: number;
   failedCount: number;
   createdItems: ModelInclusionRecord[];
@@ -276,11 +281,13 @@ export const importModelInclusionRecords = (payload: ImportModelInclusionRecords
     body: JSON.stringify(payload)
   });
 
-export const runKimiWebSearchCheck = (payload: WebSearchCheckPayload) =>
+export const runWebSearchCheck = (payload: WebSearchCheckPayload) =>
   apiRequest<WebSearchCheckResult>("/api/model-inclusion-records/web-search-check", {
     method: "POST",
     body: JSON.stringify(payload)
   });
+
+export const runKimiWebSearchCheck = runWebSearchCheck;
 
 export const exportModelInclusionRecords = (params: ModelInclusionRecordQuery = {}) =>
   apiRequest<string>(`/api/model-inclusion-records/export${toQueryString(params)}`);

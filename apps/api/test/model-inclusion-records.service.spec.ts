@@ -9,6 +9,7 @@ import {
   KimiProviderError,
   KimiWebSearchProvider
 } from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
+import { AliyunBailianWebSearchProvider } from "../src/modules/model-inclusion/providers/aliyun-bailian-web-search.provider";
 import { VolcengineWebSearchProvider } from "../src/modules/model-inclusion/providers/volcengine-web-search.provider";
 import { analyzeGeoHitFromAnswer } from "../src/modules/model-inclusion/utils/analyze-geo-hit.util";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
@@ -28,6 +29,9 @@ describe("ModelInclusionRecordsService", () => {
   let volcengineProvider: {
     search: ReturnType<typeof vi.fn>;
   };
+  let aliyunProvider: {
+    search: ReturnType<typeof vi.fn>;
+  };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -39,10 +43,14 @@ describe("ModelInclusionRecordsService", () => {
     volcengineProvider = {
       search: vi.fn()
     };
+    aliyunProvider = {
+      search: vi.fn()
+    };
     service = new ModelInclusionRecordsService(
       prisma as unknown as PrismaService,
       kimiProvider as unknown as KimiWebSearchProvider,
-      volcengineProvider as unknown as VolcengineWebSearchProvider
+      volcengineProvider as unknown as VolcengineWebSearchProvider,
+      aliyunProvider as unknown as AliyunBailianWebSearchProvider
     );
 
     const user = await prisma.user.create({
@@ -64,6 +72,7 @@ describe("ModelInclusionRecordsService", () => {
     vi.unstubAllGlobals();
     kimiProvider.search.mockReset();
     volcengineProvider.search.mockReset();
+    aliyunProvider.search.mockReset();
   });
 
   function unique(label: string): string {
@@ -435,6 +444,84 @@ describe("ModelInclusionRecordsService", () => {
         })
       ]
     });
+  });
+
+  it("returns a clear Aliyun Bailian Web Search error when the API key is missing", async () => {
+    const provider = new AliyunBailianWebSearchProvider(
+      new ConfigService({
+        ALIYUN_BAILIAN_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        ALIYUN_BAILIAN_MODEL: "qwen3-max",
+        ALIYUN_BAILIAN_WEB_SEARCH_ENABLED: "true",
+        ALIYUN_BAILIAN_FORCE_SEARCH: "true"
+      })
+    );
+
+    await expect(
+      provider.search({
+        promptText: "激光测距传感器怎么选？"
+      })
+    ).rejects.toThrow("ALIYUN_BAILIAN_API_KEY is not configured");
+  });
+
+  it("extracts an Aliyun Bailian answer and sends forced web-search parameters", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: "联网搜索后，凯基特激光测距传感器被提及，但未返回结构化引用来源。"
+              }
+            }
+          ]
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    try {
+      const provider = new AliyunBailianWebSearchProvider(
+        new ConfigService({
+          ALIYUN_BAILIAN_API_KEY: "test-key-not-real",
+          ALIYUN_BAILIAN_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          ALIYUN_BAILIAN_MODEL: "qwen3-max",
+          ALIYUN_BAILIAN_WEB_SEARCH_ENABLED: "true",
+          ALIYUN_BAILIAN_FORCE_SEARCH: "true"
+        })
+      );
+
+      const result = await provider.search({
+        promptText: "激光测距传感器怎么选？",
+        brandName: "凯基特",
+        companyName: "凯基特",
+        websiteUrl: "https://www.kjtchina.com"
+      });
+
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string) as {
+        enable_search: boolean;
+        search_options?: {
+          forced_search?: boolean;
+        };
+        messages: Array<{ role: string; content: string }>;
+      };
+      const userMessage = requestBody.messages.find((item) => item.role === "user");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(requestBody.enable_search).toBe(true);
+      expect(requestBody.search_options?.forced_search).toBe(true);
+      expect(userMessage?.content).toContain("目标品牌：凯基特");
+      expect(userMessage?.content).toContain("企业名称：凯基特");
+      expect(userMessage?.content).toContain("官网域名：kjtchina.com");
+      expect(userMessage?.content).toContain("GEO 是系统检测概念，不是品牌名");
+      expect(result.finalAnswer).toContain("凯基特");
+      expect(result.citations).toEqual([]);
+      expect(result.searchResults).toEqual([]);
+      expect(result.retryCount).toBe(0);
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 120000);
+    } finally {
+      timeoutSpy.mockRestore();
+    }
   });
 
   it("uses 120000ms as the default Kimi Web Search timeout", async () => {
@@ -1394,6 +1481,84 @@ describe("ModelInclusionRecordsService", () => {
       brandName: "凯基特",
       companyName: "凯基特",
       websiteUrl: "https://www.kjtchina.com"
+    });
+  });
+
+  it("runs Aliyun Bailian web-search checks and stores Tongyi GEO hit fields", async () => {
+    const prompt = await createGeoPrompt("百炼联网检测提示词");
+    aliyunProvider.search.mockResolvedValue({
+      finalAnswer:
+        "通义联网搜索后，凯基特激光测距传感器被提及，官网正文包含 https://www.kjtchina.com 。",
+      rawAnswer:
+        "通义联网搜索后，凯基特激光测距传感器被提及，官网正文包含 https://www.kjtchina.com 。",
+      citations: [],
+      searchResults: [],
+      retryCount: 0
+    });
+
+    const result = await service.webSearchCheck({
+      geoPromptIds: [prompt.id],
+      provider: "aliyun_bailian_web_search",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      provider: "aliyun_bailian_web_search",
+      successCount: 1,
+      failedCount: 0
+    });
+    expect(result.createdItems[0]).toMatchObject({
+      geoPromptId: prompt.id,
+      model: "qwen3-max",
+      platform: "通义千问 / 阿里云百炼",
+      entryPoint: "web_search_api",
+      detectionMethod: "web_search",
+      deviceType: "api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
+      recordMethod: RecordMethod.api,
+      brandMentioned: true,
+      brandRecommended: false,
+      citedOfficialSite: true,
+      hitLevel: "mentioned",
+      citations: [],
+      searchResults: [],
+      retryCount: 0
+    });
+    expect(aliyunProvider.search).toHaveBeenCalledWith({
+      promptText: prompt.promptText,
+      model: "qwen3-max",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+  });
+
+  it("keeps Aliyun Bailian negative target-brand answers as not mentioned", async () => {
+    const prompt = await createGeoPrompt("百炼未提及目标品牌提示词");
+    aliyunProvider.search.mockResolvedValue({
+      finalAnswer: "联网搜索后，未提及目标品牌。未引用目标官网。主要出现其他厂家。",
+      rawAnswer: "联网搜索后，未提及目标品牌。未引用目标官网。主要出现其他厂家。",
+      citations: [],
+      searchResults: [],
+      retryCount: 0
+    });
+
+    const result = await service.webSearchCheck({
+      geoPromptIds: [prompt.id],
+      provider: "aliyun_bailian_web_search",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result.createdItems[0]).toMatchObject({
+      brandMentioned: false,
+      brandRecommended: false,
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
     });
   });
 

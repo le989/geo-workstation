@@ -133,7 +133,7 @@ pnpm check:internal-mvp
 
 当前未实现能力：
 
-- 真实外部 AI 检测。
+- PC、移动网页和 App 端真实用户结果自动检测，以及全平台定时批量检测。
 - 多模型批量外部检测和定时检测。
 - 开放注册、忘记密码、OAuth、多租户和复杂菜单级权限。
 - 自动发布。
@@ -289,9 +289,20 @@ pnpm dev:web
 - `VOLCENGINE_WEB_SEARCH_MAX_OUTPUT_TOKENS`，建议设置为 `1200`
 - `VOLCENGINE_WEB_SEARCH_TIMEOUT_MS`，建议设置为 `180000`
 
+通义 / 阿里云百炼方向使用百炼 OpenAI-compatible Chat Completions + Web Search，需要配置：
+
+- `ALIYUN_BAILIAN_API_KEY`
+- `ALIYUN_BAILIAN_BASE_URL`
+- `ALIYUN_BAILIAN_MODEL`
+- `ALIYUN_BAILIAN_WEB_SEARCH_ENABLED`
+- `ALIYUN_BAILIAN_FORCE_SEARCH`
+- `ALIYUN_BAILIAN_TIMEOUT_MS`，未配置时默认 `120000`
+
 Kimi 联网检测是 Kimi Web Search API 结果，不等同于 Kimi App 端真实用户结果，也不包含 PC/移动网页端自动采集。联网搜索可能出现 `timeout`、`fetch failed`、连接重置等临时网络类失败；后端会对这类错误做最多 1 次轻量重试，并在返回结果中标记错误分类和 `retryCount`。
 
 豆包 / 火山方舟联网搜索检测写入 `platform = 豆包 / 火山方舟`、`entryPoint = web_search_api`、`detectionMethod = web_search`。它是火山方舟 Web Search API 检测结果，不等同于豆包 App 端真实用户结果；当前可能不返回结构化 URL / citations，但会保存 `web_search_call` 作为联网证据。火山检测会在请求中限制为 300 字以内短回答，并用 `VOLCENGINE_WEB_SEARCH_MAX_OUTPUT_TOKENS` 控制输出，避免生成长篇选型指南导致 `incomplete:length`。
+
+通义千问 / 阿里云百炼联网搜索检测写入 `platform = 通义千问 / 阿里云百炼`、`entryPoint = web_search_api`、`detectionMethod = web_search`。它是百炼 Web Search API 检测结果，不等同于通义千问 App 或网页端真实用户结果；当前响应可能不返回结构化 references / citations / searchResults / URL，第一版主要从回答正文判断品牌提及、品牌推荐和官网引用，不伪造引用来源。
 
 启动后端：
 
@@ -311,7 +322,7 @@ pnpm dev:api
 - `/knowledge-bases`：企业 GEO 知识库，支持知识库管理、文本导入、txt/md/csv 上传解析、文件 reparse 和知识片段管理。
 - `/instruction-templates`：指令库，支持指令模板创建、编辑、查看详情、复制和软删除。
 - `/content-tasks`：GEO 内容生成，支持创建默认 Mock 或 `openai_compatible` 内容任务、查看/编辑/删除内容项、质量检查、发布优化版、富文本发布稿排版、Markdown/HTML 导出和失败重试入口。
-- `/model-inclusion-records`：模型覆盖记录已升级为多入口 GEO 命中记录口径，支持手动录入、批量导入、Kimi Web Search API 联网检测、豆包 / 火山方舟联网搜索检测、summary、未覆盖提示词和 CSV 导出，并记录平台、入口、联网/登录状态、命中等级、内容资产引用、竞品出现、原始回答和引用来源。
+- `/model-inclusion-records`：模型覆盖记录已升级为多入口 GEO 命中记录口径，支持手动录入、批量导入、Kimi Web Search API 联网检测、豆包 / 火山方舟联网搜索检测、通义千问 / 阿里云百炼联网搜索检测、summary、未覆盖提示词和 CSV 导出，并记录平台、入口、联网/登录状态、命中等级、内容资产引用、竞品出现、原始回答和引用来源。
 - `/reports`：GEO 报表，支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。
 - `/settings`：系统设置，维护单项目档案、AI 接口配置边界和事实来源说明；不包含团队管理、Provider Key 管理或复杂权限配置。
 - `/help`：使用教程，整理快速开始、日常 SOP、AI 拓词、知识库维护、内容质检、富文本发布稿和版本更新记录。
@@ -510,12 +521,13 @@ pnpm --filter @geo-workstation/shared build
 - Phase Monitor-Record-1 将模型覆盖记录升级为多入口 GEO 命中记录字段：保留旧字段，同时新增 `platform`、`entryPoint`、`detectionMethod`、`deviceType`、`isWebSearchEnabled`、`isLoggedIn`、`citedContentAsset`、`competitorMentioned`、`hitLevel`、`rawAnswer`、`citations`、`searchResults`、`screenshotPath` 和 `errorMessage`，用于承接后续联网搜索 API、PC/移动网页和 App 人工抽查结果。
 - Phase Monitor-Web-1 接入 Kimi Web Search API：选择少量 GEO 提示词后触发 `$web_search` tool-call loop，自动规则判断品牌提及、品牌推荐、官网引用、内容资产引用和竞品出现，并写入 `model_inclusion_records` 的 `platform = Kimi`、`entryPoint = web_search_api`、`detectionMethod = web_search`、`deviceType = api`、`isWebSearchEnabled = true` 等字段。Monitor-Web-1.1 将 Kimi 默认超时调整为 120000ms，并对 timeout、fetch failed、连接重置等网络类失败做最多 1 次重试。
 - Phase Monitor-Web-2 接入豆包 / 火山方舟联网搜索检测：通过火山方舟 Responses API + `tools: [{ type: "web_search" }]` 写入 `platform = 豆包 / 火山方舟` 的联网 API 检测结果。该结果不等同于豆包 App 端真实用户结果；当没有结构化 URL / citations 时，会保存 `web_search_call` 到 `searchResults` 作为联网证据。Monitor-Web-2.1 将火山默认输出上限设为 1200、默认超时设为 180000ms，并要求 300 字以内短回答，降低 `incomplete:length` 和长等待风险。
+- Phase Monitor-Web-3 接入通义千问 / 阿里云百炼联网搜索检测：通过百炼 OpenAI-compatible Chat Completions 启用 `enable_search` 与 `search_options.forced_search`，写入 `platform = 通义千问 / 阿里云百炼` 的联网 API 检测结果。百炼第一版定位为回答型联网检测 Provider，不等同于通义千问 App 或网页端真实用户结果；当前不稳定返回结构化引用来源，官网引用主要从回答正文判断。
 - 新增记录前校验 GEO 提示词存在且未软删除；查询记录时返回关联提示词的 `promptText`、类型、产品线和用户意图。
 - 批量导入按行独立校验，支持通过 `geoPromptId` 或 `promptText` 匹配提示词；导入成功行强制写入 `recordMethod = import`，不自动创建新提示词。
 - 未覆盖提示词查询基于 `geo_prompts`，默认只查询 `trackEnabled = true` 且未软删除的提示词。
 - 新增记录和导入成功后会刷新 `geoPrompt.latestCoverageStatus`：`recommended`、`mentioned`、`not_mentioned`。
 - summary 返回品牌提及率、推荐率、官网引用率、模型分布和产品线分布。
-- 不做阿里云百炼、OpenAI、Perplexity 或 Tavily 接入；不做 PC / 移动端自动采集、App 自动化、定时任务或自动发布。
+- 不做 OpenAI、Perplexity 或 Tavily 接入；不做 PC / 移动端自动采集、App 自动化、定时任务或自动发布。
 
 ## Phase 2I 完成内容
 

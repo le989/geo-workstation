@@ -35,6 +35,12 @@ export type ApiEnvironment = {
   VOLCENGINE_WEB_SEARCH_FORCE_SEARCH: string;
   VOLCENGINE_WEB_SEARCH_MAX_OUTPUT_TOKENS: number;
   VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: number;
+  ALIYUN_BAILIAN_API_KEY?: string;
+  ALIYUN_BAILIAN_BASE_URL: string;
+  ALIYUN_BAILIAN_MODEL: string;
+  ALIYUN_BAILIAN_WEB_SEARCH_ENABLED: string;
+  ALIYUN_BAILIAN_FORCE_SEARCH: string;
+  ALIYUN_BAILIAN_TIMEOUT_MS: number;
 };
 
 export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvironment {
@@ -92,7 +98,16 @@ export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvi
     VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: getPositiveNumber(
       config.VOLCENGINE_WEB_SEARCH_TIMEOUT_MS,
       180000
-    )
+    ),
+    ALIYUN_BAILIAN_API_KEY: getOptionalString(config.ALIYUN_BAILIAN_API_KEY),
+    ALIYUN_BAILIAN_BASE_URL: getString(
+      config.ALIYUN_BAILIAN_BASE_URL,
+      "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    ),
+    ALIYUN_BAILIAN_MODEL: getString(config.ALIYUN_BAILIAN_MODEL, "qwen3-max"),
+    ALIYUN_BAILIAN_WEB_SEARCH_ENABLED: getString(config.ALIYUN_BAILIAN_WEB_SEARCH_ENABLED, "true"),
+    ALIYUN_BAILIAN_FORCE_SEARCH: getString(config.ALIYUN_BAILIAN_FORCE_SEARCH, "true"),
+    ALIYUN_BAILIAN_TIMEOUT_MS: getPositiveNumber(config.ALIYUN_BAILIAN_TIMEOUT_MS, 120000)
   };
 }
 

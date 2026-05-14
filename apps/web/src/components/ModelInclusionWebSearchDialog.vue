@@ -54,6 +54,10 @@ const providerOptions: Array<{
   {
     label: "豆包 / 火山方舟联网搜索",
     value: "volcengine_web_search"
+  },
+  {
+    label: "通义千问 / 阿里云百炼联网搜索",
+    value: "aliyun_bailian_web_search"
   }
 ];
 
@@ -167,14 +171,24 @@ const providerBoundaryTitle = computed(() => {
     return "当前为火山方舟 Web Search API 检测，作为豆包 / 火山生态方向联网检测入口；不等同于豆包 App 端真实用户结果。火山方舟 Web Search 可能耗时较长，当前检测会限制为短回答，适合判断品牌提及和官网引用，不适合生成长篇内容；可能不返回结构化引用来源。每次检测会消耗 API 额度，建议先少量检测。";
   }
 
+  if (form.provider === "aliyun_bailian_web_search") {
+    return "当前为阿里云百炼 / 通义 Web Search API 检测，不等同于通义千问 App 或网页端真实用户结果。当前 Provider 可能不返回结构化引用来源，官网引用主要从回答正文中判断。每次检测会消耗 API 额度，建议先少量检测。";
+  }
+
   return "当前是 Kimi Web Search API 检测，不等同于 Kimi App 端真实用户结果；不是 App 端真实用户结果。每次检测会消耗 API 额度，建议先检测少量高优先级提示词。";
 });
 
-const providerModelPlaceholder = computed(() =>
-  form.provider === "volcengine_web_search"
-    ? "默认使用后端 VOLCENGINE_WEB_SEARCH_MODEL"
-    : "默认使用后端 KIMI_MODEL"
-);
+const providerModelPlaceholder = computed(() => {
+  if (form.provider === "volcengine_web_search") {
+    return "默认使用后端 VOLCENGINE_WEB_SEARCH_MODEL";
+  }
+
+  if (form.provider === "aliyun_bailian_web_search") {
+    return "默认使用后端 ALIYUN_BAILIAN_MODEL";
+  }
+
+  return "默认使用后端 KIMI_MODEL";
+});
 
 const formatHitLevel = (value?: string) =>
   value ? ((hitLevelLabelMap as Record<string, string>)[value] ?? value) : "无法判断";

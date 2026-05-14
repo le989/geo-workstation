@@ -9,7 +9,7 @@ import {
   getModelInclusionSummary,
   getUncoveredPrompts,
   importModelInclusionRecords,
-  runKimiWebSearchCheck,
+  runWebSearchCheck,
   type CreateModelInclusionRecordPayload,
   type ImportModelInclusionRecordRow,
   type ImportModelInclusionRecordsResult,
@@ -295,9 +295,13 @@ const handleWebSearchCheck = async (payload: WebSearchCheckPayload) => {
   webSearchError.value = "";
 
   try {
-    webSearchResult.value = await runKimiWebSearchCheck(payload);
+    webSearchResult.value = await runWebSearchCheck(payload);
     const providerLabel =
-      payload.provider === "volcengine_web_search" ? "豆包 / 火山方舟联网搜索" : "Kimi 联网检测";
+      payload.provider === "volcengine_web_search"
+        ? "豆包 / 火山方舟联网搜索"
+        : payload.provider === "aliyun_bailian_web_search"
+          ? "通义千问 / 阿里云百炼联网搜索"
+          : "Kimi 联网检测";
     ElMessage.success(
       `${providerLabel}完成：成功 ${webSearchResult.value.successCount} 条，失败 ${webSearchResult.value.failedCount} 条。`
     );
@@ -386,7 +390,7 @@ onMounted(() => {
         </p>
         <strong>
           第一版支持人工录入 / 导入覆盖记录，并提供 Kimi Web Search API 联网检测与豆包 /
-          火山方舟联网搜索检测；不做 PC、移动网页或 App 自动化。
+          火山方舟联网搜索检测、通义千问 / 阿里云百炼联网搜索检测；不做 PC、移动网页或 App 自动化。
         </strong>
       </div>
       <div class="model-inclusion-hero__actions">

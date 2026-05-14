@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { configureApiApp } from "../src/common/bootstrap/configure-api-app";
+import { AliyunBailianWebSearchProvider } from "../src/modules/model-inclusion/providers/aliyun-bailian-web-search.provider";
 import { KimiWebSearchProvider } from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
 import { VolcengineWebSearchProvider } from "../src/modules/model-inclusion/providers/volcengine-web-search.provider";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
@@ -59,6 +60,15 @@ describe("ModelInclusionRecordsController", () => {
       retryCount: 0
     })
   };
+  const aliyunProvider = {
+    search: async () => ({
+      finalAnswer: "通义联网搜索后，凯基特激光测距传感器被提及，但当前响应不返回结构化引用来源。",
+      rawAnswer: "通义联网搜索后，凯基特激光测距传感器被提及，但当前响应不返回结构化引用来源。",
+      citations: [],
+      searchResults: [],
+      retryCount: 0
+    })
+  };
   let restoreEnv: Record<string, string | undefined> = {};
 
   beforeAll(async () => {
@@ -69,7 +79,13 @@ describe("ModelInclusionRecordsController", () => {
       KIMI_MODEL: process.env.KIMI_MODEL,
       KIMI_WEB_SEARCH_ENABLED: process.env.KIMI_WEB_SEARCH_ENABLED,
       KIMI_WEB_SEARCH_TOOL_NAME: process.env.KIMI_WEB_SEARCH_TOOL_NAME,
-      KIMI_TIMEOUT_MS: process.env.KIMI_TIMEOUT_MS
+      KIMI_TIMEOUT_MS: process.env.KIMI_TIMEOUT_MS,
+      ALIYUN_BAILIAN_API_KEY: process.env.ALIYUN_BAILIAN_API_KEY,
+      ALIYUN_BAILIAN_BASE_URL: process.env.ALIYUN_BAILIAN_BASE_URL,
+      ALIYUN_BAILIAN_MODEL: process.env.ALIYUN_BAILIAN_MODEL,
+      ALIYUN_BAILIAN_WEB_SEARCH_ENABLED: process.env.ALIYUN_BAILIAN_WEB_SEARCH_ENABLED,
+      ALIYUN_BAILIAN_FORCE_SEARCH: process.env.ALIYUN_BAILIAN_FORCE_SEARCH,
+      ALIYUN_BAILIAN_TIMEOUT_MS: process.env.ALIYUN_BAILIAN_TIMEOUT_MS
     };
     process.env.KIMI_API_KEY = "test-key-not-real";
     process.env.KIMI_BASE_URL = "https://api.moonshot.cn/v1";
@@ -77,6 +93,12 @@ describe("ModelInclusionRecordsController", () => {
     process.env.KIMI_WEB_SEARCH_ENABLED = "true";
     process.env.KIMI_WEB_SEARCH_TOOL_NAME = "$web_search";
     process.env.KIMI_TIMEOUT_MS = "1000";
+    process.env.ALIYUN_BAILIAN_API_KEY = "test-key-not-real";
+    process.env.ALIYUN_BAILIAN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+    process.env.ALIYUN_BAILIAN_MODEL = "qwen3-max";
+    process.env.ALIYUN_BAILIAN_WEB_SEARCH_ENABLED = "true";
+    process.env.ALIYUN_BAILIAN_FORCE_SEARCH = "true";
+    process.env.ALIYUN_BAILIAN_TIMEOUT_MS = "1000";
     prisma = createPrismaClient();
     await prisma.$connect();
 
@@ -97,6 +119,8 @@ describe("ModelInclusionRecordsController", () => {
       .useValue(kimiProvider)
       .overrideProvider(VolcengineWebSearchProvider)
       .useValue(volcengineProvider)
+      .overrideProvider(AliyunBailianWebSearchProvider)
+      .useValue(aliyunProvider)
       .compile();
     app = moduleRef.createNestApplication();
     configureApiApp(app);

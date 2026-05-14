@@ -42,6 +42,7 @@ import {
   type ProviderErrorCategory,
   KimiWebSearchProvider
 } from "./providers/kimi-web-search.provider";
+import { AliyunBailianWebSearchProvider } from "./providers/aliyun-bailian-web-search.provider";
 import { VolcengineWebSearchProvider } from "./providers/volcengine-web-search.provider";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -129,7 +130,10 @@ export type FailedWebSearchCheckItem = {
   record?: ModelInclusionRecordResponse;
 };
 
-type WebSearchProviderName = "kimi_web_search" | "volcengine_web_search";
+type WebSearchProviderName =
+  | "kimi_web_search"
+  | "volcengine_web_search"
+  | "aliyun_bailian_web_search";
 
 type WebSearchProviderRuntime = {
   provider: WebSearchProviderName;
@@ -199,7 +203,9 @@ export class ModelInclusionRecordsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(KimiWebSearchProvider) private readonly kimiWebSearchProvider: KimiWebSearchProvider,
     @Inject(VolcengineWebSearchProvider)
-    private readonly volcengineWebSearchProvider: VolcengineWebSearchProvider
+    private readonly volcengineWebSearchProvider: VolcengineWebSearchProvider,
+    @Inject(AliyunBailianWebSearchProvider)
+    private readonly aliyunBailianWebSearchProvider: AliyunBailianWebSearchProvider
   ) {}
 
   async findMany(query: QueryModelInclusionRecordsDto): Promise<ModelInclusionRecordListResponse> {
@@ -469,6 +475,15 @@ export class ModelInclusionRecordsService {
           "doubao-seed-1-6-250615",
         platform: "豆包 / 火山方舟",
         search: (searchInput) => this.volcengineWebSearchProvider.search(searchInput)
+      };
+    }
+
+    if (input.provider === "aliyun_bailian_web_search") {
+      return {
+        provider: "aliyun_bailian_web_search",
+        model: input.model?.trim() || process.env.ALIYUN_BAILIAN_MODEL || "qwen3-max",
+        platform: "通义千问 / 阿里云百炼",
+        search: (searchInput) => this.aliyunBailianWebSearchProvider.search(searchInput)
       };
     }
 
