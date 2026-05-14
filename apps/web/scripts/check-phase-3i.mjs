@@ -77,8 +77,14 @@ const pageRequiredSnippets = [
   "品牌提及率",
   "品牌推荐率",
   "提示词矩阵",
-  "默认按每个提示词 + 平台 + 入口的最新检测结果统计"
+  "默认按每个提示词 + 平台 + 入口的最新检测结果统计",
+  "测试阶段提示",
+  "本轮结论",
+  "辅助指标，不作为主要 GEO 命中判断",
+  "当前仅展示前 20 条"
 ];
+
+const pageForbiddenSnippets = ["默认排除测试提示词"];
 
 const reportFields = [
   "promptTotal",
@@ -168,6 +174,10 @@ const pageSource = [
 
 for (const snippet of pageRequiredSnippets) {
   assert(pageSource.includes(snippet), `Reports page missing ${snippet}`);
+}
+
+for (const snippet of pageForbiddenSnippets) {
+  assert(!pageSource.includes(snippet), `Reports page must not include ${snippet}`);
 }
 
 for (const field of reportFields) {
