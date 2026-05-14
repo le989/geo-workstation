@@ -1,8 +1,11 @@
 import { BadRequestException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { GeoPromptType, RecordMethod, UserIntent, UserRole, UserStatus } from "@prisma/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ModelInclusionRecordsService } from "../src/modules/model-inclusion/model-inclusion-records.service";
+import { KimiWebSearchProvider } from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
+import { analyzeGeoHitFromAnswer } from "../src/modules/model-inclusion/utils/analyze-geo-hit.util";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -14,12 +17,21 @@ describe("ModelInclusionRecordsService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let service: ModelInclusionRecordsService;
   let createdBy: string;
+  let kimiProvider: {
+    search: ReturnType<typeof vi.fn>;
+  };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
     prisma = createPrismaClient();
     await prisma.$connect();
-    service = new ModelInclusionRecordsService(prisma as unknown as PrismaService);
+    kimiProvider = {
+      search: vi.fn()
+    };
+    service = new ModelInclusionRecordsService(
+      prisma as unknown as PrismaService,
+      kimiProvider as unknown as KimiWebSearchProvider
+    );
 
     const user = await prisma.user.create({
       data: {
@@ -34,6 +46,11 @@ describe("ModelInclusionRecordsService", () => {
 
   afterAll(async () => {
     await prisma.$disconnect();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    kimiProvider.search.mockReset();
   });
 
   function unique(label: string): string {
@@ -69,6 +86,114 @@ describe("ModelInclusionRecordsService", () => {
       }
     });
   }
+
+  it("returns a clear Kimi Web Search error when the API key is missing", async () => {
+    const provider = new KimiWebSearchProvider(
+      new ConfigService({
+        KIMI_BASE_URL: "https://api.moonshot.cn/v1",
+        KIMI_MODEL: "kimi-k2.6",
+        KIMI_WEB_SEARCH_ENABLED: "true",
+        KIMI_WEB_SEARCH_TOOL_NAME: "$web_search"
+      })
+    );
+
+    await expect(
+      provider.search({
+        promptText: "激光测距传感器怎么选？"
+      })
+    ).rejects.toThrow("KIMI_API_KEY is not configured");
+  });
+
+  it("runs the Kimi $web_search tool-call loop without touching the real network", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  content: "",
+                  tool_calls: [
+                    {
+                      id: "call_search_1",
+                      type: "function",
+                      function: {
+                        name: "$web_search",
+                        arguments:
+                          '{"search_result":{"search_id":"search_123"},"usage":{"total_tokens":32}}'
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  role: "assistant",
+                  content: "联网搜索后建议优先考虑海伯森激光测距传感器，并参考官网资料。"
+                }
+              }
+            ]
+          })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new KimiWebSearchProvider(
+      new ConfigService({
+        KIMI_API_KEY: "test-key-not-real",
+        KIMI_BASE_URL: "https://api.moonshot.cn/v1",
+        KIMI_MODEL: "kimi-k2.6",
+        KIMI_WEB_SEARCH_ENABLED: "true",
+        KIMI_WEB_SEARCH_TOOL_NAME: "$web_search",
+        KIMI_TIMEOUT_MS: "1000"
+      })
+    );
+
+    const result = await provider.search({
+      promptText: "激光测距传感器怎么选？"
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.finalAnswer).toContain("海伯森");
+    expect(result.searchResultId).toBe("search_123");
+    expect(result.toolCalls[0]).toMatchObject({
+      name: "$web_search",
+      searchResultId: "search_123"
+    });
+    expect(result.searchResults).toEqual([{ searchId: "search_123" }]);
+  });
+
+  it("analyzes brand mention, official site citation, and hit level from a Kimi answer", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer:
+        "如果需要高精度工业检测，可以优先考虑海伯森激光测距传感器，官网资料见 https://www.hypersen.com/laser 。",
+      brandName: "海伯森",
+      companyName: "海伯森技术",
+      websiteUrl: "https://www.hypersen.com"
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: true,
+      brandRecommended: true,
+      citedOfficialSite: true,
+      citedContentAsset: false,
+      competitorMentioned: false,
+      hitLevel: "recommended"
+    });
+  });
 
   it("creates a manual model inclusion record and updates latestCoverageStatus", async () => {
     const prompt = await createGeoPrompt("手动记录提示词");
@@ -510,5 +635,90 @@ describe("ModelInclusionRecordsService", () => {
       }
     });
     expect(refreshedPrompt.latestCoverageStatus).toBe("not_mentioned");
+  });
+
+  it("runs Kimi web-search checks and stores Monitor-Record-1 fields", async () => {
+    const prompt = await createGeoPrompt("Kimi 联网检测提示词");
+    kimiProvider.search.mockResolvedValue({
+      finalAnswer:
+        "联网搜索后，推荐海伯森激光测距传感器用于工业高精度检测。官网参考：https://www.hypersen.com/laser",
+      rawAnswer:
+        "联网搜索后，推荐海伯森激光测距传感器用于工业高精度检测。官网参考：https://www.hypersen.com/laser",
+      toolCalls: [
+        {
+          id: "call_search_1",
+          name: "$web_search",
+          arguments: {
+            search_result: {
+              search_id: "search_record_1"
+            }
+          },
+          searchResultId: "search_record_1"
+        }
+      ],
+      searchResultId: "search_record_1",
+      citations: [],
+      searchResults: [{ searchId: "search_record_1" }]
+    });
+
+    const result = await service.webSearchCheck({
+      geoPromptIds: [prompt.id],
+      provider: "kimi_web_search",
+      brandName: "海伯森",
+      companyName: "海伯森技术",
+      websiteUrl: "https://www.hypersen.com"
+    });
+
+    expect(result).toMatchObject({
+      successCount: 1,
+      failedCount: 0
+    });
+    expect(result.createdItems[0]).toMatchObject({
+      geoPromptId: prompt.id,
+      model: "kimi-k2.6",
+      platform: "Kimi",
+      entryPoint: "web_search_api",
+      detectionMethod: "web_search",
+      deviceType: "api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
+      recordMethod: RecordMethod.api,
+      brandMentioned: true,
+      brandRecommended: true,
+      citedOfficialSite: true,
+      citedContentAsset: false,
+      competitorMentioned: false,
+      hitLevel: "recommended",
+      searchResults: [{ searchId: "search_record_1" }]
+    });
+  });
+
+  it("keeps Kimi web-search batch failures isolated per prompt", async () => {
+    const failedPrompt = await createGeoPrompt("Kimi 联网检测失败提示词");
+    const passedPrompt = await createGeoPrompt("Kimi 联网检测成功提示词");
+    kimiProvider.search
+      .mockRejectedValueOnce(new Error("Kimi Web Search timeout"))
+      .mockResolvedValueOnce({
+        finalAnswer: "海伯森被提及，但没有明确推荐。",
+        rawAnswer: "海伯森被提及，但没有明确推荐。",
+        toolCalls: [],
+        citations: [],
+        searchResults: []
+      });
+
+    const result = await service.webSearchCheck({
+      geoPromptIds: [failedPrompt.id, passedPrompt.id],
+      provider: "kimi_web_search",
+      brandName: "海伯森"
+    });
+
+    expect(result.successCount).toBe(1);
+    expect(result.failedCount).toBe(1);
+    expect(result.createdItems[0]?.geoPromptId).toBe(passedPrompt.id);
+    expect(result.failedItems[0]).toMatchObject({
+      geoPromptId: failedPrompt.id,
+      promptText: failedPrompt.promptText,
+      errorMessage: "Kimi Web Search timeout"
+    });
   });
 });

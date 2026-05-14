@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { configureApiApp } from "../src/common/bootstrap/configure-api-app";
+import { KimiWebSearchProvider } from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 
 const databaseUrl =
@@ -17,6 +18,29 @@ describe("ModelInclusionRecordsController", () => {
   let app: INestApplication;
   let prisma: ReturnType<typeof createPrismaClient>;
   let createdBy: string;
+  const kimiProvider = {
+    search: async () => ({
+      finalAnswer:
+        "联网搜索后，推荐海伯森激光测距传感器用于工业高精度检测。官网参考：https://www.hypersen.com/laser",
+      rawAnswer:
+        "联网搜索后，推荐海伯森激光测距传感器用于工业高精度检测。官网参考：https://www.hypersen.com/laser",
+      toolCalls: [
+        {
+          id: "call_search_1",
+          name: "$web_search",
+          arguments: {
+            search_result: {
+              search_id: "controller_search_1"
+            }
+          },
+          searchResultId: "controller_search_1"
+        }
+      ],
+      searchResultId: "controller_search_1",
+      citations: [],
+      searchResults: [{ searchId: "controller_search_1" }]
+    })
+  };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -35,7 +59,10 @@ describe("ModelInclusionRecordsController", () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule]
-    }).compile();
+    })
+      .overrideProvider(KimiWebSearchProvider)
+      .useValue(kimiProvider)
+      .compile();
     app = moduleRef.createNestApplication();
     configureApiApp(app);
     await app.init();
@@ -207,6 +234,45 @@ describe("ModelInclusionRecordsController", () => {
     expect(summaryResponse.body.data.brandMentionRate).toBeGreaterThanOrEqual(0);
     expect(summaryResponse.body.data.hitLevelDistribution.mentioned).toBeGreaterThanOrEqual(1);
     expect(summaryResponse.body.data.entryPointDistribution.manual).toBeGreaterThanOrEqual(1);
+  });
+
+  it("runs the Kimi web-search-check API without requesting external Kimi", async () => {
+    const prompt = await createGeoPrompt("Kimi 联网检测 API 提示词");
+
+    const response = await request(app.getHttpServer())
+      .post("/api/model-inclusion-records/web-search-check")
+      .send({
+        geoPromptIds: [prompt.id],
+        provider: "kimi_web_search",
+        brandName: "海伯森",
+        companyName: "海伯森技术",
+        websiteUrl: "https://www.hypersen.com"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      code: 0,
+      message: "ok",
+      data: {
+        successCount: 1,
+        failedCount: 0,
+        createdItems: [
+          {
+            geoPromptId: prompt.id,
+            platform: "Kimi",
+            entryPoint: "web_search_api",
+            detectionMethod: "web_search",
+            deviceType: "api",
+            isWebSearchEnabled: true,
+            recordMethod: "api",
+            brandMentioned: true,
+            brandRecommended: true,
+            citedOfficialSite: true,
+            hitLevel: "recommended"
+          }
+        ]
+      }
+    });
   });
 
   it("keeps validation errors in the unified ApiResponse shape", async () => {

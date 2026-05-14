@@ -22,6 +22,12 @@ export type ApiEnvironment = {
   AI_REQUEST_TIMEOUT_MS: number;
   AI_MAX_TOKENS: number;
   AI_TEMPERATURE: number;
+  KIMI_API_KEY?: string;
+  KIMI_BASE_URL: string;
+  KIMI_MODEL: string;
+  KIMI_WEB_SEARCH_ENABLED: string;
+  KIMI_WEB_SEARCH_TOOL_NAME: string;
+  KIMI_TIMEOUT_MS: number;
 };
 
 export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvironment {
@@ -48,7 +54,13 @@ export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvi
     AI_OPENAI_COMPATIBLE_MODEL: getString(config.AI_OPENAI_COMPATIBLE_MODEL, "deepseek-chat"),
     AI_REQUEST_TIMEOUT_MS: getPositiveNumber(config.AI_REQUEST_TIMEOUT_MS, 60000),
     AI_MAX_TOKENS: getPositiveNumber(config.AI_MAX_TOKENS, 3000),
-    AI_TEMPERATURE: getPositiveNumber(config.AI_TEMPERATURE, 0.7)
+    AI_TEMPERATURE: getPositiveNumber(config.AI_TEMPERATURE, 0.7),
+    KIMI_API_KEY: getOptionalString(config.KIMI_API_KEY),
+    KIMI_BASE_URL: getString(config.KIMI_BASE_URL, "https://api.moonshot.cn/v1"),
+    KIMI_MODEL: getString(config.KIMI_MODEL, "kimi-k2.6"),
+    KIMI_WEB_SEARCH_ENABLED: getString(config.KIMI_WEB_SEARCH_ENABLED, "true"),
+    KIMI_WEB_SEARCH_TOOL_NAME: getString(config.KIMI_WEB_SEARCH_TOOL_NAME, "$web_search"),
+    KIMI_TIMEOUT_MS: getPositiveNumber(config.KIMI_TIMEOUT_MS, 90000)
   };
 }
 

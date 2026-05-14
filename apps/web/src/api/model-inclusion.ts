@@ -149,6 +149,33 @@ export type ImportModelInclusionRecordsResult = {
   failedRows: FailedModelInclusionImportRow[];
 };
 
+export type WebSearchCheckPayload = {
+  geoPromptIds: string[];
+  provider: "kimi_web_search";
+  model?: string;
+  brandName?: string;
+  companyName?: string;
+  websiteUrl?: string;
+  entryPoint?: "web_search_api";
+  isLoggedIn?: boolean;
+  limit?: number;
+};
+
+export type FailedWebSearchCheckItem = {
+  geoPromptId: string;
+  promptText?: string;
+  errorMessage: string;
+  record?: ModelInclusionRecord;
+};
+
+export type WebSearchCheckResult = {
+  provider: "kimi_web_search";
+  successCount: number;
+  failedCount: number;
+  createdItems: ModelInclusionRecord[];
+  failedItems: FailedWebSearchCheckItem[];
+};
+
 export type UncoveredPrompt = {
   geoPromptId: string;
   promptText: string;
@@ -228,6 +255,12 @@ export const createModelInclusionRecord = (payload: CreateModelInclusionRecordPa
 
 export const importModelInclusionRecords = (payload: ImportModelInclusionRecordsPayload) =>
   apiRequest<ImportModelInclusionRecordsResult>("/api/model-inclusion-records/import", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const runKimiWebSearchCheck = (payload: WebSearchCheckPayload) =>
+  apiRequest<WebSearchCheckResult>("/api/model-inclusion-records/web-search-check", {
     method: "POST",
     body: JSON.stringify(payload)
   });

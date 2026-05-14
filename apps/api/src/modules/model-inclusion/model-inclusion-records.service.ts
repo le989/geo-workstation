@@ -17,8 +17,10 @@ import type {
 import type { QueryModelInclusionRecordsDto } from "./dto/query-model-inclusion-records.dto";
 import type { QueryModelInclusionSummaryDto } from "./dto/query-model-inclusion-summary.dto";
 import type { QueryUncoveredPromptsDto } from "./dto/query-uncovered-prompts.dto";
+import type { WebSearchCheckDto } from "./dto/web-search-check.dto";
 import { buildModelInclusionRecordsCsv } from "./utils/csv-export.util";
 import { deriveHitLevel, type GeoHitLevel } from "./utils/derive-hit-level.util";
+import { analyzeGeoHitFromAnswer } from "./utils/analyze-geo-hit.util";
 import {
   normalizeCreateModelInclusionRecord,
   normalizeImportModelInclusionRecordRow,
@@ -33,6 +35,7 @@ import {
   type NormalizedQueryUncoveredPrompts
 } from "./utils/normalize-model-inclusion-record";
 import { calculateRate } from "./utils/summary-rate.util";
+import { KimiWebSearchProvider } from "./providers/kimi-web-search.provider";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
@@ -40,6 +43,12 @@ const MAX_EXPORT_ROWS = 5000;
 
 type ModelInclusionRecordWithPrompt = ModelInclusionRecord & {
   geoPrompt: GeoPrompt;
+};
+
+type ProjectProfileContext = {
+  brandName?: string;
+  companyName?: string;
+  websiteUrl?: string;
 };
 
 export type ModelInclusionGeoPromptResponse = {
@@ -102,6 +111,21 @@ export type ImportModelInclusionRecordsResponse = {
   failedRows: FailedModelInclusionImportRow[];
 };
 
+export type FailedWebSearchCheckItem = {
+  geoPromptId: string;
+  promptText?: string;
+  errorMessage: string;
+  record?: ModelInclusionRecordResponse;
+};
+
+export type WebSearchCheckResponse = {
+  provider: "kimi_web_search";
+  successCount: number;
+  failedCount: number;
+  createdItems: ModelInclusionRecordResponse[];
+  failedItems: FailedWebSearchCheckItem[];
+};
+
 export type UncoveredGeoPromptResponse = {
   geoPromptId: string;
   promptText: string;
@@ -145,7 +169,10 @@ export type ModelInclusionSummaryResponse = {
 
 @Injectable()
 export class ModelInclusionRecordsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(KimiWebSearchProvider) private readonly kimiWebSearchProvider: KimiWebSearchProvider
+  ) {}
 
   async findMany(query: QueryModelInclusionRecordsDto): Promise<ModelInclusionRecordListResponse> {
     const normalized = normalizeQueryModelInclusionRecords(query);
@@ -251,6 +278,138 @@ export class ModelInclusionRecordsService {
       failedCount: failedRows.length,
       createdItems,
       failedRows
+    };
+  }
+
+  async webSearchCheck(input: WebSearchCheckDto): Promise<WebSearchCheckResponse> {
+    if (input.provider !== "kimi_web_search") {
+      throw new BadRequestException(`Unsupported web search provider: ${input.provider}`);
+    }
+
+    const uniquePromptIds = [...new Set(input.geoPromptIds)].slice(0, input.limit ?? 20);
+    const profile = await this.resolveProjectProfileContext();
+    const brandContext = {
+      brandName: input.brandName ?? profile.brandName,
+      companyName: input.companyName ?? profile.companyName,
+      websiteUrl: input.websiteUrl ?? profile.websiteUrl
+    };
+    const createdItems: ModelInclusionRecordResponse[] = [];
+    const failedItems: FailedWebSearchCheckItem[] = [];
+    const createdById = await this.resolveCreatedById();
+    const model = input.model?.trim() || process.env.KIMI_MODEL || "kimi-k2.6";
+
+    for (const geoPromptId of uniquePromptIds) {
+      let geoPrompt: GeoPrompt | null = null;
+
+      try {
+        geoPrompt = await this.findActiveGeoPromptById(geoPromptId);
+        const searchResult = await this.kimiWebSearchProvider.search({
+          promptText: geoPrompt.promptText,
+          model
+        });
+        const analysis = analyzeGeoHitFromAnswer({
+          promptText: geoPrompt.promptText,
+          answer: searchResult.finalAnswer,
+          ...brandContext,
+          citations: searchResult.citations,
+          searchResults: searchResult.searchResults
+        });
+        const created = await this.createRecord(
+          {
+            geoPromptId: geoPrompt.id,
+            model,
+            platform: "Kimi",
+            entryPoint: input.entryPoint ?? "web_search_api",
+            detectionMethod: "web_search",
+            deviceType: "api",
+            isWebSearchEnabled: true,
+            isLoggedIn: input.isLoggedIn ?? false,
+            checkedAt: new Date(),
+            brandMentioned: analysis.brandMentioned,
+            brandRecommended: analysis.brandRecommended,
+            rankingPosition: analysis.rankingPosition,
+            citedOfficialSite: analysis.citedOfficialSite,
+            citedContentAsset: analysis.citedContentAsset,
+            competitorMentioned: analysis.competitorMentioned,
+            hitLevel: analysis.hitLevel,
+            answerSummary: analysis.answerSummary,
+            rawAnswer: analysis.rawAnswer,
+            citations: analysis.citations as Prisma.InputJsonValue,
+            searchResults: analysis.searchResults as Prisma.InputJsonValue,
+            screenshotPath: undefined,
+            errorMessage: undefined,
+            competitors: analysis.competitors,
+            recordMethod: RecordMethod.api,
+            createdBy: undefined
+          },
+          geoPrompt.id,
+          createdById
+        );
+        await this.refreshLatestCoverageStatus(geoPrompt.id);
+        createdItems.push(
+          this.toRecordResponse({
+            ...created,
+            geoPrompt
+          })
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Kimi Web Search failed";
+        let failureRecord: ModelInclusionRecordResponse | undefined;
+
+        if (geoPrompt) {
+          const created = await this.createRecord(
+            {
+              geoPromptId: geoPrompt.id,
+              model,
+              platform: "Kimi",
+              entryPoint: input.entryPoint ?? "web_search_api",
+              detectionMethod: "web_search",
+              deviceType: "api",
+              isWebSearchEnabled: true,
+              isLoggedIn: input.isLoggedIn ?? false,
+              checkedAt: new Date(),
+              brandMentioned: false,
+              brandRecommended: false,
+              rankingPosition: undefined,
+              citedOfficialSite: false,
+              citedContentAsset: false,
+              competitorMentioned: false,
+              hitLevel: "unclear",
+              answerSummary: undefined,
+              rawAnswer: undefined,
+              citations: [],
+              searchResults: [],
+              screenshotPath: undefined,
+              errorMessage,
+              competitors: [],
+              recordMethod: RecordMethod.api,
+              createdBy: undefined
+            },
+            geoPrompt.id,
+            createdById
+          );
+          await this.refreshLatestCoverageStatus(geoPrompt.id);
+          failureRecord = this.toRecordResponse({
+            ...created,
+            geoPrompt
+          });
+        }
+
+        failedItems.push({
+          geoPromptId,
+          promptText: geoPrompt?.promptText,
+          errorMessage,
+          record: failureRecord
+        });
+      }
+    }
+
+    return {
+      provider: "kimi_web_search",
+      successCount: createdItems.length,
+      failedCount: failedItems.length,
+      createdItems,
+      failedItems
     };
   }
 
@@ -561,6 +720,25 @@ export class ModelInclusionRecordsService {
     }
 
     return geoPrompt;
+  }
+
+  private async resolveProjectProfileContext(): Promise<ProjectProfileContext> {
+    const profile = await this.prisma.projectProfile.findFirst({
+      orderBy: {
+        createdAt: "asc"
+      },
+      select: {
+        brandName: true,
+        companyName: true,
+        websiteUrl: true
+      }
+    });
+
+    return {
+      brandName: profile?.brandName ?? undefined,
+      companyName: profile?.companyName ?? undefined,
+      websiteUrl: profile?.websiteUrl ?? undefined
+    };
   }
 
   private async resolveImportGeoPrompt(

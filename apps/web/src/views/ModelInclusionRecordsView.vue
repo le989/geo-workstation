@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
-import { Download, Plus, Refresh, Upload } from "@element-plus/icons-vue";
+import { Connection, Download, Plus, Refresh, Upload } from "@element-plus/icons-vue";
 import {
   createModelInclusionRecord,
   exportModelInclusionRecords,
@@ -9,6 +9,7 @@ import {
   getModelInclusionSummary,
   getUncoveredPrompts,
   importModelInclusionRecords,
+  runKimiWebSearchCheck,
   type CreateModelInclusionRecordPayload,
   type ImportModelInclusionRecordRow,
   type ImportModelInclusionRecordsResult,
@@ -16,7 +17,9 @@ import {
   type ModelInclusionRecordQuery,
   type ModelInclusionSummary,
   type UncoveredPrompt,
-  type UncoveredPromptsQuery
+  type UncoveredPromptsQuery,
+  type WebSearchCheckPayload,
+  type WebSearchCheckResult
 } from "@/api/model-inclusion";
 import AppErrorState from "@/components/AppErrorState.vue";
 import ModelInclusionFilters from "@/components/ModelInclusionFilters.vue";
@@ -24,6 +27,7 @@ import ModelInclusionImportDialog from "@/components/ModelInclusionImportDialog.
 import ModelInclusionRecordFormDialog from "@/components/ModelInclusionRecordFormDialog.vue";
 import ModelInclusionRecordTable from "@/components/ModelInclusionRecordTable.vue";
 import ModelInclusionSummaryCards from "@/components/ModelInclusionSummaryCards.vue";
+import ModelInclusionWebSearchDialog from "@/components/ModelInclusionWebSearchDialog.vue";
 import UncoveredPromptsTable from "@/components/UncoveredPromptsTable.vue";
 import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
 import { booleanFilterOptions } from "@/config/model-inclusion-options";
@@ -56,6 +60,11 @@ const importSubmitting = ref(false);
 const importError = ref("");
 const importResult = ref<ImportModelInclusionRecordsResult | null>(null);
 const exporting = ref(false);
+
+const webSearchVisible = ref(false);
+const webSearchSubmitting = ref(false);
+const webSearchError = ref("");
+const webSearchResult = ref<WebSearchCheckResult | null>(null);
 
 const uncoveredPrompts = ref<UncoveredPrompt[]>([]);
 const uncoveredTotal = ref(0);
@@ -260,6 +269,12 @@ const openImportDialog = () => {
   importVisible.value = true;
 };
 
+const openWebSearchDialog = () => {
+  webSearchError.value = "";
+  webSearchResult.value = null;
+  webSearchVisible.value = true;
+};
+
 const handleImportRows = async (rows: ImportModelInclusionRecordRow[]) => {
   importSubmitting.value = true;
   importError.value = "";
@@ -272,6 +287,23 @@ const handleImportRows = async (rows: ImportModelInclusionRecordRow[]) => {
     importError.value = error instanceof Error ? error.message : "导入失败，请检查 rows。";
   } finally {
     importSubmitting.value = false;
+  }
+};
+
+const handleWebSearchCheck = async (payload: WebSearchCheckPayload) => {
+  webSearchSubmitting.value = true;
+  webSearchError.value = "";
+
+  try {
+    webSearchResult.value = await runKimiWebSearchCheck(payload);
+    ElMessage.success(
+      `Kimi 联网检测完成：成功 ${webSearchResult.value.successCount} 条，失败 ${webSearchResult.value.failedCount} 条。`
+    );
+    await refreshAll();
+  } catch (error) {
+    webSearchError.value = error instanceof Error ? error.message : "Kimi 联网检测失败。";
+  } finally {
+    webSearchSubmitting.value = false;
   }
 };
 
@@ -350,12 +382,18 @@ onMounted(() => {
           记录 GEO 提示词在不同 AI
           模型中的品牌提及、推荐、官网引用和竞品出现情况，用于判断哪些词已经被覆盖，哪些词还需要补内容或补资料。
         </p>
-        <strong>第一版为人工录入 / 导入覆盖记录，不做自动检测外部 AI 平台。</strong>
+        <strong>
+          第一版支持人工录入 / 导入覆盖记录，并提供 Kimi Web Search API 联网检测；不做
+          PC、移动网页或 App 自动化。
+        </strong>
       </div>
       <div class="model-inclusion-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="recordsLoading || summaryLoading" @click="refreshAll">
           刷新
+        </el-button>
+        <el-button type="success" :icon="Connection" @click="openWebSearchDialog">
+          联网检测
         </el-button>
         <el-button type="primary" :icon="Plus" @click="openCreateDialog">手动新增记录</el-button>
         <el-button :icon="Upload" @click="openImportDialog">批量导入</el-button>
@@ -519,6 +557,14 @@ onMounted(() => {
       :error-message="importError"
       :result="importResult"
       @submit="handleImportRows"
+    />
+
+    <ModelInclusionWebSearchDialog
+      v-model="webSearchVisible"
+      :submitting="webSearchSubmitting"
+      :error-message="webSearchError"
+      :result="webSearchResult"
+      @submit="handleWebSearchCheck"
     />
   </section>
 </template>

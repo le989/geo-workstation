@@ -5,6 +5,7 @@ import { ImportModelInclusionRecordsDto } from "./dto/import-model-inclusion-rec
 import { QueryModelInclusionRecordsDto } from "./dto/query-model-inclusion-records.dto";
 import { QueryModelInclusionSummaryDto } from "./dto/query-model-inclusion-summary.dto";
 import { QueryUncoveredPromptsDto } from "./dto/query-uncovered-prompts.dto";
+import { WebSearchCheckDto } from "./dto/web-search-check.dto";
 import { ModelInclusionRecordsService } from "./model-inclusion-records.service";
 
 @Controller("api/model-inclusion-records")
@@ -36,6 +37,14 @@ export class ModelInclusionRecordsController {
     body: ImportModelInclusionRecordsDto
   ) {
     return this.modelInclusionRecordsService.importRecords(body);
+  }
+
+  @Post("web-search-check")
+  webSearchCheck(
+    @Body(createValidationPipe(WebSearchCheckDto))
+    body: WebSearchCheckDto
+  ) {
+    return this.modelInclusionRecordsService.webSearchCheck(body);
   }
 
   @Get("export")
