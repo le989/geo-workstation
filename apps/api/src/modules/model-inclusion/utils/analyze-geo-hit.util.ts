@@ -46,9 +46,27 @@ const NEGATIVE_BRAND_MENTION_PATTERNS = [
   /不(?:包含|涉及)/
 ];
 
+const TARGET_BRAND_MENTION_DENIAL_PATTERNS = [
+  /未(?:明确)?(?:提及|提到|出现|找到)(?:目标)?品牌/,
+  /没有(?:明确)?(?:提及|提到|出现|找到)(?:目标)?品牌/,
+  /未(?:构成|形成)(?:有效)?(?:品牌)?提及/,
+  /不(?:符合|构成).{0,40}有效提及(?:标准)?/,
+  /无实质(?:品牌)?(?:有效)?提及/
+];
+
+const TARGET_BRAND_RECOMMENDATION_DENIAL_PATTERNS = [
+  /未(?:明确)?推荐(?:目标)?品牌/,
+  /没有(?:明确)?推荐(?:目标)?品牌/,
+  /不构成(?:品牌)?推荐/,
+  /仅(?:有)?提及但未推荐/,
+  /无实质(?:品牌)?推荐/
+];
+
 const OFFICIAL_SITE_DENIAL_PATTERNS = [
   /未(?:明确)?(?:引用|提及|找到|出现)(?:目标)?官网/,
   /没有(?:明确)?(?:引用|提及|找到|出现)(?:目标)?官网/,
+  /未(?:明确)?引用(?:其|该|目标)?官网(?:域名|网址)?/,
+  /没有(?:明确)?引用(?:其|该|目标)?官网(?:域名|网址)?/,
   /无(?:明确)?(?:官网引用|官网来源|目标官网)/,
   /不(?:引用|包含|涉及)(?:目标)?官网/
 ];
@@ -58,9 +76,12 @@ export function analyzeGeoHitFromAnswer(input: AnalyzeGeoHitInput): AnalyzeGeoHi
   const citations = input.citations ?? [];
   const searchResults = input.searchResults ?? [];
   const brandCandidates = uniqueStrings([input.brandName, input.companyName]);
-  const brandMentioned = brandCandidates.some((name) => hasAffirmativeBrandMention(answer, name));
+  const brandMentionDenied = hasTargetBrandMentionDenial(answer, brandCandidates);
+  const brandMentioned =
+    !brandMentionDenied && brandCandidates.some((name) => hasAffirmativeBrandMention(answer, name));
   const brandRecommended =
     brandMentioned &&
+    !hasTargetBrandRecommendationDenial(answer, brandCandidates) &&
     brandCandidates.some((name) => isRecommendedWithBrand(answer, name, RECOMMENDATION_PATTERNS));
   const websiteDomain = extractDomain(input.websiteUrl);
   const citedOfficialSite = websiteDomain
@@ -130,20 +151,62 @@ function hasAffirmativeBrandMention(text: string, brand: string): boolean {
   return false;
 }
 
+function hasTargetBrandMentionDenial(text: string, brands: string[]): boolean {
+  if (TARGET_BRAND_MENTION_DENIAL_PATTERNS.some((pattern) => pattern.test(text))) {
+    return true;
+  }
+
+  return brands.some((brand) =>
+    [
+      new RegExp(`未(?:明确)?(?:提及|提到|出现|找到)${quotedLiteralPattern(brand)}`),
+      new RegExp(`没有(?:明确)?(?:提及|提到|出现|找到)${quotedLiteralPattern(brand)}`),
+      new RegExp(
+        `虽有${quotedLiteralPattern(brand)}(?:名称|字样)?出现.{0,40}(?:不符合|不构成).{0,40}有效提及`
+      )
+    ].some((pattern) => pattern.test(text))
+  );
+}
+
+function hasTargetBrandRecommendationDenial(text: string, brands: string[]): boolean {
+  if (TARGET_BRAND_RECOMMENDATION_DENIAL_PATTERNS.some((pattern) => pattern.test(text))) {
+    return true;
+  }
+
+  return brands.some((brand) =>
+    [
+      new RegExp(`未(?:明确)?推荐${quotedLiteralPattern(brand)}(?:品牌)?(?:产品)?`),
+      new RegExp(`没有(?:明确)?推荐${quotedLiteralPattern(brand)}(?:品牌)?(?:产品)?`),
+      new RegExp(`${quotedLiteralPattern(brand)}.{0,20}不构成(?:品牌)?推荐`)
+    ].some((pattern) => pattern.test(text))
+  );
+}
+
 function hasOfficialSiteCitationEvidence(
   answer: string,
   citations: unknown[],
   websiteDomain: string
 ): boolean {
-  if (hasOfficialSiteDenial(answer)) {
+  if (hasOfficialSiteDenial(answer, websiteDomain)) {
     return false;
   }
 
   return includesLoose(answer, websiteDomain) || hasCitationUrlWithDomain(citations, websiteDomain);
 }
 
-function hasOfficialSiteDenial(text: string): boolean {
-  return OFFICIAL_SITE_DENIAL_PATTERNS.some((pattern) => pattern.test(text));
+function hasOfficialSiteDenial(text: string, websiteDomain: string): boolean {
+  if (OFFICIAL_SITE_DENIAL_PATTERNS.some((pattern) => pattern.test(text))) {
+    return true;
+  }
+
+  const domainPattern = escapeRegExp(websiteDomain);
+  return [
+    new RegExp(
+      `未(?:明确)?引用(?:其|该|目标)?官网(?:域名|网址)?\\s*(?:https?:\\/\\/)?(?:www\\.)?${domainPattern}`
+    ),
+    new RegExp(
+      `没有(?:明确)?引用(?:其|该|目标)?官网(?:域名|网址)?\\s*(?:https?:\\/\\/)?(?:www\\.)?${domainPattern}`
+    )
+  ].some((pattern) => pattern.test(text));
 }
 
 function hasCitationUrlWithDomain(value: unknown, websiteDomain: string): boolean {
@@ -200,6 +263,14 @@ function extractDomain(url: string | undefined): string | undefined {
       .split("/")[0]
       ?.trim();
   }
+}
+
+function quotedLiteralPattern(value: string): string {
+  return `[“"']?${escapeRegExp(value)}[”"']?`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function summarizeAnswer(answer: string): string {

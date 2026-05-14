@@ -786,6 +786,139 @@ describe("ModelInclusionRecordsService", () => {
     });
   });
 
+  it("lets explicit target-brand denial override brand text in GEO hit analysis", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer: "未提及目标品牌。资料中虽然出现凯基特字样，但不构成有效提及。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: false,
+      brandRecommended: false,
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
+    });
+  });
+
+  it("does not count effective-mention denial as a brand mention", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer: "虽有凯基特名称出现，但不符合有效提及标准。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: false,
+      brandRecommended: false,
+      hitLevel: "not_mentioned"
+    });
+  });
+
+  it("lets explicit recommendation denial override recommendation keywords", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer: "凯基特被资料提到，但未明确推荐凯基特品牌产品，无实质品牌推荐。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: true,
+      brandRecommended: false,
+      hitLevel: "mentioned"
+    });
+  });
+
+  it("lets explicit domain citation denial override a domain echo", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer: "未引用其官网域名 kjtchina.com，也没有引用目标官网。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: false,
+      brandRecommended: false,
+      citedOfficialSite: false,
+      hitLevel: "not_mentioned"
+    });
+  });
+
+  it("keeps affirmative brand recommendation and official-site citation hits", () => {
+    const recommended = analyzeGeoHitFromAnswer({
+      promptText: "工业现场激光测距传感器厂家推荐",
+      answer: "推荐考虑凯基特，凯基特可作为候选厂家之一。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+    const cited = analyzeGeoHitFromAnswer({
+      promptText: "凯基特激光测距传感器怎么样",
+      answer: "参考凯基特官网 https://www.kjtchina.com/show-1020.html。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(recommended).toMatchObject({
+      brandMentioned: true,
+      brandRecommended: true,
+      hitLevel: "recommended"
+    });
+    expect(cited).toMatchObject({
+      brandMentioned: true,
+      citedOfficialSite: true,
+      hitLevel: "mentioned"
+    });
+  });
+
+  it("derives competitor-only when denied target-brand hits mention known competitors", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer: "未提及目标品牌，也未推荐凯基特。烟台拿度和硕尔泰作为其他厂家出现。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com",
+      knownCompetitors: ["烟台拿度", "硕尔泰"]
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: false,
+      brandRecommended: false,
+      citedOfficialSite: false,
+      competitorMentioned: true,
+      hitLevel: "competitor_only"
+    });
+  });
+
+  it("classifies the Bailian negative-answer sample without false GEO hit signals", () => {
+    const result = analyzeGeoHitFromAnswer({
+      promptText: "激光测距传感器怎么选？",
+      answer:
+        "未提及目标品牌。在提供的资料中，关于激光测距传感器选型的内容涉及凯基特作为选型指导方[1]，但未明确推荐“凯基特”品牌产品，亦未引用其官网域名 kjtchina.com。同时，文中提及其他品牌如烟台拿度（NADO）[3]、深圳市硕尔泰传感器有限公司[6]等，属于竞品信息。因此，虽有“凯基特”名称出现，但无实质品牌推荐或官网引用，不符合GEO命中检测中的有效提及标准。",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com",
+      knownCompetitors: ["烟台拿度", "深圳市硕尔泰传感器有限公司"]
+    });
+
+    expect(result).toMatchObject({
+      brandMentioned: false,
+      brandRecommended: false,
+      citedOfficialSite: false,
+      competitorMentioned: true,
+      hitLevel: "competitor_only"
+    });
+  });
+
   it("treats official site mentions in the raw answer as citation hits", () => {
     const result = analyzeGeoHitFromAnswer({
       promptText: "激光测距传感器怎么选？",
