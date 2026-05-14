@@ -5,6 +5,7 @@ import {
   DocumentChecked,
   EditPen,
   Files,
+  Guide,
   MagicStick,
   PieChart,
   Search,
@@ -136,6 +137,17 @@ export const navigationItems: GeoPageMeta[] = [
     nextSteps: ["配置项目档案", "确认 AI 接口配置边界", "维护禁止表达和内容语气"],
     apiFocus: "已联调 /api/project-profile；AI_PROVIDER 由后端环境变量控制",
     icon: Setting
+  },
+  {
+    path: "/help",
+    label: "使用教程",
+    title: "使用教程",
+    question: "新项目、日常生产和交接演示应该按什么流程走？",
+    description: "查看 GEO 工作站的快速开始、日常 SOP、功能说明和版本更新记录。",
+    phaseNote: "本页只整理前端帮助文档和说明，不新增后端 API、不修改数据模型或业务字段。",
+    nextSteps: ["查看快速开始", "按 SOP 跑通日常流程", "对照版本记录做交接说明"],
+    apiFocus: "前端静态帮助页面，不调用后端业务 API",
+    icon: Guide
   }
 ];
 

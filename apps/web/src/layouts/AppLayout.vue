@@ -31,6 +31,10 @@ const navigationGroups = [
     items: navigationItems.filter((item) =>
       ["/model-inclusion-records", "/reports", "/settings"].includes(item.path)
     )
+  },
+  {
+    label: "帮助与交接",
+    items: navigationItems.filter((item) => ["/help"].includes(item.path))
   }
 ];
 

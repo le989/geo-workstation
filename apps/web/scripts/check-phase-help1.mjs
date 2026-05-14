@@ -7,55 +7,37 @@ import { fileURLToPath } from "node:url";
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(webRoot, "../..");
-const port = Number(process.env.FRONTEND_MVP_PORT || 5174);
+const port = Number(process.env.FRONTEND_HELP_PORT || 5184);
 const baseUrl = process.env.FRONTEND_BASE_URL || `http://127.0.0.1:${port}`;
 const chromePath =
   process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || "http://127.0.0.1:59999";
 
 const requiredFiles = [
-  "docs/frontend/frontend-mvp-guide.md",
-  "apps/web/src/views/LoginView.vue",
-  "apps/web/src/views/DashboardView.vue",
-  "apps/web/src/views/GeoPromptsView.vue",
-  "apps/web/src/views/ExpansionView.vue",
-  "apps/web/src/views/KnowledgeBasesView.vue",
-  "apps/web/src/views/InstructionTemplatesView.vue",
-  "apps/web/src/views/ContentTasksView.vue",
-  "apps/web/src/views/ModelInclusionRecordsView.vue",
-  "apps/web/src/views/ReportsView.vue",
-  "apps/web/src/views/SettingsView.vue",
   "apps/web/src/views/HelpView.vue",
   "apps/web/src/config/help-content.ts",
-  "apps/web/src/api/project-profile.ts"
+  "docs/help/user-guide.md",
+  "docs/help/sop.md",
+  "docs/help/changelog.md"
 ];
 
-const routeChecks = [
-  ["/", "GEO 工作台"],
-  ["/dashboard", "GEO 工作台"],
-  ["/geo-analysis", "GEO 分析"],
-  ["/geo-prompts", "提示词策略库"],
-  ["/expansion", "AI 拓词"],
-  ["/knowledge-bases", "企业 GEO 知识库"],
-  ["/instruction-templates", "指令库"],
-  ["/content-tasks", "GEO 内容生成"],
-  ["/model-inclusion-records", "模型覆盖记录"],
-  ["/reports", "GEO 报表"],
-  ["/settings", "系统设置"],
-  ["/help", "使用教程"]
+const requiredPageSnippets = [
+  "快速开始",
+  "新项目初始化 SOP",
+  "日常内容生产 SOP",
+  "AI 拓词",
+  "知识库维护",
+  "内容质检",
+  "版本更新",
+  "后续能力"
 ];
 
-const requiredGuideSnippets = [
-  "登录页",
-  "退出登录",
-  "前端页面总览",
-  "完整 GEO MVP 使用流程",
-  "真实入库能力",
-  "Mock 能力",
-  "未实现能力",
-  "后端未启动",
-  "CSV 导出",
-  "文件上传格式限制"
+const requiredDocSnippets = [
+  "项目档案只提供品牌和语气上下文，事实仍以知识库为准",
+  "候选词不会自动入库",
+  "知识库是事实底座",
+  "internal-mvp-v0.2",
+  "content-format-v0.1"
 ];
 
 const assert = (condition, message) => {
@@ -134,10 +116,10 @@ const startChrome = async () => {
       "--disable-gpu",
       "--no-first-run",
       "--no-default-browser-check",
-      `--user-data-dir=/tmp/geo-frontend-mvp-chrome-${Date.now()}`,
+      `--user-data-dir=/tmp/geo-help-chrome-${Date.now()}`,
       `--remote-debugging-port=${debuggingPort}`,
       "--window-size=1440,1200",
-      `${baseUrl}/dashboard`
+      `${baseUrl}/help`
     ],
     {
       stdio: "ignore"
@@ -201,27 +183,6 @@ const connectCdp = (url) =>
     socket.addEventListener("error", reject);
   });
 
-const navigateAndRead = async (client, route) => {
-  await client.send("Page.navigate", { url: `${baseUrl}${route}` });
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < 6000) {
-    const result = await client.send("Runtime.evaluate", {
-      expression: "document.body.innerText",
-      returnByValue: true
-    });
-    const text = result.result.value || "";
-    if (text.trim().length > 120) {
-      return text;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  const result = await client.send("Runtime.evaluate", {
-    expression: "document.body.innerText",
-    returnByValue: true
-  });
-  return result.result.value || "";
-};
-
 const waitForBodyText = async (client, predicate, timeoutMs = 8000) => {
   const startedAt = Date.now();
   let text = "";
@@ -239,22 +200,14 @@ const waitForBodyText = async (client, predicate, timeoutMs = 8000) => {
   return text;
 };
 
-const clearAuthSession = async (client) => {
-  await client.send("Runtime.evaluate", {
-    expression:
-      "localStorage.removeItem('geo-workstation.auth-token'); localStorage.removeItem('geo-workstation.auth-user');",
-    returnByValue: true
-  });
-};
-
 const seedAuthSession = async (client) => {
   await client.send("Runtime.evaluate", {
     expression: `
-      localStorage.setItem('geo-workstation.auth-token', 'frontend-mvp-offline-token');
+      localStorage.setItem('geo-workstation.auth-token', 'help-offline-token');
       localStorage.setItem('geo-workstation.auth-user', JSON.stringify({
-        id: 'frontend-mvp-user',
-        name: '前端验收用户',
-        email: 'frontend-mvp@example.com',
+        id: 'help-user',
+        name: '帮助页验收用户',
+        email: 'help@example.com',
         role: 'admin',
         status: 'active'
       }));
@@ -267,9 +220,27 @@ for (const file of requiredFiles) {
   await access(path.join(repoRoot, file));
 }
 
-const guide = await readFile(path.join(repoRoot, "docs/frontend/frontend-mvp-guide.md"), "utf8");
-for (const snippet of requiredGuideSnippets) {
-  assert(guide.includes(snippet), `Frontend MVP guide missing ${snippet}`);
+const navigationSource = await readFile(path.join(webRoot, "src/config/navigation.ts"), "utf8");
+assert(navigationSource.includes("/help"), "Navigation must include /help");
+assert(navigationSource.includes("使用教程"), "Navigation must include 使用教程 label");
+
+const routeSource = await readFile(path.join(webRoot, "src/router/routes.ts"), "utf8");
+assert(routeSource.includes("HelpView"), "Routes must use HelpView");
+assert(routeSource.includes('item.path === "/help"'), "Missing explicit /help route mapping");
+
+const readme = await readFile(path.join(repoRoot, "README.md"), "utf8");
+for (const snippet of ["使用教程入口", "docs/help/user-guide.md", "docs/help/sop.md"]) {
+  assert(readme.includes(snippet), `README missing help snippet: ${snippet}`);
+}
+
+const docs = await Promise.all([
+  readFile(path.join(repoRoot, "docs/help/user-guide.md"), "utf8"),
+  readFile(path.join(repoRoot, "docs/help/sop.md"), "utf8"),
+  readFile(path.join(repoRoot, "docs/help/changelog.md"), "utf8")
+]);
+const allDocs = docs.join("\n");
+for (const snippet of requiredDocSnippets) {
+  assert(allDocs.includes(snippet), `Help docs missing snippet: ${snippet}`);
 }
 
 const vite = await startVite();
@@ -280,53 +251,22 @@ try {
   const client = await connectCdp(chrome.wsUrl);
   await client.send("Runtime.enable");
   await client.send("Page.enable");
-
-  await clearAuthSession(client);
-  await client.send("Page.navigate", { url: `${baseUrl}/dashboard` });
-  const unauthenticatedText = await waitForBodyText(
-    client,
-    (text) => text.includes("内部访问控制") && text.includes("登录")
-  );
-  assert(
-    unauthenticatedText.includes("内部访问控制") && unauthenticatedText.includes("登录"),
-    "Unauthenticated /dashboard visit must redirect to /login"
-  );
-  assert(
-    unauthenticatedText.includes("邮箱") && unauthenticatedText.includes("密码"),
-    "/login must render the login form fields"
-  );
-
   await seedAuthSession(client);
-  await client.send("Page.navigate", { url: `${baseUrl}/dashboard` });
-  await waitForBodyText(
+  await client.send("Page.navigate", { url: `${baseUrl}/help` });
+
+  const text = await waitForBodyText(
     client,
-    (text) => text.includes("前端验收用户") && text.includes("退出登录")
+    (bodyText) =>
+      bodyText.includes("帮助页验收用户") &&
+      requiredPageSnippets.every((snippet) => bodyText.includes(snippet))
   );
 
-  for (const [route, title] of routeChecks) {
-    const text = await navigateAndRead(client, route);
-    assert(
-      text.includes(title),
-      `${route} did not render expected title ${title}. Text sample: ${text.slice(0, 400)}`
-    );
-    assert(text.trim().length > 120, `${route} rendered too little content`);
-    if (route === "/geo-analysis") {
-      assert(
-        text.includes("模拟 GEO 分析") && text.includes("不调用真实外部 AI 平台"),
-        "/geo-analysis must render the real GEO analysis page"
-      );
-    }
+  assert(text.includes("使用教程"), "/help must render the 使用教程 page title");
+  assert(text.includes("查看 GEO 工作站的快速开始"), "/help must render page description");
+  assert(text.includes("帮助页验收用户"), "/help must keep authenticated layout");
+  for (const snippet of requiredPageSnippets) {
+    assert(text.includes(snippet), `/help page missing snippet: ${snippet}`);
   }
-
-  await client.send("Page.navigate", { url: `${baseUrl}/dashboard` });
-  const dashboardText = await waitForBodyText(
-    client,
-    (text) => text.includes("后端未连接") || text.includes("加载失败")
-  );
-  assert(
-    dashboardText.includes("后端未连接") || dashboardText.includes("加载失败"),
-    "Dashboard must show a clear disconnected-backend state"
-  );
 
   client.close();
 } finally {
@@ -334,4 +274,4 @@ try {
   vite.kill("SIGTERM");
 }
 
-process.stdout.write("Frontend MVP route and offline check passed\n");
+process.stdout.write("Phase Help-1 route and content check passed\n");

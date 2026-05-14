@@ -39,6 +39,7 @@
     "test:web-geo-analysis": "pnpm --filter @geo-workstation/web test:geo-analysis",
     "test:web-auth": "pnpm --filter @geo-workstation/web test:auth",
     "test:web-settings": "pnpm --filter @geo-workstation/web test:settings",
+    "test:web-help": "pnpm --filter @geo-workstation/web test:help",
     "test:prisma": "pnpm --filter @geo-workstation/api test:prisma",
     "smoke:api": "node scripts/smoke-test-api.mjs",
     "check:internal-mvp": "node scripts/check-internal-mvp.mjs",

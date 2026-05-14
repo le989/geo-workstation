@@ -12,6 +12,7 @@ import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 import ReportsView from "@/views/ReportsView.vue";
 import SettingsView from "@/views/SettingsView.vue";
+import HelpView from "@/views/HelpView.vue";
 import LoginView from "@/views/LoginView.vue";
 
 export const phase3aRoutePaths = [
@@ -24,7 +25,8 @@ export const phase3aRoutePaths = [
   "/content-tasks",
   "/model-inclusion-records",
   "/reports",
-  "/settings"
+  "/settings",
+  "/help"
 ] as const;
 
 const routeNameFromPath = (path: string) => path.replace(/^\//, "").replaceAll("-", "_");
@@ -62,7 +64,9 @@ export const routes: RouteRecordRaw[] = [
                             ? ReportsView
                             : item.path === "/settings"
                               ? SettingsView
-                              : ModulePlaceholderView,
+                              : item.path === "/help"
+                                ? HelpView
+                                : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path],
           requiresAuth: true

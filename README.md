@@ -46,6 +46,9 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 后端 API 文档：`docs/api/backend-api.md`
 - GEO MVP 联调流程：`docs/api/geo-mvp-flow.md`
 - 前端 MVP 使用指南：`docs/frontend/frontend-mvp-guide.md`
+- 使用教程文档：`docs/help/user-guide.md`
+- 常用 SOP：`docs/help/sop.md`
+- 版本更新记录：`docs/help/changelog.md`
 - 内部演示指南：`docs/demo/internal-demo-guide.md`
 - MVP 功能清单：`docs/demo/mvp-feature-checklist.md`
 - 演示数据说明：`docs/demo/demo-data-notes.md`
@@ -63,6 +66,18 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 默认/示例指令模板备份：`docs/operation/default-instruction-templates.md`
 
 根目录原始 spec 已归位到 `docs/specs/geo-marketing-platform-spec.md`，该路径是正式 spec 路径。
+
+## 使用教程与 SOP
+
+前端使用教程入口：`/help`。登录后可从侧边栏底部“使用教程”进入。
+
+配套文档：
+
+- 使用教程：`docs/help/user-guide.md`
+- 常用 SOP：`docs/help/sop.md`
+- 版本更新记录：`docs/help/changelog.md`
+
+这些文档面向长期自用、内部演示和交接说明，不新增后端 API、不修改 Prisma schema，也不改变现有业务数据。
 
 ## 内部演示版 MVP
 
@@ -276,8 +291,9 @@ pnpm dev:api
 - `/model-inclusion-records`：模型覆盖记录，支持手动录入、批量导入、summary、未覆盖提示词和 CSV 导出。
 - `/reports`：GEO 报表，支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。
 - `/settings`：系统设置，维护单项目档案、AI 接口配置边界和事实来源说明；不包含团队管理、Provider Key 管理或复杂权限配置。
+- `/help`：使用教程，整理快速开始、日常 SOP、AI 拓词、知识库维护、内容质检、富文本发布稿和版本更新记录。
 
-完整前端使用说明见 `docs/frontend/frontend-mvp-guide.md`。
+完整前端使用说明见 `docs/frontend/frontend-mvp-guide.md`；日常教程和交接说明见 `docs/help/user-guide.md`。
 
 ## 检查命令
 
@@ -298,6 +314,7 @@ pnpm test:web-model-inclusion
 pnpm test:web-reports
 pnpm test:web-mvp
 pnpm test:web-auth
+pnpm test:web-help
 pnpm test:auth
 pnpm test:ai-provider
 pnpm test:api
