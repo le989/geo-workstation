@@ -107,3 +107,29 @@ export function toStringArray(value: unknown): string[] {
 export const GEO_PROMPT_TYPE_VALUES = Object.values(GeoPromptType);
 export const RECORD_METHOD_VALUES = Object.values(RecordMethod);
 export const USER_INTENT_VALUES = Object.values(UserIntent);
+export const GEO_HIT_ENTRY_POINT_VALUES = [
+  "api_model",
+  "web_search_api",
+  "web_pc",
+  "web_mobile",
+  "app_ios",
+  "app_android",
+  "manual"
+] as const;
+export const GEO_HIT_DETECTION_METHOD_VALUES = [
+  "manual",
+  "api",
+  "web_search",
+  "browser_capture",
+  "mobile_emulation",
+  "app_manual"
+] as const;
+export const GEO_HIT_DEVICE_TYPE_VALUES = ["desktop", "mobile", "ios", "android", "api"] as const;
+export const GEO_HIT_LEVEL_VALUES = [
+  "recommended",
+  "mentioned",
+  "cited",
+  "competitor_only",
+  "not_mentioned",
+  "unclear"
+] as const;

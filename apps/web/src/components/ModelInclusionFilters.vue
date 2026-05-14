@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import type { ModelInclusionRecordQuery } from "@/api/model-inclusion";
 import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
-import { booleanFilterOptions, recordMethodOptions } from "@/config/model-inclusion-options";
+import {
+  booleanFilterOptions,
+  detectionMethodOptions,
+  deviceTypeOptions,
+  entryPointOptions,
+  hitLevelOptions,
+  recordMethodOptions
+} from "@/config/model-inclusion-options";
 
 const props = defineProps<{
   modelValue: ModelInclusionRecordQuery;
@@ -56,6 +63,60 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
           @keyup.enter="emit('search')"
           @update:model-value="updateField('model', $event)"
         />
+      </el-form-item>
+      <el-form-item label="平台">
+        <el-input
+          :model-value="modelValue.platform"
+          clearable
+          placeholder="例如 DeepSeek / Kimi / 通义"
+          @keyup.enter="emit('search')"
+          @update:model-value="updateField('platform', $event)"
+        />
+      </el-form-item>
+      <el-form-item label="入口">
+        <el-select
+          :model-value="modelValue.entryPoint"
+          clearable
+          placeholder="全部入口"
+          @update:model-value="updateField('entryPoint', $event)"
+        >
+          <el-option
+            v-for="option in entryPointOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="检测方式">
+        <el-select
+          :model-value="modelValue.detectionMethod"
+          clearable
+          placeholder="全部方式"
+          @update:model-value="updateField('detectionMethod', $event)"
+        >
+          <el-option
+            v-for="option in detectionMethodOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="设备类型">
+        <el-select
+          :model-value="modelValue.deviceType"
+          clearable
+          placeholder="全部设备"
+          @update:model-value="updateField('deviceType', $event)"
+        >
+          <el-option
+            v-for="option in deviceTypeOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item label="产品线">
         <el-input
@@ -136,6 +197,81 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
           <el-option
             v-for="option in booleanFilterOptions"
             :key="String(option.value)"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="引用内容资产">
+        <el-select
+          :model-value="modelValue.citedContentAsset"
+          clearable
+          placeholder="全部"
+          @update:model-value="updateField('citedContentAsset', $event)"
+        >
+          <el-option
+            v-for="option in booleanFilterOptions"
+            :key="String(option.value)"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="出现竞品">
+        <el-select
+          :model-value="modelValue.competitorMentioned"
+          clearable
+          placeholder="全部"
+          @update:model-value="updateField('competitorMentioned', $event)"
+        >
+          <el-option
+            v-for="option in booleanFilterOptions"
+            :key="String(option.value)"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="是否联网">
+        <el-select
+          :model-value="modelValue.isWebSearchEnabled"
+          clearable
+          placeholder="全部"
+          @update:model-value="updateField('isWebSearchEnabled', $event)"
+        >
+          <el-option
+            v-for="option in booleanFilterOptions"
+            :key="String(option.value)"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="是否登录">
+        <el-select
+          :model-value="modelValue.isLoggedIn"
+          clearable
+          placeholder="全部"
+          @update:model-value="updateField('isLoggedIn', $event)"
+        >
+          <el-option
+            v-for="option in booleanFilterOptions"
+            :key="String(option.value)"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="命中等级">
+        <el-select
+          :model-value="modelValue.hitLevel"
+          clearable
+          placeholder="全部等级"
+          @update:model-value="updateField('hitLevel', $event)"
+        >
+          <el-option
+            v-for="option in hitLevelOptions"
+            :key="option.value"
             :label="option.label"
             :value="option.value"
           />

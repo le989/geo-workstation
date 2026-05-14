@@ -31,5 +31,39 @@ export type ParseStatusValue = (typeof PARSE_STATUSES)[number];
 export const MODEL_INCLUSION_RECORD_METHODS = ["manual", "api", "import"] as const;
 export type ModelInclusionRecordMethodValue = (typeof MODEL_INCLUSION_RECORD_METHODS)[number];
 
+export const GEO_HIT_ENTRY_POINTS = [
+  "api_model",
+  "web_search_api",
+  "web_pc",
+  "web_mobile",
+  "app_ios",
+  "app_android",
+  "manual"
+] as const;
+export type GeoHitEntryPointValue = (typeof GEO_HIT_ENTRY_POINTS)[number];
+
+export const GEO_HIT_DETECTION_METHODS = [
+  "manual",
+  "api",
+  "web_search",
+  "browser_capture",
+  "mobile_emulation",
+  "app_manual"
+] as const;
+export type GeoHitDetectionMethodValue = (typeof GEO_HIT_DETECTION_METHODS)[number];
+
+export const GEO_HIT_DEVICE_TYPES = ["desktop", "mobile", "ios", "android", "api"] as const;
+export type GeoHitDeviceTypeValue = (typeof GEO_HIT_DEVICE_TYPES)[number];
+
+export const GEO_HIT_LEVELS = [
+  "recommended",
+  "mentioned",
+  "cited",
+  "competitor_only",
+  "not_mentioned",
+  "unclear"
+] as const;
+export type GeoHitLevelValue = (typeof GEO_HIT_LEVELS)[number];
+
 export const AI_CALL_STATUSES = ["pending", "succeeded", "failed"] as const;
 export type AiCallStatusValue = (typeof AI_CALL_STATUSES)[number];

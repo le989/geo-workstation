@@ -24,10 +24,23 @@ const sampleRows = `[
   {
     "promptText": "某产品怎么选",
     "model": "deepseek",
+    "platform": "DeepSeek",
+    "entryPoint": "manual",
+    "detectionMethod": "manual",
+    "deviceType": "desktop",
+    "isWebSearchEnabled": false,
+    "isLoggedIn": false,
     "brandMentioned": true,
     "brandRecommended": false,
     "citedOfficialSite": true,
+    "citedContentAsset": false,
+    "competitorMentioned": true,
+    "hitLevel": "mentioned",
     "answerSummary": "回答提到品牌但未作为首选推荐",
+    "rawAnswer": "可选：完整原始回答",
+    "citations": [{"title": "官网", "url": "https://example.com"}],
+    "searchResults": [{"title": "搜索结果", "url": "https://example.com/result"}],
+    "screenshotPath": "screenshots/manual-check.png",
     "competitors": ["竞品A", "竞品B"]
   }
 ]`;

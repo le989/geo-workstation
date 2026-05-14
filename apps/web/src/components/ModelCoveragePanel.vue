@@ -6,6 +6,7 @@ import ModelInclusionBooleanTag from "@/components/ModelInclusionBooleanTag.vue"
 import ReportDistributionTable from "@/components/ReportDistributionTable.vue";
 import ReportMetricCard from "@/components/ReportMetricCard.vue";
 import { formatDateTime, formatOptional, userIntentLabelMap } from "@/config/geo-prompt-options";
+import { entryPointLabelMap, hitLevelLabelMap } from "@/config/model-inclusion-options";
 import { formatReportNumber } from "@/config/report-options";
 
 const props = defineProps<{
@@ -23,6 +24,12 @@ const metrics = computed(() => [
 
 const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
   userIntentLabelMap[row.userIntent as keyof typeof userIntentLabelMap] ?? row.userIntent;
+
+const formatHitLevel = (value?: string) =>
+  value ? (hitLevelLabelMap[value as keyof typeof hitLevelLabelMap] ?? value) : "--";
+
+const formatEntryPoint = (value?: string) =>
+  value ? (entryPointLabelMap[value as keyof typeof entryPointLabelMap] ?? value) : "--";
 </script>
 
 <template>
@@ -46,6 +53,17 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
         title="官网引用数"
         :distribution="report?.citedOfficialSiteByModel"
       />
+      <ReportDistributionTable
+        title="内容资产引用数"
+        :distribution="report?.citedContentAssetByModel"
+      />
+      <ReportDistributionTable
+        title="竞品出现数"
+        :distribution="report?.competitorMentionedByModel"
+      />
+      <ReportDistributionTable title="命中等级分布" :distribution="report?.hitLevelDistribution" />
+      <ReportDistributionTable title="平台分布" :distribution="report?.platformDistribution" />
+      <ReportDistributionTable title="入口分布" :distribution="report?.entryPointDistribution" />
       <ReportDistributionTable
         title="品牌提及率"
         :distribution="report?.brandMentionRateByModel"
@@ -77,6 +95,15 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
       >
         <el-table-column label="提示词" min-width="260" prop="promptText" fixed />
         <el-table-column label="模型" width="140" prop="model" />
+        <el-table-column label="平台" width="120">
+          <template #default="{ row }">{{ formatOptional(row.platform) }}</template>
+        </el-table-column>
+        <el-table-column label="入口" width="130">
+          <template #default="{ row }">{{ formatEntryPoint(row.entryPoint) }}</template>
+        </el-table-column>
+        <el-table-column label="命中等级" width="120">
+          <template #default="{ row }">{{ formatHitLevel(row.hitLevel) }}</template>
+        </el-table-column>
         <el-table-column label="类型" width="100">
           <template #default="{ row }">
             <GeoPromptTypeTag :type="row.type" />
@@ -97,6 +124,15 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
               :value="row.citedOfficialSite"
               true-label="已引用官网"
               false-label="未引用官网"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="内容引用" width="120">
+          <template #default="{ row }">
+            <ModelInclusionBooleanTag
+              :value="row.citedContentAsset"
+              true-label="已引用内容"
+              false-label="未引用内容"
             />
           </template>
         </el-table-column>
@@ -123,6 +159,15 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
       >
         <el-table-column label="提示词" min-width="260" prop="promptText" fixed />
         <el-table-column label="模型" width="140" prop="model" />
+        <el-table-column label="平台" width="120">
+          <template #default="{ row }">{{ formatOptional(row.platform) }}</template>
+        </el-table-column>
+        <el-table-column label="入口" width="130">
+          <template #default="{ row }">{{ formatEntryPoint(row.entryPoint) }}</template>
+        </el-table-column>
+        <el-table-column label="命中等级" width="120">
+          <template #default="{ row }">{{ formatHitLevel(row.hitLevel) }}</template>
+        </el-table-column>
         <el-table-column label="类型" width="100">
           <template #default="{ row }">
             <GeoPromptTypeTag :type="row.type" />

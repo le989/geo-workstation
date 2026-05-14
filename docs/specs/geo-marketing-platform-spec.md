@@ -525,12 +525,26 @@ MVP 要形成这条业务链：
 
 - 提示词。
 - AI 模型。
+- 平台，例如 DeepSeek、Kimi、豆包、通义、OpenAI、Perplexity、Tavily。
+- 检测入口：模型 API、联网搜索 API、PC 网页端、移动网页端、iOS App、Android App、人工录入。
+- 检测方式：人工录入、API 检测、联网搜索、浏览器采集、移动端模拟、App 人工抽查。
+- 设备类型：桌面端、移动端、iOS、Android、API。
+- 是否启用联网搜索。
+- 是否登录状态。
 - 查询时间。
 - 是否提及品牌。
 - 是否推荐品牌。
 - 推荐位置。
 - 是否引用官网。
+- 是否引用内容资产。
+- 是否出现竞品。
+- 命中等级：recommended、mentioned、cited、competitor_only、not_mentioned、unclear。
 - 回答摘要。
+- 原始回答。
+- 引用来源。
+- 搜索结果。
+- 截图路径或截图说明。
+- 检测失败原因。
 - 竞品提及。
 - 记录方式：manual、api、import。
 
@@ -551,8 +565,9 @@ MVP 要形成这条业务链：
 - `GET /api/model-inclusion-records/export`：按列表相同筛选条件导出 CSV 文本，默认排除已软删除提示词关联的无效记录。
 - `GET /api/model-inclusion-records/uncovered-prompts`：查询指定模型或时间范围内没有覆盖记录的 GEO 提示词，默认只看 `trackEnabled = true` 的提示词，也允许参数控制。
 - `GET /api/model-inclusion-records/summary`：返回基础统计，包括总记录、提及/未提及、推荐/未推荐、引用官网数量、提及率、推荐率、官网引用率、模型分布和产品线分布。
+- Phase Monitor-Record-1 后 summary 还应返回命中等级分布、平台分布、入口分布、联网检测数、登录检测数、内容资产引用数、竞品出现数、内容资产引用率和竞品出现率。
 - 新增和导入成功后更新 `geo_prompts.latest_coverage_status`：推荐为 `recommended`，仅提及为 `mentioned`，未提及为 `not_mentioned`；第一版按最新 `checkedAt` 记录刷新。
-- 第一版只做手动记录和导入，不做自动检测外部 AI 平台、不接入真实 AI Provider、不做定时任务。
+- 第一版只做手动记录和导入，不做自动检测外部 AI 平台、不接入真实联网搜索 Provider、不做 PC/移动/App 自动化、不做定时任务。
 
 后续阶段再做自动化检测。
 
@@ -865,12 +880,26 @@ MVP 不做：
 - id
 - geo_prompt_id
 - model
+- platform
+- entry_point
+- detection_method
+- device_type
+- is_web_search_enabled
+- is_logged_in
 - checked_at
 - brand_mentioned
 - brand_recommended
 - ranking_position
 - cited_official_site
+- cited_content_asset
+- competitor_mentioned
+- hit_level
 - answer_summary
+- raw_answer
+- citations
+- search_results
+- screenshot_path
+- error_message
 - competitors
 - record_method
 - created_by

@@ -14,6 +14,16 @@ export class QueryGeoOverviewReportDto {
   model?: string;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  platform?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  entryPoint?: string;
+
+  @IsOptional()
   @IsDate()
   @Transform(({ value }) => toOptionalDate(value))
   from?: Date;

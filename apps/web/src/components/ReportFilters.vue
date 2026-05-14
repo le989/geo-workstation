@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ReportQuery } from "@/api/reports";
+import { entryPointOptions } from "@/config/model-inclusion-options";
 
 const props = defineProps<{
   modelValue: ReportQuery;
@@ -40,6 +41,30 @@ const updateField = <K extends keyof ReportQuery>(key: K, value: ReportQuery[K])
           @keyup.enter="emit('refresh')"
           @update:model-value="updateField('model', $event)"
         />
+      </el-form-item>
+      <el-form-item label="平台">
+        <el-input
+          :model-value="modelValue.platform"
+          clearable
+          placeholder="例如 DeepSeek / Kimi / 通义"
+          @keyup.enter="emit('refresh')"
+          @update:model-value="updateField('platform', $event)"
+        />
+      </el-form-item>
+      <el-form-item label="入口">
+        <el-select
+          :model-value="modelValue.entryPoint"
+          clearable
+          placeholder="全部入口"
+          @update:model-value="updateField('entryPoint', $event)"
+        >
+          <el-option
+            v-for="option in entryPointOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item label="时间从">
         <el-date-picker

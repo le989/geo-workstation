@@ -79,10 +79,22 @@ describe("ModelInclusionRecordsController", () => {
       .send({
         geoPromptId: prompt.id,
         model: "deepseek-chat",
+        platform: "DeepSeek",
+        entryPoint: "manual",
+        detectionMethod: "manual",
+        deviceType: "desktop",
+        isWebSearchEnabled: false,
+        isLoggedIn: true,
         checkedAt: "2026-05-13T10:30:00.000Z",
         brandMentioned: true,
         brandRecommended: false,
         citedOfficialSite: "yes",
+        citedContentAsset: "no",
+        competitorMentioned: "yes",
+        rawAnswer: "原始回答正文",
+        citations: [{ title: "官网", url: "https://example.com" }],
+        searchResults: '[{"title":"搜索结果","url":"https://example.com/search"}]',
+        screenshotPath: "manual/deepseek.png",
         answerSummary: "模型提到了品牌，但没有明确推荐。",
         competitors: ["竞品A"],
         createdBy
@@ -94,9 +106,21 @@ describe("ModelInclusionRecordsController", () => {
       data: {
         geoPromptId: prompt.id,
         model: "deepseek-chat",
+        platform: "DeepSeek",
+        entryPoint: "manual",
+        detectionMethod: "manual",
+        deviceType: "desktop",
+        isLoggedIn: true,
         brandMentioned: true,
         brandRecommended: false,
         citedOfficialSite: true,
+        citedContentAsset: false,
+        competitorMentioned: true,
+        hitLevel: "mentioned",
+        rawAnswer: "原始回答正文",
+        citations: [{ title: "官网", url: "https://example.com" }],
+        searchResults: [{ title: "搜索结果", url: "https://example.com/search" }],
+        screenshotPath: "manual/deepseek.png",
         recordMethod: "manual"
       }
     });
@@ -106,6 +130,9 @@ describe("ModelInclusionRecordsController", () => {
       .query({
         model: "deepseek-chat",
         brandMentioned: "true",
+        platform: "DeepSeek",
+        entryPoint: "manual",
+        hitLevel: "mentioned",
         recordMethod: "manual",
         page: "1",
         pageSize: "10"
@@ -124,6 +151,14 @@ describe("ModelInclusionRecordsController", () => {
             brandMentioned: "否",
             brandRecommended: "0",
             citedOfficialSite: "no",
+            citedContentAsset: "是",
+            competitorMentioned: "yes",
+            platform: "通义",
+            entryPoint: "web_search_api",
+            detectionMethod: "web_search",
+            deviceType: "api",
+            isWebSearchEnabled: "1",
+            isLoggedIn: "否",
             competitors: "竞品B,竞品C",
             createdBy
           },
@@ -148,6 +183,8 @@ describe("ModelInclusionRecordsController", () => {
       .expect(200);
     expect(exportResponse.body.code).toBe(0);
     expect(exportResponse.body.data).toContain("geoPromptId,promptText,promptType");
+    expect(exportResponse.body.data).toContain("platform,entryPoint,detectionMethod,deviceType");
+    expect(exportResponse.body.data).toContain("hitLevel,rawAnswer,citations,searchResults");
 
     const uncoveredResponse = await request(app.getHttpServer())
       .get("/api/model-inclusion-records/uncovered-prompts")
@@ -168,6 +205,8 @@ describe("ModelInclusionRecordsController", () => {
       .expect(200);
     expect(summaryResponse.body.data.totalRecords).toBeGreaterThan(0);
     expect(summaryResponse.body.data.brandMentionRate).toBeGreaterThanOrEqual(0);
+    expect(summaryResponse.body.data.hitLevelDistribution.mentioned).toBeGreaterThanOrEqual(1);
+    expect(summaryResponse.body.data.entryPointDistribution.manual).toBeGreaterThanOrEqual(1);
   });
 
   it("keeps validation errors in the unified ApiResponse shape", async () => {

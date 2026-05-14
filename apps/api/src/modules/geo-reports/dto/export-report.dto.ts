@@ -28,6 +28,16 @@ export class ExportReportDto {
   model?: string;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  platform?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  entryPoint?: string;
+
+  @IsOptional()
   @IsEnum(GEO_PROMPT_TYPE_VALUES)
   @Transform(({ value }) => trimOptionalString(value))
   promptType?: string;

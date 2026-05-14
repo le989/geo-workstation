@@ -15,6 +15,16 @@ export class QueryModelCoverageReportDto {
   @IsOptional()
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
+  platform?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  entryPoint?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
   productLine?: string;
 
   @IsOptional()

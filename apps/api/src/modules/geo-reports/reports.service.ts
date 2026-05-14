@@ -16,6 +16,7 @@ import type { QueryModelCoverageReportDto } from "./dto/query-model-coverage-rep
 import type { QueryOptimizationSuggestionsDto } from "./dto/query-optimization-suggestions.dto";
 import type { QueryPromptCoverageReportDto } from "./dto/query-prompt-coverage-report.dto";
 import { PrismaService } from "../../prisma/prisma.service";
+import { deriveHitLevel } from "../model-inclusion/utils/derive-hit-level.util";
 import { groupCount } from "./utils/group-count.util";
 import {
   type OptimizationSuggestion,
@@ -48,6 +49,8 @@ type PromptFilterQuery = ProductLineQuery & {
 type ModelFilterQuery = ProductLineQuery &
   DateRangeQuery & {
     model?: string;
+    platform?: string;
+    entryPoint?: string;
     promptType?: string;
   };
 
@@ -89,6 +92,11 @@ export type ModelCoveragePromptSummary = {
   brandRecommended: boolean;
   rankingPosition: number | null;
   citedOfficialSite: boolean;
+  citedContentAsset: boolean;
+  competitorMentioned: boolean;
+  hitLevel?: string;
+  platform?: string;
+  entryPoint?: string;
 };
 
 export type GeoOverviewReport = {
@@ -110,6 +118,10 @@ export type GeoOverviewReport = {
   brandRecommendRate: number;
   citedOfficialSiteCount: number;
   citedOfficialSiteRate: number;
+  citedContentAssetCount: number;
+  citedContentAssetRate: number;
+  competitorMentionedCount: number;
+  competitorMentionRate: number;
   uncoveredTrackedPromptCount: number;
   failedContentTaskCount: number;
 };
@@ -133,8 +145,13 @@ export type ModelCoverageReport = {
   mentionedByModel: Record<string, number>;
   recommendedByModel: Record<string, number>;
   citedOfficialSiteByModel: Record<string, number>;
+  citedContentAssetByModel: Record<string, number>;
+  competitorMentionedByModel: Record<string, number>;
   brandMentionRateByModel: Record<string, number>;
   brandRecommendRateByModel: Record<string, number>;
+  hitLevelDistribution: Record<string, number>;
+  platformDistribution: Record<string, number>;
+  entryPointDistribution: Record<string, number>;
   topRecommendedPrompts: ModelCoveragePromptSummary[];
   notMentionedPrompts: ModelCoveragePromptSummary[];
 };
@@ -231,6 +248,10 @@ export class ReportsService {
     const brandMentionedCount = modelRecords.filter((record) => record.brandMentioned).length;
     const brandRecommendedCount = modelRecords.filter((record) => record.brandRecommended).length;
     const citedOfficialSiteCount = modelRecords.filter((record) => record.citedOfficialSite).length;
+    const citedContentAssetCount = modelRecords.filter((record) => record.citedContentAsset).length;
+    const competitorMentionedCount = modelRecords.filter(
+      (record) => record.competitorMentioned
+    ).length;
 
     return {
       promptTotal: prompts.length,
@@ -253,6 +274,10 @@ export class ReportsService {
       brandRecommendRate: calculateRate(brandRecommendedCount, totalRecords),
       citedOfficialSiteCount,
       citedOfficialSiteRate: calculateRate(citedOfficialSiteCount, totalRecords),
+      citedContentAssetCount,
+      citedContentAssetRate: calculateRate(citedContentAssetCount, totalRecords),
+      competitorMentionedCount,
+      competitorMentionRate: calculateRate(competitorMentionedCount, totalRecords),
       uncoveredTrackedPromptCount,
       failedContentTaskCount
     };
@@ -327,6 +352,8 @@ export class ReportsService {
     const mentionedByModel = this.groupModelBooleanCount(records, "brandMentioned");
     const recommendedByModel = this.groupModelBooleanCount(records, "brandRecommended");
     const citedOfficialSiteByModel = this.groupModelBooleanCount(records, "citedOfficialSite");
+    const citedContentAssetByModel = this.groupModelBooleanCount(records, "citedContentAsset");
+    const competitorMentionedByModel = this.groupModelBooleanCount(records, "competitorMentioned");
 
     return {
       totalRecords: records.length,
@@ -334,8 +361,17 @@ export class ReportsService {
       mentionedByModel,
       recommendedByModel,
       citedOfficialSiteByModel,
+      citedContentAssetByModel,
+      competitorMentionedByModel,
       brandMentionRateByModel: this.buildModelRates(mentionedByModel, modelDistribution),
       brandRecommendRateByModel: this.buildModelRates(recommendedByModel, modelDistribution),
+      hitLevelDistribution: groupCount(
+        records,
+        (record) => this.resolveHitLevel(record),
+        "unclear"
+      ),
+      platformDistribution: groupCount(records, (record) => record.platform, "未设置平台"),
+      entryPointDistribution: groupCount(records, (record) => record.entryPoint, "未设置入口"),
       topRecommendedPrompts: records
         .filter((record) => record.brandRecommended)
         .sort(this.compareRecommendedRecords)
@@ -648,6 +684,8 @@ export class ReportsService {
         ...(query.promptType ? { type: query.promptType as GeoPromptType } : {})
       },
       ...(query.model ? { model: query.model } : {}),
+      ...(query.platform ? { platform: query.platform } : {}),
+      ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
       ...(checkedAt ? { checkedAt } : {})
     };
   }
@@ -659,6 +697,8 @@ export class ReportsService {
 
     return {
       ...(query.model ? { model: query.model } : {}),
+      ...(query.platform ? { platform: query.platform } : {}),
+      ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
       ...(checkedAt ? { checkedAt } : {})
     };
   }
@@ -720,7 +760,12 @@ export class ReportsService {
 
   private groupModelBooleanCount(
     records: ModelInclusionRecord[],
-    key: "brandMentioned" | "brandRecommended" | "citedOfficialSite"
+    key:
+      | "brandMentioned"
+      | "brandRecommended"
+      | "citedOfficialSite"
+      | "citedContentAsset"
+      | "competitorMentioned"
   ): Record<string, number> {
     return records.reduce<Record<string, number>>((distribution, record) => {
       if (record[key]) {
@@ -809,8 +854,26 @@ export class ReportsService {
       brandMentioned: record.brandMentioned,
       brandRecommended: record.brandRecommended,
       rankingPosition: record.rankingPosition,
-      citedOfficialSite: record.citedOfficialSite
+      citedOfficialSite: record.citedOfficialSite,
+      citedContentAsset: record.citedContentAsset,
+      competitorMentioned: record.competitorMentioned,
+      hitLevel: this.resolveHitLevel(record),
+      platform: record.platform ?? undefined,
+      entryPoint: record.entryPoint ?? undefined
     };
+  }
+
+  private resolveHitLevel(record: ModelInclusionRecord): string {
+    return (
+      record.hitLevel ??
+      deriveHitLevel({
+        brandMentioned: record.brandMentioned,
+        brandRecommended: record.brandRecommended,
+        citedOfficialSite: record.citedOfficialSite,
+        citedContentAsset: record.citedContentAsset,
+        competitorMentioned: record.competitorMentioned
+      })
+    );
   }
 
   private buildSuggestionsCsv(report: OptimizationSuggestionsReport): string {

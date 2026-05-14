@@ -91,10 +91,19 @@ const buildRecordQuery = (): ModelInclusionRecordQuery => ({
   checkedFrom: trimOptional(filters.checkedFrom),
   checkedTo: trimOptional(filters.checkedTo),
   citedOfficialSite: filters.citedOfficialSite,
+  citedContentAsset: filters.citedContentAsset,
+  competitorMentioned: filters.competitorMentioned,
+  detectionMethod: filters.detectionMethod,
+  deviceType: filters.deviceType,
+  entryPoint: filters.entryPoint,
   geoPromptId: trimOptional(filters.geoPromptId),
+  hitLevel: filters.hitLevel,
+  isLoggedIn: filters.isLoggedIn,
+  isWebSearchEnabled: filters.isWebSearchEnabled,
   model: trimOptional(filters.model),
   page: page.value,
   pageSize: pageSize.value,
+  platform: trimOptional(filters.platform),
   productLine: trimOptional(filters.productLine),
   promptType: filters.promptType,
   recordMethod: filters.recordMethod,
@@ -190,10 +199,19 @@ const handleReset = () => {
     checkedFrom: undefined,
     checkedTo: undefined,
     citedOfficialSite: undefined,
+    citedContentAsset: undefined,
+    competitorMentioned: undefined,
+    detectionMethod: undefined,
+    deviceType: undefined,
+    entryPoint: undefined,
     geoPromptId: undefined,
+    hitLevel: undefined,
+    isLoggedIn: undefined,
+    isWebSearchEnabled: undefined,
     model: undefined,
     page: 1,
     pageSize: pageSize.value,
+    platform: undefined,
     productLine: undefined,
     promptType: undefined,
     recordMethod: undefined,
@@ -345,7 +363,7 @@ onMounted(() => {
     </header>
 
     <el-alert
-      title="本页是 GEO 效果复盘，不是普通日志查询；记录新增或导入成功后会由后端更新对应提示词的最新覆盖状态。"
+      title="本页是 GEO 效果复盘，不是普通日志查询；支持模型 API、联网搜索 API、PC/移动网页端和 App 抽查等入口字段，并按推荐命中、提及命中、引用命中、竞品命中、未命中、无法判断统计。记录新增或导入成功后会由后端更新对应提示词的最新覆盖状态。"
       type="warning"
       :closable="false"
       show-icon

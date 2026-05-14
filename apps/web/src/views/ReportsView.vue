@@ -94,8 +94,10 @@ const reportTabs: Array<{ label: string; name: ReportExportType }> = [
 ];
 
 const buildBaseQuery = (): ReportQuery => ({
+  entryPoint: reportFilters.entryPoint,
   from: reportFilters.from,
   model: reportFilters.model?.trim() || undefined,
+  platform: reportFilters.platform?.trim() || undefined,
   productLine: reportFilters.productLine?.trim() || undefined,
   to: reportFilters.to
 });
@@ -159,7 +161,9 @@ const refreshCurrentReport = () => {
 
 const resetFilters = () => {
   reportFilters.from = undefined;
+  reportFilters.entryPoint = undefined;
   reportFilters.model = undefined;
+  reportFilters.platform = undefined;
   reportFilters.productLine = undefined;
   reportFilters.to = undefined;
   refreshCurrentReport();

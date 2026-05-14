@@ -11,6 +11,10 @@ import {
 } from "class-validator";
 import {
   GEO_PROMPT_TYPE_VALUES,
+  GEO_HIT_DETECTION_METHOD_VALUES,
+  GEO_HIT_DEVICE_TYPE_VALUES,
+  GEO_HIT_ENTRY_POINT_VALUES,
+  GEO_HIT_LEVEL_VALUES,
   RECORD_METHOD_VALUES,
   USER_INTENT_VALUES,
   toOptionalBoolean,
@@ -49,6 +53,36 @@ export class QueryModelInclusionRecordsDto {
   model?: string;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  platform?: string;
+
+  @IsOptional()
+  @IsEnum(GEO_HIT_ENTRY_POINT_VALUES)
+  @Transform(({ value }) => trimOptionalString(value))
+  entryPoint?: string;
+
+  @IsOptional()
+  @IsEnum(GEO_HIT_DETECTION_METHOD_VALUES)
+  @Transform(({ value }) => trimOptionalString(value))
+  detectionMethod?: string;
+
+  @IsOptional()
+  @IsEnum(GEO_HIT_DEVICE_TYPE_VALUES)
+  @Transform(({ value }) => trimOptionalString(value))
+  deviceType?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  isWebSearchEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  isLoggedIn?: boolean;
+
+  @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => toOptionalBoolean(value))
   brandMentioned?: boolean;
@@ -62,6 +96,21 @@ export class QueryModelInclusionRecordsDto {
   @IsBoolean()
   @Transform(({ value }) => toOptionalBoolean(value))
   citedOfficialSite?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  citedContentAsset?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  competitorMentioned?: boolean;
+
+  @IsOptional()
+  @IsEnum(GEO_HIT_LEVEL_VALUES)
+  @Transform(({ value }) => trimOptionalString(value))
+  hitLevel?: string;
 
   @IsOptional()
   @IsEnum(RECORD_METHOD_VALUES)

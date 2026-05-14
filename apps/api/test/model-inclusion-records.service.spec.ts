@@ -109,6 +109,95 @@ describe("ModelInclusionRecordsService", () => {
     expect(updatedPrompt.latestCoverageStatus).toBe("recommended");
   });
 
+  it("derives recommended hit level and preserves multi-entry GEO hit fields", async () => {
+    const prompt = await createGeoPrompt("多入口推荐命中提示词");
+
+    const created = await service.create({
+      geoPromptId: prompt.id,
+      model: "qwen-plus",
+      platform: "通义",
+      entryPoint: "web_search_api",
+      detectionMethod: "web_search",
+      deviceType: "api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
+      brandMentioned: true,
+      brandRecommended: true,
+      citedOfficialSite: true,
+      citedContentAsset: true,
+      competitorMentioned: true,
+      rankingPosition: 1,
+      answerSummary: "联网搜索回答推荐了品牌并引用官网与内容资产。",
+      rawAnswer: "原始回答：推荐 A 品牌，并引用官网资料。",
+      citations: [{ title: "官网方案", url: "https://example.com/solution" }],
+      searchResults: [{ title: "选型指南", url: "https://example.com/guide" }],
+      screenshotPath: "screenshots/tongyi-web-search.png",
+      errorMessage: " ",
+      createdBy
+    });
+
+    expect(created).toMatchObject({
+      geoPromptId: prompt.id,
+      platform: "通义",
+      entryPoint: "web_search_api",
+      detectionMethod: "web_search",
+      deviceType: "api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
+      citedContentAsset: true,
+      competitorMentioned: true,
+      hitLevel: "recommended",
+      rawAnswer: "原始回答：推荐 A 品牌，并引用官网资料。",
+      citations: [{ title: "官网方案", url: "https://example.com/solution" }],
+      searchResults: [{ title: "选型指南", url: "https://example.com/guide" }],
+      screenshotPath: "screenshots/tongyi-web-search.png"
+    });
+    expect(created.errorMessage).toBeUndefined();
+  });
+
+  it("derives mentioned, cited, competitor_only, and not_mentioned hit levels", async () => {
+    const mentionedPrompt = await createGeoPrompt("提及命中提示词");
+    const citedPrompt = await createGeoPrompt("引用命中提示词");
+    const competitorPrompt = await createGeoPrompt("竞品命中提示词");
+    const notMentionedPrompt = await createGeoPrompt("未命中提示词");
+
+    const mentioned = await service.create({
+      geoPromptId: mentionedPrompt.id,
+      model: "kimi-k2",
+      brandMentioned: true,
+      createdBy
+    });
+    const cited = await service.create({
+      geoPromptId: citedPrompt.id,
+      model: "perplexity-sonar",
+      citedContentAsset: true,
+      createdBy
+    });
+    const competitorOnly = await service.create({
+      geoPromptId: competitorPrompt.id,
+      model: "doubao",
+      brandMentioned: false,
+      competitorMentioned: true,
+      competitors: ["竞品A"],
+      createdBy
+    });
+    const notMentioned = await service.create({
+      geoPromptId: notMentionedPrompt.id,
+      model: "deepseek-chat",
+      brandMentioned: false,
+      brandRecommended: false,
+      citedOfficialSite: false,
+      citedContentAsset: false,
+      competitorMentioned: false,
+      createdBy
+    });
+
+    expect(mentioned.hitLevel).toBe("mentioned");
+    expect(cited.hitLevel).toBe("cited");
+    expect(competitorOnly.hitLevel).toBe("competitor_only");
+    expect(notMentioned.hitLevel).toBe("not_mentioned");
+  });
+
   it("rejects missing prompts, empty models, and invalid ranking positions", async () => {
     await expect(
       service.create({
@@ -153,9 +242,18 @@ describe("ModelInclusionRecordsService", () => {
     await service.create({
       geoPromptId: matchedPrompt.id,
       model: "kimi-k2",
+      platform: "Kimi",
+      entryPoint: "web_pc",
+      detectionMethod: "browser_capture",
+      deviceType: "desktop",
+      isWebSearchEnabled: false,
+      isLoggedIn: true,
       brandMentioned: true,
       brandRecommended: false,
       citedOfficialSite: true,
+      citedContentAsset: true,
+      competitorMentioned: true,
+      hitLevel: "mentioned",
       recordMethod: RecordMethod.api,
       answerSummary: "Kimi 提及品牌但没有推荐。",
       createdBy
@@ -177,6 +275,15 @@ describe("ModelInclusionRecordsService", () => {
       brandRecommended: false,
       citedOfficialSite: true,
       recordMethod: RecordMethod.api,
+      platform: "Kimi",
+      entryPoint: "web_pc",
+      detectionMethod: "browser_capture",
+      deviceType: "desktop",
+      isWebSearchEnabled: false,
+      isLoggedIn: true,
+      citedContentAsset: true,
+      competitorMentioned: true,
+      hitLevel: "mentioned",
       productLine,
       promptType: GeoPromptType.brand,
       userIntent: UserIntent.brand_verification
@@ -205,6 +312,19 @@ describe("ModelInclusionRecordsService", () => {
           brandMentioned: "是",
           brandRecommended: "yes",
           citedOfficialSite: "1",
+          citedContentAsset: "是",
+          competitorMentioned: "yes",
+          platform: "通义",
+          entryPoint: "web_search_api",
+          detectionMethod: "web_search",
+          deviceType: "api",
+          isWebSearchEnabled: "true",
+          isLoggedIn: "0",
+          rawAnswer: "导入原始回答",
+          citations: '[{"title":"官网","url":"https://example.com"}]',
+          searchResults: [{ title: "结果", url: "https://example.com/result" }],
+          screenshotPath: "screenshots/import.png",
+          errorMessage: "",
           rankingPosition: "2",
           answerSummary: "导入行通过 promptText 匹配提示词。",
           competitors: "竞品A,竞品B",
@@ -239,6 +359,19 @@ describe("ModelInclusionRecordsService", () => {
       brandMentioned: true,
       brandRecommended: true,
       citedOfficialSite: true,
+      citedContentAsset: true,
+      competitorMentioned: true,
+      hitLevel: "recommended",
+      platform: "通义",
+      entryPoint: "web_search_api",
+      detectionMethod: "web_search",
+      deviceType: "api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
+      rawAnswer: "导入原始回答",
+      citations: [{ title: "官网", url: "https://example.com" }],
+      searchResults: [{ title: "结果", url: "https://example.com/result" }],
+      screenshotPath: "screenshots/import.png",
       rankingPosition: 2,
       competitors: ["竞品A", "竞品B"],
       recordMethod: RecordMethod.import
@@ -280,6 +413,12 @@ describe("ModelInclusionRecordsService", () => {
       brandMentioned: true,
       brandRecommended: true,
       citedOfficialSite: true,
+      citedContentAsset: true,
+      competitorMentioned: false,
+      platform: "OpenAI",
+      entryPoint: "web_search_api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
       answerSummary: "品牌被推荐。",
       createdBy
     });
@@ -290,6 +429,12 @@ describe("ModelInclusionRecordsService", () => {
       brandMentioned: true,
       brandRecommended: false,
       citedOfficialSite: false,
+      citedContentAsset: false,
+      competitorMentioned: true,
+      platform: "Kimi",
+      entryPoint: "web_pc",
+      isWebSearchEnabled: false,
+      isLoggedIn: true,
       answerSummary: "品牌被提及但未推荐。",
       createdBy
     });
@@ -300,6 +445,12 @@ describe("ModelInclusionRecordsService", () => {
       brandMentioned: false,
       brandRecommended: false,
       citedOfficialSite: false,
+      citedContentAsset: false,
+      competitorMentioned: true,
+      platform: "OpenAI",
+      entryPoint: "web_search_api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
       answerSummary: "最新记录未提及品牌。",
       createdBy
     });
@@ -309,6 +460,8 @@ describe("ModelInclusionRecordsService", () => {
       productLine
     });
     expect(csv).toContain("geoPromptId,promptText,promptType,productLine,model");
+    expect(csv).toContain("platform,entryPoint,detectionMethod,deviceType");
+    expect(csv).toContain("hitLevel,rawAnswer,citations,searchResults,screenshotPath,errorMessage");
     expect(csv).toContain(coveredPrompt.promptText);
 
     const uncovered = await service.findUncoveredPrompts({
@@ -331,6 +484,25 @@ describe("ModelInclusionRecordsService", () => {
     expect(summary.recommendedCount).toBe(1);
     expect(summary.brandMentionRate).toBeCloseTo(2 / 3, 5);
     expect(summary.brandRecommendRate).toBeCloseTo(1 / 3, 5);
+    expect(summary.hitLevelDistribution).toMatchObject({
+      recommended: 1,
+      mentioned: 1,
+      competitor_only: 1
+    });
+    expect(summary.platformDistribution).toMatchObject({
+      OpenAI: 2,
+      Kimi: 1
+    });
+    expect(summary.entryPointDistribution).toMatchObject({
+      web_search_api: 2,
+      web_pc: 1
+    });
+    expect(summary.webSearchEnabledCount).toBe(2);
+    expect(summary.loggedInCount).toBe(1);
+    expect(summary.citedContentAssetCount).toBe(1);
+    expect(summary.competitorMentionedCount).toBe(2);
+    expect(summary.competitorMentionRate).toBeCloseTo(2 / 3, 5);
+    expect(summary.citedContentAssetRate).toBeCloseTo(1 / 3, 5);
 
     const refreshedPrompt = await prisma.geoPrompt.findUniqueOrThrow({
       where: {

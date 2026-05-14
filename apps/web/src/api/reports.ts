@@ -4,6 +4,8 @@ import type { GeoPromptType, UserIntent } from "./geo-prompts";
 export type ReportQuery = {
   productLine?: string;
   model?: string;
+  platform?: string;
+  entryPoint?: string;
   from?: string;
   to?: string;
   promptType?: GeoPromptType;
@@ -39,6 +41,11 @@ export type ModelCoveragePromptSummary = {
   brandRecommended: boolean;
   rankingPosition?: number | null;
   citedOfficialSite: boolean;
+  citedContentAsset: boolean;
+  competitorMentioned: boolean;
+  hitLevel?: string;
+  platform?: string;
+  entryPoint?: string;
 };
 
 export type ReportDistribution = Record<string, number>;
@@ -63,6 +70,10 @@ export type GeoOverviewReport = {
   brandRecommendRate: number;
   citedOfficialSiteCount: number;
   citedOfficialSiteRate: number;
+  citedContentAssetCount: number;
+  citedContentAssetRate: number;
+  competitorMentionedCount: number;
+  competitorMentionRate: number;
   uncoveredTrackedPromptCount: number;
 };
 
@@ -85,8 +96,13 @@ export type ModelCoverageReport = {
   mentionedByModel: ReportDistribution;
   recommendedByModel: ReportDistribution;
   citedOfficialSiteByModel: ReportDistribution;
+  citedContentAssetByModel: ReportDistribution;
+  competitorMentionedByModel: ReportDistribution;
   brandMentionRateByModel: ReportDistribution;
   brandRecommendRateByModel: ReportDistribution;
+  hitLevelDistribution: ReportDistribution;
+  platformDistribution: ReportDistribution;
+  entryPointDistribution: ReportDistribution;
   topRecommendedPrompts: ModelCoveragePromptSummary[];
   notMentionedPrompts: ModelCoveragePromptSummary[];
 };
@@ -171,6 +187,8 @@ const buildReportQuery = (query: ReportQuery = {}) =>
   toQueryString({
     productLine: query.productLine,
     model: query.model,
+    platform: query.platform,
+    entryPoint: query.entryPoint,
     from: query.from,
     to: query.to,
     promptType: query.promptType,
@@ -214,6 +232,8 @@ export const exportReport = (query: ReportExportQuery) =>
       reportType: query.reportType,
       productLine: query.productLine,
       model: query.model,
+      platform: query.platform,
+      entryPoint: query.entryPoint,
       from: query.from,
       to: query.to,
       promptType: query.promptType,

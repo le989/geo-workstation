@@ -374,28 +374,51 @@ model ContentItem {
 }
 
 model ModelInclusionRecord {
-  id                String       @id @default(cuid())
-  geoPromptId       String       @map("geo_prompt_id")
-  geoPrompt         GeoPrompt    @relation(fields: [geoPromptId], references: [id], onDelete: Cascade)
-  model             String
-  checkedAt         DateTime     @default(now()) @map("checked_at")
-  brandMentioned    Boolean      @default(false) @map("brand_mentioned")
-  brandRecommended  Boolean      @default(false) @map("brand_recommended")
-  rankingPosition   Int?         @map("ranking_position")
-  citedOfficialSite Boolean      @default(false) @map("cited_official_site")
-  answerSummary     String?      @map("answer_summary")
-  competitors       Json?
-  recordMethod      RecordMethod @default(manual) @map("record_method")
-  createdById       String       @map("created_by")
-  createdBy         User         @relation(fields: [createdById], references: [id])
-  createdAt         DateTime     @default(now()) @map("created_at")
+  id                 String       @id @default(cuid())
+  geoPromptId        String       @map("geo_prompt_id")
+  geoPrompt          GeoPrompt    @relation(fields: [geoPromptId], references: [id], onDelete: Cascade)
+  model              String
+  platform           String?
+  entryPoint         String?      @map("entry_point")
+  detectionMethod    String?      @map("detection_method")
+  deviceType         String?      @map("device_type")
+  isWebSearchEnabled Boolean      @default(false) @map("is_web_search_enabled")
+  isLoggedIn         Boolean      @default(false) @map("is_logged_in")
+  checkedAt          DateTime     @default(now()) @map("checked_at")
+  brandMentioned     Boolean      @default(false) @map("brand_mentioned")
+  brandRecommended   Boolean      @default(false) @map("brand_recommended")
+  rankingPosition    Int?         @map("ranking_position")
+  citedOfficialSite  Boolean      @default(false) @map("cited_official_site")
+  citedContentAsset  Boolean      @default(false) @map("cited_content_asset")
+  competitorMentioned Boolean     @default(false) @map("competitor_mentioned")
+  hitLevel           String?      @map("hit_level")
+  answerSummary      String?      @map("answer_summary")
+  rawAnswer          String?      @map("raw_answer") @db.Text
+  citations          Json?
+  searchResults      Json?        @map("search_results")
+  screenshotPath     String?      @map("screenshot_path")
+  errorMessage       String?      @map("error_message") @db.Text
+  competitors        Json?
+  recordMethod       RecordMethod @default(manual) @map("record_method")
+  createdById        String       @map("created_by")
+  createdBy          User         @relation(fields: [createdById], references: [id])
+  createdAt          DateTime     @default(now()) @map("created_at")
 
   @@index([geoPromptId])
   @@index([createdById])
   @@index([model])
+  @@index([platform])
+  @@index([entryPoint])
+  @@index([detectionMethod])
+  @@index([deviceType])
   @@index([checkedAt])
   @@index([brandMentioned])
   @@index([brandRecommended])
+  @@index([isWebSearchEnabled])
+  @@index([isLoggedIn])
+  @@index([citedContentAsset])
+  @@index([competitorMentioned])
+  @@index([hitLevel])
   @@map("model_inclusion_records")
 }
 

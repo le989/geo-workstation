@@ -218,6 +218,13 @@ describe("ReportsService", () => {
           brandRecommended: true,
           rankingPosition: 1,
           citedOfficialSite: true,
+          citedContentAsset: true,
+          competitorMentioned: false,
+          hitLevel: "recommended",
+          platform: "DeepSeek",
+          entryPoint: "api_model",
+          isWebSearchEnabled: false,
+          isLoggedIn: false,
           answerSummary: "品牌被提及且推荐。",
           competitors: ["竞品A"],
           recordMethod: RecordMethod.manual,
@@ -230,6 +237,13 @@ describe("ReportsService", () => {
           brandMentioned: false,
           brandRecommended: false,
           citedOfficialSite: false,
+          citedContentAsset: false,
+          competitorMentioned: true,
+          hitLevel: "competitor_only",
+          platform: "Kimi",
+          entryPoint: "web_pc",
+          isWebSearchEnabled: false,
+          isLoggedIn: true,
           answerSummary: "品牌未被提及。",
           competitors: ["竞品B"],
           recordMethod: RecordMethod.manual,
@@ -242,6 +256,13 @@ describe("ReportsService", () => {
           brandMentioned: true,
           brandRecommended: false,
           citedOfficialSite: false,
+          citedContentAsset: false,
+          competitorMentioned: false,
+          hitLevel: "mentioned",
+          platform: "Kimi",
+          entryPoint: "api_model",
+          isWebSearchEnabled: false,
+          isLoggedIn: false,
           answerSummary: "旧记录用于日期筛选。",
           competitors: [],
           recordMethod: RecordMethod.import,
@@ -276,6 +297,8 @@ describe("ReportsService", () => {
     expect(overview.brandMentionRate).toBeCloseTo(0.5, 5);
     expect(overview.brandRecommendRate).toBeCloseTo(0.5, 5);
     expect(overview.citedOfficialSiteCount).toBe(1);
+    expect(overview.citedContentAssetCount).toBe(1);
+    expect(overview.competitorMentionedCount).toBe(1);
     expect(overview.uncoveredTrackedPromptCount).toBe(1);
     expect(overview.failedContentTaskCount).toBe(1);
   });
@@ -312,6 +335,20 @@ describe("ReportsService", () => {
     expect(report.modelDistribution).toMatchObject({
       "deepseek-chat": 2
     });
+    expect(report.hitLevelDistribution).toMatchObject({
+      recommended: 1,
+      competitor_only: 1
+    });
+    expect(report.entryPointDistribution).toMatchObject({
+      api_model: 1,
+      web_pc: 1
+    });
+    expect(report.platformDistribution).toMatchObject({
+      DeepSeek: 1,
+      Kimi: 1
+    });
+    expect(report.citedContentAssetByModel["deepseek-chat"]).toBe(1);
+    expect(report.competitorMentionedByModel["deepseek-chat"]).toBe(1);
     expect(report.mentionedByModel["deepseek-chat"]).toBe(1);
     expect(report.recommendedByModel["deepseek-chat"]).toBe(1);
     expect(report.brandMentionRateByModel["deepseek-chat"]).toBeCloseTo(0.5, 5);

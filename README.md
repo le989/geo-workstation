@@ -288,7 +288,7 @@ pnpm dev:api
 - `/knowledge-bases`：企业 GEO 知识库，支持知识库管理、文本导入、txt/md/csv 上传解析、文件 reparse 和知识片段管理。
 - `/instruction-templates`：指令库，支持指令模板创建、编辑、查看详情、复制和软删除。
 - `/content-tasks`：GEO 内容生成，支持创建默认 Mock 或 `openai_compatible` 内容任务、查看/编辑/删除内容项、质量检查、发布优化版、富文本发布稿排版、Markdown/HTML 导出和失败重试入口。
-- `/model-inclusion-records`：模型覆盖记录，支持手动录入、批量导入、summary、未覆盖提示词和 CSV 导出。
+- `/model-inclusion-records`：模型覆盖记录已升级为多入口 GEO 命中记录口径，支持手动录入、批量导入、summary、未覆盖提示词和 CSV 导出，并记录平台、入口、联网/登录状态、命中等级、内容资产引用、竞品出现、原始回答和引用来源。
 - `/reports`：GEO 报表，支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。
 - `/settings`：系统设置，维护单项目档案、AI 接口配置边界和事实来源说明；不包含团队管理、Provider Key 管理或复杂权限配置。
 - `/help`：使用教程，整理快速开始、日常 SOP、AI 拓词、知识库维护、内容质检、富文本发布稿和版本更新记录。
@@ -484,6 +484,7 @@ pnpm --filter @geo-workstation/shared build
 ## Phase 2H 完成内容
 
 - 实现模型覆盖与上词记录后端 API：手动新增、分页查询、批量导入、CSV 导出、未覆盖提示词查询和基础 summary。
+- Phase Monitor-Record-1 将模型覆盖记录升级为多入口 GEO 命中记录字段：保留旧字段，同时新增 `platform`、`entryPoint`、`detectionMethod`、`deviceType`、`isWebSearchEnabled`、`isLoggedIn`、`citedContentAsset`、`competitorMentioned`、`hitLevel`、`rawAnswer`、`citations`、`searchResults`、`screenshotPath` 和 `errorMessage`，用于承接后续联网搜索 API、PC/移动网页和 App 人工抽查结果。
 - 新增记录前校验 GEO 提示词存在且未软删除；查询记录时返回关联提示词的 `promptText`、类型、产品线和用户意图。
 - 批量导入按行独立校验，支持通过 `geoPromptId` 或 `promptText` 匹配提示词；导入成功行强制写入 `recordMethod = import`，不自动创建新提示词。
 - 未覆盖提示词查询基于 `geo_prompts`，默认只查询 `trackEnabled = true` 且未软删除的提示词。

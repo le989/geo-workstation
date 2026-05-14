@@ -18,6 +18,7 @@ import type { QueryModelInclusionRecordsDto } from "./dto/query-model-inclusion-
 import type { QueryModelInclusionSummaryDto } from "./dto/query-model-inclusion-summary.dto";
 import type { QueryUncoveredPromptsDto } from "./dto/query-uncovered-prompts.dto";
 import { buildModelInclusionRecordsCsv } from "./utils/csv-export.util";
+import { deriveHitLevel, type GeoHitLevel } from "./utils/derive-hit-level.util";
 import {
   normalizeCreateModelInclusionRecord,
   normalizeImportModelInclusionRecordRow,
@@ -53,12 +54,26 @@ export type ModelInclusionRecordResponse = {
   id: string;
   geoPromptId: string;
   model: string;
+  platform?: string;
+  entryPoint?: string;
+  detectionMethod?: string;
+  deviceType?: string;
+  isWebSearchEnabled: boolean;
+  isLoggedIn: boolean;
   checkedAt: Date;
   brandMentioned: boolean;
   brandRecommended: boolean;
   rankingPosition: number | null;
   citedOfficialSite: boolean;
+  citedContentAsset: boolean;
+  competitorMentioned: boolean;
+  hitLevel?: string;
   answerSummary?: string;
+  rawAnswer?: string;
+  citations?: unknown;
+  searchResults?: unknown;
+  screenshotPath?: string;
+  errorMessage?: string;
   competitors: string[];
   recordMethod: RecordMethod;
   createdBy: string;
@@ -112,10 +127,19 @@ export type ModelInclusionSummaryResponse = {
   recommendedCount: number;
   notRecommendedCount: number;
   citedOfficialSiteCount: number;
+  citedContentAssetCount: number;
+  competitorMentionedCount: number;
+  webSearchEnabledCount: number;
+  loggedInCount: number;
   brandMentionRate: number;
   brandRecommendRate: number;
   citedOfficialSiteRate: number;
+  citedContentAssetRate: number;
+  competitorMentionRate: number;
   modelDistribution: Record<string, number>;
+  platformDistribution: Record<string, number>;
+  entryPointDistribution: Record<string, number>;
+  hitLevelDistribution: Record<string, number>;
   productLineDistribution: Record<string, number>;
 };
 
@@ -277,6 +301,10 @@ export class ModelInclusionRecordsService {
     const mentionedCount = records.filter((record) => record.brandMentioned).length;
     const recommendedCount = records.filter((record) => record.brandRecommended).length;
     const citedOfficialSiteCount = records.filter((record) => record.citedOfficialSite).length;
+    const citedContentAssetCount = records.filter((record) => record.citedContentAsset).length;
+    const competitorMentionedCount = records.filter((record) => record.competitorMentioned).length;
+    const webSearchEnabledCount = records.filter((record) => record.isWebSearchEnabled).length;
+    const loggedInCount = records.filter((record) => record.isLoggedIn).length;
 
     return {
       totalRecords,
@@ -285,10 +313,24 @@ export class ModelInclusionRecordsService {
       recommendedCount,
       notRecommendedCount: totalRecords - recommendedCount,
       citedOfficialSiteCount,
+      citedContentAssetCount,
+      competitorMentionedCount,
+      webSearchEnabledCount,
+      loggedInCount,
       brandMentionRate: calculateRate(mentionedCount, totalRecords),
       brandRecommendRate: calculateRate(recommendedCount, totalRecords),
       citedOfficialSiteRate: calculateRate(citedOfficialSiteCount, totalRecords),
+      citedContentAssetRate: calculateRate(citedContentAssetCount, totalRecords),
+      competitorMentionRate: calculateRate(competitorMentionedCount, totalRecords),
       modelDistribution: this.buildModelDistribution(records),
+      platformDistribution: this.buildOptionalDistribution(records, (record) => record.platform),
+      entryPointDistribution: this.buildOptionalDistribution(
+        records,
+        (record) => record.entryPoint
+      ),
+      hitLevelDistribution: this.buildOptionalDistribution(records, (record) =>
+        this.resolveHitLevel(record)
+      ),
       productLineDistribution: this.buildProductLineDistribution(records)
     };
   }
@@ -306,12 +348,26 @@ export class ModelInclusionRecordsService {
           }
         },
         model: input.model,
+        platform: input.platform,
+        entryPoint: input.entryPoint,
+        detectionMethod: input.detectionMethod,
+        deviceType: input.deviceType,
+        isWebSearchEnabled: input.isWebSearchEnabled,
+        isLoggedIn: input.isLoggedIn,
         checkedAt: input.checkedAt,
         brandMentioned: input.brandMentioned,
         brandRecommended: input.brandRecommended,
         rankingPosition: input.rankingPosition,
         citedOfficialSite: input.citedOfficialSite,
+        citedContentAsset: input.citedContentAsset,
+        competitorMentioned: input.competitorMentioned,
+        hitLevel: input.hitLevel,
         answerSummary: input.answerSummary,
+        rawAnswer: input.rawAnswer,
+        citations: input.citations,
+        searchResults: input.searchResults,
+        screenshotPath: input.screenshotPath,
+        errorMessage: input.errorMessage,
         competitors: input.competitors as Prisma.InputJsonValue,
         recordMethod: input.recordMethod,
         createdBy: {
@@ -350,6 +406,24 @@ export class ModelInclusionRecordsService {
     if (query.model) {
       where.model = query.model;
     }
+    if (query.platform) {
+      where.platform = query.platform;
+    }
+    if (query.entryPoint) {
+      where.entryPoint = query.entryPoint;
+    }
+    if (query.detectionMethod) {
+      where.detectionMethod = query.detectionMethod;
+    }
+    if (query.deviceType) {
+      where.deviceType = query.deviceType;
+    }
+    if (query.isWebSearchEnabled !== undefined) {
+      where.isWebSearchEnabled = query.isWebSearchEnabled;
+    }
+    if (query.isLoggedIn !== undefined) {
+      where.isLoggedIn = query.isLoggedIn;
+    }
     if (query.brandMentioned !== undefined) {
       where.brandMentioned = query.brandMentioned;
     }
@@ -358,6 +432,15 @@ export class ModelInclusionRecordsService {
     }
     if (query.citedOfficialSite !== undefined) {
       where.citedOfficialSite = query.citedOfficialSite;
+    }
+    if (query.citedContentAsset !== undefined) {
+      where.citedContentAsset = query.citedContentAsset;
+    }
+    if (query.competitorMentioned !== undefined) {
+      where.competitorMentioned = query.competitorMentioned;
+    }
+    if (query.hitLevel) {
+      where.hitLevel = query.hitLevel;
     }
     if (query.recordMethod) {
       where.recordMethod = query.recordMethod;
@@ -456,6 +539,10 @@ export class ModelInclusionRecordsService {
 
     return (
       record.model.toLowerCase().includes(normalized) ||
+      (record.platform ?? "").toLowerCase().includes(normalized) ||
+      (record.entryPoint ?? "").toLowerCase().includes(normalized) ||
+      (record.rawAnswer ?? "").toLowerCase().includes(normalized) ||
+      (record.errorMessage ?? "").toLowerCase().includes(normalized) ||
       (record.answerSummary ?? "").toLowerCase().includes(normalized) ||
       competitors.includes(normalized)
     );
@@ -555,12 +642,26 @@ export class ModelInclusionRecordsService {
       id: record.id,
       geoPromptId: record.geoPromptId,
       model: record.model,
+      platform: record.platform ?? undefined,
+      entryPoint: record.entryPoint ?? undefined,
+      detectionMethod: record.detectionMethod ?? undefined,
+      deviceType: record.deviceType ?? undefined,
+      isWebSearchEnabled: record.isWebSearchEnabled,
+      isLoggedIn: record.isLoggedIn,
       checkedAt: record.checkedAt,
       brandMentioned: record.brandMentioned,
       brandRecommended: record.brandRecommended,
       rankingPosition: record.rankingPosition,
       citedOfficialSite: record.citedOfficialSite,
+      citedContentAsset: record.citedContentAsset,
+      competitorMentioned: record.competitorMentioned,
+      hitLevel: this.resolveHitLevel(record),
       answerSummary: record.answerSummary ?? undefined,
+      rawAnswer: record.rawAnswer ?? undefined,
+      citations: record.citations ?? undefined,
+      searchResults: record.searchResults ?? undefined,
+      screenshotPath: record.screenshotPath ?? undefined,
+      errorMessage: record.errorMessage ?? undefined,
       competitors: this.jsonArrayToStringArray(record.competitors),
       recordMethod: record.recordMethod,
       createdBy: record.createdById,
@@ -595,6 +696,22 @@ export class ModelInclusionRecordsService {
     }, {});
   }
 
+  private buildOptionalDistribution(
+    records: ModelInclusionRecord[],
+    pickValue: (record: ModelInclusionRecord) => string | null | undefined
+  ): Record<string, number> {
+    return records.reduce<Record<string, number>>((distribution, record) => {
+      const value = pickValue(record);
+
+      if (!value) {
+        return distribution;
+      }
+
+      distribution[value] = (distribution[value] ?? 0) + 1;
+      return distribution;
+    }, {});
+  }
+
   private buildProductLineDistribution(
     records: ModelInclusionRecordWithPrompt[]
   ): Record<string, number> {
@@ -611,6 +728,20 @@ export class ModelInclusionRecordsService {
     }
 
     return value.map((item) => String(item));
+  }
+
+  private resolveHitLevel(record: ModelInclusionRecord): GeoHitLevel {
+    if (record.hitLevel) {
+      return record.hitLevel as GeoHitLevel;
+    }
+
+    return deriveHitLevel({
+      brandMentioned: record.brandMentioned,
+      brandRecommended: record.brandRecommended,
+      citedOfficialSite: record.citedOfficialSite,
+      citedContentAsset: record.citedContentAsset,
+      competitorMentioned: record.competitorMentioned
+    });
   }
 
   private async resolveCreatedById(createdBy?: string): Promise<string> {
