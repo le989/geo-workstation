@@ -8,13 +8,17 @@ import {
   exportContentItem,
   getContentTask,
   getContentTasks,
+  optimizeContentItemForPublish,
+  qualityCheckContentItem,
   retryContentTask,
   updateContentItem,
+  type ContentQualityCheckResult,
   type ContentItem,
   type ContentTask,
   type ContentTaskDetail,
   type ContentTaskQuery,
   type CreateContentTaskPayload,
+  type PublishOptimizationResult,
   type UpdateContentItemPayload
 } from "@/api/content";
 import AppErrorState from "@/components/AppErrorState.vue";
@@ -57,6 +61,20 @@ const itemSubmitting = ref(false);
 const itemError = ref("");
 const exportingIds = ref<string[]>([]);
 const deletingIds = ref<string[]>([]);
+const qualityCheckingIds = ref<string[]>([]);
+const optimizingIds = ref<string[]>([]);
+const qualityCheckResult = ref<{
+  itemId: string;
+  itemTitle: string;
+  result: ContentQualityCheckResult;
+} | null>(null);
+const qualityCheckError = ref("");
+const publishOptimizationResult = ref<{
+  itemId: string;
+  itemTitle: string;
+  result: PublishOptimizationResult;
+} | null>(null);
+const publishOptimizationError = ref("");
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
@@ -141,6 +159,7 @@ const openCreateDialog = () => {
 
 const openDetailDrawer = async (task: ContentTask) => {
   selectedTaskId.value = task.id;
+  clearQualityReviewState();
   detailVisible.value = true;
   await loadDetail();
 };
@@ -266,6 +285,18 @@ const withIdFlag = async (list: typeof exportingIds, id: string, action: () => P
   }
 };
 
+const clearQualityReviewState = () => {
+  qualityCheckResult.value = null;
+  qualityCheckError.value = "";
+  publishOptimizationResult.value = null;
+  publishOptimizationError.value = "";
+};
+
+const getReviewProviderPayload = () => ({
+  provider: detail.value?.task.provider ?? "mock",
+  model: detail.value?.task.model
+});
+
 const downloadMarkdown = (item: ContentItem, markdown: string) => {
   const blob = new Blob([markdown], {
     type: "text/markdown;charset=utf-8"
@@ -289,6 +320,55 @@ const handleExportMarkdown = async (item: ContentItem) => {
     ElMessage.success("Markdown 已导出。");
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "Markdown 导出失败。");
+  }
+};
+
+const handleQualityCheck = async (item: ContentItem) => {
+  qualityCheckError.value = "";
+
+  try {
+    await withIdFlag(qualityCheckingIds, item.id, async () => {
+      const result = await qualityCheckContentItem(item.id, {
+        ...getReviewProviderPayload(),
+        checkMode: "standard"
+      });
+      qualityCheckResult.value = {
+        itemId: item.id,
+        itemTitle: item.title,
+        result
+      };
+    });
+
+    ElMessage.success("内容质量检查完成。");
+  } catch (error) {
+    qualityCheckError.value =
+      error instanceof Error ? error.message : "内容质量检查失败，请稍后重试或切换为模拟生成。";
+    ElMessage.error(qualityCheckError.value);
+  }
+};
+
+const handleOptimizeForPublish = async (item: ContentItem) => {
+  publishOptimizationError.value = "";
+
+  try {
+    await withIdFlag(optimizingIds, item.id, async () => {
+      const result = await optimizeContentItemForPublish(item.id, {
+        ...getReviewProviderPayload(),
+        targetChannel: "官网文章",
+        optimizationGoal: "更稳妥、更适合 GEO 抓取、减少参数风险"
+      });
+      publishOptimizationResult.value = {
+        itemId: item.id,
+        itemTitle: item.title,
+        result
+      };
+    });
+
+    ElMessage.success("发布优化版已生成，原内容项未被覆盖。");
+  } catch (error) {
+    publishOptimizationError.value =
+      error instanceof Error ? error.message : "生成发布优化版失败，请稍后重试或切换为模拟生成。";
+    ElMessage.error(publishOptimizationError.value);
   }
 };
 
@@ -448,12 +528,20 @@ onMounted(() => {
       :retrying="retrying"
       :exporting-ids="exportingIds"
       :deleting-ids="deletingIds"
+      :quality-checking-ids="qualityCheckingIds"
+      :optimizing-ids="optimizingIds"
+      :quality-check-result="qualityCheckResult"
+      :quality-check-error="qualityCheckError"
+      :publish-optimization-result="publishOptimizationResult"
+      :publish-optimization-error="publishOptimizationError"
       @refresh="loadDetail"
       @retry="handleRetry()"
       @view="openItemDialog($event, 'view')"
       @edit="openItemDialog($event, 'edit')"
       @export="handleExportMarkdown"
       @delete="handleDeleteItem"
+      @quality-check="handleQualityCheck"
+      @optimize="handleOptimizeForPublish"
     />
 
     <ContentItemFormDialog

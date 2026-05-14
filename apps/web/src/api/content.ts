@@ -128,6 +128,60 @@ export type DeleteContentItemResult = {
   deletedAt: string;
 };
 
+export type ContentQualityRiskType =
+  | "unsupported_claim"
+  | "parameter_risk"
+  | "protocol_risk"
+  | "certification_risk"
+  | "over_marketing"
+  | "brand_expression"
+  | "geo_structure"
+  | "knowledge_gap";
+
+export type ContentQualitySeverity = "low" | "medium" | "high";
+export type ContentQualityLevel = "good" | "needs_review" | "risky";
+
+export type ContentQualityRiskItem = {
+  type: ContentQualityRiskType;
+  severity: ContentQualitySeverity;
+  text: string;
+  reason: string;
+  suggestion: string;
+};
+
+export type ContentQualityCheckPayload = {
+  provider?: string;
+  model?: string;
+  checkMode?: string;
+};
+
+export type ContentQualityCheckResult = {
+  score: number;
+  level: ContentQualityLevel;
+  summary: string;
+  riskItems: ContentQualityRiskItem[];
+  positiveItems: string[];
+  publishReadiness: {
+    canPublish: boolean;
+    needsHumanReview: boolean;
+    suggestedAction: string;
+  };
+};
+
+export type OptimizeContentItemForPublishPayload = {
+  provider?: string;
+  model?: string;
+  targetChannel?: string;
+  optimizationGoal?: string;
+};
+
+export type PublishOptimizationResult = {
+  title: string;
+  body: string;
+  changes: string[];
+  warnings: string[];
+};
+
 const toQueryString = (params: Record<string, string | number | boolean | undefined>) => {
   const searchParams = new URLSearchParams();
 
@@ -174,5 +228,20 @@ export const deleteContentItem = (id: string) =>
 
 export const exportContentItem = (id: string) =>
   apiRequest<string>(`/api/content-items/${id}/export`);
+
+export const qualityCheckContentItem = (id: string, payload: ContentQualityCheckPayload = {}) =>
+  apiRequest<ContentQualityCheckResult>(`/api/content-items/${id}/quality-check`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const optimizeContentItemForPublish = (
+  id: string,
+  payload: OptimizeContentItemForPublishPayload = {}
+) =>
+  apiRequest<PublishOptimizationResult>(`/api/content-items/${id}/optimize-for-publish`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 
 export type { GeoPrompt };

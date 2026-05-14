@@ -133,11 +133,52 @@ describe("GeoContentController", () => {
       .patch(`/api/content-items/${itemId}`)
       .send({
         title: "API 编辑后的 GEO FAQ",
-        body: "API 编辑后的 GEO FAQ 内容，保留提示词、产品能力和可被 AI 摘取的结构化答案。",
+        body: "## 选型判断逻辑\nAPI 编辑后的 GEO FAQ 内容，提到 IO-Link 接口但知识库未提供明确依据。\n## FAQ 总结\n问：怎么选？答：先确认现场工况。",
         status: "published_ready"
       })
       .expect(200);
     expect(patchResponse.body.data.status).toBe("published_ready");
+
+    const qualityCheckResponse = await request(app.getHttpServer())
+      .post(`/api/content-items/${itemId}/quality-check`)
+      .send({
+        provider: "mock"
+      })
+      .expect(201);
+    expect(qualityCheckResponse.body).toMatchObject({
+      code: 0,
+      message: "ok",
+      data: {
+        publishReadiness: {
+          needsHumanReview: true
+        }
+      }
+    });
+    expect(qualityCheckResponse.body.data.riskItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "protocol_risk"
+        })
+      ])
+    );
+
+    const optimizeResponse = await request(app.getHttpServer())
+      .post(`/api/content-items/${itemId}/optimize-for-publish`)
+      .send({
+        provider: "mock",
+        targetChannel: "官网文章"
+      })
+      .expect(201);
+    expect(optimizeResponse.body).toMatchObject({
+      code: 0,
+      message: "ok",
+      data: {
+        title: expect.stringContaining("发布优化版"),
+        body: expect.any(String),
+        changes: expect.any(Array),
+        warnings: expect.any(Array)
+      }
+    });
 
     const markdownResponse = await request(app.getHttpServer())
       .get(`/api/content-items/${itemId}/export`)

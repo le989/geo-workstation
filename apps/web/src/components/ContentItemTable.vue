@@ -14,6 +14,8 @@ const props = defineProps<{
   loading?: boolean;
   exportingIds?: string[];
   deletingIds?: string[];
+  qualityCheckingIds?: string[];
+  optimizingIds?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -21,6 +23,8 @@ const emit = defineEmits<{
   edit: [item: ContentItem];
   export: [item: ContentItem];
   delete: [item: ContentItem];
+  qualityCheck: [item: ContentItem];
+  optimize: [item: ContentItem];
 }>();
 
 const findGeoPrompt = (geoPromptId?: string | null) =>
@@ -89,10 +93,26 @@ const getItemStatusType = (status: string) => {
     <el-table-column label="更新时间" width="180">
       <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
     </el-table-column>
-    <el-table-column label="操作" width="250" fixed="right">
+    <el-table-column label="操作" width="360" fixed="right">
       <template #default="{ row }">
         <el-button text type="primary" @click="emit('view', row)">查看</el-button>
         <el-button text type="primary" @click="emit('edit', row)">编辑</el-button>
+        <el-button
+          text
+          type="success"
+          :loading="qualityCheckingIds?.includes(row.id)"
+          @click="emit('qualityCheck', row)"
+        >
+          质量检查
+        </el-button>
+        <el-button
+          text
+          type="warning"
+          :loading="optimizingIds?.includes(row.id)"
+          @click="emit('optimize', row)"
+        >
+          生成发布优化版
+        </el-button>
         <el-button
           text
           type="primary"

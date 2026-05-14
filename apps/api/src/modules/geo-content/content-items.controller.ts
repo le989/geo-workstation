@@ -1,6 +1,8 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
 import { ContentItemsService } from "./content-items.service";
+import { ContentQualityCheckDto } from "./dto/content-quality-check.dto";
+import { OptimizeContentItemForPublishDto } from "./dto/optimize-content-item-for-publish.dto";
 import { QueryContentItemsDto } from "./dto/query-content-items.dto";
 import { UpdateContentItemDto } from "./dto/update-content-item.dto";
 
@@ -26,6 +28,23 @@ export class ContentItemsController {
   @Delete(":id")
   softDelete(@Param("id") id: string) {
     return this.contentItemsService.softDelete(id);
+  }
+
+  @Post(":id/quality-check")
+  qualityCheck(
+    @Param("id") id: string,
+    @Body(createValidationPipe(ContentQualityCheckDto)) body: ContentQualityCheckDto
+  ) {
+    return this.contentItemsService.qualityCheck(id, body);
+  }
+
+  @Post(":id/optimize-for-publish")
+  optimizeForPublish(
+    @Param("id") id: string,
+    @Body(createValidationPipe(OptimizeContentItemForPublishDto))
+    body: OptimizeContentItemForPublishDto
+  ) {
+    return this.contentItemsService.optimizeForPublish(id, body);
   }
 
   @Get(":id/export")
