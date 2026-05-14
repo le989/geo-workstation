@@ -42,6 +42,7 @@ import {
   type ProviderErrorCategory,
   KimiWebSearchProvider
 } from "./providers/kimi-web-search.provider";
+import { VolcengineWebSearchProvider } from "./providers/volcengine-web-search.provider";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
@@ -128,8 +129,23 @@ export type FailedWebSearchCheckItem = {
   record?: ModelInclusionRecordResponse;
 };
 
+type WebSearchProviderName = "kimi_web_search" | "volcengine_web_search";
+
+type WebSearchProviderRuntime = {
+  provider: WebSearchProviderName;
+  model: string;
+  platform: string;
+  search: (input: { promptText: string; model?: string }) => Promise<{
+    finalAnswer: string;
+    rawAnswer?: string;
+    citations: unknown[];
+    searchResults: unknown[];
+    retryCount?: number;
+  }>;
+};
+
 export type WebSearchCheckResponse = {
-  provider: "kimi_web_search";
+  provider: WebSearchProviderName;
   successCount: number;
   failedCount: number;
   createdItems: ModelInclusionRecordResponse[];
@@ -181,7 +197,9 @@ export type ModelInclusionSummaryResponse = {
 export class ModelInclusionRecordsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(KimiWebSearchProvider) private readonly kimiWebSearchProvider: KimiWebSearchProvider
+    @Inject(KimiWebSearchProvider) private readonly kimiWebSearchProvider: KimiWebSearchProvider,
+    @Inject(VolcengineWebSearchProvider)
+    private readonly volcengineWebSearchProvider: VolcengineWebSearchProvider
   ) {}
 
   async findMany(query: QueryModelInclusionRecordsDto): Promise<ModelInclusionRecordListResponse> {
@@ -292,11 +310,8 @@ export class ModelInclusionRecordsService {
   }
 
   async webSearchCheck(input: WebSearchCheckDto): Promise<WebSearchCheckResponse> {
-    if (input.provider !== "kimi_web_search") {
-      throw new BadRequestException(`Unsupported web search provider: ${input.provider}`);
-    }
-
     const uniquePromptIds = [...new Set(input.geoPromptIds)].slice(0, input.limit ?? 20);
+    const providerRuntime = this.resolveWebSearchProvider(input);
     const profile = await this.resolveProjectProfileContext();
     const brandContext = {
       brandName: input.brandName ?? profile.brandName,
@@ -306,20 +321,20 @@ export class ModelInclusionRecordsService {
     const createdItems: ModelInclusionRecordResponse[] = [];
     const failedItems: FailedWebSearchCheckItem[] = [];
     const createdById = await this.resolveCreatedById();
-    const model = input.model?.trim() || process.env.KIMI_MODEL || "kimi-k2.6";
+    const model = providerRuntime.model;
 
     for (const geoPromptId of uniquePromptIds) {
       let geoPrompt: GeoPrompt | null = null;
 
       try {
         geoPrompt = await this.findActiveGeoPromptById(geoPromptId);
-        const searchResult = await this.kimiWebSearchProvider.search({
+        const searchResult = await providerRuntime.search({
           promptText: geoPrompt.promptText,
           model
         });
         const analysis = analyzeGeoHitFromAnswer({
           promptText: geoPrompt.promptText,
-          answer: searchResult.finalAnswer,
+          answer: searchResult.rawAnswer ?? searchResult.finalAnswer,
           ...brandContext,
           citations: searchResult.citations,
           searchResults: searchResult.searchResults
@@ -328,7 +343,7 @@ export class ModelInclusionRecordsService {
           {
             geoPromptId: geoPrompt.id,
             model,
-            platform: "Kimi",
+            platform: providerRuntime.platform,
             entryPoint: input.entryPoint ?? "web_search_api",
             detectionMethod: "web_search",
             deviceType: "api",
@@ -374,7 +389,7 @@ export class ModelInclusionRecordsService {
             {
               geoPromptId: geoPrompt.id,
               model,
-              platform: "Kimi",
+              platform: providerRuntime.platform,
               entryPoint: input.entryPoint ?? "web_search_api",
               detectionMethod: "web_search",
               deviceType: "api",
@@ -424,12 +439,37 @@ export class ModelInclusionRecordsService {
     }
 
     return {
-      provider: "kimi_web_search",
+      provider: providerRuntime.provider,
       successCount: createdItems.length,
       failedCount: failedItems.length,
       createdItems,
       failedItems
     };
+  }
+
+  private resolveWebSearchProvider(input: WebSearchCheckDto): WebSearchProviderRuntime {
+    if (input.provider === "kimi_web_search") {
+      return {
+        provider: "kimi_web_search",
+        model: input.model?.trim() || process.env.KIMI_MODEL || "kimi-k2.6",
+        platform: "Kimi",
+        search: (searchInput) => this.kimiWebSearchProvider.search(searchInput)
+      };
+    }
+
+    if (input.provider === "volcengine_web_search") {
+      return {
+        provider: "volcengine_web_search",
+        model:
+          input.model?.trim() ||
+          process.env.VOLCENGINE_WEB_SEARCH_MODEL ||
+          "doubao-seed-1-6-250615",
+        platform: "豆包 / 火山方舟",
+        search: (searchInput) => this.volcengineWebSearchProvider.search(searchInput)
+      };
+    }
+
+    throw new BadRequestException(`Unsupported web search provider: ${input.provider}`);
   }
 
   async exportCsv(query: QueryModelInclusionRecordsDto): Promise<string> {

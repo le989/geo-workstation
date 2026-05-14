@@ -36,12 +36,26 @@ const filters = reactive<GeoPromptQuery>({
   trackEnabled: true
 });
 const form = reactive({
-  provider: "kimi_web_search" as const,
+  provider: "kimi_web_search" as WebSearchCheckPayload["provider"],
   model: "",
   brandName: "",
   companyName: "",
   websiteUrl: ""
 });
+
+const providerOptions: Array<{
+  label: string;
+  value: WebSearchCheckPayload["provider"];
+}> = [
+  {
+    label: "Kimi 联网搜索",
+    value: "kimi_web_search"
+  },
+  {
+    label: "豆包 / 火山方舟联网搜索",
+    value: "volcengine_web_search"
+  }
+];
 
 const visible = computed({
   get: () => props.modelValue,
@@ -137,7 +151,7 @@ const submit = () => {
 
   emit("submit", {
     geoPromptIds: selectedPromptIds.value,
-    provider: "kimi_web_search",
+    provider: form.provider,
     model: trimOptional(form.model),
     brandName: trimOptional(form.brandName),
     companyName: trimOptional(form.companyName),
@@ -147,6 +161,20 @@ const submit = () => {
     limit: 20
   });
 };
+
+const providerBoundaryTitle = computed(() => {
+  if (form.provider === "volcengine_web_search") {
+    return "当前为火山方舟 Web Search API 检测，作为豆包 / 火山生态方向联网检测入口；不等同于豆包 App 端真实用户结果，可能不返回结构化引用来源。每次检测会消耗 API 额度，建议先少量检测。";
+  }
+
+  return "当前是 Kimi Web Search API 检测，不等同于 Kimi App 端真实用户结果；不是 App 端真实用户结果。每次检测会消耗 API 额度，建议先检测少量高优先级提示词。";
+});
+
+const providerModelPlaceholder = computed(() =>
+  form.provider === "volcengine_web_search"
+    ? "默认使用后端 VOLCENGINE_WEB_SEARCH_MODEL"
+    : "默认使用后端 KIMI_MODEL"
+);
 
 const formatHitLevel = (value?: string) =>
   value ? ((hitLevelLabelMap as Record<string, string>)[value] ?? value) : "无法判断";
@@ -228,19 +256,19 @@ const getFailureHelpText = (value?: ProviderErrorCategory) => {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="Kimi Web Search 联网检测" width="1080px">
+  <el-dialog v-model="visible" title="联网 GEO 命中检测" width="1080px">
     <div class="web-search-dialog">
-      <el-alert
-        title="当前是 Kimi Web Search API 检测，不等同于 Kimi App 端真实用户结果；不是 App 端真实用户结果。每次检测会消耗 API 额度，建议先检测少量高优先级提示词。"
-        type="warning"
-        :closable="false"
-        show-icon
-      />
+      <el-alert :title="providerBoundaryTitle" type="warning" :closable="false" show-icon />
 
       <el-form class="web-search-settings" label-position="top">
         <el-form-item label="Provider">
-          <el-select v-model="form.provider" disabled>
-            <el-option label="Kimi 联网搜索" value="kimi_web_search" />
+          <el-select v-model="form.provider">
+            <el-option
+              v-for="option in providerOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="入口">
@@ -253,7 +281,7 @@ const getFailureHelpText = (value?: ProviderErrorCategory) => {
           <el-input model-value="否" disabled />
         </el-form-item>
         <el-form-item label="模型">
-          <el-input v-model="form.model" clearable placeholder="默认使用后端 KIMI_MODEL" />
+          <el-input v-model="form.model" clearable :placeholder="providerModelPlaceholder" />
         </el-form-item>
         <el-form-item label="品牌名">
           <el-input v-model="form.brandName" clearable placeholder="默认读取项目档案 brandName" />

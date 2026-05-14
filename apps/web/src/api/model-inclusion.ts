@@ -164,7 +164,7 @@ export type ImportModelInclusionRecordsResult = {
 
 export type WebSearchCheckPayload = {
   geoPromptIds: string[];
-  provider: "kimi_web_search";
+  provider: "kimi_web_search" | "volcengine_web_search";
   model?: string;
   brandName?: string;
   companyName?: string;
@@ -184,7 +184,7 @@ export type FailedWebSearchCheckItem = {
 };
 
 export type WebSearchCheckResult = {
-  provider: "kimi_web_search";
+  provider: "kimi_web_search" | "volcengine_web_search";
   successCount: number;
   failedCount: number;
   createdItems: ModelInclusionRecord[];

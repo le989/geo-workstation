@@ -19,7 +19,7 @@ import {
   trimOptionalString
 } from "./model-inclusion-dto-transforms";
 
-export const WEB_SEARCH_PROVIDER_VALUES = ["kimi_web_search"] as const;
+export const WEB_SEARCH_PROVIDER_VALUES = ["kimi_web_search", "volcengine_web_search"] as const;
 
 export class WebSearchCheckDto {
   @IsArray()

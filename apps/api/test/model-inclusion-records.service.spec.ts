@@ -9,6 +9,7 @@ import {
   KimiProviderError,
   KimiWebSearchProvider
 } from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
+import { VolcengineWebSearchProvider } from "../src/modules/model-inclusion/providers/volcengine-web-search.provider";
 import { analyzeGeoHitFromAnswer } from "../src/modules/model-inclusion/utils/analyze-geo-hit.util";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
@@ -24,6 +25,9 @@ describe("ModelInclusionRecordsService", () => {
   let kimiProvider: {
     search: ReturnType<typeof vi.fn>;
   };
+  let volcengineProvider: {
+    search: ReturnType<typeof vi.fn>;
+  };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -32,9 +36,13 @@ describe("ModelInclusionRecordsService", () => {
     kimiProvider = {
       search: vi.fn()
     };
+    volcengineProvider = {
+      search: vi.fn()
+    };
     service = new ModelInclusionRecordsService(
       prisma as unknown as PrismaService,
-      kimiProvider as unknown as KimiWebSearchProvider
+      kimiProvider as unknown as KimiWebSearchProvider,
+      volcengineProvider as unknown as VolcengineWebSearchProvider
     );
 
     const user = await prisma.user.create({
@@ -55,6 +63,7 @@ describe("ModelInclusionRecordsService", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     kimiProvider.search.mockReset();
+    volcengineProvider.search.mockReset();
   });
 
   function unique(label: string): string {
@@ -177,6 +186,144 @@ describe("ModelInclusionRecordsService", () => {
       searchResultId: "search_123"
     });
     expect(result.searchResults).toEqual([{ searchId: "search_123" }]);
+  });
+
+  it("returns a clear Volcengine Web Search error when the API key is missing", async () => {
+    const provider = new VolcengineWebSearchProvider(
+      new ConfigService({
+        VOLCENGINE_WEB_SEARCH_RESPONSES_URL: "https://ark.cn-beijing.volces.com/api/v3/responses",
+        VOLCENGINE_WEB_SEARCH_MODEL: "doubao-test-model"
+      })
+    );
+
+    await expect(
+      provider.search({
+        promptText: "激光测距传感器怎么选？"
+      })
+    ).rejects.toThrow("VOLCENGINE_WEB_SEARCH_API_KEY is not configured");
+  });
+
+  it("extracts a Volcengine Responses API answer from output_text and saves web_search_call evidence", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          id: "resp_ark_1",
+          output_text: "联网搜索后，凯基特激光测距传感器适合工业现场测距。",
+          output: [
+            {
+              id: "ws_1",
+              type: "web_search_call",
+              status: "completed"
+            },
+            {
+              id: "msg_1",
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: "联网搜索后，凯基特激光测距传感器适合工业现场测距。"
+                }
+              ]
+            }
+          ]
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new VolcengineWebSearchProvider(
+      new ConfigService({
+        VOLCENGINE_WEB_SEARCH_API_KEY: "test-key-not-real",
+        VOLCENGINE_WEB_SEARCH_RESPONSES_URL: "https://ark.cn-beijing.volces.com/api/v3/responses",
+        VOLCENGINE_WEB_SEARCH_MODEL: "doubao-test-model",
+        VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: "1000"
+      })
+    );
+
+    const result = await provider.search({
+      promptText: "激光测距传感器怎么选？"
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.finalAnswer).toContain("凯基特");
+    expect(result.searchResults).toEqual([
+      expect.objectContaining({
+        webSearchCallId: "ws_1",
+        type: "web_search_call",
+        status: "completed"
+      })
+    ]);
+    expect(result.citations).toEqual([]);
+    expect(result.retryCount).toBe(0);
+  });
+
+  it("extracts a Volcengine answer from output message content when output_text is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          id: "resp_ark_2",
+          output: [
+            {
+              id: "msg_1",
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: "凯基特在行车防撞场景中可作为激光测距方案候选。"
+                }
+              ]
+            }
+          ]
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new VolcengineWebSearchProvider(
+      new ConfigService({
+        VOLCENGINE_WEB_SEARCH_API_KEY: "test-key-not-real",
+        VOLCENGINE_WEB_SEARCH_RESPONSES_URL: "https://ark.cn-beijing.volces.com/api/v3/responses",
+        VOLCENGINE_WEB_SEARCH_MODEL: "doubao-test-model",
+        VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: "1000"
+      })
+    );
+
+    const result = await provider.search({
+      promptText: "行车防撞用什么激光测距传感器？"
+    });
+
+    expect(result.finalAnswer).toContain("凯基特");
+    expect(result.searchResults).toEqual([]);
+  });
+
+  it("keeps partial Volcengine answers when the response is incomplete because of length", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          id: "resp_ark_incomplete",
+          status: "incomplete",
+          incomplete_details: {
+            reason: "length"
+          },
+          output_text: "凯基特激光测距传感器可用于工业现场，但回答被截断。"
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new VolcengineWebSearchProvider(
+      new ConfigService({
+        VOLCENGINE_WEB_SEARCH_API_KEY: "test-key-not-real",
+        VOLCENGINE_WEB_SEARCH_RESPONSES_URL: "https://ark.cn-beijing.volces.com/api/v3/responses",
+        VOLCENGINE_WEB_SEARCH_MODEL: "doubao-test-model",
+        VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: "1000"
+      })
+    );
+
+    const result = await provider.search({
+      promptText: "工业现场激光测距传感器厂家推荐"
+    });
+
+    expect(result.finalAnswer).toContain("凯基特");
+    expect(result.rawAnswer).toContain("[Volcengine response incomplete:length]");
+    expect(result.retryCount).toBe(0);
   });
 
   it("uses 120000ms as the default Kimi Web Search timeout", async () => {
@@ -919,6 +1066,61 @@ describe("ModelInclusionRecordsService", () => {
       competitorMentioned: false,
       hitLevel: "recommended",
       searchResults: [{ searchId: "search_record_1" }],
+      retryCount: 0
+    });
+  });
+
+  it("runs Volcengine web-search checks and stores Doubao/Volcengine GEO hit fields", async () => {
+    const prompt = await createGeoPrompt("火山方舟联网检测提示词");
+    volcengineProvider.search.mockResolvedValue({
+      finalAnswer:
+        "联网搜索后，凯基特激光测距传感器适合工业现场检测，可参考官网 https://www.kjtchina.com 。",
+      rawAnswer:
+        "联网搜索后，凯基特激光测距传感器适合工业现场检测，可参考官网 https://www.kjtchina.com 。",
+      citations: [],
+      searchResults: [
+        {
+          webSearchCallId: "ws_volc_1",
+          status: "completed",
+          type: "web_search_call"
+        }
+      ],
+      retryCount: 0
+    });
+
+    const result = await service.webSearchCheck({
+      geoPromptIds: [prompt.id],
+      provider: "volcengine_web_search",
+      brandName: "凯基特",
+      companyName: "凯基特",
+      websiteUrl: "https://www.kjtchina.com"
+    });
+
+    expect(result).toMatchObject({
+      provider: "volcengine_web_search",
+      successCount: 1,
+      failedCount: 0
+    });
+    expect(result.createdItems[0]).toMatchObject({
+      geoPromptId: prompt.id,
+      model: "doubao-seed-1-6-250615",
+      platform: "豆包 / 火山方舟",
+      entryPoint: "web_search_api",
+      detectionMethod: "web_search",
+      deviceType: "api",
+      isWebSearchEnabled: true,
+      isLoggedIn: false,
+      recordMethod: RecordMethod.api,
+      brandMentioned: true,
+      citedOfficialSite: true,
+      hitLevel: "mentioned",
+      searchResults: [
+        {
+          webSearchCallId: "ws_volc_1",
+          status: "completed",
+          type: "web_search_call"
+        }
+      ],
       retryCount: 0
     });
   });

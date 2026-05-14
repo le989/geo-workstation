@@ -296,12 +296,14 @@ const handleWebSearchCheck = async (payload: WebSearchCheckPayload) => {
 
   try {
     webSearchResult.value = await runKimiWebSearchCheck(payload);
+    const providerLabel =
+      payload.provider === "volcengine_web_search" ? "豆包 / 火山方舟联网搜索" : "Kimi 联网检测";
     ElMessage.success(
-      `Kimi 联网检测完成：成功 ${webSearchResult.value.successCount} 条，失败 ${webSearchResult.value.failedCount} 条。`
+      `${providerLabel}完成：成功 ${webSearchResult.value.successCount} 条，失败 ${webSearchResult.value.failedCount} 条。`
     );
     await refreshAll();
   } catch (error) {
-    webSearchError.value = error instanceof Error ? error.message : "Kimi 联网检测失败。";
+    webSearchError.value = error instanceof Error ? error.message : "联网检测失败。";
   } finally {
     webSearchSubmitting.value = false;
   }
@@ -383,8 +385,8 @@ onMounted(() => {
           模型中的品牌提及、推荐、官网引用和竞品出现情况，用于判断哪些词已经被覆盖，哪些词还需要补内容或补资料。
         </p>
         <strong>
-          第一版支持人工录入 / 导入覆盖记录，并提供 Kimi Web Search API 联网检测；不做
-          PC、移动网页或 App 自动化。
+          第一版支持人工录入 / 导入覆盖记录，并提供 Kimi Web Search API 联网检测与豆包 /
+          火山方舟联网搜索检测；不做 PC、移动网页或 App 自动化。
         </strong>
       </div>
       <div class="model-inclusion-hero__actions">

@@ -28,6 +28,12 @@ export type ApiEnvironment = {
   KIMI_WEB_SEARCH_ENABLED: string;
   KIMI_WEB_SEARCH_TOOL_NAME: string;
   KIMI_TIMEOUT_MS: number;
+  VOLCENGINE_WEB_SEARCH_API_KEY?: string;
+  VOLCENGINE_WEB_SEARCH_BASE_URL: string;
+  VOLCENGINE_WEB_SEARCH_RESPONSES_URL: string;
+  VOLCENGINE_WEB_SEARCH_MODEL: string;
+  VOLCENGINE_WEB_SEARCH_FORCE_SEARCH: string;
+  VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: number;
 };
 
 export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvironment {
@@ -60,7 +66,28 @@ export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvi
     KIMI_MODEL: getString(config.KIMI_MODEL, "kimi-k2.6"),
     KIMI_WEB_SEARCH_ENABLED: getString(config.KIMI_WEB_SEARCH_ENABLED, "true"),
     KIMI_WEB_SEARCH_TOOL_NAME: getString(config.KIMI_WEB_SEARCH_TOOL_NAME, "$web_search"),
-    KIMI_TIMEOUT_MS: getPositiveNumber(config.KIMI_TIMEOUT_MS, 90000)
+    KIMI_TIMEOUT_MS: getPositiveNumber(config.KIMI_TIMEOUT_MS, 120000),
+    VOLCENGINE_WEB_SEARCH_API_KEY: getOptionalString(config.VOLCENGINE_WEB_SEARCH_API_KEY),
+    VOLCENGINE_WEB_SEARCH_BASE_URL: getString(
+      config.VOLCENGINE_WEB_SEARCH_BASE_URL,
+      "https://ark.cn-beijing.volces.com/api/v3"
+    ),
+    VOLCENGINE_WEB_SEARCH_RESPONSES_URL: getString(
+      config.VOLCENGINE_WEB_SEARCH_RESPONSES_URL,
+      "https://ark.cn-beijing.volces.com/api/v3/responses"
+    ),
+    VOLCENGINE_WEB_SEARCH_MODEL: getString(
+      config.VOLCENGINE_WEB_SEARCH_MODEL,
+      "doubao-seed-1-6-250615"
+    ),
+    VOLCENGINE_WEB_SEARCH_FORCE_SEARCH: getString(
+      config.VOLCENGINE_WEB_SEARCH_FORCE_SEARCH,
+      "true"
+    ),
+    VOLCENGINE_WEB_SEARCH_TIMEOUT_MS: getPositiveNumber(
+      config.VOLCENGINE_WEB_SEARCH_TIMEOUT_MS,
+      120000
+    )
   };
 }
 

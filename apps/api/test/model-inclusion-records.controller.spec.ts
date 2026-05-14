@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AppModule } from "../src/app.module";
 import { configureApiApp } from "../src/common/bootstrap/configure-api-app";
 import { KimiWebSearchProvider } from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
+import { VolcengineWebSearchProvider } from "../src/modules/model-inclusion/providers/volcengine-web-search.provider";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 
 const databaseUrl =
@@ -39,6 +40,23 @@ describe("ModelInclusionRecordsController", () => {
       searchResultId: "controller_search_1",
       citations: [],
       searchResults: [{ searchId: "controller_search_1" }]
+    })
+  };
+  const volcengineProvider = {
+    search: async () => ({
+      finalAnswer:
+        "火山方舟联网搜索后，凯基特激光测距传感器适合工业现场检测，可参考 https://www.kjtchina.com 。",
+      rawAnswer:
+        "火山方舟联网搜索后，凯基特激光测距传感器适合工业现场检测，可参考 https://www.kjtchina.com 。",
+      citations: [],
+      searchResults: [
+        {
+          webSearchCallId: "volc_web_search_1",
+          status: "completed",
+          type: "web_search_call"
+        }
+      ],
+      retryCount: 0
     })
   };
   let restoreEnv: Record<string, string | undefined> = {};
@@ -77,6 +95,8 @@ describe("ModelInclusionRecordsController", () => {
     })
       .overrideProvider(KimiWebSearchProvider)
       .useValue(kimiProvider)
+      .overrideProvider(VolcengineWebSearchProvider)
+      .useValue(volcengineProvider)
       .compile();
     app = moduleRef.createNestApplication();
     configureApiApp(app);
@@ -291,6 +311,52 @@ describe("ModelInclusionRecordsController", () => {
             brandRecommended: true,
             citedOfficialSite: true,
             hitLevel: "recommended"
+          }
+        ]
+      }
+    });
+  });
+
+  it("runs the Volcengine web-search-check API without requesting external Volcengine", async () => {
+    const prompt = await createGeoPrompt("火山方舟联网检测 API 提示词");
+
+    const response = await request(app.getHttpServer())
+      .post("/api/model-inclusion-records/web-search-check")
+      .send({
+        geoPromptIds: [prompt.id],
+        provider: "volcengine_web_search",
+        brandName: "凯基特",
+        companyName: "凯基特",
+        websiteUrl: "https://www.kjtchina.com"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      code: 0,
+      message: "ok",
+      data: {
+        provider: "volcengine_web_search",
+        successCount: 1,
+        failedCount: 0,
+        createdItems: [
+          {
+            geoPromptId: prompt.id,
+            platform: "豆包 / 火山方舟",
+            entryPoint: "web_search_api",
+            detectionMethod: "web_search",
+            deviceType: "api",
+            isWebSearchEnabled: true,
+            recordMethod: "api",
+            brandMentioned: true,
+            citedOfficialSite: true,
+            hitLevel: "mentioned",
+            searchResults: [
+              {
+                webSearchCallId: "volc_web_search_1",
+                status: "completed",
+                type: "web_search_call"
+              }
+            ]
           }
         ]
       }
