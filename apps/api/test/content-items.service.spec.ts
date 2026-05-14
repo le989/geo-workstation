@@ -335,4 +335,48 @@ describe("ContentItemsService", () => {
       body: expect.stringContaining("发布优化版正文")
     });
   });
+
+  it("formats content items for publish without overwriting the original content", async () => {
+    const item = await createQualityCheckItem(
+      "## 适用场景\n激光测距传感器选型前应先确认现场工况。\n\n## 选型判断逻辑\n- 确认检测距离\n- 确认输出方式需结合具体型号资料确认\n\n## FAQ 总结\n问：怎么选？答：先准备现场资料。"
+    );
+
+    const styles = ["general", "website", "zhihu_baijiahao", "wechat"] as const;
+
+    for (const formatStyle of styles) {
+      const formatted = await itemsService.formatForPublish(item.id, {
+        sourceType: "original",
+        formatStyle,
+        includeGeoNotes: true,
+        includeWarnings: true
+      });
+
+      expect(formatted).toMatchObject({
+        title: item.title,
+        style: formatStyle,
+        html: expect.stringContaining("<article"),
+        markdown: expect.stringContaining("## 适用场景"),
+        plainText: expect.stringContaining("激光测距传感器选型前应先确认现场工况"),
+        copyTips: expect.any(Array)
+      });
+      expect(formatted.html).not.toContain("<script");
+    }
+
+    const optimized = await itemsService.formatForPublish(item.id, {
+      sourceType: "optimized",
+      optimizedTitle: "优化后的发布标题",
+      optimizedBody: "## 优化稿\n这是一版只用于复制发布的优化稿，原内容项不能被覆盖。",
+      formatStyle: "website"
+    });
+    expect(optimized.title).toBe("优化后的发布标题");
+    expect(optimized.markdown).toContain("这是一版只用于复制发布的优化稿");
+
+    const unchanged = await prisma.contentItem.findUniqueOrThrow({
+      where: {
+        id: item.id
+      }
+    });
+    expect(unchanged.title).toBe(item.title);
+    expect(unchanged.body).toContain("激光测距传感器选型前应先确认现场工况");
+  });
 });

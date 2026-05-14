@@ -5,13 +5,16 @@ import type {
   ContentItem,
   ContentQualityCheckResult,
   ContentQualityRiskItem,
+  FormatContentItemForPublishPayload,
   ContentTaskDetail,
+  PublishFormatResult,
   PublishOptimizationResult
 } from "@/api/content";
 import ContentGenerationTypeTag from "@/components/ContentGenerationTypeTag.vue";
 import ContentItemTable from "@/components/ContentItemTable.vue";
 import ContentTaskStatusTag from "@/components/ContentTaskStatusTag.vue";
 import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
+import PublishFormatPanel from "@/components/PublishFormatPanel.vue";
 import { generationTypeLabelMap } from "@/config/content-options";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { contentTypeLabelMap, instructionTypeLabelMap } from "@/config/instruction-options";
@@ -30,6 +33,7 @@ const props = defineProps<{
   deletingIds?: string[];
   qualityCheckingIds?: string[];
   optimizingIds?: string[];
+  formattingIds?: string[];
   qualityCheckResult?: {
     itemId: string;
     itemTitle: string;
@@ -42,6 +46,12 @@ const props = defineProps<{
     result: PublishOptimizationResult;
   } | null;
   publishOptimizationError?: string;
+  publishFormatResult?: {
+    itemId: string;
+    itemTitle: string;
+    result: PublishFormatResult;
+  } | null;
+  publishFormatError?: string;
 }>();
 
 const emit = defineEmits<{
@@ -54,6 +64,7 @@ const emit = defineEmits<{
   delete: [item: ContentItem];
   qualityCheck: [item: ContentItem];
   optimize: [item: ContentItem];
+  formatPublish: [item: ContentItem, payload: FormatContentItemForPublishPayload];
 }>();
 
 const hasFailedItems = computed(
@@ -140,6 +151,10 @@ const copyOptimizedBody = async () => {
   } catch {
     ElMessage.warning("当前浏览器不支持自动复制，请手动选中正文复制。");
   }
+};
+
+const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPublishPayload) => {
+  emit("formatPublish", item, payload);
 };
 </script>
 
@@ -474,6 +489,15 @@ const copyOptimizedBody = async () => {
               </div>
             </div>
           </el-card>
+
+          <PublishFormatPanel
+            :items="detail.items"
+            :publish-optimization-result="publishOptimizationResult"
+            :publish-format-result="publishFormatResult"
+            :publish-format-error="publishFormatError"
+            :formatting-ids="formattingIds"
+            @format="handleFormatPublish"
+          />
         </section>
       </template>
 

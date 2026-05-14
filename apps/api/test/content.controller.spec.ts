@@ -180,6 +180,28 @@ describe("GeoContentController", () => {
       }
     });
 
+    const formatResponse = await request(app.getHttpServer())
+      .post(`/api/content-items/${itemId}/format-for-publish`)
+      .send({
+        sourceType: "original",
+        formatStyle: "wechat",
+        includeGeoNotes: true,
+        includeWarnings: true
+      })
+      .expect(201);
+    expect(formatResponse.body).toMatchObject({
+      code: 0,
+      message: "ok",
+      data: {
+        title: "API 编辑后的 GEO FAQ",
+        html: expect.stringContaining("<article"),
+        markdown: expect.stringContaining("## FAQ 总结"),
+        plainText: expect.stringContaining("API 编辑后的 GEO FAQ 内容"),
+        style: "wechat",
+        copyTips: expect.any(Array)
+      }
+    });
+
     const markdownResponse = await request(app.getHttpServer())
       .get(`/api/content-items/${itemId}/export`)
       .expect(200);

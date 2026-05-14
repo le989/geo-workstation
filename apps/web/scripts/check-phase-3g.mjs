@@ -15,6 +15,7 @@ const requiredFiles = [
   "src/components/ContentTaskFormDialog.vue",
   "src/components/ContentTaskStatusTag.vue",
   "src/components/GeoPromptSelector.vue",
+  "src/components/PublishFormatPanel.vue",
   "src/config/content-options.ts",
   "src/views/ContentTasksView.vue"
 ];
@@ -30,10 +31,12 @@ const apiRequiredSnippets = [
   "exportContentItem",
   "qualityCheckContentItem",
   "optimizeContentItemForPublish",
+  "formatContentItemForPublish",
   "/api/content-tasks",
   "/api/content-items",
   "/quality-check",
   "/optimize-for-publish",
+  "/format-for-publish",
   "/retry",
   "/export"
 ];
@@ -51,6 +54,17 @@ const pageRequiredSnippets = [
   "内容质量检查与发布优化版",
   "未发现明显高风险项",
   "发布优化版正文已复制",
+  "发布稿排版",
+  "生成富文本发布稿",
+  "复制富文本",
+  "复制 Markdown",
+  "复制纯文本",
+  "下载 HTML",
+  "下载 Markdown",
+  "通用发布稿",
+  "官网文章",
+  "知乎 / 百家号",
+  "公众号草稿",
   "ContentTaskFilters",
   "ContentTaskFormDialog",
   "ContentTaskDetailDrawer",
@@ -106,7 +120,8 @@ const pageSource = [
   await readSource("src/components/ContentTaskFilters.vue"),
   await readSource("src/components/ContentTaskFormDialog.vue"),
   await readSource("src/components/ContentTaskStatusTag.vue"),
-  await readSource("src/components/GeoPromptSelector.vue")
+  await readSource("src/components/GeoPromptSelector.vue"),
+  await readSource("src/components/PublishFormatPanel.vue")
 ].join("\n");
 
 for (const snippet of pageRequiredSnippets) {

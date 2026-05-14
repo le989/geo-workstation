@@ -6,6 +6,7 @@ import {
   createContentTask,
   deleteContentItem,
   exportContentItem,
+  formatContentItemForPublish,
   getContentTask,
   getContentTasks,
   optimizeContentItemForPublish,
@@ -18,6 +19,8 @@ import {
   type ContentTaskDetail,
   type ContentTaskQuery,
   type CreateContentTaskPayload,
+  type FormatContentItemForPublishPayload,
+  type PublishFormatResult,
   type PublishOptimizationResult,
   type UpdateContentItemPayload
 } from "@/api/content";
@@ -63,6 +66,7 @@ const exportingIds = ref<string[]>([]);
 const deletingIds = ref<string[]>([]);
 const qualityCheckingIds = ref<string[]>([]);
 const optimizingIds = ref<string[]>([]);
+const formattingIds = ref<string[]>([]);
 const qualityCheckResult = ref<{
   itemId: string;
   itemTitle: string;
@@ -75,6 +79,12 @@ const publishOptimizationResult = ref<{
   result: PublishOptimizationResult;
 } | null>(null);
 const publishOptimizationError = ref("");
+const publishFormatResult = ref<{
+  itemId: string;
+  itemTitle: string;
+  result: PublishFormatResult;
+} | null>(null);
+const publishFormatError = ref("");
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
@@ -290,6 +300,8 @@ const clearQualityReviewState = () => {
   qualityCheckError.value = "";
   publishOptimizationResult.value = null;
   publishOptimizationError.value = "";
+  publishFormatResult.value = null;
+  publishFormatError.value = "";
 };
 
 const getReviewProviderPayload = () => ({
@@ -369,6 +381,30 @@ const handleOptimizeForPublish = async (item: ContentItem) => {
     publishOptimizationError.value =
       error instanceof Error ? error.message : "生成发布优化版失败，请稍后重试或切换为模拟生成。";
     ElMessage.error(publishOptimizationError.value);
+  }
+};
+
+const handleFormatForPublish = async (
+  item: ContentItem,
+  payload: FormatContentItemForPublishPayload
+) => {
+  publishFormatError.value = "";
+
+  try {
+    await withIdFlag(formattingIds, item.id, async () => {
+      const result = await formatContentItemForPublish(item.id, payload);
+      publishFormatResult.value = {
+        itemId: item.id,
+        itemTitle: item.title,
+        result
+      };
+    });
+
+    ElMessage.success("富文本发布稿已生成，原内容项未被覆盖。");
+  } catch (error) {
+    publishFormatError.value =
+      error instanceof Error ? error.message : "生成富文本发布稿失败，请稍后重试。";
+    ElMessage.error(publishFormatError.value);
   }
 };
 
@@ -530,10 +566,13 @@ onMounted(() => {
       :deleting-ids="deletingIds"
       :quality-checking-ids="qualityCheckingIds"
       :optimizing-ids="optimizingIds"
+      :formatting-ids="formattingIds"
       :quality-check-result="qualityCheckResult"
       :quality-check-error="qualityCheckError"
       :publish-optimization-result="publishOptimizationResult"
       :publish-optimization-error="publishOptimizationError"
+      :publish-format-result="publishFormatResult"
+      :publish-format-error="publishFormatError"
       @refresh="loadDetail"
       @retry="handleRetry()"
       @view="openItemDialog($event, 'view')"
@@ -542,6 +581,7 @@ onMounted(() => {
       @delete="handleDeleteItem"
       @quality-check="handleQualityCheck"
       @optimize="handleOptimizeForPublish"
+      @format-publish="handleFormatForPublish"
     />
 
     <ContentItemFormDialog

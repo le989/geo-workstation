@@ -182,6 +182,27 @@ export type PublishOptimizationResult = {
   warnings: string[];
 };
 
+export type PublishSourceType = "original" | "optimized";
+export type PublishFormatStyle = "general" | "website" | "zhihu_baijiahao" | "wechat";
+
+export type FormatContentItemForPublishPayload = {
+  sourceType?: PublishSourceType;
+  optimizedTitle?: string;
+  optimizedBody?: string;
+  formatStyle?: PublishFormatStyle;
+  includeGeoNotes?: boolean;
+  includeWarnings?: boolean;
+};
+
+export type PublishFormatResult = {
+  title: string;
+  html: string;
+  markdown: string;
+  plainText: string;
+  style: PublishFormatStyle;
+  copyTips: string[];
+};
+
 const toQueryString = (params: Record<string, string | number | boolean | undefined>) => {
   const searchParams = new URLSearchParams();
 
@@ -240,6 +261,15 @@ export const optimizeContentItemForPublish = (
   payload: OptimizeContentItemForPublishPayload = {}
 ) =>
   apiRequest<PublishOptimizationResult>(`/api/content-items/${id}/optimize-for-publish`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const formatContentItemForPublish = (
+  id: string,
+  payload: FormatContentItemForPublishPayload = {}
+) =>
+  apiRequest<PublishFormatResult>(`/api/content-items/${id}/format-for-publish`, {
     method: "POST",
     body: JSON.stringify(payload)
   });

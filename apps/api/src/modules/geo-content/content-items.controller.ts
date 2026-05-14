@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
 import { ContentItemsService } from "./content-items.service";
 import { ContentQualityCheckDto } from "./dto/content-quality-check.dto";
+import { FormatContentItemForPublishDto } from "./dto/format-content-item-for-publish.dto";
 import { OptimizeContentItemForPublishDto } from "./dto/optimize-content-item-for-publish.dto";
 import { QueryContentItemsDto } from "./dto/query-content-items.dto";
 import { UpdateContentItemDto } from "./dto/update-content-item.dto";
@@ -45,6 +46,14 @@ export class ContentItemsController {
     body: OptimizeContentItemForPublishDto
   ) {
     return this.contentItemsService.optimizeForPublish(id, body);
+  }
+
+  @Post(":id/format-for-publish")
+  formatForPublish(
+    @Param("id") id: string,
+    @Body(createValidationPipe(FormatContentItemForPublishDto)) body: FormatContentItemForPublishDto
+  ) {
+    return this.contentItemsService.formatForPublish(id, body);
   }
 
   @Get(":id/export")

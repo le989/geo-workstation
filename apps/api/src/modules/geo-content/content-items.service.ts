@@ -19,6 +19,7 @@ import {
   type ProjectProfileResponse
 } from "../project-profile/project-profile.service";
 import type { ContentQualityCheckDto } from "./dto/content-quality-check.dto";
+import type { FormatContentItemForPublishDto } from "./dto/format-content-item-for-publish.dto";
 import type { OptimizeContentItemForPublishDto } from "./dto/optimize-content-item-for-publish.dto";
 import type { QueryContentItemsDto } from "./dto/query-content-items.dto";
 import type { UpdateContentItemDto } from "./dto/update-content-item.dto";
@@ -29,6 +30,10 @@ import {
   normalizeUpdateContentItem,
   type NormalizedQueryContentItems
 } from "./utils/normalize-content-item";
+import {
+  buildFormattedPublishContent,
+  type FormattedPublishContent
+} from "./utils/publish-format.util";
 import { PrismaService } from "../../prisma/prisma.service";
 
 export type GeneratedContentItemResponse = {
@@ -99,6 +104,8 @@ export type ContentPublishOptimizationResponse = {
   changes: string[];
   warnings: string[];
 };
+
+export type ContentPublishFormatResponse = FormattedPublishContent;
 
 type ContentItemWithContext = ContentItem & {
   geoPrompt: GeoPrompt | null;
@@ -300,6 +307,36 @@ export class ContentItemsService {
     }
 
     return buildContentItemMarkdown(item);
+  }
+
+  async formatForPublish(
+    id: string,
+    input: FormatContentItemForPublishDto
+  ): Promise<ContentPublishFormatResponse> {
+    const context = await this.loadQualityContext(id);
+    const sourceType = input.sourceType ?? "original";
+    const formatStyle = input.formatStyle ?? "general";
+    const title =
+      sourceType === "optimized"
+        ? (input.optimizedTitle ?? context.item.title)
+        : context.item.title;
+    const body = sourceType === "optimized" ? input.optimizedBody : context.item.body;
+
+    if (!body?.trim()) {
+      throw new BadRequestException(
+        sourceType === "optimized"
+          ? "生成发布稿排版需要传入发布优化版正文。"
+          : "内容项正文为空，无法生成发布稿排版。"
+      );
+    }
+
+    return buildFormattedPublishContent({
+      title,
+      body,
+      style: formatStyle,
+      includeGeoNotes: input.includeGeoNotes ?? true,
+      includeWarnings: input.includeWarnings ?? true
+    });
   }
 
   async qualityCheck(
