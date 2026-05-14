@@ -25,6 +25,17 @@ export type GeoHitLevel =
   | "competitor_only"
   | "not_mentioned"
   | "unclear";
+export type ProviderErrorCategory =
+  | "network_timeout"
+  | "network_fetch_failed"
+  | "network_connection_reset"
+  | "provider_auth_error"
+  | "provider_rate_limit"
+  | "provider_insufficient_balance"
+  | "provider_model_error"
+  | "provider_tool_error"
+  | "provider_bad_request"
+  | "provider_unknown";
 
 export type PaginatedResponse<T> = {
   items: T[];
@@ -70,6 +81,8 @@ export type ModelInclusionRecord = {
   createdBy: string;
   createdAt: string;
   geoPrompt: ModelInclusionGeoPrompt;
+  retryCount?: number;
+  errorCategory?: ProviderErrorCategory;
 };
 
 export type ModelInclusionRecordQuery = {
@@ -165,6 +178,8 @@ export type FailedWebSearchCheckItem = {
   geoPromptId: string;
   promptText?: string;
   errorMessage: string;
+  errorCategory?: ProviderErrorCategory;
+  retryCount?: number;
   record?: ModelInclusionRecord;
 };
 

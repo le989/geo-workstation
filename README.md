@@ -277,9 +277,9 @@ Kimi Web Search 联网检测只在后端读取环境变量，前端不会接触 
 - `KIMI_MODEL`
 - `KIMI_WEB_SEARCH_ENABLED`
 - `KIMI_WEB_SEARCH_TOOL_NAME`
-- `KIMI_TIMEOUT_MS`
+- `KIMI_TIMEOUT_MS`，建议设置为 `120000`
 
-该检测是 Kimi Web Search API 结果，不等同于 Kimi App 端真实用户结果，也不包含 PC/移动网页端自动采集。
+该检测是 Kimi Web Search API 结果，不等同于 Kimi App 端真实用户结果，也不包含 PC/移动网页端自动采集。联网搜索可能出现 `timeout`、`fetch failed`、连接重置等临时网络类失败；后端会对这类错误做最多 1 次轻量重试，并在返回结果中标记错误分类和 `retryCount`。
 
 启动后端：
 
@@ -496,7 +496,7 @@ pnpm --filter @geo-workstation/shared build
 
 - 实现模型覆盖与上词记录后端 API：手动新增、分页查询、批量导入、CSV 导出、未覆盖提示词查询和基础 summary。
 - Phase Monitor-Record-1 将模型覆盖记录升级为多入口 GEO 命中记录字段：保留旧字段，同时新增 `platform`、`entryPoint`、`detectionMethod`、`deviceType`、`isWebSearchEnabled`、`isLoggedIn`、`citedContentAsset`、`competitorMentioned`、`hitLevel`、`rawAnswer`、`citations`、`searchResults`、`screenshotPath` 和 `errorMessage`，用于承接后续联网搜索 API、PC/移动网页和 App 人工抽查结果。
-- Phase Monitor-Web-1 接入 Kimi Web Search API：选择少量 GEO 提示词后触发 `$web_search` tool-call loop，自动规则判断品牌提及、品牌推荐、官网引用、内容资产引用和竞品出现，并写入 `model_inclusion_records` 的 `platform = Kimi`、`entryPoint = web_search_api`、`detectionMethod = web_search`、`deviceType = api`、`isWebSearchEnabled = true` 等字段。
+- Phase Monitor-Web-1 接入 Kimi Web Search API：选择少量 GEO 提示词后触发 `$web_search` tool-call loop，自动规则判断品牌提及、品牌推荐、官网引用、内容资产引用和竞品出现，并写入 `model_inclusion_records` 的 `platform = Kimi`、`entryPoint = web_search_api`、`detectionMethod = web_search`、`deviceType = api`、`isWebSearchEnabled = true` 等字段。Monitor-Web-1.1 将 Kimi 默认超时调整为 120000ms，并对 timeout、fetch failed、连接重置等网络类失败做最多 1 次重试。
 - 新增记录前校验 GEO 提示词存在且未软删除；查询记录时返回关联提示词的 `promptText`、类型、产品线和用户意图。
 - 批量导入按行独立校验，支持通过 `geoPromptId` 或 `promptText` 匹配提示词；导入成功行强制写入 `recordMethod = import`，不自动创建新提示词。
 - 未覆盖提示词查询基于 `geo_prompts`，默认只查询 `trackEnabled = true` 且未软删除的提示词。

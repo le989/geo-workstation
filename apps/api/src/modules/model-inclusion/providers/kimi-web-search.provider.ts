@@ -1,6 +1,36 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+export type ProviderErrorCategory =
+  | "network_timeout"
+  | "network_fetch_failed"
+  | "network_connection_reset"
+  | "provider_auth_error"
+  | "provider_rate_limit"
+  | "provider_insufficient_balance"
+  | "provider_model_error"
+  | "provider_tool_error"
+  | "provider_bad_request"
+  | "provider_unknown";
+
+const RETRYABLE_PROVIDER_ERROR_CATEGORIES = new Set<ProviderErrorCategory>([
+  "network_timeout",
+  "network_fetch_failed",
+  "network_connection_reset"
+]);
+
+export class KimiProviderError extends Error {
+  constructor(
+    message: string,
+    readonly category: ProviderErrorCategory = "provider_unknown",
+    readonly retryCount = 0,
+    readonly status?: number
+  ) {
+    super(message);
+    this.name = "KimiProviderError";
+  }
+}
+
 export type KimiWebSearchToolCall = {
   id: string;
   name: string;
@@ -15,6 +45,7 @@ export type KimiWebSearchResult = {
   searchResultId?: string;
   citations: unknown[];
   searchResults: unknown[];
+  retryCount: number;
 };
 
 export type KimiWebSearchInput = {
@@ -52,12 +83,136 @@ type KimiChatResponse = {
   choices?: KimiChoice[];
 };
 
+const getErrorStatus = (error: unknown): number | undefined => {
+  const value = (error as { status?: unknown; statusCode?: unknown })?.status;
+  if (typeof value === "number") {
+    return value;
+  }
+
+  const statusCode = (error as { statusCode?: unknown })?.statusCode;
+  return typeof statusCode === "number" ? statusCode : undefined;
+};
+
+const getErrorCode = (error: unknown): string => {
+  const record = error as { code?: unknown; cause?: { code?: unknown } };
+  if (typeof record?.code === "string") {
+    return record.code;
+  }
+
+  return typeof record?.cause?.code === "string" ? record.cause.code : "";
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const record = error as { message?: unknown; cause?: { message?: unknown } };
+    if (typeof record.message === "string") {
+      return record.message;
+    }
+    if (typeof record.cause?.message === "string") {
+      return record.cause.message;
+    }
+  }
+
+  return String(error || "Kimi provider error");
+};
+
+export const classifyProviderError = (error: unknown): ProviderErrorCategory => {
+  if (error instanceof KimiProviderError) {
+    return error.category;
+  }
+
+  const status = getErrorStatus(error);
+  const code = getErrorCode(error);
+  const message = getErrorMessage(error);
+  const text = `${code} ${message}`.toLowerCase();
+
+  if (status === 401 || status === 403 || /api key|unauthorized|forbidden|auth/.test(text)) {
+    return "provider_auth_error";
+  }
+  if (status === 429 || /rate limit|too many requests/.test(text)) {
+    return "provider_rate_limit";
+  }
+  if (/insufficient balance|quota|余额|欠费|balance/.test(text)) {
+    return "provider_insufficient_balance";
+  }
+  if (/und_err_connect_timeout|etimedout|timed out|timeout|aborterror/.test(text)) {
+    return "network_timeout";
+  }
+  if (/econnreset|socket hang up|connection reset/.test(text)) {
+    return "network_connection_reset";
+  }
+  if (/fetch failed|network error|enotfound|eai_again/.test(text)) {
+    return "network_fetch_failed";
+  }
+  if (/model/.test(text)) {
+    return "provider_model_error";
+  }
+  if (/web_search|tool|tool_calls|reasoning_content/.test(text)) {
+    return "provider_tool_error";
+  }
+  if (
+    status === 400 ||
+    /bad request|invalid_request|invalid request|invalid temperature/.test(text)
+  ) {
+    return "provider_bad_request";
+  }
+
+  return "provider_unknown";
+};
+
+export const isRetryableProviderError = (error: unknown): boolean =>
+  RETRYABLE_PROVIDER_ERROR_CATEGORIES.has(classifyProviderError(error));
+
+export const getProviderRetryCount = (error: unknown): number =>
+  error instanceof KimiProviderError ? error.retryCount : 0;
+
+export const formatProviderError = (error: unknown): string => {
+  const category = classifyProviderError(error);
+  const message = getErrorMessage(error);
+  return `[${category}] ${message}`;
+};
+
 @Injectable()
 export class KimiWebSearchProvider {
   constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
 
   async search(input: KimiWebSearchInput): Promise<KimiWebSearchResult> {
     const config = this.resolveConfig(input.model);
+    let retryCount = 0;
+
+    for (let attempt = 0; attempt <= 1; attempt += 1) {
+      try {
+        const result = await this.searchOnce(input, config);
+        return {
+          ...result,
+          retryCount
+        };
+      } catch (error) {
+        if (attempt < 1 && isRetryableProviderError(error)) {
+          retryCount += 1;
+          await this.sleep(config.retryDelayMs);
+          continue;
+        }
+
+        throw this.toProviderError(error, retryCount);
+      }
+    }
+
+    throw new KimiProviderError(
+      "Kimi Web Search retry loop ended unexpectedly.",
+      "provider_unknown",
+      retryCount
+    );
+  }
+
+  private async searchOnce(
+    input: KimiWebSearchInput,
+    config: ReturnType<KimiWebSearchProvider["resolveConfig"]>
+  ): Promise<Omit<KimiWebSearchResult, "retryCount">> {
     const messages: KimiMessage[] = [
       {
         role: "system",
@@ -162,13 +317,23 @@ export class KimiWebSearchProvider {
       model,
       toolName:
         this.configService.get<string>("KIMI_WEB_SEARCH_TOOL_NAME")?.trim() || "$web_search",
-      timeoutMs: this.resolveTimeout()
+      timeoutMs: this.resolveTimeout(),
+      retryDelayMs: this.resolveRetryDelay()
     };
   }
 
   private resolveTimeout(): number {
-    const configured = Number(this.configService.get<string>("KIMI_TIMEOUT_MS") ?? 90000);
-    return Number.isFinite(configured) && configured > 0 ? configured : 90000;
+    const configured = Number(this.configService.get<string>("KIMI_TIMEOUT_MS") ?? 120000);
+    return Number.isFinite(configured) && configured > 0 ? configured : 120000;
+  }
+
+  private resolveRetryDelay(): number {
+    const configured = Number(this.configService.get<string>("KIMI_RETRY_DELAY_MS") ?? 1000);
+    return Number.isFinite(configured) && configured >= 0 ? configured : 1000;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async postChatCompletion(
@@ -208,25 +373,49 @@ export class KimiWebSearchProvider {
       const json = this.parseJson(text);
 
       if (!response.ok) {
-        throw new BadRequestException(this.toReadableError(response.status, json, text));
+        const message = this.toReadableError(response.status, json, text);
+        throw new KimiProviderError(
+          message,
+          classifyProviderError({
+            status: response.status,
+            message
+          }),
+          0,
+          response.status
+        );
       }
 
       return json as KimiChatResponse;
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (error instanceof KimiProviderError) {
         throw error;
       }
 
       if (error instanceof Error && error.name === "AbortError") {
-        throw new BadRequestException("Kimi Web Search request timed out.");
+        throw new KimiProviderError("Kimi Web Search request timed out.", "network_timeout");
       }
 
-      throw new BadRequestException(
-        `Kimi Web Search network error: ${error instanceof Error ? error.message : "unknown"}`
+      const message = `Kimi Web Search network error: ${
+        error instanceof Error ? error.message : "unknown"
+      }`;
+      throw new KimiProviderError(
+        message,
+        classifyProviderError({
+          ...(error && typeof error === "object" ? (error as Record<string, unknown>) : {}),
+          message
+        })
       );
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private toProviderError(error: unknown, retryCount: number): KimiProviderError {
+    if (error instanceof KimiProviderError) {
+      return new KimiProviderError(error.message, error.category, retryCount, error.status);
+    }
+
+    return new KimiProviderError(getErrorMessage(error), classifyProviderError(error), retryCount);
   }
 
   private parseJson(text: string): unknown {

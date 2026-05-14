@@ -3,7 +3,13 @@ import { computed, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import type { GeoPrompt, GeoPromptQuery } from "@/api/geo-prompts";
 import { getGeoPrompts } from "@/api/geo-prompts";
-import type { WebSearchCheckPayload, WebSearchCheckResult } from "@/api/model-inclusion";
+import type {
+  FailedWebSearchCheckItem,
+  ModelInclusionRecord,
+  ProviderErrorCategory,
+  WebSearchCheckPayload,
+  WebSearchCheckResult
+} from "@/api/model-inclusion";
 import { getProjectProfile } from "@/api/project-profile";
 import { geoPromptTypeOptions, userIntentLabelMap } from "@/config/geo-prompt-options";
 import { hitLevelLabelMap } from "@/config/model-inclusion-options";
@@ -147,6 +153,78 @@ const formatHitLevel = (value?: string) =>
 
 const formatUserIntent = (prompt: GeoPrompt) =>
   userIntentLabelMap[prompt.userIntent] ?? prompt.userIntent;
+
+const errorCategoryLabelMap: Record<ProviderErrorCategory, string> = {
+  network_timeout: "网络超时",
+  network_fetch_failed: "网络请求失败",
+  network_connection_reset: "连接重置",
+  provider_auth_error: "鉴权错误",
+  provider_rate_limit: "限流",
+  provider_insufficient_balance: "余额不足",
+  provider_model_error: "模型错误",
+  provider_tool_error: "工具调用错误",
+  provider_bad_request: "请求参数错误",
+  provider_unknown: "未知错误"
+};
+
+type ResultRow = Partial<ModelInclusionRecord> & {
+  status: "success" | "failed";
+  promptText?: string;
+  errorMessage?: string;
+  errorCategory?: ProviderErrorCategory;
+  retryCount?: number;
+};
+
+const getFailureRecord = (item: FailedWebSearchCheckItem): ResultRow => ({
+  ...(item.record ?? {}),
+  status: "failed",
+  promptText: item.record?.geoPrompt?.promptText ?? item.promptText,
+  errorMessage: item.errorMessage,
+  errorCategory: item.errorCategory ?? item.record?.errorCategory,
+  retryCount: item.retryCount ?? item.record?.retryCount ?? 0
+});
+
+const resultRows = computed<ResultRow[]>(() => {
+  if (!props.result) {
+    return [];
+  }
+
+  return [
+    ...props.result.createdItems.map((item) => ({
+      ...item,
+      status: "success" as const,
+      retryCount: item.retryCount ?? 0
+    })),
+    ...props.result.failedItems.map((item) => getFailureRecord(item))
+  ];
+});
+
+const formatErrorCategory = (value?: ProviderErrorCategory) =>
+  value ? (errorCategoryLabelMap[value] ?? value) : "无";
+
+const formatRetryStatus = (value?: number) =>
+  value && value > 0 ? `已重试 ${value} 次` : "未重试";
+
+const getFailureHelpText = (value?: ProviderErrorCategory) => {
+  if (
+    value === "network_timeout" ||
+    value === "network_fetch_failed" ||
+    value === "network_connection_reset"
+  ) {
+    return "网络或联网搜索超时，可稍后重试。";
+  }
+
+  if (
+    value === "provider_auth_error" ||
+    value === "provider_insufficient_balance" ||
+    value === "provider_model_error" ||
+    value === "provider_rate_limit"
+  ) {
+    return "请检查后端环境变量、账户额度或模型配置。";
+  }
+
+  return value ? "请查看错误原因后再决定是否重试。" : "";
+};
 </script>
 
 <template>
@@ -288,13 +366,26 @@ const formatUserIntent = (prompt: GeoPrompt) =>
             <strong>成功 {{ result.successCount }} 条 / 失败 {{ result.failedCount }} 条</strong>
           </div>
         </template>
-        <el-table
-          :data="[
-            ...result.createdItems,
-            ...result.failedItems.map((item) => item.record).filter(Boolean)
-          ]"
-          border
+        <el-alert
+          v-if="result.failedItems.length"
+          class="web-search-failure-alert"
+          title="存在联网检测失败项"
+          type="warning"
+          :closable="false"
+          show-icon
         >
+          <template #default>
+            失败原因分类已列出。网络或联网搜索超时，可稍后重试。请检查后端环境变量、账户额度或模型配置。
+          </template>
+        </el-alert>
+        <el-table :data="resultRows" border>
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'success' ? 'success' : 'danger'" effect="plain">
+                {{ row.status === "success" ? "成功" : "失败" }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column label="提示词" min-width="260">
             <template #default="{ row }">
               {{ row?.geoPrompt?.promptText || row?.promptText }}
@@ -312,8 +403,19 @@ const formatUserIntent = (prompt: GeoPrompt) =>
           <el-table-column label="引用官网" width="100">
             <template #default="{ row }">{{ row?.citedOfficialSite ? "是" : "否" }}</template>
           </el-table-column>
-          <el-table-column label="错误原因" min-width="220">
-            <template #default="{ row }">{{ row?.errorMessage || "无" }}</template>
+          <el-table-column label="失败原因分类" width="130">
+            <template #default="{ row }">{{ formatErrorCategory(row?.errorCategory) }}</template>
+          </el-table-column>
+          <el-table-column label="重试" width="110">
+            <template #default="{ row }">{{ formatRetryStatus(row?.retryCount) }}</template>
+          </el-table-column>
+          <el-table-column label="错误原因" min-width="280">
+            <template #default="{ row }">
+              <span>{{ row?.errorMessage || "无" }}</span>
+              <p v-if="row?.errorCategory" class="table-subtext">
+                {{ getFailureHelpText(row.errorCategory) }}
+              </p>
+            </template>
           </el-table-column>
         </el-table>
       </el-card>

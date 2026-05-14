@@ -289,7 +289,7 @@ Phase Monitor-Record-1 落地状态：
 
 ## 六、第一版 MVP 范围建议
 
-建议将下一阶段命名为 **Phase Monitor-Web-1**，只完成联网搜索 API 检测闭环。实际落地第一版选择 **Kimi Web Search**，原因是它能明确触发 `$web_search` tool-call loop，并返回可观测的 `search_result.search_id`。
+建议将下一阶段命名为 **Phase Monitor-Web-1**，只完成联网搜索 API 检测闭环。实际落地第一版选择 **Kimi Web Search**，原因是它能明确触发 `$web_search` tool-call loop，并返回可观测的 `search_result.search_id`。Monitor-Web-1.1 对 Kimi 接入补充稳定性边界：默认超时建议为 120000ms；对 timeout、fetch failed、连接重置等网络类失败每条提示词最多重试 1 次；401、余额不足、模型错误、工具参数错误和 400 bad request 不重试。
 
 ### 做什么
 
@@ -492,9 +492,10 @@ type WebSearchCheckOutput = {
 推荐路线：
 
 1. 完成 **Monitor-Web-1**：接入 Kimi Web Search API，跑通“选择提示词 -> 调用 `$web_search` -> 保存回答/来源证据 -> 自动判定 -> 报表展示”。
-2. 升级记录字段支持 `entryPoint`、`provider`、`hitLevel`、`citations`、`searchResults` 和 `rawAnswer`。
-3. 增加 PC / 移动端人工抽查入口，先保证证据字段和报表口径一致。
-4. 最后考虑 Playwright/RPA 半自动化，且只在平台规则允许、账号安全可控时启用。
+2. 完成 **Monitor-Web-1.1**：补充 Kimi 网络类失败分类、最多 1 次轻量重试、`retryCount` 返回和前端失败原因展示。
+3. 升级记录字段支持 `entryPoint`、`provider`、`hitLevel`、`citations`、`searchResults` 和 `rawAnswer`。
+4. 增加 PC / 移动端人工抽查入口，先保证证据字段和报表口径一致。
+5. 最后考虑 Playwright/RPA 半自动化，且只在平台规则允许、账号安全可控时启用。
 
 ### 建议 Phase 拆分
 

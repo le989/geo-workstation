@@ -4,7 +4,11 @@ import { GeoPromptType, RecordMethod, UserIntent, UserRole, UserStatus } from "@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ModelInclusionRecordsService } from "../src/modules/model-inclusion/model-inclusion-records.service";
-import { KimiWebSearchProvider } from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
+import {
+  classifyProviderError,
+  KimiProviderError,
+  KimiWebSearchProvider
+} from "../src/modules/model-inclusion/providers/kimi-web-search.provider";
 import { analyzeGeoHitFromAnswer } from "../src/modules/model-inclusion/utils/analyze-geo-hit.util";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
@@ -173,6 +177,231 @@ describe("ModelInclusionRecordsService", () => {
       searchResultId: "search_123"
     });
     expect(result.searchResults).toEqual([{ searchId: "search_123" }]);
+  });
+
+  it("uses 120000ms as the default Kimi Web Search timeout", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: {
+                role: "assistant",
+                content: "ok"
+              }
+            }
+          ]
+        })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    try {
+      const provider = new KimiWebSearchProvider(
+        new ConfigService({
+          KIMI_API_KEY: "test-key-not-real",
+          KIMI_BASE_URL: "https://api.moonshot.cn/v1",
+          KIMI_MODEL: "kimi-k2.6",
+          KIMI_WEB_SEARCH_ENABLED: "true",
+          KIMI_WEB_SEARCH_TOOL_NAME: "$web_search"
+        })
+      );
+
+      await provider.search({
+        promptText: "激光测距传感器怎么选？"
+      });
+
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 120000);
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+
+  it("classifies provider errors for retry and user-facing messages", () => {
+    expect(classifyProviderError(new Error("Kimi Web Search request timed out."))).toBe(
+      "network_timeout"
+    );
+    expect(classifyProviderError(new TypeError("fetch failed"))).toBe("network_fetch_failed");
+    expect(
+      classifyProviderError(Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }))
+    ).toBe("network_connection_reset");
+    expect(classifyProviderError(new Error("invalid api key"))).toBe("provider_auth_error");
+    expect(classifyProviderError(new Error("insufficient balance"))).toBe(
+      "provider_insufficient_balance"
+    );
+    expect(classifyProviderError(new Error("model not found"))).toBe("provider_model_error");
+    expect(classifyProviderError(new Error("web_search tool unavailable"))).toBe(
+      "provider_tool_error"
+    );
+  });
+
+  it("retries fetch failed once and returns retry metadata when the retry succeeds", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  content: "",
+                  tool_calls: [
+                    {
+                      id: "call_search_retry_1",
+                      type: "function",
+                      function: {
+                        name: "$web_search",
+                        arguments:
+                          '{"search_result":{"search_id":"retry_search_1"},"usage":{"total_tokens":32}}'
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  role: "assistant",
+                  content: "重试后联网搜索成功，提到了海伯森。"
+                }
+              }
+            ]
+          })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new KimiWebSearchProvider(
+      new ConfigService({
+        KIMI_API_KEY: "test-key-not-real",
+        KIMI_BASE_URL: "https://api.moonshot.cn/v1",
+        KIMI_MODEL: "kimi-k2.6",
+        KIMI_WEB_SEARCH_ENABLED: "true",
+        KIMI_WEB_SEARCH_TOOL_NAME: "$web_search",
+        KIMI_TIMEOUT_MS: "1000",
+        KIMI_RETRY_DELAY_MS: "1"
+      })
+    );
+
+    const result = await provider.search({
+      promptText: "激光测距传感器怎么选？"
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.retryCount).toBe(1);
+    expect(result.finalAnswer).toContain("重试后联网搜索成功");
+  });
+
+  it("retries timeout-like errors once", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" }))
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  role: "assistant",
+                  content: "timeout retry ok"
+                }
+              }
+            ]
+          })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new KimiWebSearchProvider(
+      new ConfigService({
+        KIMI_API_KEY: "test-key-not-real",
+        KIMI_BASE_URL: "https://api.moonshot.cn/v1",
+        KIMI_MODEL: "kimi-k2.6",
+        KIMI_WEB_SEARCH_ENABLED: "true",
+        KIMI_WEB_SEARCH_TOOL_NAME: "$web_search",
+        KIMI_TIMEOUT_MS: "1000",
+        KIMI_RETRY_DELAY_MS: "1"
+      })
+    );
+
+    const result = await provider.search({
+      promptText: "激光测距传感器怎么选？"
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.retryCount).toBe(1);
+  });
+
+  it("does not retry provider auth or bad request errors", async () => {
+    const authFetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () =>
+        JSON.stringify({
+          error: {
+            type: "invalid_auth",
+            message: "invalid api key"
+          }
+        })
+    });
+    vi.stubGlobal("fetch", authFetchMock);
+    const provider = new KimiWebSearchProvider(
+      new ConfigService({
+        KIMI_API_KEY: "test-key-not-real",
+        KIMI_BASE_URL: "https://api.moonshot.cn/v1",
+        KIMI_MODEL: "kimi-k2.6",
+        KIMI_WEB_SEARCH_ENABLED: "true",
+        KIMI_WEB_SEARCH_TOOL_NAME: "$web_search",
+        KIMI_TIMEOUT_MS: "1000",
+        KIMI_RETRY_DELAY_MS: "1"
+      })
+    );
+
+    await expect(
+      provider.search({
+        promptText: "激光测距传感器怎么选？"
+      })
+    ).rejects.toMatchObject({
+      category: "provider_auth_error",
+      retryCount: 0
+    });
+    expect(authFetchMock).toHaveBeenCalledTimes(1);
+
+    const badRequestFetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () =>
+        JSON.stringify({
+          error: {
+            type: "invalid_request_error",
+            message: "invalid temperature"
+          }
+        })
+    });
+    vi.stubGlobal("fetch", badRequestFetchMock);
+
+    await expect(
+      provider.search({
+        promptText: "激光测距传感器怎么选？"
+      })
+    ).rejects.toMatchObject({
+      category: "provider_bad_request",
+      retryCount: 0
+    });
+    expect(badRequestFetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("analyzes brand mention, official site citation, and hit level from a Kimi answer", () => {
@@ -689,7 +918,8 @@ describe("ModelInclusionRecordsService", () => {
       citedContentAsset: false,
       competitorMentioned: false,
       hitLevel: "recommended",
-      searchResults: [{ searchId: "search_record_1" }]
+      searchResults: [{ searchId: "search_record_1" }],
+      retryCount: 0
     });
   });
 
@@ -718,7 +948,43 @@ describe("ModelInclusionRecordsService", () => {
     expect(result.failedItems[0]).toMatchObject({
       geoPromptId: failedPrompt.id,
       promptText: failedPrompt.promptText,
-      errorMessage: "Kimi Web Search timeout"
+      errorCategory: "network_timeout",
+      retryCount: 0,
+      errorMessage: "[network_timeout] Kimi Web Search timeout"
+    });
+    expect(result.failedItems[0]?.record).toMatchObject({
+      hitLevel: "unclear",
+      errorCategory: "network_timeout",
+      retryCount: 0
+    });
+  });
+
+  it("stores retry metadata when a retried provider failure still fails", async () => {
+    const prompt = await createGeoPrompt("Kimi 重试失败记录提示词");
+    kimiProvider.search.mockRejectedValueOnce(
+      new KimiProviderError("Kimi Web Search request timed out.", "network_timeout", 1)
+    );
+
+    const result = await service.webSearchCheck({
+      geoPromptIds: [prompt.id],
+      provider: "kimi_web_search",
+      brandName: "海伯森"
+    });
+
+    expect(result.successCount).toBe(0);
+    expect(result.failedCount).toBe(1);
+    expect(result.failedItems[0]).toMatchObject({
+      geoPromptId: prompt.id,
+      retryCount: 1,
+      errorCategory: "network_timeout",
+      errorMessage: "[network_timeout] Kimi Web Search request timed out."
+    });
+    expect(result.failedItems[0]?.record).toMatchObject({
+      geoPromptId: prompt.id,
+      hitLevel: "unclear",
+      retryCount: 1,
+      errorCategory: "network_timeout",
+      errorMessage: "[network_timeout] Kimi Web Search request timed out."
     });
   });
 });

@@ -35,7 +35,13 @@ import {
   type NormalizedQueryUncoveredPrompts
 } from "./utils/normalize-model-inclusion-record";
 import { calculateRate } from "./utils/summary-rate.util";
-import { KimiWebSearchProvider } from "./providers/kimi-web-search.provider";
+import {
+  classifyProviderError,
+  formatProviderError,
+  getProviderRetryCount,
+  type ProviderErrorCategory,
+  KimiWebSearchProvider
+} from "./providers/kimi-web-search.provider";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
@@ -88,6 +94,8 @@ export type ModelInclusionRecordResponse = {
   createdBy: string;
   createdAt: Date;
   geoPrompt: ModelInclusionGeoPromptResponse;
+  retryCount?: number;
+  errorCategory?: ProviderErrorCategory;
 };
 
 export type ModelInclusionRecordListResponse = {
@@ -115,6 +123,8 @@ export type FailedWebSearchCheckItem = {
   geoPromptId: string;
   promptText?: string;
   errorMessage: string;
+  errorCategory: ProviderErrorCategory;
+  retryCount: number;
   record?: ModelInclusionRecordResponse;
 };
 
@@ -346,14 +356,17 @@ export class ModelInclusionRecordsService {
           createdById
         );
         await this.refreshLatestCoverageStatus(geoPrompt.id);
-        createdItems.push(
-          this.toRecordResponse({
+        createdItems.push({
+          ...this.toRecordResponse({
             ...created,
             geoPrompt
-          })
-        );
+          }),
+          retryCount: searchResult.retryCount ?? 0
+        });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Kimi Web Search failed";
+        const errorCategory = classifyProviderError(error);
+        const retryCount = getProviderRetryCount(error);
+        const errorMessage = formatProviderError(error);
         let failureRecord: ModelInclusionRecordResponse | undefined;
 
         if (geoPrompt) {
@@ -389,16 +402,22 @@ export class ModelInclusionRecordsService {
             createdById
           );
           await this.refreshLatestCoverageStatus(geoPrompt.id);
-          failureRecord = this.toRecordResponse({
-            ...created,
-            geoPrompt
-          });
+          failureRecord = {
+            ...this.toRecordResponse({
+              ...created,
+              geoPrompt
+            }),
+            retryCount,
+            errorCategory
+          };
         }
 
         failedItems.push({
           geoPromptId,
           promptText: geoPrompt?.promptText,
           errorMessage,
+          errorCategory,
+          retryCount,
           record: failureRecord
         });
       }
