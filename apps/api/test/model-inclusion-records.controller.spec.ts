@@ -3,7 +3,7 @@ import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { GeoPromptType, UserIntent, UserRole, UserStatus } from "@prisma/client";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module";
 import { configureApiApp } from "../src/common/bootstrap/configure-api-app";
@@ -41,9 +41,24 @@ describe("ModelInclusionRecordsController", () => {
       searchResults: [{ searchId: "controller_search_1" }]
     })
   };
+  let restoreEnv: Record<string, string | undefined> = {};
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
+    restoreEnv = {
+      KIMI_API_KEY: process.env.KIMI_API_KEY,
+      KIMI_BASE_URL: process.env.KIMI_BASE_URL,
+      KIMI_MODEL: process.env.KIMI_MODEL,
+      KIMI_WEB_SEARCH_ENABLED: process.env.KIMI_WEB_SEARCH_ENABLED,
+      KIMI_WEB_SEARCH_TOOL_NAME: process.env.KIMI_WEB_SEARCH_TOOL_NAME,
+      KIMI_TIMEOUT_MS: process.env.KIMI_TIMEOUT_MS
+    };
+    process.env.KIMI_API_KEY = "test-key-not-real";
+    process.env.KIMI_BASE_URL = "https://api.moonshot.cn/v1";
+    process.env.KIMI_MODEL = "kimi-k2.6";
+    process.env.KIMI_WEB_SEARCH_ENABLED = "true";
+    process.env.KIMI_WEB_SEARCH_TOOL_NAME = "$web_search";
+    process.env.KIMI_TIMEOUT_MS = "1000";
     prisma = createPrismaClient();
     await prisma.$connect();
 
@@ -71,6 +86,13 @@ describe("ModelInclusionRecordsController", () => {
   afterAll(async () => {
     await app.close();
     await prisma.$disconnect();
+    for (const [key, value] of Object.entries(restoreEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   });
 
   function unique(label: string): string {
@@ -273,6 +295,94 @@ describe("ModelInclusionRecordsController", () => {
         ]
       }
     });
+  });
+
+  it("injects ConfigService into the real Kimi provider when AppModule handles web-search-check", async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule]
+    }).compile();
+    const realApp = moduleRef.createNestApplication();
+    configureApiApp(realApp);
+    await realApp.init();
+    const prompt = await createGeoPrompt("Kimi 真实注入回归提示词");
+    const promptId = prompt.id;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  content: "",
+                  tool_calls: [
+                    {
+                      id: "call_search_1",
+                      type: "function",
+                      function: {
+                        name: "$web_search",
+                        arguments:
+                          '{"search_result":{"search_id":"real_di_search_1"},"usage":{"total_tokens":12}}'
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  role: "assistant",
+                  content: "联网搜索后，推荐海伯森激光测距传感器用于工业高精度检测。"
+                }
+              }
+            ]
+          })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const response = await request(realApp.getHttpServer())
+        .post("/api/model-inclusion-records/web-search-check")
+        .send({
+          geoPromptIds: [prompt.id],
+          provider: "kimi_web_search",
+          brandName: "海伯森"
+        })
+        .expect(201);
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(response.body.data).toMatchObject({
+        successCount: 1,
+        failedCount: 0,
+        createdItems: [
+          {
+            platform: "Kimi",
+            entryPoint: "web_search_api",
+            detectionMethod: "web_search",
+            isWebSearchEnabled: true,
+            hitLevel: "recommended"
+          }
+        ]
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      if (promptId) {
+        await prisma.modelInclusionRecord.deleteMany({ where: { geoPromptId: promptId } });
+        await prisma.geoPrompt.deleteMany({ where: { id: promptId } });
+      }
+      await realApp.close();
+    }
   });
 
   it("keeps validation errors in the unified ApiResponse shape", async () => {

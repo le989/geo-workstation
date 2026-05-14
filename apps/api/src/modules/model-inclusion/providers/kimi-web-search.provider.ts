@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 export type KimiWebSearchToolCall = {
@@ -54,7 +54,7 @@ type KimiChatResponse = {
 
 @Injectable()
 export class KimiWebSearchProvider {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
 
   async search(input: KimiWebSearchInput): Promise<KimiWebSearchResult> {
     const config = this.resolveConfig(input.model);
