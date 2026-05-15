@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { Connection, SwitchButton } from "@element-plus/icons-vue";
-import { navigationItems, type GeoPageMeta } from "@/config/navigation";
+import { ArrowDown, Connection, SwitchButton } from "@element-plus/icons-vue";
+import { navigationItems } from "@/config/navigation";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 
@@ -11,7 +11,61 @@ const appStore = useAppStore();
 const authStore = useAuthStore();
 
 const activeMenu = computed(() => route.path);
-const currentPage = computed(() => route.meta.geoPage as GeoPageMeta | undefined);
+
+const headerDisplayByPath: Record<string, { title: string; subtitle: string }> = {
+  "/dashboard": {
+    title: "工作台",
+    subtitle: "今日运营动作与待处理事项"
+  },
+  "/geo-analysis": {
+    title: "GEO 分析",
+    subtitle: "创建品牌、网站与可见度诊断"
+  },
+  "/geo-prompts": {
+    title: "提示词策略库",
+    subtitle: "管理 GEO 词、场景词与追踪状态"
+  },
+  "/expansion": {
+    title: "AI 拓词",
+    subtitle: "从产品和场景扩展候选提示词"
+  },
+  "/knowledge-bases": {
+    title: "企业 GEO 知识库",
+    subtitle: "管理产品资料、FAQ 和知识片段"
+  },
+  "/instruction-templates": {
+    title: "指令库",
+    subtitle: "管理内容生成模板和规则"
+  },
+  "/content-tasks": {
+    title: "内容生成",
+    subtitle: "生成、审校、优化和发布稿"
+  },
+  "/model-inclusion-records": {
+    title: "模型覆盖记录",
+    subtitle: "查看 AI 检测结果和命中状态"
+  },
+  "/reports": {
+    title: "GEO 报表",
+    subtitle: "查看覆盖、命中和优化建议"
+  },
+  "/settings": {
+    title: "系统设置",
+    subtitle: "管理项目档案和品牌上下文"
+  },
+  "/help": {
+    title: "使用教程",
+    subtitle: "查看 SOP、版本说明和操作指南"
+  }
+};
+
+const headerDisplay = computed(
+  () =>
+    headerDisplayByPath[route.path] ?? {
+      title: "GEO 工作站",
+      subtitle: "AI 搜索可见度运营闭环"
+    }
+);
 
 const navigationGroups = [
   {
@@ -54,6 +108,12 @@ const handleLogout = async () => {
   await authStore.logout();
   window.location.assign("/login");
 };
+
+const handleUserCommand = (command: string | number | object) => {
+  if (command === "logout") {
+    void handleLogout();
+  }
+};
 </script>
 
 <template>
@@ -83,27 +143,46 @@ const handleLogout = async () => {
     <el-container class="admin-main">
       <el-header class="admin-header">
         <div class="header-title">
-          <p class="header-eyebrow">内部 GEO 工作台</p>
-          <h2>{{ currentPage?.title ?? "GEO 营销运营系统" }}</h2>
-          <span>{{
-            currentPage?.description ?? "围绕 GEO 闭环管理提示词、知识库、内容和效果记录。"
-          }}</span>
+          <h2>{{ headerDisplay.title }}</h2>
+          <span>{{ headerDisplay.subtitle }}</span>
         </div>
         <div class="header-actions">
           <el-tag class="header-env-tag" type="success" effect="plain">
             {{ appStore.environmentLabel }}
           </el-tag>
-          <div v-if="authStore.currentUser" class="header-user">
-            <div>
-              <strong>{{ authStore.currentUser.name }}</strong>
-              <span>{{ authStore.currentUser.email }}</span>
-            </div>
-            <el-tag size="small" effect="plain">{{ roleLabel }}</el-tag>
-          </div>
           <el-tooltip :content="appStore.healthUrl" placement="bottom">
-            <el-button :icon="Connection" plain>API 状态</el-button>
+            <el-button class="header-status-button" :icon="Connection" plain>API 状态</el-button>
           </el-tooltip>
-          <el-button :icon="SwitchButton" plain @click="handleLogout">退出登录</el-button>
+          <el-dropdown
+            v-if="authStore.currentUser"
+            class="header-user-dropdown"
+            trigger="click"
+            @command="handleUserCommand"
+          >
+            <button class="header-user-trigger" type="button">
+              <span>{{ authStore.currentUser.name }}</span>
+              <el-icon>
+                <ArrowDown />
+              </el-icon>
+            </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item disabled class="header-user-menu__meta">
+                  <div>
+                    <strong>{{ authStore.currentUser.name }}</strong>
+                    <span>{{ authStore.currentUser.email }}</span>
+                    <em>角色：{{ roleLabel }}</em>
+                  </div>
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout">
+                  <el-icon>
+                    <SwitchButton />
+                  </el-icon>
+                  <span>退出登录</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
 
