@@ -346,9 +346,15 @@ const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
   <section class="dashboard-page">
     <header class="dashboard-hero">
       <div class="dashboard-hero__copy">
-        <el-tag type="success" effect="plain">GEO 工作台</el-tag>
-        <h1>今天先处理三件事</h1>
-        <p>补检测、补内容、补知识库。其余数据下移，避免首页变成说明书。</p>
+        <el-tag class="dashboard-hero__tag" effect="plain">GEO 工作台</el-tag>
+        <h1>工作台</h1>
+        <strong>今日运营动作与待处理事项</strong>
+        <p>首页优先显示今天该处理的运营动作：补检测、补内容、补知识库，再查看命中结果。</p>
+        <div class="dashboard-hero__signals" aria-label="工作台优先事项">
+          <span>补检测</span>
+          <span>补内容</span>
+          <span>补知识库</span>
+        </div>
       </div>
       <div class="dashboard-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -410,37 +416,60 @@ const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
       title="待处理运营队列"
       description="含合并后的待优化建议。"
     >
-      <div class="dashboard-queue-grid">
-        <article
-          v-for="queue in operationQueue"
-          :key="queue.title"
-          :class="['dashboard-queue-card', `dashboard-queue-card--${queue.tone}`]"
-        >
-          <div>
-            <span>{{ queue.title }}</span>
-            <strong>{{ queue.status }}</strong>
-            <p>{{ queue.description }}</p>
-          </div>
-          <RouterLink :to="queue.to" class="dashboard-queue-card__link">
-            {{ queue.buttonLabel }}
-          </RouterLink>
-        </article>
-      </div>
-      <div class="dashboard-suggestion-panel">
-        <div class="dashboard-suggestion-panel__header">
-          <strong>合并后的优化建议</strong>
-          <span>按类型和产品线合并，展示 5 条以内</span>
+      <div class="dashboard-operations-grid">
+        <div class="dashboard-queue-grid">
+          <article
+            v-for="queue in operationQueue"
+            :key="queue.title"
+            :class="['dashboard-queue-card', `dashboard-queue-card--${queue.tone}`]"
+          >
+            <div>
+              <span>{{ queue.title }}</span>
+              <strong>{{ queue.status }}</strong>
+              <p>{{ queue.description }}</p>
+            </div>
+            <RouterLink :to="queue.to" class="dashboard-queue-card__link">
+              {{ queue.buttonLabel }}
+            </RouterLink>
+          </article>
         </div>
-        <OptimizationSuggestionList
-          :items="groupedSuggestionPreview"
-          :loading="loading && suggestions.length === 0"
-          :error-message="suggestionsError"
-        />
+        <div class="dashboard-suggestion-panel">
+          <div class="dashboard-suggestion-panel__header">
+            <strong>最近待优化建议</strong>
+            <span>按类型和产品线合并，展示 5 条以内</span>
+          </div>
+          <OptimizationSuggestionList
+            :items="groupedSuggestionPreview"
+            :loading="loading && suggestions.length === 0"
+            :error-message="suggestionsError"
+          />
+        </div>
       </div>
     </DashboardSection>
 
     <DashboardSection title="快捷入口" description="常用运营页面。">
       <QuickActionGrid />
+      <section class="dashboard-priority-strip">
+        <div>
+          <span>今天优先处理</span>
+          <strong>补检测、补内容、补知识库。</strong>
+        </div>
+        <dl>
+          <div>
+            <dt>未检测追踪词</dt>
+            <dd>{{ formatNumber(report.uncoveredTrackedPromptCount) }}</dd>
+          </div>
+          <div>
+            <dt>失败内容任务</dt>
+            <dd>{{ formatNumber(report.failedContentTaskCount) }}</dd>
+          </div>
+          <div>
+            <dt>知识片段</dt>
+            <dd>{{ formatNumber(report.knowledgeChunkCount) }}</dd>
+          </div>
+        </dl>
+        <RouterLink to="/content-tasks">进入内容生成</RouterLink>
+      </section>
       <div class="dashboard-boundary-note">
         <span>当前为本地测试版本，关键发布和参数事实仍需人工确认。</span>
         <RouterLink to="/help">查看使用教程</RouterLink>
