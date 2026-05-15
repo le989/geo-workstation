@@ -480,8 +480,8 @@ onMounted(() => {
   <section class="content-page">
     <header class="content-hero">
       <div class="content-hero__copy">
-        <el-tag class="content-hero__tag" type="success" effect="plain">GEO 内容生成</el-tag>
-        <h1>GEO 内容生成</h1>
+        <el-tag class="content-hero__tag" type="success" effect="plain">GEO 内容生产</el-tag>
+        <h1>内容生成</h1>
         <p>
           从未命中词创建内容任务，完成生成、质检、发布优化和富文本发布稿。
         </p>
@@ -567,17 +567,23 @@ onMounted(() => {
             <ContentGenerationTypeTag :type="row.generationType" />
           </template>
         </el-table-column>
-        <el-table-column label="目标模型" width="150">
-          <template #default="{ row }">{{ formatOptional(row.targetModel) }}</template>
+        <el-table-column label="目标模型" min-width="170">
+          <template #default="{ row }">
+            <span class="content-provider-model" :title="formatOptional(row.targetModel)">
+              {{ formatOptional(row.targetModel) }}
+            </span>
+          </template>
         </el-table-column>
         <el-table-column label="任务状态" width="110">
           <template #default="{ row }">
             <ContentTaskStatusTag :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column label="AI 生成方式 / 模型" min-width="190">
+        <el-table-column label="AI 生成方式 / 模型" min-width="230">
           <template #default="{ row }">
-            {{ formatProviderModel(row.provider, row.model) }}
+            <span class="content-provider-model" :title="formatProviderModel(row.provider, row.model)">
+              {{ formatProviderModel(row.provider, row.model) }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="内容数量 / 下一步" min-width="210">

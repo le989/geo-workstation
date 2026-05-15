@@ -451,14 +451,14 @@ onMounted(() => {
         <el-tag class="model-inclusion-hero__tag" type="warning" effect="plain">
           原始检测台账
         </el-tag>
-        <h1>模型覆盖记录</h1>
+        <h1>AI 收录记录</h1>
         <p>查看 Kimi、豆包、通义等模型检测的原始记录，优先定位未命中、竞品占位和无法判断结果。</p>
         <div class="model-inclusion-hero__note">
           <strong>
             这里记录人工录入 / 导入覆盖记录与 Kimi Web Search API 联网检测原始结果；GEO 效果复盘请到「GEO
             报表」查看。
           </strong>
-          <RouterLink to="/reports">进入 GEO 报表</RouterLink>
+          <RouterLink to="/reports">进入数据报表</RouterLink>
         </div>
       </div>
       <div class="model-inclusion-hero__actions">
@@ -525,13 +525,13 @@ onMounted(() => {
       @export="handleExport"
     />
 
-    <AppErrorState v-if="hasRecordsError" title="模型覆盖记录加载失败" :message="recordsError" />
+    <AppErrorState v-if="hasRecordsError" title="AI 收录记录加载失败" :message="recordsError" />
 
     <el-card class="model-record-table-card" shadow="never">
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">模型覆盖记录</p>
+            <p class="section-kicker">AI 收录记录</p>
             <h2>覆盖记录列表</h2>
             <span>查询品牌是否被提及、是否被推荐、推荐位置、官网引用和竞品出现情况。</span>
           </div>

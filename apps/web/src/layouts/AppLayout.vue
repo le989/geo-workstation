@@ -1,16 +1,45 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-import { ArrowDown, Connection, SwitchButton } from "@element-plus/icons-vue";
+import { ArrowDown, Connection, Expand, Fold, SwitchButton } from "@element-plus/icons-vue";
 import { navigationItems } from "@/config/navigation";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "geo-workstation.sidebar-collapsed";
 
 const route = useRoute();
 const appStore = useAppStore();
 const authStore = useAuthStore();
 
 const activeMenu = computed(() => route.path);
+const isSidebarCollapsed = ref(
+  window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true"
+);
+const isNarrowLayout = ref(false);
+
+let sidebarMediaQuery: MediaQueryList | undefined;
+
+const updateNarrowLayout = () => {
+  isNarrowLayout.value = sidebarMediaQuery?.matches ?? false;
+};
+
+onMounted(() => {
+  sidebarMediaQuery = window.matchMedia("(max-width: 1120px)");
+  updateNarrowLayout();
+  sidebarMediaQuery.addEventListener("change", updateNarrowLayout);
+});
+
+onBeforeUnmount(() => {
+  sidebarMediaQuery?.removeEventListener("change", updateNarrowLayout);
+});
+
+const isSidebarCollapseActive = computed(() => isSidebarCollapsed.value && !isNarrowLayout.value);
+
+const toggleSidebar = () => {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+  window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(isSidebarCollapsed.value));
+};
 
 const headerDisplayByPath: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": {
@@ -22,7 +51,7 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     subtitle: "前期品牌、官网与产品线诊断"
   },
   "/geo-prompts": {
-    title: "提示词策略库",
+    title: "提示词库",
     subtitle: "管理 GEO 词、场景词与追踪状态"
   },
   "/expansion": {
@@ -30,11 +59,11 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     subtitle: "从产品和场景扩展候选提示词"
   },
   "/knowledge-bases": {
-    title: "企业 GEO 知识库",
+    title: "知识库",
     subtitle: "管理产品资料、FAQ 和知识片段"
   },
   "/instruction-templates": {
-    title: "指令库",
+    title: "指令模板",
     subtitle: "管理内容生成模板和规则"
   },
   "/content-tasks": {
@@ -42,11 +71,11 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     subtitle: "生成、审校、优化和发布稿"
   },
   "/model-inclusion-records": {
-    title: "模型覆盖记录",
+    title: "AI 收录记录",
     subtitle: "查看 AI 检测结果和命中状态"
   },
   "/reports": {
-    title: "GEO 报表",
+    title: "数据报表",
     subtitle: "查看覆盖、命中和优化建议"
   },
   "/settings": {
@@ -105,6 +134,9 @@ const roleLabel = computed(() => {
 });
 
 const userInitial = computed(() => authStore.currentUser?.name?.slice(0, 1) || "G");
+const sidebarToggleLabel = computed(() =>
+  isSidebarCollapseActive.value ? "展开菜单" : "收起菜单"
+);
 
 const handleLogout = async () => {
   await authStore.logout();
@@ -119,8 +151,11 @@ const handleUserCommand = (command: string | number | object) => {
 </script>
 
 <template>
-  <el-container class="admin-layout">
-    <el-aside width="248px" class="admin-sidebar">
+  <el-container
+    class="admin-layout"
+    :class="{ 'admin-layout--sidebar-collapsed': isSidebarCollapseActive }"
+  >
+    <el-aside :width="isSidebarCollapseActive ? '72px' : '248px'" class="admin-sidebar">
       <div class="brand-block">
         <span class="brand-mark" aria-hidden="true">
           <i />
@@ -134,10 +169,38 @@ const handleUserCommand = (command: string | number | object) => {
         </div>
       </div>
 
-      <el-menu :default-active="activeMenu" router class="sidebar-menu">
+      <div class="sidebar-toggle-row">
+        <el-tooltip :content="sidebarToggleLabel" placement="right" :show-after="250">
+          <button
+            class="sidebar-collapse-button"
+            type="button"
+            :aria-label="sidebarToggleLabel"
+            :title="sidebarToggleLabel"
+            @click="toggleSidebar"
+          >
+            <el-icon>
+              <component :is="isSidebarCollapseActive ? Expand : Fold" />
+            </el-icon>
+            <span>{{ sidebarToggleLabel }}</span>
+          </button>
+        </el-tooltip>
+      </div>
+
+      <el-menu
+        :default-active="activeMenu"
+        :collapse="isSidebarCollapseActive"
+        :collapse-transition="false"
+        router
+        class="sidebar-menu"
+      >
         <div v-for="group in navigationGroups" :key="group.label" class="sidebar-menu-group">
           <p class="sidebar-menu-group__label">{{ group.label }}</p>
-          <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
+          <el-menu-item
+            v-for="item in group.items"
+            :key="item.path"
+            :index="item.path"
+            :title="item.label"
+          >
             <el-icon>
               <component :is="item.icon" />
             </el-icon>
@@ -146,7 +209,11 @@ const handleUserCommand = (command: string | number | object) => {
         </div>
       </el-menu>
 
-      <div v-if="authStore.currentUser" class="sidebar-user-card">
+      <div
+        v-if="authStore.currentUser"
+        class="sidebar-user-card"
+        :title="`${authStore.currentUser.name} / ${roleLabel}`"
+      >
         <span class="sidebar-user-card__avatar">{{ userInitial }}</span>
         <div>
           <strong>{{ authStore.currentUser.name }}</strong>

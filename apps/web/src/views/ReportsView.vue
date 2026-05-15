@@ -496,7 +496,7 @@ onMounted(() => {
     <header class="reports-hero">
       <div class="reports-hero__copy">
         <span class="reports-hero__eyebrow">GEO 复盘中心</span>
-        <h1>GEO 报表</h1>
+        <h1>数据报表</h1>
         <p>
           从提示词资产、内容产出、知识库覆盖和模型覆盖记录中复盘 GEO
           建设进度，判断下一步应该补词、补资料、补内容还是补检测。

@@ -28,8 +28,8 @@ export type GeoPageMeta = {
 export const navigationItems: GeoPageMeta[] = [
   {
     path: "/dashboard",
-    label: "GEO 工作台",
-    title: "GEO 工作台",
+    label: "工作台",
+    title: "工作台",
     question: "今天的 GEO 闭环推进到哪一步？",
     description: "聚合 GEO 诊断、提示词资产、知识库资料、内容产出和待优化事项。",
     phaseNote: "已接入总览指标、优化建议和核心操作入口，适合作为内部日常运营首页。",
@@ -50,8 +50,8 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/geo-prompts",
-    label: "提示词策略库",
-    title: "提示词策略库",
+    label: "提示词库",
+    title: "提示词库",
     question: "用户会怎么问 AI？",
     description: "沉淀训练词、蒸馏词、品牌词和场景词，支撑模型覆盖追踪与内容生产。",
     phaseNote: "已支持提示词查询、筛选、新增、编辑、软删除、批量导入和 CSV 导出。",
@@ -72,8 +72,8 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/knowledge-bases",
-    label: "企业 GEO 知识库",
-    title: "企业 GEO 知识库",
+    label: "知识库",
+    title: "知识库",
     question: "AI 应该引用哪些企业事实资料？",
     description: "管理产品、案例、FAQ、解决方案和资质等可被内容生成引用的事实底座。",
     phaseNote: "已支持知识库管理、文本导入、txt/md/csv 上传解析、片段编辑和解析重试。",
@@ -83,8 +83,8 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/instruction-templates",
-    label: "指令库",
-    title: "指令库",
+    label: "指令模板",
+    title: "指令模板",
     question: "内容生产应该遵循什么 GEO 方法？",
     description: "沉淀需求决策、问答素材、场景方案、FAQ 等 GEO 内容生产指令。",
     phaseNote: "已支持指令模板查询、创建、编辑、详情查看、复制和软删除。",
@@ -94,8 +94,8 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/content-tasks",
-    label: "GEO 内容生成",
-    title: "GEO 内容生成",
+    label: "内容生成",
+    title: "内容生成",
     question: "应该生产什么内容来影响 AI 回答？",
     description: "基于提示词、知识库和指令模板生成服务于 AI 问答可见度的内容资产。",
     phaseNote: "已支持模拟生成和真实 AI 接口生成，内容项可编辑、软删除和导出 Markdown。",
@@ -105,8 +105,8 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/model-inclusion-records",
-    label: "模型覆盖记录",
-    title: "模型覆盖记录",
+    label: "AI 收录记录",
+    title: "AI 收录记录",
     question: "哪些提示词已经被 AI 提及或推荐？",
     description: "记录不同模型下品牌是否被提及、推荐、引用官网以及排名位置。",
     phaseNote: "已支持人工录入、批量导入、未覆盖提示词查询、基础统计和 CSV 导出。",
@@ -116,8 +116,8 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/reports",
-    label: "GEO 报表",
-    title: "GEO 报表",
+    label: "数据报表",
+    title: "数据报表",
     question: "下一步应该补哪些词、资料和内容？",
     description: "围绕提示词覆盖、模型表现、内容资产和知识库覆盖输出复盘指标。",
     phaseNote: "已支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。",

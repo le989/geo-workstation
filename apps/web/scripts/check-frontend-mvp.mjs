@@ -33,15 +33,15 @@ const requiredFiles = [
 
 const routeChecks = [
   ["/", "让 AI 搜索看见你"],
-  ["/dashboard", "GEO 工作台"],
+  ["/dashboard", "工作台"],
   ["/geo-analysis", "GEO 诊断"],
-  ["/geo-prompts", "提示词策略库"],
+  ["/geo-prompts", "提示词库"],
   ["/expansion", "AI 拓词"],
-  ["/knowledge-bases", "企业 GEO 知识库"],
-  ["/instruction-templates", "指令库"],
-  ["/content-tasks", "GEO 内容生成"],
-  ["/model-inclusion-records", "模型覆盖记录"],
-  ["/reports", "GEO 报表"],
+  ["/knowledge-bases", "知识库"],
+  ["/instruction-templates", "指令模板"],
+  ["/content-tasks", "内容生成"],
+  ["/model-inclusion-records", "AI 收录记录"],
+  ["/reports", "数据报表"],
   ["/settings", "系统设置"],
   ["/help", "使用教程"]
 ];

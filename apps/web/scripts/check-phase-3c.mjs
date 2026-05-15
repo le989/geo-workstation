@@ -30,7 +30,7 @@ const apiRequiredSnippets = [
 ];
 
 const pageRequiredSnippets = [
-  "提示词策略库",
+  "提示词库",
   "沉淀训练词、蒸馏词、品牌词和场景词",
   "用户会怎么问 AI",
   "新增提示词",

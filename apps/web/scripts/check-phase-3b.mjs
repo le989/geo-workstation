@@ -17,14 +17,11 @@ const requiredFiles = [
 const dashboardRequiredText = [
   "getGeoOverview",
   "getOptimizationSuggestions",
-  "提示词资产、企业知识库、GEO 内容、模型覆盖记录",
+  "复盘提示词、内容、知识库和模型覆盖",
   "后端未连接，可先启动 API 服务",
   "当前暂无明显待优化项",
-  "/geo-analysis",
   "/geo-prompts",
-  "/expansion",
   "/knowledge-bases",
-  "/instruction-templates",
   "/content-tasks",
   "/model-inclusion-records",
   "/reports"

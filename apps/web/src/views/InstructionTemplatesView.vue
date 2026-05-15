@@ -302,8 +302,8 @@ onMounted(() => {
   <section class="instruction-page">
     <header class="instruction-hero">
       <div class="instruction-hero__copy">
-        <el-tag class="instruction-hero__tag" type="success" effect="plain">GEO 指令库</el-tag>
-        <h1>指令库</h1>
+        <el-tag class="instruction-hero__tag" type="success" effect="plain">GEO 指令模板</el-tag>
+        <h1>指令模板</h1>
         <p>
           沉淀 GEO 内容生成的指令模板、品牌锚点和事实边界规则，让 GEO 内容生产更稳定。
         </p>
@@ -343,7 +343,7 @@ onMounted(() => {
       @create="openCreateDialog"
     />
 
-    <AppErrorState v-if="hasTableError" title="指令库加载失败" :message="tableError" />
+    <AppErrorState v-if="hasTableError" title="指令模板加载失败" :message="tableError" />
 
     <section class="instruction-table-panel">
       <div class="instruction-table-header">

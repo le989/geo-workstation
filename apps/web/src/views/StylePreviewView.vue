@@ -42,13 +42,13 @@ const capabilityCards = [
     active: false
   },
   {
-    title: "模型覆盖记录",
+    title: "AI 收录记录",
     icon: TrendCharts,
     copy: "多模型覆盖追踪",
     active: false
   },
   {
-    title: "GEO 报表",
+    title: "数据报表",
     icon: PieChart,
     copy: "可视化效果复盘",
     active: true
@@ -73,13 +73,13 @@ const workflowSteps = [
 const sidebarItems = [
   { title: "工作台", icon: DataBoard, active: true },
   { title: "GEO 诊断", icon: Search, active: false },
-  { title: "提示词策略库", icon: CollectionTag, active: false },
+  { title: "提示词库", icon: CollectionTag, active: false },
   { title: "AI 拓词", icon: MagicStick, active: false },
-  { title: "企业 GEO 知识库", icon: Files, active: false },
-  { title: "指令库", icon: DocumentChecked, active: false },
-  { title: "GEO 内容生成", icon: EditPen, active: false },
-  { title: "模型覆盖记录", icon: TrendCharts, active: false },
-  { title: "GEO 报表", icon: PieChart, active: false },
+  { title: "知识库", icon: Files, active: false },
+  { title: "指令模板", icon: DocumentChecked, active: false },
+  { title: "内容生成", icon: EditPen, active: false },
+  { title: "AI 收录记录", icon: TrendCharts, active: false },
+  { title: "数据报表", icon: PieChart, active: false },
   { title: "系统设置", icon: Setting, active: false },
   { title: "使用教程", icon: Guide, active: false }
 ];
@@ -1843,6 +1843,16 @@ const previewTopItems = [
   background: #baff29;
   color: #111019;
   font-weight: 950;
+}
+
+@media (max-width: 1320px) {
+  .geo-preview-dark-cta {
+    grid-template-columns: minmax(280px, 0.86fr) minmax(0, 1fr);
+  }
+
+  .geo-preview-dark-cta button {
+    justify-self: start;
+  }
 }
 
 .geo-preview-boundary {

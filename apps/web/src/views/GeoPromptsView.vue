@@ -290,7 +290,7 @@ onMounted(() => {
     <header class="geo-prompts-hero">
       <div>
         <el-tag type="success" effect="plain">GEO 提示词策略</el-tag>
-        <h1>提示词策略库</h1>
+        <h1>提示词库</h1>
         <p>管理品牌词、产品词、场景词和问题词，作为 GEO 内容生产与模型检测的基础资产。</p>
         <strong>
           {{ "用户会怎么问 AI？" }}
@@ -326,7 +326,7 @@ onMounted(() => {
       @type-change="handleTypeChange"
     />
 
-    <AppErrorState v-if="hasTableError" title="提示词策略库加载失败" :message="tableError" />
+    <AppErrorState v-if="hasTableError" title="提示词库加载失败" :message="tableError" />
 
     <section class="geo-prompts-table-panel">
       <div class="geo-prompts-table-header">

@@ -454,12 +454,18 @@ onMounted(() => {
             {{ formatOptional(row.websiteUrl) }}
           </template>
         </el-table-column>
-        <el-table-column label="产品线" width="150">
-          <template #default="{ row }">{{ formatOptional(row.productLine) }}</template>
+        <el-table-column label="产品线" min-width="170">
+          <template #default="{ row }">
+            <span class="analysis-table-line" :title="formatOptional(row.productLine)">
+              {{ formatOptional(row.productLine) }}
+            </span>
+          </template>
         </el-table-column>
         <el-table-column label="目标模型" min-width="180">
           <template #default="{ row }">
-            {{ formatTargetModels(row.targetModels) }}
+            <span class="analysis-table-line" :title="formatTargetModels(row.targetModels)">
+              {{ formatTargetModels(row.targetModels) }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="110">

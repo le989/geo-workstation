@@ -346,7 +346,7 @@ const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
   <section class="dashboard-page">
     <header class="dashboard-hero">
       <div class="dashboard-hero__copy">
-        <el-tag class="dashboard-hero__tag" effect="plain">GEO 工作台</el-tag>
+        <el-tag class="dashboard-hero__tag" effect="plain">工作台</el-tag>
         <h1>工作台</h1>
         <strong>今日运营动作与待处理事项</strong>
         <p>首页优先显示今天该处理的运营动作：补检测、补内容、补知识库，再查看命中结果。</p>

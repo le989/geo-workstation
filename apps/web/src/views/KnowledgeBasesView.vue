@@ -619,9 +619,9 @@ onMounted(() => {
     <header class="knowledge-hero">
       <div class="knowledge-hero__copy">
         <el-tag class="knowledge-hero__tag" type="success" effect="plain">
-          企业 GEO 知识库
+          GEO 知识库
         </el-tag>
-        <h1>企业 GEO 知识库</h1>
+        <h1>知识库</h1>
         <p>管理产品资料、FAQ 和知识片段，为内容生成、事实边界和 GEO 复测提供可信依据。</p>
       </div>
       <div class="knowledge-hero__actions">
@@ -654,7 +654,7 @@ onMounted(() => {
       @create="openCreateDialog"
     />
 
-    <AppErrorState v-if="hasTableError" title="企业 GEO 知识库加载失败" :message="tableError" />
+    <AppErrorState v-if="hasTableError" title="知识库加载失败" :message="tableError" />
 
     <section class="knowledge-table-panel">
       <div class="knowledge-table-header">
