@@ -95,13 +95,13 @@ const riskMetrics = computed(() => {
     },
     {
       key: "competitor_only",
-      label: "竞品命中",
+      label: "竞品占位",
       count: currentRecords.filter(
         (record) =>
           record.hitLevel === "competitor_only" ||
           (record.competitorMentioned && !record.brandMentioned)
       ).length,
-      helper: "需要关注竞品占位",
+      helper: "关注竞品命中与占位",
       type: hitLevelTypeMap.competitor_only
     },
     {
@@ -447,14 +447,19 @@ onMounted(() => {
 <template>
   <section class="model-inclusion-page">
     <header class="model-inclusion-hero">
-      <div>
-        <el-tag type="warning" effect="plain">原始检测台账</el-tag>
+      <div class="model-inclusion-hero__copy">
+        <el-tag class="model-inclusion-hero__tag" type="warning" effect="plain">
+          原始检测台账
+        </el-tag>
         <h1>模型覆盖记录</h1>
         <p>查看 Kimi、豆包、通义等模型检测的原始记录，优先定位未命中、竞品占位和无法判断结果。</p>
-        <strong>
-          本页保留人工录入 / 导入覆盖记录与 Kimi Web Search API 联网检测、豆包 / 火山方舟、通义千问
-          / 阿里云百炼检测记录；GEO 效果复盘请到 GEO 报表查看。
-        </strong>
+        <div class="model-inclusion-hero__note">
+          <strong>
+            这里记录人工录入 / 导入覆盖记录与 Kimi Web Search API 联网检测原始结果；GEO 效果复盘请到「GEO
+            报表」查看。
+          </strong>
+          <RouterLink to="/reports">进入 GEO 报表</RouterLink>
+        </div>
       </div>
       <div class="model-inclusion-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -491,7 +496,12 @@ onMounted(() => {
         </div>
       </template>
       <div class="model-risk-grid">
-        <div v-for="metric in riskMetrics" :key="metric.key" class="model-risk-metric">
+        <div
+          v-for="metric in riskMetrics"
+          :key="metric.key"
+          class="model-risk-metric"
+          :class="`model-risk-metric--${metric.key}`"
+        >
           <div>
             <el-tag :type="getMetricTagType(metric.type)" effect="plain">
               {{ metric.label }}

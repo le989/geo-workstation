@@ -66,7 +66,7 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
     empty-text="暂无模型覆盖记录"
     class="model-record-table"
   >
-    <el-table-column type="expand" width="54">
+    <el-table-column type="expand" label="详情" width="64">
       <template #default="{ row }">
         <div class="model-record-detail">
           <section>
@@ -144,7 +144,7 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
             </el-collapse>
           </section>
 
-          <section>
+          <section class="model-record-detail__tech">
             <el-collapse>
               <el-collapse-item title="技术信息" :name="`${row.id}-tech`">
                 <div class="model-record-tech-grid">
