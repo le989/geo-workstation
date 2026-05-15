@@ -73,24 +73,28 @@ const providerStatusItems = [
   {
     name: "Kimi Web Search",
     status: "已接入检测入口",
+    type: "success" as const,
     usage: "Kimi 联网 GEO 命中检测",
     note: "Key 由后端 .env 管理，前端不读取。"
   },
   {
     name: "豆包 / 火山方舟 Web Search",
     status: "已接入检测入口",
+    type: "success" as const,
     usage: "豆包 / 火山生态方向 API 检测",
     note: "可能不返回完整结构化来源。"
   },
   {
     name: "通义 / 阿里云百炼 Web Search",
     status: "已接入检测入口",
+    type: "success" as const,
     usage: "通义方向回答型联网检测",
     note: "引用主要从回答正文判断。"
   },
   {
     name: "OpenAI Compatible Provider",
     status: "内容生成可用",
+    type: "primary" as const,
     usage: "内容生成、质量检查或拓词 Provider",
     note: "具体模型和密钥仅在后端配置。"
   }
@@ -114,9 +118,32 @@ const dataMaintenanceItems = [
 const systemInfoItems = [
   { label: "运行环境", value: "本地 / 模拟" },
   { label: "API 地址", value: getApiBaseUrl() || "同域 /api" },
-  { label: "当前阶段", value: "UI-3E 设置页分区梳理" },
-  { label: "最近 UI 收口", value: "Header、Dashboard、报表、知识库、模型记录" }
+  { label: "当前阶段", value: "UI-4I 设置 / 帮助收尾适配" },
+  { label: "最近 UI 收口", value: "首页、登录、工作台、报表、内容、资产和策略页" }
 ];
+
+const settingsOverviewItems = computed(() => [
+  {
+    label: "项目档案",
+    value: profile.value ? "已配置" : "待配置",
+    hint: "品牌与项目上下文"
+  },
+  {
+    label: "Provider 状态",
+    value: `${providerStatusItems.length} 项`,
+    hint: "只展示状态，不展示密钥"
+  },
+  {
+    label: "当前身份",
+    value: formatRole(currentUser.value?.role),
+    hint: currentUser.value?.name ?? "未读取当前用户"
+  },
+  {
+    label: "数据维护",
+    value: "说明模式",
+    hint: "不提供清理 / 备份 / 导出按钮"
+  }
+]);
 
 const formatRole = (role?: string) =>
   role ? (roleLabelMap[role as keyof typeof roleLabelMap] ?? role) : "--";
@@ -211,10 +238,7 @@ onMounted(() => {
         <div>
           <el-tag type="success" effect="plain">配置中心</el-tag>
           <h1>系统设置</h1>
-          <p>
-            集中查看项目档案、品牌上下文、Provider
-            配置状态和数据维护边界；具体任务、检测明细和报表结果仍在对应业务页处理。
-          </p>
+          <p>管理项目档案、品牌上下文、模型/API 状态、用户权限和数据维护说明。</p>
         </div>
       </div>
       <div class="settings-hero__actions">
@@ -227,6 +251,18 @@ onMounted(() => {
 
     <AppErrorState v-if="errorMessage" :message="errorMessage" />
     <AppLoadingState v-if="loading && !profile" title="正在加载项目档案" />
+
+    <section class="settings-overview-grid" aria-label="设置状态概览">
+      <article
+        v-for="item in settingsOverviewItems"
+        :key="item.label"
+        class="settings-overview-card"
+      >
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <p>{{ item.hint }}</p>
+      </article>
+    </section>
 
     <section class="settings-grid">
       <el-card shadow="never" class="settings-panel settings-panel--wide">
@@ -353,7 +389,7 @@ onMounted(() => {
               <strong>{{ item.name }}</strong>
               <span>{{ item.usage }}</span>
             </div>
-            <el-tag type="success" effect="plain">{{ item.status }}</el-tag>
+            <el-tag :type="item.type" effect="plain">{{ item.status }}</el-tag>
             <p>{{ item.note }}</p>
           </div>
         </div>

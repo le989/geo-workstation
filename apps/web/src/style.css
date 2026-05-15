@@ -5499,11 +5499,14 @@ a {
 
 .settings-page {
   display: grid;
-  gap: 18px;
+  gap: 22px;
 }
 
 .settings-hero,
-.settings-panel {
+.settings-panel,
+.settings-overview-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--geo-border);
   border-radius: 8px;
   background: #ffffff;
@@ -5515,8 +5518,21 @@ a {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  padding: 24px;
-  background: linear-gradient(135deg, rgb(35 90 159 / 6%), transparent 44%), #ffffff;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 24%),
+    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), #ffffff;
+}
+
+.settings-hero::before,
+.settings-panel::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  content: "";
 }
 
 .settings-hero__copy {
@@ -5533,8 +5549,8 @@ a {
   width: 44px;
   height: 44px;
   border-radius: 8px;
-  background: #eef6ff;
-  color: var(--geo-accent);
+  background: var(--geo-accent-soft);
+  color: var(--geo-primary);
   font-size: 22px;
 }
 
@@ -5557,6 +5573,44 @@ a {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.settings-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-overview-card {
+  display: grid;
+  gap: 8px;
+  min-height: 126px;
+  padding: 18px;
+}
+
+.settings-overview-card:nth-child(4) {
+  border-color: rgb(186 255 41 / 55%);
+  background: linear-gradient(135deg, rgb(186 255 41 / 18%), transparent 58%), #ffffff;
+}
+
+.settings-overview-card span {
+  color: var(--geo-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-overview-card strong {
+  color: #101827;
+  font-size: 28px;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
+.settings-overview-card p {
+  margin: 0;
+  color: var(--geo-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .settings-grid {
@@ -5584,7 +5638,7 @@ a {
 
 .settings-card-header h2 {
   margin: 4px 0;
-  color: var(--geo-text);
+  color: var(--geo-ink);
 }
 
 .settings-card-header span {
@@ -5614,7 +5668,7 @@ a {
   padding: 14px;
   border: 1px solid var(--geo-border);
   border-radius: 8px;
-  background: #f8fbff;
+  background: #fbfdff;
 }
 
 .settings-info-grid span {
@@ -5625,7 +5679,7 @@ a {
 }
 
 .settings-info-grid strong {
-  color: var(--geo-text);
+  color: var(--geo-ink);
   line-height: 1.6;
   word-break: break-word;
 }
@@ -5645,11 +5699,11 @@ a {
   padding: 14px;
   border: 1px solid var(--geo-border);
   border-radius: 10px;
-  background: #f8fbff;
+  background: #fbfdff;
 }
 
 .settings-boundary-list strong {
-  color: var(--geo-text);
+  color: var(--geo-ink);
 }
 
 .settings-boundary-list span {
@@ -5676,7 +5730,7 @@ a {
 
 .settings-provider-row strong {
   display: block;
-  color: var(--geo-text);
+  color: var(--geo-ink);
 }
 
 .settings-provider-row span,
@@ -5720,6 +5774,8 @@ a {
 }
 
 .help-hero {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -5727,8 +5783,21 @@ a {
   padding: 28px;
   border: 1px solid var(--geo-border);
   border-radius: 8px;
-  background: linear-gradient(135deg, rgb(35 90 159 / 6%), transparent 42%), var(--geo-surface);
+  background:
+    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 24%),
+    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), var(--geo-surface);
   box-shadow: var(--geo-shadow-sm);
+}
+
+.help-hero::before,
+.help-section::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  content: "";
 }
 
 .help-hero__copy {
@@ -5756,9 +5825,9 @@ a {
   flex: 0 0 auto;
   gap: 8px;
   padding: 18px;
-  border: 1px solid #d7e2ee;
+  border: 1px solid #e3ddf8;
   border-radius: var(--geo-radius);
-  background: #fbfdff;
+  background: #fbfaff;
 }
 
 .help-hero__aside .el-icon {
@@ -5774,6 +5843,48 @@ a {
 .help-hero__aside span {
   color: var(--geo-muted);
   font-size: 13px;
+  line-height: 1.65;
+}
+
+.help-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.help-overview-card,
+.help-sop-card-grid article,
+.help-feature-grid article,
+.help-boundary-grid article {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.help-overview-card:nth-child(3),
+.help-boundary-grid article:nth-child(3) {
+  border-color: rgb(186 255 41 / 55%);
+  background: linear-gradient(135deg, rgb(186 255 41 / 16%), transparent 58%), #ffffff;
+}
+
+.help-overview-card strong,
+.help-sop-card-grid h3,
+.help-feature-grid strong,
+.help-boundary-grid strong {
+  margin: 0;
+  color: #101827;
+  line-height: 1.45;
+}
+
+.help-overview-card span,
+.help-sop-card-grid span,
+.help-feature-grid span {
+  color: var(--geo-muted);
   line-height: 1.65;
 }
 
@@ -5808,8 +5919,8 @@ a {
 }
 
 .help-nav a:hover {
-  background: #eef5fc;
-  color: var(--geo-accent);
+  background: var(--geo-accent-soft);
+  color: var(--geo-primary);
 }
 
 .help-content {
@@ -5819,6 +5930,8 @@ a {
 }
 
 .help-section {
+  position: relative;
+  overflow: hidden;
   display: grid;
   gap: 18px;
   scroll-margin-top: 110px;
@@ -5855,6 +5968,28 @@ a {
   max-width: 880px;
 }
 
+.help-sop-card-grid,
+.help-feature-grid,
+.help-boundary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.help-sop-card-grid a {
+  color: var(--geo-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.help-section--sop-detail {
+  gap: 16px;
+}
+
+.help-section--boundary {
+  background: linear-gradient(135deg, rgb(109 40 255 / 5%), transparent 40%), #ffffff;
+}
+
 .help-step-list {
   display: grid;
   gap: 10px;
@@ -5874,6 +6009,10 @@ a {
   border-radius: var(--geo-radius);
   background: #fbfdff;
   counter-increment: help-step;
+}
+
+.help-step-list--compact li {
+  grid-template-columns: 38px minmax(0, 1fr);
 }
 
 .help-step-list li::before {
@@ -6002,7 +6141,12 @@ a {
   .report-distribution-grid--model,
   .settings-grid,
   .settings-info-grid,
-  .settings-provider-row {
+  .settings-provider-row,
+  .settings-overview-grid,
+  .help-overview-grid,
+  .help-sop-card-grid,
+  .help-feature-grid,
+  .help-boundary-grid {
     grid-template-columns: 1fr;
   }
 
@@ -6099,6 +6243,10 @@ a {
   .help-layout,
   .help-reminder-grid,
   .help-pending-list,
+  .help-overview-grid,
+  .help-sop-card-grid,
+  .help-feature-grid,
+  .help-boundary-grid,
   .help-version-card {
     grid-template-columns: 1fr;
   }
@@ -6168,7 +6316,11 @@ a {
   .uncovered-card,
   .reports-hero,
   .reports-tabs,
+  .settings-hero,
+  .settings-panel,
+  .settings-overview-card,
   .help-hero,
+  .help-overview-card,
   .help-section,
   .help-nav {
     padding: 16px;
