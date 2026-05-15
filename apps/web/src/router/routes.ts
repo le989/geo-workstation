@@ -14,6 +14,7 @@ import ReportsView from "@/views/ReportsView.vue";
 import SettingsView from "@/views/SettingsView.vue";
 import HelpView from "@/views/HelpView.vue";
 import LoginView from "@/views/LoginView.vue";
+import StylePreviewView from "@/views/StylePreviewView.vue";
 
 export const phase3aRoutePaths = [
   "/dashboard",
@@ -81,6 +82,11 @@ export const routes: RouteRecordRaw[] = [
     meta: {
       publicOnly: true
     }
+  },
+  {
+    path: "/style-preview",
+    name: "style_preview",
+    component: StylePreviewView
   },
   {
     path: "/:pathMatch(.*)*",
