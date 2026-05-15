@@ -47,6 +47,16 @@ type ReportMetric = {
 };
 
 type ReportTabName = ReportExportType | "geo_hit_summary";
+type ReportTab = {
+  label: string;
+  name: ReportTabName;
+};
+type ReportGroup = {
+  key: "overview" | "assets" | "models" | "actions";
+  label: string;
+  description: string;
+  tabs: ReportTab[];
+};
 
 const activeTab = ref<ReportTabName>("geo_overview");
 const reportFilters = reactive<ReportQuery>({
@@ -95,15 +105,40 @@ const loadedTabs = reactive<Record<ReportTabName, boolean>>({
 
 const exporting = ref<ReportExportType | "">("");
 
-const reportTabs: Array<{ label: string; name: ReportTabName }> = [
-  { label: "总览", name: "geo_overview" },
-  { label: "提示词覆盖", name: "prompt_coverage" },
-  { label: "模型覆盖", name: "model_coverage" },
-  { label: "GEO 命中汇总", name: "geo_hit_summary" },
-  { label: "内容覆盖", name: "content_coverage" },
-  { label: "知识库覆盖", name: "knowledge_coverage" },
-  { label: "优化建议", name: "optimization_suggestions" }
+const reportGroups: ReportGroup[] = [
+  {
+    key: "overview",
+    label: "总览",
+    description: "查看 GEO 资产与检测结果的整体情况。",
+    tabs: [{ label: "总览", name: "geo_overview" }]
+  },
+  {
+    key: "assets",
+    label: "资产覆盖",
+    description: "检查提示词、内容和知识库资产是否补齐。",
+    tabs: [
+      { label: "提示词覆盖", name: "prompt_coverage" },
+      { label: "内容覆盖", name: "content_coverage" },
+      { label: "知识库覆盖", name: "knowledge_coverage" }
+    ]
+  },
+  {
+    key: "models",
+    label: "模型结果",
+    description: "查看模型检测结果、品牌提及、推荐和竞品占位。",
+    tabs: [
+      { label: "模型覆盖", name: "model_coverage" },
+      { label: "GEO 命中汇总", name: "geo_hit_summary" }
+    ]
+  },
+  {
+    key: "actions",
+    label: "优化建议",
+    description: "根据当前数据生成下一步补齐动作。",
+    tabs: [{ label: "优化建议", name: "optimization_suggestions" }]
+  }
 ];
+const reportTabs = reportGroups.flatMap((group) => group.tabs);
 
 const buildBaseQuery = (): ReportQuery => ({
   entryPoint: reportFilters.entryPoint,
@@ -123,6 +158,26 @@ const buildGeoHitSummaryQuery = (): ReportQuery => ({
 
 const isExportableReport = (tab: ReportTabName): tab is ReportExportType =>
   tab !== "geo_hit_summary";
+
+const activeReportGroup = computed(
+  () =>
+    reportGroups.find((group) => group.tabs.some((tab) => tab.name === activeTab.value)) ??
+    reportGroups[0]
+);
+const activeGroupTabs = computed(() => activeReportGroup.value.tabs);
+const activeTabMeta = computed(
+  () => reportTabs.find((tab) => tab.name === activeTab.value) ?? reportTabs[0]
+);
+
+const selectReportGroup = (group: ReportGroup) => {
+  const nextTab = group.tabs[0]?.name;
+  if (!nextTab || activeTab.value === nextTab) {
+    return;
+  }
+
+  activeTab.value = nextTab;
+  handleTabChange(nextTab);
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -392,78 +447,107 @@ onMounted(() => {
       @reset="resetFilters"
     />
 
-    <el-tabs v-model="activeTab" class="reports-tabs" @tab-change="handleTabChange">
-      <el-tab-pane v-for="tab in reportTabs" :key="tab.name" :label="tab.label" :name="tab.name">
-        <div class="report-tab-toolbar">
-          <div>
-            <p class="section-kicker">报表导出</p>
-            <h2>{{ tab.label }}</h2>
-          </div>
-          <ReportExportButton
-            v-if="isExportableReport(tab.name)"
-            :exporting="exporting === tab.name"
-            :report-type="tab.name"
-            @export="handleExport"
+    <section class="reports-tabs report-navigation-shell">
+      <div class="report-group-nav" aria-label="GEO 报表分组">
+        <button
+          v-for="group in reportGroups"
+          :key="group.key"
+          class="report-group-nav__item"
+          :class="{ 'is-active': activeReportGroup.key === group.key }"
+          type="button"
+          @click="selectReportGroup(group)"
+        >
+          <strong>{{ group.label }}</strong>
+          <span>{{ group.description }}</span>
+        </button>
+      </div>
+
+      <div class="report-subnav">
+        <el-tabs
+          v-if="activeGroupTabs.length > 1"
+          v-model="activeTab"
+          class="reports-sub-tabs"
+          @tab-change="handleTabChange"
+        >
+          <el-tab-pane
+            v-for="tab in activeGroupTabs"
+            :key="tab.name"
+            :label="tab.label"
+            :name="tab.name"
           />
-          <el-tag v-else type="info">按最新结果口径统计</el-tag>
+        </el-tabs>
+        <el-tag v-else effect="plain">{{ activeTabMeta.label }}</el-tag>
+      </div>
+
+      <div class="report-tab-toolbar">
+        <div>
+          <p class="section-kicker">报表导出</p>
+          <h2>{{ activeTabMeta.label }}</h2>
         </div>
+        <ReportExportButton
+          v-if="isExportableReport(activeTab)"
+          :exporting="exporting === activeTab"
+          :report-type="activeTab"
+          @export="handleExport"
+        />
+        <el-tag v-else type="info">按最新结果口径统计</el-tag>
+      </div>
 
-        <AppErrorState v-if="errors[tab.name]" title="报表加载失败" :message="errors[tab.name]" />
+      <AppErrorState v-if="errors[activeTab]" title="报表加载失败" :message="errors[activeTab]" />
 
-        <section v-if="tab.name === 'geo_overview'" class="report-panel">
-          <div class="report-metric-grid">
-            <ReportMetricCard
-              v-for="metric in overviewMetrics"
-              :key="metric.label"
-              :description="metric.description"
-              :label="metric.label"
-              :loading="loading.geo_overview"
-              :percent="metric.percent"
-              :tone="metric.tone"
-              :value="metric.value"
-            />
-          </div>
-        </section>
-
-        <PromptCoveragePanel
-          v-if="tab.name === 'prompt_coverage'"
-          :loading="loading.prompt_coverage"
-          :report="promptCoverage"
-        />
-        <ModelCoveragePanel
-          v-if="tab.name === 'model_coverage'"
-          :loading="loading.model_coverage"
-          :report="modelCoverage"
-        />
-        <GeoHitSummaryPanel
-          v-if="tab.name === 'geo_hit_summary'"
-          :loading="loading.geo_hit_summary"
-          :report="geoHitSummary"
-        />
-        <ContentCoveragePanel
-          v-if="tab.name === 'content_coverage'"
-          :loading="loading.content_coverage"
-          :report="contentCoverage"
-        />
-        <KnowledgeCoveragePanel
-          v-if="tab.name === 'knowledge_coverage'"
-          :loading="loading.knowledge_coverage"
-          :report="knowledgeCoverage"
-        />
-        <section v-if="tab.name === 'optimization_suggestions'" class="report-panel">
-          <el-card class="suggestion-limit-card" shadow="never">
-            <el-form label-position="top">
-              <el-form-item label="优化建议数量">
-                <el-input-number v-model="suggestionLimit" :max="200" :min="1" />
-              </el-form-item>
-            </el-form>
-          </el-card>
-          <OptimizationSuggestionsPanel
-            :loading="loading.optimization_suggestions"
-            :suggestions="suggestions"
+      <section v-if="activeTab === 'geo_overview'" class="report-panel">
+        <div class="report-metric-grid">
+          <ReportMetricCard
+            v-for="metric in overviewMetrics"
+            :key="metric.label"
+            :description="metric.description"
+            :label="metric.label"
+            :loading="loading.geo_overview"
+            :percent="metric.percent"
+            :tone="metric.tone"
+            :value="metric.value"
           />
-        </section>
-      </el-tab-pane>
-    </el-tabs>
+        </div>
+      </section>
+
+      <PromptCoveragePanel
+        v-if="activeTab === 'prompt_coverage'"
+        :loading="loading.prompt_coverage"
+        :report="promptCoverage"
+      />
+      <ModelCoveragePanel
+        v-if="activeTab === 'model_coverage'"
+        :loading="loading.model_coverage"
+        :report="modelCoverage"
+      />
+      <GeoHitSummaryPanel
+        v-if="activeTab === 'geo_hit_summary'"
+        :loading="loading.geo_hit_summary"
+        :report="geoHitSummary"
+      />
+      <ContentCoveragePanel
+        v-if="activeTab === 'content_coverage'"
+        :loading="loading.content_coverage"
+        :report="contentCoverage"
+      />
+      <KnowledgeCoveragePanel
+        v-if="activeTab === 'knowledge_coverage'"
+        :loading="loading.knowledge_coverage"
+        :report="knowledgeCoverage"
+      />
+      <section v-if="activeTab === 'optimization_suggestions'" class="report-panel">
+        <el-card class="suggestion-limit-card" shadow="never">
+          <el-form label-position="top">
+            <el-form-item label="优化建议数量">
+              <el-input-number v-model="suggestionLimit" :max="200" :min="1" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+        <OptimizationSuggestionsPanel
+          :loading="loading.optimization_suggestions"
+          :suggestions="suggestions"
+        />
+      </section>
+    </section>
   </section>
 </template>

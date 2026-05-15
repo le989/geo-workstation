@@ -3121,6 +3121,65 @@ a {
   padding: 18px;
 }
 
+.report-navigation-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.report-group-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-group-nav__item {
+  display: grid;
+  gap: 6px;
+  min-height: 82px;
+  padding: 14px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background: #f8fbfd;
+  color: #2f4653;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.report-group-nav__item:hover,
+.report-group-nav__item.is-active {
+  border-color: #94b4d6;
+  background: #eef6ff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.report-group-nav__item strong {
+  color: #17262c;
+  font-size: 15px;
+}
+
+.report-group-nav__item span {
+  color: #607078;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.report-subnav {
+  min-height: 34px;
+}
+
+.reports-sub-tabs .el-tabs__header {
+  margin-bottom: 0;
+}
+
+.reports-sub-tabs .el-tabs__nav-wrap::after {
+  height: 1px;
+  background: #d7e2ee;
+}
+
 .report-tab-toolbar {
   display: flex;
   align-items: flex-start;
@@ -3665,6 +3724,7 @@ a {
   .knowledge-operation-grid,
   .model-summary-grid,
   .model-distribution-grid,
+  .report-group-nav,
   .model-inclusion-filters,
   .uncovered-filters,
   .model-record-form,
