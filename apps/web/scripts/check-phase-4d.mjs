@@ -24,7 +24,7 @@ const requiredSnippets = [
   ["requiresAuth", "src/router/routes.ts"],
   ["publicOnly", "src/router/routes.ts"],
   ["/login", "src/router/routes.ts"],
-  ["GEO 营销运营系统", "src/views/LoginView.vue"],
+  ["AI 搜索可见度运营闭环", "src/views/LoginView.vue"],
   ["内部访问控制", "src/views/LoginView.vue"],
   ["退出登录", "src/layouts/AppLayout.vue"],
   ["currentUser", "src/layouts/AppLayout.vue"]
