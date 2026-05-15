@@ -1,6 +1,11 @@
 import {
+  CompanyStatus,
+  CompanyType,
   GeoPromptType,
+  MembershipRole,
+  MembershipStatus,
   Prisma,
+  ProductLineStatus,
   RecordMethod,
   TaskStatus,
   UserIntent,
@@ -11,8 +16,21 @@ import { hashPassword } from "../src/modules/auth/utils/password-hash.util";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 
 const prisma = createPrismaClient();
+const DEFAULT_COMPANY_ID = "company_default_kjt";
+const DEFAULT_COMPANY_CODE = "kjt";
+const DEFAULT_PRODUCT_LINE_ID = "product_line_default_kjt";
+const DEFAULT_PRODUCT_LINE_CODE = "default";
+const WEAK_PRODUCTION_PASSWORDS = new Set([
+  "",
+  "change_me_admin_password",
+  "admin123",
+  "password",
+  "123456"
+]);
 
 async function findOrCreateGeoPrompt(input: {
+  companyId: string;
+  productLineId?: string;
   type: GeoPromptType;
   baseWord: string;
   promptText: string;
@@ -25,6 +43,7 @@ async function findOrCreateGeoPrompt(input: {
 }) {
   const existingPrompt = await prisma.geoPrompt.findFirst({
     where: {
+      companyId: input.companyId,
       promptText: input.promptText,
       type: input.type,
       productLine: input.productLine,
@@ -46,6 +65,7 @@ async function findOrCreateGeoPrompt(input: {
 }
 
 async function findOrCreateInstructionTemplate(input: {
+  companyId: string;
   name: string;
   instructionType: string;
   contentType: string;
@@ -58,6 +78,7 @@ async function findOrCreateInstructionTemplate(input: {
 }) {
   const existingTemplate = await prisma.instructionTemplate.findFirst({
     where: {
+      companyId: input.companyId,
       name: input.name,
       deletedAt: null
     }
@@ -75,29 +96,102 @@ async function findOrCreateInstructionTemplate(input: {
   });
 }
 
+function assertSafeProductionPassword(password: string, hasExplicitPassword: boolean) {
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
+
+  const normalizedPassword = password.trim();
+
+  if (!hasExplicitPassword || WEAK_PRODUCTION_PASSWORDS.has(normalizedPassword)) {
+    throw new Error("DEFAULT_ADMIN_PASSWORD is required and must not be weak in production.");
+  }
+}
+
 async function main() {
   const defaultAdminEmail = process.env.DEFAULT_ADMIN_EMAIL || "admin@geo-workstation.local";
+  const hasExplicitDefaultAdminPassword = Boolean(process.env.DEFAULT_ADMIN_PASSWORD);
   const defaultAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD || "change_me_admin_password";
+  assertSafeProductionPassword(defaultAdminPassword, hasExplicitDefaultAdminPassword);
   const passwordHash = await hashPassword(defaultAdminPassword);
+
+  const defaultCompany = await prisma.company.upsert({
+    where: { code: DEFAULT_COMPANY_CODE },
+    update: {
+      name: "凯基特",
+      type: CompanyType.internal,
+      status: CompanyStatus.active
+    },
+    create: {
+      id: DEFAULT_COMPANY_ID,
+      name: "凯基特",
+      code: DEFAULT_COMPANY_CODE,
+      type: CompanyType.internal,
+      status: CompanyStatus.active
+    }
+  });
+
+  const defaultProductLine = await prisma.productLine.upsert({
+    where: {
+      companyId_code: {
+        companyId: defaultCompany.id,
+        code: DEFAULT_PRODUCT_LINE_CODE
+      }
+    },
+    update: {
+      name: "默认产品线",
+      status: ProductLineStatus.active
+    },
+    create: {
+      id: DEFAULT_PRODUCT_LINE_ID,
+      companyId: defaultCompany.id,
+      name: "默认产品线",
+      code: DEFAULT_PRODUCT_LINE_CODE,
+      status: ProductLineStatus.active
+    }
+  });
 
   const admin = await prisma.user.upsert({
     where: { email: defaultAdminEmail },
     update: {
       name: "GEO Admin",
-      role: UserRole.admin,
+      role: UserRole.platform_admin,
       status: UserStatus.active,
       passwordHash
     },
     create: {
       email: defaultAdminEmail,
       name: "GEO Admin",
-      role: UserRole.admin,
+      role: UserRole.platform_admin,
       status: UserStatus.active,
       passwordHash
     }
   });
 
+  await prisma.membership.upsert({
+    where: {
+      userId_companyId: {
+        userId: admin.id,
+        companyId: defaultCompany.id
+      }
+    },
+    update: {
+      role: MembershipRole.platform_admin,
+      status: MembershipStatus.active,
+      isDefault: true
+    },
+    create: {
+      userId: admin.id,
+      companyId: defaultCompany.id,
+      role: MembershipRole.platform_admin,
+      status: MembershipStatus.active,
+      isDefault: true
+    }
+  });
+
   const basePrompt = await findOrCreateGeoPrompt({
+    companyId: defaultCompany.id,
+    productLineId: defaultProductLine.id,
     type: GeoPromptType.base,
     baseWord: "激光测距传感器",
     promptText: "激光测距传感器",
@@ -109,6 +203,8 @@ async function main() {
   });
 
   const distilledPrompt = await findOrCreateGeoPrompt({
+    companyId: defaultCompany.id,
+    productLineId: defaultProductLine.id,
     type: GeoPromptType.distilled,
     baseWord: "激光测距传感器",
     promptText: "激光测距传感器怎么选",
@@ -121,6 +217,8 @@ async function main() {
   });
 
   await findOrCreateGeoPrompt({
+    companyId: defaultCompany.id,
+    productLineId: defaultProductLine.id,
     type: GeoPromptType.brand,
     baseWord: "激光测距传感器",
     promptText: "凯基特激光测距传感器怎么样",
@@ -133,6 +231,8 @@ async function main() {
   });
 
   await findOrCreateGeoPrompt({
+    companyId: defaultCompany.id,
+    productLineId: defaultProductLine.id,
     type: GeoPromptType.scene,
     baseWord: "激光测距传感器",
     promptText: "行车防撞用什么激光测距传感器",
@@ -147,14 +247,17 @@ async function main() {
   const knowledgeBase =
     (await prisma.knowledgeBase.findFirst({
       where: {
+        companyId: defaultCompany.id,
         name: "激光测距传感器知识库",
         deletedAt: null
       }
     })) ??
     (await prisma.knowledgeBase.create({
       data: {
+        companyId: defaultCompany.id,
         name: "激光测距传感器知识库",
         productLine: "激光测距传感器",
+        productLineId: defaultProductLine.id,
         description: "用于沉淀激光测距传感器产品能力、应用场景和 FAQ 的 GEO 事实底座。",
         createdById: admin.id
       }
@@ -170,18 +273,21 @@ async function main() {
     })) ??
     (await prisma.knowledgeChunk.create({
       data: {
+        companyId: defaultCompany.id,
         knowledgeBaseId: knowledgeBase.id,
         title: "激光测距传感器选型基础",
         content:
           "激光测距传感器可用于距离检测、行车防撞、物位监测和自动化设备定位。选型时应关注量程、精度、响应速度、安装环境和输出方式。",
         sourceType: "seed",
         productLine: "激光测距传感器",
+        productLineId: defaultProductLine.id,
         materialType: "产品能力",
         tags: ["GEO", "激光测距传感器", "选型"]
       }
     }));
 
   const selectionTemplate = await findOrCreateInstructionTemplate({
+    companyId: defaultCompany.id,
     name: "选型指南",
     instructionType: "选型指南",
     contentType: "选型指南",
@@ -194,6 +300,7 @@ async function main() {
   });
 
   await findOrCreateInstructionTemplate({
+    companyId: defaultCompany.id,
     name: "AI 问答素材",
     instructionType: "AI 问答优化",
     contentType: "AI 问答素材",
@@ -206,6 +313,7 @@ async function main() {
   });
 
   await findOrCreateInstructionTemplate({
+    companyId: defaultCompany.id,
     name: "FAQ",
     instructionType: "FAQ",
     contentType: "FAQ",
@@ -220,13 +328,16 @@ async function main() {
   const contentTask =
     (await prisma.contentTask.findFirst({
       where: {
+        companyId: defaultCompany.id,
         name: "激光测距传感器 GEO 选型指南内容任务"
       }
     })) ??
     (await prisma.contentTask.create({
       data: {
+        companyId: defaultCompany.id,
         name: "激光测距传感器 GEO 选型指南内容任务",
         productLine: "激光测距传感器",
+        productLineId: defaultProductLine.id,
         knowledgeBaseId: knowledgeBase.id,
         instructionTemplateId: selectionTemplate.id,
         generationType: "选型指南",
@@ -249,6 +360,7 @@ async function main() {
   if (!existingContentItem) {
     await prisma.contentItem.create({
       data: {
+        companyId: defaultCompany.id,
         taskId: contentTask.id,
         geoPromptId: distilledPrompt.id,
         title: "激光测距传感器怎么选",
@@ -263,6 +375,7 @@ async function main() {
   const existingInclusionRecord = await prisma.modelInclusionRecord.findFirst({
     where: {
       geoPromptId: distilledPrompt.id,
+      companyId: defaultCompany.id,
       model: "deepseek-chat"
     }
   });
@@ -270,6 +383,8 @@ async function main() {
   if (!existingInclusionRecord) {
     await prisma.modelInclusionRecord.create({
       data: {
+        companyId: defaultCompany.id,
+        productLineId: defaultProductLine.id,
         geoPromptId: distilledPrompt.id,
         model: "deepseek-chat",
         brandMentioned: false,
@@ -283,19 +398,35 @@ async function main() {
     });
   }
 
-  await prisma.aiCallLog.create({
-    data: {
+  const existingSeedAiCallLog = await prisma.aiCallLog.findFirst({
+    where: {
+      companyId: defaultCompany.id,
+      createdById: admin.id,
       provider: "seed",
       model: "none",
       purpose: "phase_1_seed_marker",
       relatedType: "knowledge_base",
-      relatedId: knowledgeBase.id,
-      tokenInput: 0,
-      tokenOutput: 0,
-      costEstimate: new Prisma.Decimal(0),
-      status: "succeeded"
+      relatedId: knowledgeBase.id
     }
   });
+
+  if (!existingSeedAiCallLog) {
+    await prisma.aiCallLog.create({
+      data: {
+        companyId: defaultCompany.id,
+        createdById: admin.id,
+        provider: "seed",
+        model: "none",
+        purpose: "phase_1_seed_marker",
+        relatedType: "knowledge_base",
+        relatedId: knowledgeBase.id,
+        tokenInput: 0,
+        tokenOutput: 0,
+        costEstimate: new Prisma.Decimal(0),
+        status: "succeeded"
+      }
+    });
+  }
 
   void basePrompt;
 }

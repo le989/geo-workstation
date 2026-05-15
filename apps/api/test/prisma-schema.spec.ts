@@ -1,4 +1,16 @@
-import { GeoPromptType, TaskStatus, UserIntent, UserRole, UserStatus } from "@prisma/client";
+import {
+  CompanyStatus,
+  CompanyType,
+  GeoPromptType,
+  MembershipRole,
+  MembershipStatus,
+  ProductLineStatus,
+  TaskStatus,
+  UserIntent,
+  UserRole,
+  UserStatus,
+  Visibility
+} from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 
@@ -238,5 +250,56 @@ describe("Phase 1 Prisma GEO schema", () => {
 
     expect(user.passwordHash).toContain("scrypt$");
     expect(user.passwordHash).not.toContain("change_me_admin_password");
+  });
+
+  it("links users to companies and product lines while defaulting shared resource visibility", async () => {
+    const user = await createTestUser();
+    const company = await prisma.company.create({
+      data: {
+        name: `Auth 2B 测试公司 ${runId}`,
+        code: `auth2b-${runId}-${crypto.randomUUID()}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+
+    const productLine = await prisma.productLine.create({
+      data: {
+        companyId: company.id,
+        name: "Auth 2B 默认产品线",
+        code: `line-${crypto.randomUUID()}`,
+        status: ProductLineStatus.active
+      }
+    });
+
+    const membership = await prisma.membership.create({
+      data: {
+        userId: user.id,
+        companyId: company.id,
+        role: MembershipRole.operator,
+        status: MembershipStatus.active,
+        isDefault: true
+      }
+    });
+
+    const prompt = await prisma.geoPrompt.create({
+      data: {
+        companyId: company.id,
+        productLineId: productLine.id,
+        type: GeoPromptType.scene,
+        baseWord: "激光测距传感器",
+        promptText: `Auth 2B 产品线提示词 ${runId}`,
+        productLine: productLine.name,
+        userIntent: UserIntent.application_solution,
+        source: "test",
+        createdById: user.id
+      }
+    });
+
+    expect(membership.companyId).toBe(company.id);
+    expect(membership.userId).toBe(user.id);
+    expect(prompt.companyId).toBe(company.id);
+    expect(prompt.productLineId).toBe(productLine.id);
+    expect(prompt.visibility).toBe(Visibility.COMPANY);
   });
 });

@@ -7,6 +7,9 @@ datasource db {
 }
 
 enum UserRole {
+  platform_admin
+  company_admin
+  operator
   admin
   geo_operator
   content_editor
@@ -16,6 +19,38 @@ enum UserRole {
 enum UserStatus {
   active
   disabled
+}
+
+enum CompanyType {
+  internal
+  customer
+}
+
+enum CompanyStatus {
+  active
+  disabled
+}
+
+enum ProductLineStatus {
+  active
+  disabled
+}
+
+enum MembershipRole {
+  platform_admin
+  company_admin
+  operator
+}
+
+enum MembershipStatus {
+  active
+  disabled
+}
+
+enum Visibility {
+  PRIVATE
+  COMPANY
+  PLATFORM
 }
 
 enum TaskStatus {
@@ -77,20 +112,99 @@ model User {
   status                UserStatus             @default(active)
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")
+  memberships           Membership[]
+  createdProjectProfiles ProjectProfile[]       @relation("ProjectProfileCreatedBy")
+  updatedProjectProfiles ProjectProfile[]       @relation("ProjectProfileUpdatedBy")
+  geoAnalysisTasks      GeoAnalysisTask[]       @relation("GeoAnalysisTaskCreatedBy")
+  updatedGeoAnalysisTasks GeoAnalysisTask[]     @relation("GeoAnalysisTaskUpdatedBy")
+  geoPrompts            GeoPrompt[]             @relation("GeoPromptCreatedBy")
+  updatedGeoPrompts     GeoPrompt[]             @relation("GeoPromptUpdatedBy")
+  expansionJobs         ExpansionJob[]          @relation("ExpansionJobCreatedBy")
+  updatedExpansionJobs  ExpansionJob[]          @relation("ExpansionJobUpdatedBy")
+  knowledgeBases        KnowledgeBase[]         @relation("KnowledgeBaseCreatedBy")
+  updatedKnowledgeBases KnowledgeBase[]         @relation("KnowledgeBaseUpdatedBy")
+  knowledgeFiles        KnowledgeFile[]         @relation("KnowledgeFileCreatedBy")
+  updatedKnowledgeFiles KnowledgeFile[]         @relation("KnowledgeFileUpdatedBy")
+  instructionTemplates  InstructionTemplate[]   @relation("InstructionTemplateCreatedBy")
+  updatedInstructionTemplates InstructionTemplate[] @relation("InstructionTemplateUpdatedBy")
+  contentTasks          ContentTask[]           @relation("ContentTaskCreatedBy")
+  updatedContentTasks   ContentTask[]           @relation("ContentTaskUpdatedBy")
+  modelInclusionRecords ModelInclusionRecord[]  @relation("ModelInclusionRecordCreatedBy")
+  updatedModelInclusionRecords ModelInclusionRecord[] @relation("ModelInclusionRecordUpdatedBy")
+  aiCallLogs            AiCallLog[]             @relation("AiCallLogCreatedBy")
+
+  @@map("users")
+}
+
+model Company {
+  id                    String                 @id @default(cuid())
+  name                  String
+  code                  String                 @unique
+  type                  CompanyType            @default(internal)
+  status                CompanyStatus          @default(active)
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  productLines          ProductLine[]
+  memberships           Membership[]
+  projectProfiles       ProjectProfile[]
   geoAnalysisTasks      GeoAnalysisTask[]
   geoPrompts            GeoPrompt[]
   expansionJobs         ExpansionJob[]
   knowledgeBases        KnowledgeBase[]
   knowledgeFiles        KnowledgeFile[]
+  knowledgeChunks       KnowledgeChunk[]
   instructionTemplates  InstructionTemplate[]
+  contentTasks          ContentTask[]
+  contentItems          ContentItem[]
+  modelInclusionRecords ModelInclusionRecord[]
+  aiCallLogs            AiCallLog[]
+
+  @@map("companies")
+}
+
+model ProductLine {
+  id                    String                 @id @default(cuid())
+  companyId             String                 @map("company_id")
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name                  String
+  code                  String
+  status                ProductLineStatus      @default(active)
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  geoAnalysisTasks      GeoAnalysisTask[]
+  geoPrompts            GeoPrompt[]
+  knowledgeBases        KnowledgeBase[]
+  knowledgeChunks       KnowledgeChunk[]
   contentTasks          ContentTask[]
   modelInclusionRecords ModelInclusionRecord[]
 
-  @@map("users")
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("product_lines")
+}
+
+model Membership {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String           @map("company_id")
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      MembershipRole   @default(operator)
+  status    MembershipStatus @default(active)
+  isDefault Boolean          @default(false) @map("is_default")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@index([role])
+  @@map("memberships")
 }
 
 model ProjectProfile {
   id              String   @id @default(cuid())
+  companyId       String?  @map("company_id")
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   projectName     String   @map("project_name")
   companyName     String?  @map("company_name")
   brandName       String?  @map("brand_name")
@@ -103,18 +217,29 @@ model ProjectProfile {
   forbiddenClaims Json?    @map("forbidden_claims")
   targetModels    Json?    @map("target_models")
   notes           String?
+  createdById     String?  @map("created_by")
+  createdBy       User?    @relation("ProjectProfileCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?  @map("updated_by")
+  updatedBy       User?    @relation("ProjectProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  @@index([companyId])
+  @@index([createdById])
+  @@index([updatedById])
   @@map("project_profiles")
 }
 
 model GeoAnalysisTask {
   id                String           @id @default(cuid())
+  companyId         String?          @map("company_id")
+  company           Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   name              String
   brandName         String           @map("brand_name")
   websiteUrl        String?          @map("website_url")
   productLine       String?          @map("product_line")
+  productLineId     String?          @map("product_line_id")
+  productLineRef    ProductLine?     @relation(fields: [productLineId], references: [id], onDelete: SetNull)
   targetModels      Json?            @map("target_models")
   status            TaskStatus       @default(pending)
   summary           Json?
@@ -122,14 +247,19 @@ model GeoAnalysisTask {
   knowledgeGaps     Json?            @map("knowledge_gaps")
   promptSuggestions Json?            @map("prompt_suggestions")
   createdById       String           @map("created_by")
-  createdBy         User             @relation(fields: [createdById], references: [id])
+  createdBy         User             @relation("GeoAnalysisTaskCreatedBy", fields: [createdById], references: [id])
+  updatedById       String?          @map("updated_by")
+  updatedBy         User?            @relation("GeoAnalysisTaskUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
   modelResults      GeoModelResult[]
 
+  @@index([companyId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([brandName])
   @@index([productLine])
+  @@index([productLineId])
   @@index([status])
   @@map("geo_analysis_tasks")
 }
@@ -156,12 +286,19 @@ model GeoModelResult {
 
 model KnowledgeBase {
   id           String           @id @default(cuid())
+  companyId    String?          @map("company_id")
+  company      Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   name         String
   productLine  String?          @map("product_line")
+  productLineId String?         @map("product_line_id")
+  productLineRef ProductLine?   @relation(fields: [productLineId], references: [id], onDelete: SetNull)
   description  String?
   status       String            @default("active")
+  visibility   Visibility        @default(COMPANY)
   createdById  String           @map("created_by")
-  createdBy    User             @relation(fields: [createdById], references: [id])
+  createdBy    User             @relation("KnowledgeBaseCreatedBy", fields: [createdById], references: [id])
+  updatedById  String?          @map("updated_by")
+  updatedBy    User?            @relation("KnowledgeBaseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
   deletedAt    DateTime?        @map("deleted_at")
@@ -169,15 +306,21 @@ model KnowledgeBase {
   chunks       KnowledgeChunk[]
   contentTasks ContentTask[]
 
+  @@index([companyId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([productLine])
+  @@index([productLineId])
   @@index([status])
+  @@index([visibility])
   @@index([deletedAt])
   @@map("knowledge_bases")
 }
 
 model KnowledgeFile {
   id              String           @id @default(cuid())
+  companyId       String?          @map("company_id")
+  company         Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   knowledgeBaseId String           @map("knowledge_base_id")
   knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   fileName        String           @map("file_name")
@@ -187,14 +330,18 @@ model KnowledgeFile {
   parseStatus     ParseStatus      @default(pending) @map("parse_status")
   errorMessage    String?          @map("error_message")
   createdById     String           @map("created_by")
-  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdBy       User             @relation("KnowledgeFileCreatedBy", fields: [createdById], references: [id])
+  updatedById     String?          @map("updated_by")
+  updatedBy       User?            @relation("KnowledgeFileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   deletedAt       DateTime?        @map("deleted_at")
   chunks          KnowledgeChunk[]
 
+  @@index([companyId])
   @@index([knowledgeBaseId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([parseStatus])
   @@index([deletedAt])
   @@map("knowledge_files")
@@ -202,6 +349,8 @@ model KnowledgeFile {
 
 model KnowledgeChunk {
   id              String         @id @default(cuid())
+  companyId       String?        @map("company_id")
+  company         Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
   knowledgeBaseId String         @map("knowledge_base_id")
   knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   fileId          String?        @map("file_id")
@@ -210,15 +359,19 @@ model KnowledgeChunk {
   content         String
   sourceType      String         @map("source_type")
   productLine     String?        @map("product_line")
+  productLineId   String?        @map("product_line_id")
+  productLineRef  ProductLine?   @relation(fields: [productLineId], references: [id], onDelete: SetNull)
   materialType    String?        @map("material_type")
   tags            Json?
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
   deletedAt       DateTime?      @map("deleted_at")
 
+  @@index([companyId])
   @@index([knowledgeBaseId])
   @@index([fileId])
   @@index([productLine])
+  @@index([productLineId])
   @@index([materialType])
   @@index([deletedAt])
   @@map("knowledge_chunks")
@@ -226,10 +379,14 @@ model KnowledgeChunk {
 
 model GeoPrompt {
   id                   String                 @id @default(cuid())
+  companyId            String?                @map("company_id")
+  company              Company?               @relation(fields: [companyId], references: [id], onDelete: SetNull)
   type                 GeoPromptType          @map("type")
   baseWord             String?                @map("base_word")
   promptText           String                 @map("prompt_text")
   productLine          String?                @map("product_line")
+  productLineId        String?                @map("product_line_id")
+  productLineRef       ProductLine?           @relation(fields: [productLineId], references: [id], onDelete: SetNull)
   scenario             String?
   userIntent           UserIntent             @default(selection) @map("user_intent")
   priority             Int                    @default(3)
@@ -237,8 +394,11 @@ model GeoPrompt {
   source               String?
   trackEnabled         Boolean                @default(false) @map("track_enabled")
   latestCoverageStatus String?                @map("latest_coverage_status")
+  visibility           Visibility             @default(COMPANY)
   createdById          String                 @map("created_by")
-  createdBy            User                   @relation(fields: [createdById], references: [id])
+  createdBy            User                   @relation("GeoPromptCreatedBy", fields: [createdById], references: [id])
+  updatedById          String?                @map("updated_by")
+  updatedBy            User?                  @relation("GeoPromptUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt            DateTime               @default(now()) @map("created_at")
   updatedAt            DateTime               @updatedAt @map("updated_at")
   deletedAt            DateTime?              @map("deleted_at")
@@ -246,18 +406,24 @@ model GeoPrompt {
   contentItems         ContentItem[]
   inclusionRecords     ModelInclusionRecord[]
 
+  @@index([companyId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([type])
   @@index([promptText])
   @@index([productLine])
+  @@index([productLineId])
   @@index([userIntent])
   @@index([trackEnabled])
+  @@index([visibility])
   @@index([deletedAt])
   @@map("geo_prompts")
 }
 
 model ExpansionJob {
   id           String               @id @default(cuid())
+  companyId    String?              @map("company_id")
+  company      Company?             @relation(fields: [companyId], references: [id], onDelete: SetNull)
   mode         ExpansionMode
   promptType   GeoPromptType         @map("prompt_type")
   inputPayload Json                 @map("input_payload")
@@ -265,12 +431,16 @@ model ExpansionJob {
   model        String?
   status       TaskStatus            @default(pending)
   createdById  String               @map("created_by")
-  createdBy    User                 @relation(fields: [createdById], references: [id])
+  createdBy    User                 @relation("ExpansionJobCreatedBy", fields: [createdById], references: [id])
+  updatedById  String?              @map("updated_by")
+  updatedBy    User?                @relation("ExpansionJobUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt    DateTime             @default(now()) @map("created_at")
   updatedAt    DateTime             @updatedAt @map("updated_at")
   candidates   ExpansionCandidate[]
 
+  @@index([companyId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([mode])
   @@index([promptType])
   @@index([status])
@@ -299,6 +469,8 @@ model ExpansionCandidate {
 
 model InstructionTemplate {
   id               String         @id @default(cuid())
+  companyId        String?        @map("company_id")
+  company          Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
   name             String
   instructionType  String         @map("instruction_type")
   contentType      String         @map("content_type")
@@ -308,25 +480,35 @@ model InstructionTemplate {
   outputFormat     String?        @map("output_format")
   qualityRules     String?        @map("quality_rules")
   forbiddenRules   String?        @map("forbidden_rules")
+  visibility       Visibility     @default(COMPANY)
   createdById      String         @map("created_by")
-  createdBy        User           @relation(fields: [createdById], references: [id])
+  createdBy        User           @relation("InstructionTemplateCreatedBy", fields: [createdById], references: [id])
+  updatedById      String?        @map("updated_by")
+  updatedBy        User?          @relation("InstructionTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
   deletedAt        DateTime?      @map("deleted_at")
   contentTasks     ContentTask[]
 
+  @@index([companyId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([instructionType])
   @@index([contentType])
   @@index([targetPromptType])
+  @@index([visibility])
   @@index([deletedAt])
   @@map("instruction_templates")
 }
 
 model ContentTask {
   id                    String               @id @default(cuid())
+  companyId             String?              @map("company_id")
+  company               Company?             @relation(fields: [companyId], references: [id], onDelete: SetNull)
   name                  String
   productLine           String?              @map("product_line")
+  productLineId         String?              @map("product_line_id")
+  productLineRef        ProductLine?         @relation(fields: [productLineId], references: [id], onDelete: SetNull)
   knowledgeBaseId       String?              @map("knowledge_base_id")
   knowledgeBase         KnowledgeBase?       @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
   instructionTemplateId String?              @map("instruction_template_id")
@@ -337,13 +519,18 @@ model ContentTask {
   provider              String?
   model                 String?
   createdById           String               @map("created_by")
-  createdBy             User                 @relation(fields: [createdById], references: [id])
+  createdBy             User                 @relation("ContentTaskCreatedBy", fields: [createdById], references: [id])
+  updatedById           String?              @map("updated_by")
+  updatedBy             User?                @relation("ContentTaskUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt             DateTime             @default(now()) @map("created_at")
   updatedAt             DateTime             @updatedAt @map("updated_at")
   contentItems          ContentItem[]
 
+  @@index([companyId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([productLine])
+  @@index([productLineId])
   @@index([knowledgeBaseId])
   @@index([instructionTemplateId])
   @@index([status])
@@ -352,6 +539,8 @@ model ContentTask {
 
 model ContentItem {
   id                      String       @id @default(cuid())
+  companyId               String?      @map("company_id")
+  company                 Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
   taskId                  String       @map("task_id")
   task                    ContentTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   geoPromptId             String?      @map("geo_prompt_id")
@@ -366,6 +555,7 @@ model ContentItem {
   updatedAt               DateTime     @updatedAt @map("updated_at")
   deletedAt               DateTime?    @map("deleted_at")
 
+  @@index([companyId])
   @@index([taskId])
   @@index([geoPromptId])
   @@index([status])
@@ -375,6 +565,10 @@ model ContentItem {
 
 model ModelInclusionRecord {
   id                 String       @id @default(cuid())
+  companyId          String?      @map("company_id")
+  company            Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  productLineId      String?      @map("product_line_id")
+  productLineRef     ProductLine? @relation(fields: [productLineId], references: [id], onDelete: SetNull)
   geoPromptId        String       @map("geo_prompt_id")
   geoPrompt          GeoPrompt    @relation(fields: [geoPromptId], references: [id], onDelete: Cascade)
   model              String
@@ -401,11 +595,16 @@ model ModelInclusionRecord {
   competitors        Json?
   recordMethod       RecordMethod @default(manual) @map("record_method")
   createdById        String       @map("created_by")
-  createdBy          User         @relation(fields: [createdById], references: [id])
+  createdBy          User         @relation("ModelInclusionRecordCreatedBy", fields: [createdById], references: [id])
+  updatedById        String?      @map("updated_by")
+  updatedBy          User?        @relation("ModelInclusionRecordUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   createdAt          DateTime     @default(now()) @map("created_at")
 
+  @@index([companyId])
+  @@index([productLineId])
   @@index([geoPromptId])
   @@index([createdById])
+  @@index([updatedById])
   @@index([model])
   @@index([platform])
   @@index([entryPoint])
@@ -424,6 +623,10 @@ model ModelInclusionRecord {
 
 model AiCallLog {
   id           String       @id @default(cuid())
+  companyId    String?      @map("company_id")
+  company      Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdById  String?      @map("created_by")
+  createdBy    User?        @relation("AiCallLogCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   provider     String
   model        String
   purpose      String
@@ -435,6 +638,8 @@ model AiCallLog {
   status       AiCallStatus @default(pending)
   createdAt    DateTime     @default(now()) @map("created_at")
 
+  @@index([companyId])
+  @@index([createdById])
   @@index([provider])
   @@index([model])
   @@index([purpose])
