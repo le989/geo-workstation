@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { Setting } from "@element-plus/icons-vue";
 import {
@@ -12,9 +12,9 @@ import {
 import AppEmptyState from "@/components/AppEmptyState.vue";
 import AppErrorState from "@/components/AppErrorState.vue";
 import AppLoadingState from "@/components/AppLoadingState.vue";
-import GeoPageShell from "@/components/GeoPageShell.vue";
 import { formatDateTime, formatOptional, splitCommaValues } from "@/config/geo-prompt-options";
 import { getApiBaseUrl } from "@/api/http";
+import { useAuthStore } from "@/stores/auth";
 
 type ProjectProfileFormState = {
   projectName: string;
@@ -37,6 +37,7 @@ const submitting = ref(false);
 const errorMessage = ref("");
 const dialogVisible = ref(false);
 const formError = ref("");
+const authStore = useAuthStore();
 
 const form = reactive<ProjectProfileFormState>({
   brandName: "",
@@ -59,6 +60,66 @@ const trimOptional = (value: string) => {
 };
 
 const joinValues = (values: string[]) => values.join("\n");
+const roleLabelMap = {
+  admin: "管理员",
+  geo_operator: "GEO 运营",
+  content_editor: "内容编辑",
+  viewer: "只读查看"
+};
+
+const currentUser = computed(() => authStore.currentUser);
+
+const providerStatusItems = [
+  {
+    name: "Kimi Web Search",
+    status: "已接入检测入口",
+    usage: "Kimi 联网 GEO 命中检测",
+    note: "Key 由后端 .env 管理，前端不读取。"
+  },
+  {
+    name: "豆包 / 火山方舟 Web Search",
+    status: "已接入检测入口",
+    usage: "豆包 / 火山生态方向 API 检测",
+    note: "可能不返回完整结构化来源。"
+  },
+  {
+    name: "通义 / 阿里云百炼 Web Search",
+    status: "已接入检测入口",
+    usage: "通义方向回答型联网检测",
+    note: "引用主要从回答正文判断。"
+  },
+  {
+    name: "OpenAI Compatible Provider",
+    status: "内容生成可用",
+    usage: "内容生成、质量检查或拓词 Provider",
+    note: "具体模型和密钥仅在后端配置。"
+  }
+];
+
+const dataMaintenanceItems = [
+  {
+    title: "测试数据",
+    text: "当前项目仍处于测试阶段，测试提示词和检测记录暂时保留。"
+  },
+  {
+    title: "Clean-Final",
+    text: "正式使用前再统一清理测试数据，本页不提供清理按钮。"
+  },
+  {
+    title: "备份 / 导出",
+    text: "后续可增加备份、导出和清理入口；当前仅保留说明。"
+  }
+];
+
+const systemInfoItems = [
+  { label: "运行环境", value: "本地 / 模拟" },
+  { label: "API 地址", value: getApiBaseUrl() || "同域 /api" },
+  { label: "当前阶段", value: "UI-3E 设置页分区梳理" },
+  { label: "最近 UI 收口", value: "Header、Dashboard、报表、知识库、模型记录" }
+];
+
+const formatRole = (role?: string) =>
+  role ? (roleLabelMap[role as keyof typeof roleLabelMap] ?? role) : "--";
 
 const resetForm = () => {
   form.brandName = profile.value?.brandName ?? "";
@@ -142,35 +203,39 @@ onMounted(() => {
 
 <template>
   <main class="settings-page">
-    <GeoPageShell
-      title="系统设置"
-      label="项目上下文"
-      question="当前 GEO 工作站代表谁、服务谁、应该怎么表达？"
-      description="项目档案是当前 GEO 工作站的基础上下文，会用于内容生成、AI 拓词、品牌表达和通用内容边界控制。它不绑定某个固定行业，适用于企业品牌、产品、服务、课程、门店、本地生活、个人品牌或其他项目。"
-      phase-note="API Key 只允许在后端 .env 配置，前端不保存密钥；项目档案只提供品牌语气和上下文，具体事实仍以知识库为准。"
-      :next-steps="['配置项目档案', '维护知识库事实资料', '用提示词和模板生成 GEO 内容']"
-      api-focus="GET /api/project-profile, POST /api/project-profile, PATCH /api/project-profile"
-      :icon="Setting"
-    >
-      <template #actions>
+    <section class="settings-hero">
+      <div class="settings-hero__copy">
+        <el-icon>
+          <Setting />
+        </el-icon>
+        <div>
+          <el-tag type="success" effect="plain">配置中心</el-tag>
+          <h1>系统设置</h1>
+          <p>
+            集中查看项目档案、品牌上下文、Provider
+            配置状态和数据维护边界；具体任务、检测明细和报表结果仍在对应业务页处理。
+          </p>
+        </div>
+      </div>
+      <div class="settings-hero__actions">
         <el-button :loading="loading" @click="loadProfile">刷新</el-button>
         <el-button type="primary" @click="openEditor">
           {{ profile ? "编辑项目档案" : "创建项目档案" }}
         </el-button>
-      </template>
-    </GeoPageShell>
+      </div>
+    </section>
 
     <AppErrorState v-if="errorMessage" :message="errorMessage" />
     <AppLoadingState v-if="loading && !profile" title="正在加载项目档案" />
 
     <section class="settings-grid">
-      <el-card shadow="never" class="settings-profile-card">
+      <el-card shadow="never" class="settings-panel settings-panel--wide">
         <template #header>
           <div class="settings-card-header">
             <div>
               <p class="section-kicker">项目档案</p>
               <h2>当前项目基础信息</h2>
-              <span>让真实 AI 生成和拓词先理解项目是谁、服务谁、表达边界是什么。</span>
+              <span>项目档案是 GEO 生成和检测的基础上下文，不绑定某个固定行业。</span>
             </div>
             <el-tag v-if="profile" type="success" effect="plain">已配置</el-tag>
             <el-tag v-else type="warning" effect="plain">未配置</el-tag>
@@ -186,26 +251,25 @@ onMounted(() => {
         </template>
 
         <template v-else-if="profile">
-          <el-descriptions :column="2" border class="settings-profile-descriptions">
-            <el-descriptions-item label="项目名称">
-              {{ profile.projectName }}
-            </el-descriptions-item>
-            <el-descriptions-item label="企业名称">
-              {{ formatOptional(profile.companyName) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="品牌名称">
-              {{ formatOptional(profile.brandName) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="官网">
-              {{ formatOptional(profile.websiteUrl) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="所属行业">
-              {{ formatOptional(profile.industry) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="内容语气">
-              {{ formatOptional(profile.tone) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="主营产品 / 服务 / 课程 / 门店 / 个人品牌方向" :span="2">
+          <div class="settings-info-grid">
+            <div>
+              <span>项目名称</span>
+              <strong>{{ profile.projectName }}</strong>
+            </div>
+            <div>
+              <span>品牌名称</span>
+              <strong>{{ formatOptional(profile.brandName) }}</strong>
+            </div>
+            <div>
+              <span>官网地址</span>
+              <strong>{{ formatOptional(profile.websiteUrl) }}</strong>
+            </div>
+            <div>
+              <span>所属行业</span>
+              <strong>{{ formatOptional(profile.industry) }}</strong>
+            </div>
+            <div class="settings-info-grid__full">
+              <span>核心产品线</span>
               <div class="settings-tag-list">
                 <el-tag
                   v-for="item in profile.mainProducts"
@@ -215,71 +279,156 @@ onMounted(() => {
                 >
                   {{ item }}
                 </el-tag>
-                <span v-if="profile.mainProducts.length === 0">--</span>
+                <strong v-if="profile.mainProducts.length === 0">--</strong>
               </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="目标客户" :span="2">
-              {{ formatOptional(profile.targetCustomers) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="品牌定位" :span="2">
-              {{ formatOptional(profile.positioning) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="禁止表达" :span="2">
-              <div class="settings-tag-list">
-                <el-tag
-                  v-for="item in profile.forbiddenClaims"
-                  :key="item"
-                  type="danger"
-                  effect="plain"
-                >
-                  {{ item }}
-                </el-tag>
-                <span v-if="profile.forbiddenClaims.length === 0">--</span>
-              </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="目标 AI 平台" :span="2">
-              <div class="settings-tag-list">
-                <el-tag v-for="item in profile.targetModels" :key="item" effect="plain">
-                  {{ item }}
-                </el-tag>
-                <span v-if="profile.targetModels.length === 0">--</span>
-              </div>
-            </el-descriptions-item>
-            <el-descriptions-item label="补充说明" :span="2">
-              {{ formatOptional(profile.notes) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="更新时间" :span="2">
-              {{ formatDateTime(profile.updatedAt) }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </template>
-      </el-card>
-
-      <el-card shadow="never" class="settings-side-card">
-        <template #header>
-          <div class="settings-card-header">
+            </div>
+            <div class="settings-info-grid__full">
+              <span>项目说明</span>
+              <strong>{{ formatOptional(profile.notes) }}</strong>
+            </div>
             <div>
-              <p class="section-kicker">配置边界</p>
-              <h2>AI 与事实来源</h2>
+              <span>更新时间</span>
+              <strong>{{ formatDateTime(profile.updatedAt) }}</strong>
             </div>
           </div>
         </template>
-        <div class="settings-boundary-list">
+      </el-card>
+
+      <el-card shadow="never" class="settings-panel">
+        <template #header>
+          <div class="settings-card-header">
+            <div>
+              <p class="section-kicker">品牌上下文</p>
+              <h2>表达边界与事实底座</h2>
+              <span>适用于企业品牌、产品、服务、课程、门店、本地生活、个人品牌或其他项目。</span>
+            </div>
+          </div>
+        </template>
+        <div class="settings-boundary-list settings-boundary-list--compact">
           <div>
-            <strong>前端 API 地址</strong>
-            <span>{{ getApiBaseUrl() || "同域 /api" }}</span>
+            <strong>品牌定位</strong>
+            <span>{{ formatOptional(profile?.positioning) }}</span>
           </div>
           <div>
-            <strong>AI Key 管理</strong>
-            <span>只在后端 .env 配置，前端不输入、不保存、不展示密钥。</span>
+            <strong>主营产品</strong>
+            <span>{{ profile?.mainProducts.length ? profile.mainProducts.join("、") : "--" }}</span>
           </div>
           <div>
-            <strong>项目档案用途</strong>
-            <span>提供品牌语气、受众、定位和表达边界，不替代知识库事实。</span>
+            <strong>目标场景</strong>
+            <span>{{ formatOptional(profile?.targetCustomers) }}</span>
           </div>
           <div>
-            <strong>事实边界</strong>
-            <span>具体参数、案例、认证、价格、效果承诺仍必须来自知识库或任务输入。</span>
+            <strong>GEO 内容使用边界</strong>
+            <span>{{ formatOptional(profile?.tone) }}；具体事实仍以知识库为准。</span>
+          </div>
+          <div>
+            <strong>事实边界提醒</strong>
+            <span>参数、认证、价格、效果承诺必须来自知识库或任务输入。</span>
+          </div>
+          <div>
+            <strong>禁止表达</strong>
+            <span>{{
+              profile?.forbiddenClaims.length ? profile.forbiddenClaims.join("、") : "--"
+            }}</span>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="settings-panel settings-panel--wide">
+        <template #header>
+          <div class="settings-card-header">
+            <div>
+              <p class="section-kicker">模型 / API 配置状态</p>
+              <h2>Provider 只显示状态，不展示密钥</h2>
+              <span>
+                API Key 只允许在后端 .env 配置，前端不保存密钥，也不展示 Secret 或 Token。
+              </span>
+            </div>
+            <el-tag type="info" effect="plain">前端只读说明</el-tag>
+          </div>
+        </template>
+        <div class="settings-provider-list">
+          <div v-for="item in providerStatusItems" :key="item.name" class="settings-provider-row">
+            <div>
+              <strong>{{ item.name }}</strong>
+              <span>{{ item.usage }}</span>
+            </div>
+            <el-tag type="success" effect="plain">{{ item.status }}</el-tag>
+            <p>{{ item.note }}</p>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="settings-panel">
+        <template #header>
+          <div class="settings-card-header">
+            <div>
+              <p class="section-kicker">用户与权限</p>
+              <h2>当前登录身份</h2>
+              <span>当前阶段只做展示，不新增权限系统。</span>
+            </div>
+          </div>
+        </template>
+        <div class="settings-info-grid settings-info-grid--single">
+          <div>
+            <span>当前用户</span>
+            <strong>{{ currentUser?.name ?? "--" }}</strong>
+          </div>
+          <div>
+            <span>邮箱</span>
+            <strong>{{ currentUser?.email ?? "--" }}</strong>
+          </div>
+          <div>
+            <span>角色</span>
+            <strong>{{ formatRole(currentUser?.role) }}</strong>
+          </div>
+          <div>
+            <span>环境</span>
+            <strong>本地 / 模拟</strong>
+          </div>
+          <div class="settings-info-grid__full">
+            <span>权限说明</span>
+            <strong>当前 MVP 复用既有登录鉴权；本页不新增用户、角色或审批配置。</strong>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="settings-panel">
+        <template #header>
+          <div class="settings-card-header">
+            <div>
+              <p class="section-kicker">数据维护</p>
+              <h2>测试数据与后续清理</h2>
+              <span>这里只做说明，不提供删除、备份或清理按钮。</span>
+            </div>
+          </div>
+        </template>
+        <div class="settings-boundary-list settings-boundary-list--compact">
+          <div v-for="item in dataMaintenanceItems" :key="item.title">
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.text }}</span>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="settings-panel">
+        <template #header>
+          <div class="settings-card-header">
+            <div>
+              <p class="section-kicker">系统信息</p>
+              <h2>版本、帮助和边界入口</h2>
+              <span>能力说明和 SOP 集中放到使用教程，设置页只保留入口。</span>
+            </div>
+          </div>
+        </template>
+        <div class="settings-info-grid settings-info-grid--single">
+          <div v-for="item in systemInfoItems" :key="item.label">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+          <div class="settings-link-row">
+            <router-link to="/help">查看使用教程</router-link>
+            <router-link to="/reports">查看 GEO 报表</router-link>
           </div>
         </div>
       </el-card>
