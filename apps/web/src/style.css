@@ -3597,40 +3597,108 @@ a {
 .report-table-card,
 .report-distribution-card,
 .suggestion-limit-card {
-  border: 1px solid var(--geo-border);
-  border-radius: 8px;
+  border: 1px solid #e5e0ef;
+  border-radius: 16px;
   background: #ffffff;
+  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
 }
 
 .reports-hero {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  padding: 24px;
+  overflow: hidden;
+  padding: 26px 28px;
+  background:
+    radial-gradient(circle at 88% 8%, rgb(109 40 255 / 14%), transparent 26%),
+    linear-gradient(135deg, rgb(243 239 255 / 90%), transparent 40%),
+    #ffffff;
+}
+
+.reports-hero::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  content: "";
+}
+
+.reports-hero::after {
+  position: absolute;
+  right: 28px;
+  bottom: -18px;
+  width: 164px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgb(186 255 41 / 42%);
+  content: "";
+  transform: rotate(-10deg);
+}
+
+.reports-hero__copy,
+.reports-hero__actions {
+  position: relative;
+  z-index: 1;
 }
 
 .reports-hero h1 {
   margin: 8px 0;
-  font-size: 28px;
+  color: #111019;
+  font-size: 32px;
+  font-weight: 950;
   line-height: 1.2;
-  color: #1c2b31;
 }
 
 .reports-hero p {
   max-width: 820px;
   margin: 0;
-  color: #5c6b72;
-  line-height: 1.75;
+  color: #516579;
+  font-size: 15px;
+  line-height: 1.72;
 }
 
-.reports-hero__eyebrow,
 .section-kicker {
   color: #b06a20;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.reports-hero__eyebrow,
+.reports-page .section-kicker {
+  color: var(--geo-primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.reports-hero__signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.reports-hero__signals span {
+  padding: 7px 10px;
+  border: 1px solid #ded7f3;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+  color: #3f355f;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.reports-hero__signals span:first-child {
+  border-color: #dff59c;
+  background: #f7ffe4;
+  color: #426600;
 }
 
 .reports-hero__actions {
@@ -3642,8 +3710,16 @@ a {
 }
 
 .reports-hero__actions span {
-  color: #66757c;
+  color: #667586;
   font-size: 13px;
+}
+
+.reports-hero__actions .el-button {
+  --el-button-bg-color: #ffffff;
+  --el-button-border-color: #d9d1f2;
+  --el-button-hover-bg-color: var(--geo-primary);
+  --el-button-hover-border-color: var(--geo-primary);
+  --el-button-hover-text-color: #ffffff;
 }
 
 .report-filters {
@@ -3681,32 +3757,42 @@ a {
   gap: 6px;
   min-height: 82px;
   padding: 14px;
-  border: 1px solid #d7e2ee;
-  border-radius: 8px;
-  background: #f8fbfd;
-  color: #2f4653;
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
+  background: #fbfaff;
+  color: #3d4b5d;
   text-align: left;
   cursor: pointer;
   transition:
     border-color 0.16s ease,
     background 0.16s ease,
-    box-shadow 0.16s ease;
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
 }
 
 .report-group-nav__item:hover,
 .report-group-nav__item.is-active {
-  border-color: #94b4d6;
-  background: #eef6ff;
-  box-shadow: var(--geo-shadow-sm);
+  border-color: #cfc1ff;
+  background:
+    radial-gradient(circle at 90% 18%, rgb(109 40 255 / 12%), transparent 32%),
+    #ffffff;
+  box-shadow: 0 14px 34px rgb(24 20 36 / 7%);
+  transform: translateY(-1px);
+}
+
+.report-group-nav__item.is-active {
+  box-shadow:
+    inset 4px 0 0 var(--geo-primary),
+    0 14px 34px rgb(24 20 36 / 7%);
 }
 
 .report-group-nav__item strong {
-  color: #17262c;
+  color: #111019;
   font-size: 15px;
 }
 
 .report-group-nav__item span {
-  color: #607078;
+  color: #667586;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -3721,7 +3807,20 @@ a {
 
 .reports-sub-tabs .el-tabs__nav-wrap::after {
   height: 1px;
-  background: #d7e2ee;
+  background: #e5e0ef;
+}
+
+.reports-sub-tabs .el-tabs__item {
+  color: #59687a;
+  font-weight: 750;
+}
+
+.reports-sub-tabs .el-tabs__item.is-active {
+  color: var(--geo-primary);
+}
+
+.reports-sub-tabs .el-tabs__active-bar {
+  background: var(--geo-primary);
 }
 
 .report-tab-toolbar {
@@ -3735,7 +3834,7 @@ a {
 .report-tab-toolbar h2,
 .report-card-header h3 {
   margin: 4px 0;
-  color: #1c2b31;
+  color: #111019;
 }
 
 .report-card-header {
@@ -3746,7 +3845,7 @@ a {
 }
 
 .report-card-header span {
-  color: #6a7980;
+  color: #667586;
   line-height: 1.6;
 }
 
@@ -3766,23 +3865,42 @@ a {
 }
 
 .report-metric-card {
+  position: relative;
   display: grid;
   gap: 8px;
   min-height: 132px;
   padding: 16px;
-  border: 1px solid #d7e4dd;
-  border-radius: 8px;
-  background: #fbfdfb;
+  overflow: hidden;
+  border: 1px solid #e5e0ef;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.report-metric-card::before {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f3efff;
+  content: "";
+}
+
+.report-metric-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .report-metric-card--good {
-  border-color: #c8e3d3;
-  background: #f5fbf7;
+  border-color: #dff59c;
+  background: #ffffff;
 }
 
 .report-metric-card--warning {
-  border-color: #f2dfb9;
-  background: #fffaf0;
+  border-color: #f1d4ab;
+  background: #fffaf2;
 }
 
 .report-metric-card--danger {
@@ -3790,21 +3908,210 @@ a {
   background: #fff7f7;
 }
 
+.report-metric-card--good::before {
+  background: #f5ffd9;
+}
+
+.report-metric-card--warning::before {
+  background: #fff3dc;
+}
+
+.report-metric-card--danger::before {
+  background: #fff0ee;
+}
+
 .report-metric-card span {
-  color: #607078;
+  color: #516579;
   font-weight: 700;
 }
 
 .report-metric-card strong {
-  color: #17262c;
-  font-size: 28px;
+  color: #111019;
+  font-size: 32px;
+  font-weight: 950;
   line-height: 1.15;
 }
 
 .report-metric-card p {
   margin: 0;
-  color: #728188;
+  color: #667586;
   line-height: 1.55;
+}
+
+.report-metric-card .el-progress-bar__inner {
+  background: linear-gradient(90deg, var(--geo-primary), #9b7cff);
+}
+
+.report-overview-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  gap: 14px;
+}
+
+.report-overview-conclusion,
+.report-overview-actions,
+.report-inline-note {
+  min-width: 0;
+  border: 1px solid #e5e0ef;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
+}
+
+.report-overview-conclusion {
+  padding: 18px;
+  background:
+    linear-gradient(135deg, rgb(243 239 255 / 76%), transparent 44%),
+    #ffffff;
+}
+
+.report-overview-conclusion h3,
+.report-overview-actions h3 {
+  margin: 4px 0 14px;
+  color: #111019;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.report-overview-conclusion ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.report-overview-conclusion li {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #eee9f5;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 76%);
+}
+
+.report-overview-conclusion li.is-good {
+  border-color: #dff59c;
+  background: #fbfff0;
+}
+
+.report-overview-conclusion li.is-warning {
+  border-color: #f1d4ab;
+  background: #fffaf2;
+}
+
+.report-overview-conclusion li.is-danger {
+  border-color: #efd0d0;
+  background: #fff7f7;
+}
+
+.report-overview-conclusion li span,
+.report-overview-action span {
+  color: #667586;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.report-overview-conclusion li strong {
+  color: #111019;
+  font-size: 28px;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.report-overview-conclusion li small {
+  color: #59687a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.report-overview-actions {
+  padding: 18px;
+}
+
+.report-overview-actions__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-overview-action {
+  appearance: none;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
+  background: #fbfaff;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.report-overview-action:hover {
+  border-color: #cfc1ff;
+  box-shadow: 0 12px 30px rgb(24 20 36 / 7%);
+  transform: translateY(-1px);
+}
+
+.report-overview-action strong {
+  color: #111019;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.report-overview-actions__grid .report-overview-action:last-child {
+  border-color: #dff59c;
+  background: #f8ffe7;
+}
+
+.report-inline-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fbfaff;
+}
+
+.report-inline-note > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.report-inline-note strong {
+  color: #111019;
+  line-height: 1.35;
+}
+
+.report-inline-note span {
+  color: #667586;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.report-inline-note a {
+  flex: 0 0 auto;
+  color: var(--geo-primary);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.report-inline-note--actions {
+  background: #f8ffe7;
+  border-color: #dff59c;
 }
 
 .report-distribution-grid {
@@ -3821,6 +4128,23 @@ a {
   overflow: hidden;
 }
 
+.report-table-card,
+.report-distribution-card {
+  border-color: #e5e0ef;
+}
+
+.report-table-card :where(.el-card__header),
+.report-distribution-card :where(.el-card__header),
+.suggestion-limit-card :where(.el-card__header) {
+  border-bottom-color: #eee9f5;
+}
+
+.report-table-card .el-table,
+.report-distribution-card .el-table {
+  --el-table-header-bg-color: #fbfaff;
+  --el-table-row-hover-bg-color: #faf8ff;
+}
+
 .report-tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -3832,7 +4156,7 @@ a {
 }
 
 .report-suggestion-table strong {
-  color: #1d3137;
+  color: #111019;
 }
 
 .settings-page {
@@ -4330,6 +4654,9 @@ a {
   .capability-boundary,
   .report-metric-grid,
   .report-metric-grid--compact,
+  .report-overview-brief,
+  .report-overview-conclusion ul,
+  .report-overview-actions__grid,
   .report-distribution-grid,
   .report-distribution-grid--model,
   .settings-grid,
@@ -4364,6 +4691,7 @@ a {
   .content-detail-header,
   .model-inclusion-hero,
   .reports-hero,
+  .report-inline-note,
   .report-tab-toolbar,
   .settings-hero,
   .settings-hero__copy,

@@ -865,16 +865,19 @@ watch(
   display: grid;
   gap: 14px;
   padding: 18px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
-  background: #fbfdff;
+  border: 1px solid #e5e0ef;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgb(243 239 255 / 70%), transparent 42%),
+    #ffffff;
+  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
 }
 
 .geo-hit-summary-panel__section-kicker {
   margin: 0 0 4px;
-  color: var(--el-color-primary);
+  color: var(--geo-primary);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 900;
 }
 
 .geo-hit-summary-panel__metric-section h3 {
@@ -900,16 +903,16 @@ watch(
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid #dfeaf5;
-  border-radius: 8px;
-  background: #f6f9fc;
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
+  background: #fbfaff;
 }
 
 .geo-hit-summary-panel__supporting-header {
   display: grid;
   gap: 4px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #dfeaf5;
+  border-bottom: 1px solid #eee9f5;
 }
 
 .geo-hit-summary-panel__supporting-header span,
@@ -959,14 +962,15 @@ watch(
   gap: 12px;
   min-width: 0;
   padding: 14px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
   background: #ffffff;
+  box-shadow: 0 10px 26px rgb(24 20 36 / 4%);
 }
 
 .geo-hit-summary-panel__platform-card.is-good {
-  border-color: #c8e5d8;
-  background: #f6fcf9;
+  border-color: #dff59c;
+  background: #fbfff0;
 }
 
 .geo-hit-summary-panel__platform-card.is-warning {
@@ -995,7 +999,7 @@ watch(
 
 .geo-hit-summary-panel__platform-head em {
   flex: 0 0 auto;
-  color: var(--el-color-primary);
+  color: var(--geo-primary);
   font-size: 12px;
   font-style: normal;
   font-weight: 700;
@@ -1035,10 +1039,10 @@ watch(
   align-items: center;
   margin-bottom: 12px;
   padding: 10px 12px;
-  border: 1px solid #f0d6ac;
-  border-radius: 8px;
-  background: #fffaf2;
-  color: #785a25;
+  border: 1px solid #dff59c;
+  border-radius: 12px;
+  background: #f8ffe7;
+  color: #426600;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -1081,8 +1085,8 @@ watch(
 }
 
 .geo-hit-summary-panel__prompt-cell span.is-ok {
-  background: #edf8f2;
-  color: #2f7d56;
+  background: #f5ffd9;
+  color: #426600;
 }
 
 .geo-hit-summary-panel__matrix-cell {
@@ -1090,8 +1094,8 @@ watch(
   gap: 7px;
   min-height: 74px;
   padding: 8px;
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: 12px;
+  background: #fbfaff;
 }
 
 .geo-hit-summary-panel__matrix-cell.is-risk {
@@ -1107,7 +1111,7 @@ watch(
 }
 
 .geo-hit-summary-panel__matrix-cell.is-hit {
-  background: #f5fbf8;
+  background: #f8ffe7;
 }
 
 .geo-hit-summary-panel__signal-list {
@@ -1145,9 +1149,10 @@ watch(
   gap: 12px;
   min-width: 0;
   padding: 14px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
   background: #ffffff;
+  box-shadow: 0 10px 26px rgb(24 20 36 / 4%);
 }
 
 .geo-hit-summary-panel__action-card > div {
@@ -1172,7 +1177,7 @@ watch(
   display: grid;
   gap: 3px;
   padding-top: 8px;
-  border-top: 1px solid var(--el-border-color-lighter);
+  border-top: 1px solid #eee9f5;
 }
 
 .geo-hit-summary-panel__action-card li span {

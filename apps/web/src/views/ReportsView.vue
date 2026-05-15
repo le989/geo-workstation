@@ -45,6 +45,18 @@ type ReportMetric = {
   percent?: number;
   tone?: "default" | "good" | "warning" | "danger";
 };
+type OverviewConclusionItem = {
+  label: string;
+  value: string;
+  hint: string;
+  tone?: "default" | "good" | "warning" | "danger";
+};
+type OverviewActionItem = {
+  label: string;
+  description: string;
+  to?: string;
+  tab?: ReportTabName;
+};
 
 type ReportTabName = ReportExportType | "geo_hit_summary";
 type ReportTab = {
@@ -259,6 +271,11 @@ const handleTabChange = (name: string | number) => {
   }
 };
 
+const goToReportTab = (tab: ReportTabName) => {
+  activeTab.value = tab;
+  handleTabChange(tab);
+};
+
 const downloadText = (content: string, fileName: string) => {
   const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -399,6 +416,60 @@ const overviewMetrics = computed<ReportMetric[]>(() => [
   }
 ]);
 
+const overviewConclusionItems = computed<OverviewConclusionItem[]>(() => [
+  {
+    label: "未覆盖追踪词",
+    value: formatReportNumber(overview.value?.uncoveredTrackedPromptCount),
+    hint: "优先补模型检测，避免追踪词长期无结果",
+    tone: (overview.value?.uncoveredTrackedPromptCount ?? 0) > 0 ? "warning" : "default"
+  },
+  {
+    label: "失败内容任务",
+    value: formatReportNumber(overview.value?.failedContentTaskCount),
+    hint: "优先重试或补充知识库输入",
+    tone: (overview.value?.failedContentTaskCount ?? 0) > 0 ? "danger" : "default"
+  },
+  {
+    label: "品牌推荐率",
+    value: formatReportPercent(overview.value?.brandRecommendRate),
+    hint: "核心成功指标，和提及率一起判断 GEO 成效",
+    tone: "good"
+  },
+  {
+    label: "知识片段",
+    value: formatReportNumber(overview.value?.knowledgeChunkCount),
+    hint: "持续补企业事实、参数和可引用资料",
+    tone: "default"
+  }
+]);
+
+const overviewActionItems = computed<OverviewActionItem[]>(() => [
+  {
+    label: "补知识库",
+    description: `${formatReportNumber(overview.value?.knowledgeChunkCount)} 条知识片段支撑内容引用`,
+    to: "/knowledge-bases"
+  },
+  {
+    label: "补内容",
+    description: `${formatReportNumber(overview.value?.contentTaskCount)} 个任务 / ${formatReportNumber(
+      overview.value?.contentItemCount
+    )} 篇内容资产`,
+    to: "/content-tasks"
+  },
+  {
+    label: "补检测",
+    description: `${formatReportNumber(overview.value?.uncoveredTrackedPromptCount)} 个追踪词暂无覆盖记录`,
+    to: "/model-inclusion-records"
+  },
+  {
+    label: "看命中汇总",
+    description: `推荐率 ${formatReportPercent(overview.value?.brandRecommendRate)} / 提及率 ${formatReportPercent(
+      overview.value?.brandMentionRate
+    )}`,
+    tab: "geo_hit_summary"
+  }
+]);
+
 watch(
   () => ({ ...reportFilters }),
   () => {
@@ -423,13 +494,19 @@ onMounted(() => {
 <template>
   <section class="reports-page">
     <header class="reports-hero">
-      <div>
+      <div class="reports-hero__copy">
         <span class="reports-hero__eyebrow">GEO 复盘中心</span>
         <h1>GEO 报表</h1>
         <p>
           从提示词资产、内容产出、知识库覆盖和模型覆盖记录中复盘 GEO
           建设进度，判断下一步应该补词、补资料、补内容还是补检测。
         </p>
+        <div class="reports-hero__signals" aria-label="GEO 报表重点">
+          <span>提示词覆盖</span>
+          <span>内容资产</span>
+          <span>知识库缺口</span>
+          <span>模型结果</span>
+        </div>
       </div>
       <div class="reports-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -496,6 +573,46 @@ onMounted(() => {
       <AppErrorState v-if="errors[activeTab]" title="报表加载失败" :message="errors[activeTab]" />
 
       <section v-if="activeTab === 'geo_overview'" class="report-panel">
+        <div class="report-overview-brief">
+          <article class="report-overview-conclusion">
+            <p class="section-kicker">本轮结论</p>
+            <h3>先判断下一步该补什么</h3>
+            <ul>
+              <li
+                v-for="item in overviewConclusionItems"
+                :key="item.label"
+                :class="[`is-${item.tone ?? 'default'}`]"
+              >
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+                <small>{{ item.hint }}</small>
+              </li>
+            </ul>
+          </article>
+
+          <article class="report-overview-actions">
+            <p class="section-kicker">复盘行动区</p>
+            <h3>把报表转成运营动作</h3>
+            <div class="report-overview-actions__grid">
+              <template v-for="item in overviewActionItems" :key="item.label">
+                <RouterLink v-if="item.to" :to="item.to" class="report-overview-action">
+                  <strong>{{ item.label }}</strong>
+                  <span>{{ item.description }}</span>
+                </RouterLink>
+                <button
+                  v-else
+                  class="report-overview-action"
+                  type="button"
+                  @click="goToReportTab(item.tab ?? 'geo_overview')"
+                >
+                  <strong>{{ item.label }}</strong>
+                  <span>{{ item.description }}</span>
+                </button>
+              </template>
+            </div>
+          </article>
+        </div>
+
         <div class="report-metric-grid">
           <ReportMetricCard
             v-for="metric in overviewMetrics"
@@ -515,11 +632,16 @@ onMounted(() => {
         :loading="loading.prompt_coverage"
         :report="promptCoverage"
       />
-      <ModelCoveragePanel
-        v-if="activeTab === 'model_coverage'"
-        :loading="loading.model_coverage"
-        :report="modelCoverage"
-      />
+      <section v-if="activeTab === 'model_coverage'" class="report-panel">
+        <div class="report-inline-note">
+          <div>
+            <strong>模型覆盖汇总</strong>
+            <span>这里展示模型覆盖汇总；原始检测明细请到「模型覆盖记录」查看。</span>
+          </div>
+          <RouterLink to="/model-inclusion-records">查看原始明细</RouterLink>
+        </div>
+        <ModelCoveragePanel :loading="loading.model_coverage" :report="modelCoverage" />
+      </section>
       <GeoHitSummaryPanel
         v-if="activeTab === 'geo_hit_summary'"
         :loading="loading.geo_hit_summary"
@@ -536,6 +658,12 @@ onMounted(() => {
         :report="knowledgeCoverage"
       />
       <section v-if="activeTab === 'optimization_suggestions'" class="report-panel">
+        <div class="report-inline-note report-inline-note--actions">
+          <div>
+            <strong>运营行动清单</strong>
+            <span>保留现有建议合并逻辑，只把缺检测、缺内容、缺资料和失败任务整理成下一步动作。</span>
+          </div>
+        </div>
         <el-card class="suggestion-limit-card" shadow="never">
           <el-form label-position="top">
             <el-form-item label="优化建议数量">
