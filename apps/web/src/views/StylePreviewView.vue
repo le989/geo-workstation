@@ -3,8 +3,11 @@ import { ref } from "vue";
 import {
   CollectionTag,
   DataBoard,
+  DocumentChecked,
   EditPen,
   Files,
+  Guide,
+  MagicStick,
   PieChart,
   Search,
   Setting,
@@ -71,18 +74,85 @@ const sidebarItems = [
   { title: "工作台", icon: DataBoard, active: true },
   { title: "GEO 诊断", icon: Search, active: false },
   { title: "提示词策略库", icon: CollectionTag, active: false },
-  { title: "企业知识库", icon: Files, active: false },
-  { title: "内容生成", icon: EditPen, active: false },
+  { title: "AI 拓词", icon: MagicStick, active: false },
+  { title: "企业 GEO 知识库", icon: Files, active: false },
+  { title: "指令库", icon: DocumentChecked, active: false },
+  { title: "GEO 内容生成", icon: EditPen, active: false },
   { title: "模型覆盖记录", icon: TrendCharts, active: false },
   { title: "GEO 报表", icon: PieChart, active: false },
-  { title: "系统设置", icon: Setting, active: false }
+  { title: "系统设置", icon: Setting, active: false },
+  { title: "使用教程", icon: Guide, active: false }
 ];
 
-const metricCards = [
-  { label: "追踪提示词", value: "426", trend: "+32 本周" },
-  { label: "品牌推荐率", value: "38.6%", trend: "+6.2%" },
-  { label: "知识片段", value: "1,284", trend: "覆盖 9 条产品线" },
-  { label: "待优化事项", value: "17", trend: "优先处理 5 条" }
+const previewTodayActions = [
+  {
+    title: "补 GEO 检测",
+    signal: "213 个追踪词待补检测",
+    buttonLabel: "去补检测",
+    icon: TrendCharts,
+    tone: "primary"
+  },
+  {
+    title: "补内容",
+    signal: "221 个任务 / 316 篇内容",
+    buttonLabel: "去生成内容",
+    icon: EditPen,
+    tone: "accent"
+  },
+  {
+    title: "补知识库",
+    signal: "171 条知识片段",
+    buttonLabel: "去补知识库",
+    icon: Files,
+    tone: "plain"
+  }
+];
+
+const previewCoreMetrics = [
+  { label: "GEO 提示词", value: "1044", description: "追踪词 426 / 高优先级 128" },
+  { label: "知识库", value: "254", description: "171 条知识片段" },
+  { label: "内容任务 / 内容", value: "221 / 316", description: "25 个失败任务待处理" },
+  { label: "GEO 检测记录", value: "659", description: "品牌推荐率 30.3%" }
+];
+
+const previewQueues = [
+  {
+    title: "待补检测 GEO 词",
+    status: "213 个追踪词待处理",
+    action: "查看检测记录",
+    tone: "warning"
+  },
+  {
+    title: "待质检 / 优化内容",
+    status: "25 个失败任务需处理",
+    action: "查看内容任务",
+    tone: "danger"
+  },
+  {
+    title: "待补知识资料",
+    status: "254 个知识库 / 171 条片段",
+    action: "查看知识库",
+    tone: "default"
+  },
+  {
+    title: "待看命中汇总",
+    status: "品牌推荐率 30.3%",
+    action: "打开 GEO 报表",
+    tone: "good"
+  }
+];
+
+const previewSuggestions = [
+  { title: "补知识库资料：默认产品线", action: "去知识库补资料" },
+  { title: "优化内容结构：激光测距传感器怎么选", action: "去生成内容" },
+  { title: "复测 GEO 命中：Kimi / 豆包 / 通义", action: "去补检测记录" }
+];
+
+const previewQuickLinks = [
+  { title: "新建 GEO 诊断", icon: Search },
+  { title: "生成 GEO 内容", icon: EditPen },
+  { title: "查看 GEO 报表", icon: PieChart },
+  { title: "进入知识库", icon: Files }
 ];
 </script>
 
@@ -321,12 +391,16 @@ const metricCards = [
         </el-tab-pane>
 
         <el-tab-pane label="内页预览" name="dashboard">
-          <section class="geo-preview-dashboard">
+          <section class="geo-preview-dashboard geo-preview-workbench">
             <aside class="geo-preview-sidebar">
               <div class="geo-preview-sidebar-brand">
-                <span>GEO</span>
+                <span class="geo-preview-sidebar-logo" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
                 <strong>GEO 工作站</strong>
-                <small>AI 搜索可见度运营闭环</small>
               </div>
               <nav>
                 <a
@@ -342,9 +416,11 @@ const metricCards = [
                 </a>
               </nav>
               <div class="geo-preview-sidebar-user">
-                <span>当前工作站</span>
-                <strong>GEO Admin</strong>
-                <small>管理员 · 本地 / 模拟</small>
+                <span class="geo-preview-user-dot" aria-hidden="true">G</span>
+                <div>
+                  <strong>GEO Admin</strong>
+                  <small>管理员 · 本地 / 模拟</small>
+                </div>
               </div>
             </aside>
 
@@ -354,70 +430,147 @@ const metricCards = [
                   <h2>工作台</h2>
                   <span>今日运营动作与待处理事项</span>
                 </div>
-                <div>
+                <div class="geo-preview-header-status">
                   <span>本地 / 模拟</span>
-                  <button type="button">API 状态</button>
+                  <span><i aria-hidden="true" />API 状态：正常</span>
+                  <button type="button" aria-label="通知">!</button>
+                  <span class="geo-preview-header-user">GEO Admin</span>
                 </div>
               </header>
 
               <div class="geo-preview-main-content">
-                <section class="geo-preview-today">
+                <section class="geo-preview-workbench-hero">
                   <div>
-                    <p class="geo-preview-kicker">Today</p>
-                    <h3>今日三件事</h3>
-                    <span>先处理最能推动 GEO 闭环的动作。</span>
+                    <p class="geo-preview-kicker">GEO Workbench</p>
+                    <h3>工作台</h3>
+                    <strong>今天把 GEO 闭环往前推进一步。</strong>
+                    <span>首页优先显示今天该处理的运营动作：补检测、补内容、补知识库，再查看命中结果。</span>
                   </div>
-                  <button type="button">新建诊断</button>
+                  <button type="button">刷新工作台</button>
                 </section>
 
-                <section class="geo-preview-metrics">
-                  <article v-for="metric in metricCards" :key="metric.label">
+                <section class="geo-preview-action-grid" aria-label="今日三件事">
+                  <article
+                    v-for="action in previewTodayActions"
+                    :key="action.title"
+                    :class="`is-${action.tone}`"
+                  >
+                    <span class="geo-preview-action-icon">
+                      <el-icon>
+                        <component :is="action.icon" />
+                      </el-icon>
+                    </span>
+                    <div>
+                      <strong>{{ action.title }}</strong>
+                      <p>{{ action.signal }}</p>
+                    </div>
+                    <button type="button">{{ action.buttonLabel }}</button>
+                  </article>
+                </section>
+
+                <section class="geo-preview-core-grid" aria-label="核心数据概况">
+                  <article v-for="metric in previewCoreMetrics" :key="metric.label">
                     <span>{{ metric.label }}</span>
                     <strong>{{ metric.value }}</strong>
-                    <small>{{ metric.trend }}</small>
+                    <small>{{ metric.description }}</small>
                   </article>
                 </section>
 
-                <section class="geo-preview-dashboard-grid">
-                  <article class="geo-preview-panel geo-preview-panel-wide">
-                    <div class="geo-preview-panel-header">
-                      <h3>可见度趋势</h3>
-                      <span>近 7 天</span>
+                <section class="geo-preview-workbench-grid">
+                  <article class="geo-preview-card geo-preview-queue-card">
+                    <div class="geo-preview-card-header">
+                      <div>
+                        <h3>待处理运营队列</h3>
+                        <span>按当前 Dashboard 真实运营动作组织</span>
+                      </div>
                     </div>
-                    <div class="geo-preview-chart">
-                      <i style="height: 38%" />
-                      <i style="height: 54%" />
-                      <i style="height: 46%" />
-                      <i style="height: 70%" />
-                      <i style="height: 62%" />
-                      <i style="height: 78%" />
-                      <i style="height: 84%" />
-                    </div>
-                  </article>
-
-                  <article class="geo-preview-panel">
-                    <div class="geo-preview-panel-header">
-                      <h3>模型覆盖分布</h3>
-                      <span>模拟数据</span>
-                    </div>
-                    <div class="geo-preview-model-list">
-                      <span>Kimi <strong>72%</strong></span>
-                      <span>豆包 <strong>64%</strong></span>
-                      <span>通义 <strong>58%</strong></span>
+                    <div class="geo-preview-queue-list">
+                      <article
+                        v-for="queue in previewQueues"
+                        :key="queue.title"
+                        :class="`is-${queue.tone}`"
+                      >
+                        <div>
+                          <strong>{{ queue.title }}</strong>
+                          <span>{{ queue.status }}</span>
+                        </div>
+                        <button type="button">{{ queue.action }}</button>
+                      </article>
                     </div>
                   </article>
 
-                  <article class="geo-preview-panel geo-preview-panel-queue">
-                    <div class="geo-preview-panel-header">
-                      <h3>待处理队列</h3>
-                      <span>5 项</span>
+                  <article class="geo-preview-card geo-preview-suggestion-card">
+                    <div class="geo-preview-card-header">
+                      <div>
+                        <h3>最近待优化建议</h3>
+                        <span>不超过 3 条，避免首页堆信息</span>
+                      </div>
                     </div>
                     <ul>
-                      <li>补齐 8 条未命中问题的 FAQ</li>
-                      <li>复测 3 个高优先级品牌词</li>
-                      <li>审校 2 篇场景方案内容</li>
+                      <li v-for="suggestion in previewSuggestions" :key="suggestion.title">
+                        <span aria-hidden="true" />
+                        <div>
+                          <strong>{{ suggestion.title }}</strong>
+                          <small>{{ suggestion.action }}</small>
+                        </div>
+                      </li>
                     </ul>
                   </article>
+
+                  <article class="geo-preview-card geo-preview-quick-card">
+                    <div class="geo-preview-card-header">
+                      <div>
+                        <h3>快捷入口</h3>
+                        <span>常用运营页面</span>
+                      </div>
+                    </div>
+                    <div class="geo-preview-quick-grid">
+                      <button v-for="link in previewQuickLinks" :key="link.title" type="button">
+                        <el-icon>
+                          <component :is="link.icon" />
+                        </el-icon>
+                        {{ link.title }}
+                      </button>
+                    </div>
+                  </article>
+
+                  <article class="geo-preview-card geo-preview-system-card">
+                    <div class="geo-preview-card-header">
+                      <div>
+                        <h3>系统状态</h3>
+                        <span>预览状态，不调用真实接口</span>
+                      </div>
+                    </div>
+                    <div class="geo-preview-system-list">
+                      <span><i aria-hidden="true" />本地 / 模拟环境</span>
+                      <span><i aria-hidden="true" />API 状态：正常</span>
+                      <span><i aria-hidden="true" />AI Provider：后端环境变量托管</span>
+                    </div>
+                  </article>
+                </section>
+
+                <section class="geo-preview-workbench-cta">
+                  <div>
+                    <h3>
+                      今天优先处理：<br>
+                      <em>补检测、补内容、补知识库。</em>
+                    </h3>
+                  </div>
+                  <div class="geo-preview-cta-stats">
+                    <article>
+                      <span>未命中待处理</span>
+                      <strong>213</strong>
+                    </article>
+                    <article>
+                      <span>待处理内容</span>
+                      <strong>25</strong>
+                    </article>
+                    <article>
+                      <span>待补资料</span>
+                      <strong>180</strong>
+                    </article>
+                  </div>
+                  <button type="button">进入内容生成</button>
                 </section>
               </div>
             </section>
@@ -1900,88 +2053,147 @@ const metricCards = [
   box-shadow: 0 0 14px rgb(186 255 41 / 62%);
 }
 
-.geo-preview-dashboard {
+.geo-preview-dashboard.geo-preview-workbench {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 276px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid #ded8eb;
   border-radius: 18px;
-  background: #f7f5fb;
+  background: #f6f5fa;
+  box-shadow: 0 24px 70px rgb(24 20 36 / 9%);
 }
 
 .geo-preview-sidebar {
+  position: relative;
   display: flex;
+  overflow: hidden;
   flex-direction: column;
-  min-height: 720px;
-  padding: 18px 12px;
+  min-height: 910px;
+  padding: 24px 12px 18px;
   background:
-    radial-gradient(circle at 22% 8%, rgb(109 40 255 / 35%), transparent 32%),
-    #111019;
-  color: #fff;
+    radial-gradient(circle at 18% 3%, rgb(109 40 255 / 34%), transparent 26%),
+    radial-gradient(circle at 96% 82%, rgb(109 40 255 / 28%), transparent 24%),
+    linear-gradient(180deg, #050508 0%, #101016 56%, #050508 100%);
+  color: #ffffff;
+  isolation: isolate;
+}
+
+.geo-preview-sidebar::before {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle, rgb(255 255 255 / 18%) 1px, transparent 2px) 78% 8% / 17px 17px,
+    radial-gradient(circle, rgb(255 255 255 / 10%) 1px, transparent 2px) 10% 82% / 14px 14px;
+  content: "";
+  opacity: 0.38;
+  z-index: -1;
 }
 
 .geo-preview-sidebar-brand {
-  display: grid;
-  gap: 5px;
-  padding: 0 8px 18px;
-  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 0 14px 24px;
 }
 
-.geo-preview-sidebar-brand span {
+.geo-preview-sidebar-logo {
   display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: 10px;
-  background: #baff29;
-  color: #111019;
-  font-weight: 950;
+  grid-template-columns: repeat(2, 11px);
+  gap: 5px;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.geo-preview-sidebar-logo i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #6d28ff;
+}
+
+.geo-preview-sidebar-logo i:nth-child(4) {
+  background: #ffffff;
 }
 
 .geo-preview-sidebar-brand strong {
-  margin-top: 4px;
-}
-
-.geo-preview-sidebar-brand small,
-.geo-preview-sidebar-user small,
-.geo-preview-sidebar-user span {
-  color: rgb(255 255 255 / 58%);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 950;
 }
 
 .geo-preview-sidebar nav {
+  position: relative;
   display: grid;
-  gap: 4px;
-  margin-top: 18px;
+  gap: 7px;
+  z-index: 1;
 }
 
 .geo-preview-sidebar nav a {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border-radius: 10px;
-  color: rgb(255 255 255 / 72%);
-  font-weight: 750;
+  gap: 11px;
+  min-height: 44px;
+  padding: 0 13px;
+  border-radius: 9px;
+  color: rgb(255 255 255 / 78%);
+  font-size: 14px;
+  font-weight: 800;
   text-decoration: none;
 }
 
+.geo-preview-sidebar nav a .el-icon {
+  color: inherit;
+  font-size: 19px;
+}
+
 .geo-preview-sidebar nav a.is-active {
-  background: linear-gradient(135deg, #6d28ff, #9b7cff);
-  color: #fff;
+  background: linear-gradient(135deg, #5d20f5 0%, #7d37ff 56%, #5f25f2 100%);
+  box-shadow: 0 14px 28px rgb(93 32 245 / 32%);
+  color: #ffffff;
 }
 
 .geo-preview-sidebar-user {
+  position: relative;
   display: grid;
-  gap: 5px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
   margin-top: auto;
-  padding: 14px;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 12px;
-  background: rgb(255 255 255 / 7%);
+  padding: 16px 10px 0;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+  z-index: 1;
+}
+
+.geo-preview-user-dot {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #111019 !important;
+  font-weight: 950;
+}
+
+.geo-preview-sidebar-user strong {
+  display: block;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.geo-preview-sidebar-user small {
+  color: rgb(255 255 255 / 58%);
+  font-size: 11px;
 }
 
 .geo-preview-main {
   min-width: 0;
+  background:
+    radial-gradient(circle at 92% 4%, rgb(109 40 255 / 5%), transparent 24%),
+    #fbfbfd;
 }
 
 .geo-preview-main-header {
@@ -1989,7 +2201,8 @@ const metricCards = [
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 18px 24px;
+  min-height: 72px;
+  padding: 0 30px;
   border-bottom: 1px solid #e8e2f2;
   background: rgb(255 255 255 / 92%);
 }
@@ -1998,135 +2211,436 @@ const metricCards = [
   margin: 0 0 4px;
   color: #111019;
   font-size: 24px;
+  font-weight: 950;
 }
 
-.geo-preview-main-header > div:last-child {
+.geo-preview-main-header > div:first-child span {
+  color: #736d7d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.geo-preview-header-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
 }
 
-.geo-preview-main-header > div:last-child span {
-  padding: 6px 10px;
+.geo-preview-header-status span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid #e3ddec;
   border-radius: 999px;
-  background: #f2ffe0;
-  color: #405d00;
+  background: #ffffff;
+  color: #5d5669;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 850;
+}
+
+.geo-preview-header-status span i,
+.geo-preview-system-list i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #baff29;
+  box-shadow: 0 0 14px rgb(186 255 41 / 58%);
+}
+
+.geo-preview-header-status button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e3ddec;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #111019;
+  font-weight: 950;
+}
+
+.geo-preview-header-status .geo-preview-header-user {
+  border-color: #111019;
+  background: #111019;
+  color: #ffffff;
 }
 
 .geo-preview-main-content {
   display: grid;
-  gap: 16px;
-  padding: 20px 24px 24px;
+  gap: 18px;
+  padding: 26px 30px 30px;
 }
 
-.geo-preview-today {
+.geo-preview-workbench-hero,
+.geo-preview-action-grid article,
+.geo-preview-core-grid article,
+.geo-preview-card {
+  border: 1px solid #e1dce9;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgb(35 30 48 / 4%);
+}
+
+.geo-preview-workbench-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 20px;
+  padding: 24px 26px;
+}
+
+.geo-preview-workbench-hero h3 {
+  margin: 4px 0;
+  color: #050407;
+  font-size: 38px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.geo-preview-workbench-hero strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #111019;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.geo-preview-workbench-hero span {
+  color: #736d7d;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.geo-preview-workbench-hero button,
+.geo-preview-action-grid button,
+.geo-preview-queue-list button,
+.geo-preview-workbench-cta button {
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #5d20f5 0%, #7b3cff 100%);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.geo-preview-workbench-hero button {
+  min-width: 128px;
+  min-height: 44px;
+}
+
+.geo-preview-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+}
+
+.geo-preview-action-grid article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 154px;
   padding: 20px;
 }
 
-.geo-preview-today h3,
-.geo-preview-panel h3 {
-  margin: 4px 0;
-  color: #15131d;
+.geo-preview-action-grid article.is-accent {
+  border-color: #d7fb64;
+  background: linear-gradient(135deg, #f7ffe9 0%, #ffffff 68%);
 }
 
-.geo-preview-today span {
-  color: #676071;
+.geo-preview-action-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 12px;
+  background: #f0e9ff;
+  color: #6d28ff;
+  font-size: 24px;
 }
 
-.geo-preview-metrics {
+.geo-preview-action-grid article.is-accent .geo-preview-action-icon {
+  background: #baff29;
+  color: #111019;
+}
+
+.geo-preview-action-grid strong {
+  display: block;
+  color: #111019;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.geo-preview-action-grid p {
+  margin: 8px 0 0;
+  color: #665f70;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.geo-preview-action-grid button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.geo-preview-action-grid article.is-plain button {
+  border: 1px solid #d8d1e5;
+  background: #ffffff;
+  color: #111019;
+}
+
+.geo-preview-core-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
-.geo-preview-metrics article {
+.geo-preview-core-grid article {
+  min-height: 128px;
+  padding: 20px;
+}
+
+.geo-preview-core-grid span,
+.geo-preview-card-header span,
+.geo-preview-suggestion-card small,
+.geo-preview-system-list span {
+  color: #736d7d;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.geo-preview-core-grid strong {
+  display: block;
+  margin: 14px 0 8px;
+  color: #050407;
+  font-size: 34px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.geo-preview-core-grid small {
+  color: #665f70;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.geo-preview-workbench-grid {
   display: grid;
-  gap: 8px;
-  padding: 16px;
+  grid-template-columns: minmax(420px, 1.3fr) minmax(280px, 0.85fr);
+  gap: 16px;
+  align-items: stretch;
 }
 
-.geo-preview-metrics strong {
-  color: #15131d;
-  font-size: 28px;
+.geo-preview-card {
+  padding: 20px;
 }
 
-.geo-preview-metrics article:nth-child(2) {
-  border-color: #d8c9ff;
-  background: #f6f1ff;
-}
-
-.geo-preview-metrics article:nth-child(3) {
-  border-color: #def4a8;
-  background: #f8ffe8;
-}
-
-.geo-preview-dashboard-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+.geo-preview-card-header {
+  display: flex;
+  justify-content: space-between;
   gap: 14px;
+  margin-bottom: 16px;
 }
 
-.geo-preview-panel {
-  min-width: 0;
-  padding: 18px;
+.geo-preview-card-header h3 {
+  margin: 0 0 5px;
+  color: #111019;
+  font-size: 19px;
+  font-weight: 950;
 }
 
-.geo-preview-panel-wide {
+.geo-preview-queue-card {
   grid-row: span 2;
 }
 
-.geo-preview-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.geo-preview-chart {
-  display: flex;
-  align-items: end;
+.geo-preview-queue-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  height: 230px;
-  margin-top: 20px;
-  padding: 18px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #fbfaff 0%, #f2edf9 100%);
 }
 
-.geo-preview-chart i {
-  flex: 1;
-  border-radius: 999px 999px 8px 8px;
-  background: linear-gradient(180deg, #6d28ff, #baff29);
-}
-
-.geo-preview-model-list {
+.geo-preview-queue-list article {
   display: grid;
   gap: 12px;
-  margin-top: 18px;
-}
-
-.geo-preview-model-list span {
-  display: flex;
-  justify-content: space-between;
-  padding: 11px 12px;
+  min-height: 128px;
+  padding: 16px;
+  border: 1px solid #ece7f2;
   border-radius: 10px;
   background: #fbfaff;
-  color: #4c4558;
 }
 
-.geo-preview-panel-queue ul {
+.geo-preview-queue-list article.is-good {
+  border-color: #dcf7a2;
+  background: #f9ffe9;
+}
+
+.geo-preview-queue-list article.is-danger {
+  border-color: #ead9ff;
+  background: #f7f1ff;
+}
+
+.geo-preview-queue-list strong {
+  display: block;
+  color: #111019;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.geo-preview-queue-list span {
+  display: block;
+  margin-top: 8px;
+  color: #655e6f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.geo-preview-queue-list button {
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d8d1e5;
+  background: #ffffff;
+  color: #6d28ff;
+}
+
+.geo-preview-suggestion-card ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.geo-preview-suggestion-card li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.geo-preview-suggestion-card li > span {
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #baff29;
+}
+
+.geo-preview-suggestion-card li:nth-child(n + 2) > span {
+  background: #6d28ff;
+}
+
+.geo-preview-suggestion-card strong {
+  display: block;
+  color: #221c2d;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.geo-preview-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.geo-preview-quick-grid button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid #e1dce9;
+  border-radius: 9px;
+  background: #fbfaff;
+  color: #221c2d;
+  font-weight: 850;
+}
+
+.geo-preview-quick-grid .el-icon {
+  color: #6d28ff;
+  font-size: 18px;
+}
+
+.geo-preview-system-list {
   display: grid;
   gap: 10px;
-  margin: 14px 0 0;
-  padding-left: 18px;
-  color: #514a5d;
-  line-height: 1.55;
+}
+
+.geo-preview-system-list span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+}
+
+.geo-preview-workbench-cta {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.85fr) minmax(420px, 1fr) auto;
+  gap: 22px;
+  align-items: center;
+  overflow: hidden;
+  padding: 24px 28px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle, rgb(255 255 255 / 10%) 1px, transparent 2px) right 24px top 20px / 110px 70px no-repeat,
+    linear-gradient(135deg, #070609 0%, #15121b 58%, #08070b 100%);
+  color: #ffffff;
+}
+
+.geo-preview-workbench-cta h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 23px;
+  font-weight: 950;
+  line-height: 1.42;
+}
+
+.geo-preview-workbench-cta em {
+  color: #baff29;
+  font-style: normal;
+}
+
+.geo-preview-cta-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.geo-preview-cta-stats article {
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+  padding: 0 16px;
+  border-left: 1px solid rgb(255 255 255 / 20%);
+}
+
+.geo-preview-cta-stats article:last-child {
+  border-right: 1px solid rgb(255 255 255 / 20%);
+}
+
+.geo-preview-cta-stats span {
+  color: rgb(255 255 255 / 68%);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.geo-preview-cta-stats strong {
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 950;
+}
+
+.geo-preview-workbench-cta button {
+  min-width: 138px;
+  min-height: 48px;
+  background: #baff29;
+  color: #111019;
 }
 
 @media (max-width: 980px) {
@@ -2134,7 +2648,8 @@ const metricCards = [
   .geo-preview-hero,
   .geo-preview-login,
   .geo-preview-dashboard,
-  .geo-preview-dashboard-grid,
+  .geo-preview-workbench-grid,
+  .geo-preview-workbench-cta,
   .geo-preview-workflow,
   .geo-preview-dark-cta {
     grid-template-columns: 1fr;
@@ -2185,12 +2700,19 @@ const metricCards = [
 
   .geo-preview-capabilities,
   .geo-preview-metrics,
+  .geo-preview-action-grid,
+  .geo-preview-core-grid,
+  .geo-preview-queue-list,
   .geo-preview-flow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .geo-preview-sidebar {
     min-height: auto;
+  }
+
+  .geo-preview-sidebar nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2255,14 +2777,45 @@ const metricCards = [
   .geo-preview-workstation-grid,
   .geo-preview-capabilities,
   .geo-preview-metrics,
+  .geo-preview-action-grid,
+  .geo-preview-core-grid,
+  .geo-preview-queue-list,
+  .geo-preview-quick-grid,
+  .geo-preview-cta-stats,
   .geo-preview-flow {
     grid-template-columns: 1fr;
   }
 
   .geo-preview-login,
   .geo-preview-main-header,
-  .geo-preview-today {
+  .geo-preview-workbench-hero {
     padding: 18px;
+  }
+
+  .geo-preview-main-content {
+    padding: 18px;
+  }
+
+  .geo-preview-main-header,
+  .geo-preview-workbench-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .geo-preview-sidebar nav {
+    grid-template-columns: 1fr;
+  }
+
+  .geo-preview-workbench-cta {
+    padding: 22px;
+  }
+
+  .geo-preview-cta-stats article,
+  .geo-preview-cta-stats article:last-child {
+    align-items: start;
+    justify-items: start;
+    border-right: 0;
+    border-left: 0;
   }
 }
 </style>
