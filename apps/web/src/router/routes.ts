@@ -13,6 +13,7 @@ import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 import ReportsView from "@/views/ReportsView.vue";
 import SettingsView from "@/views/SettingsView.vue";
 import HelpView from "@/views/HelpView.vue";
+import LandingView from "@/views/LandingView.vue";
 import LoginView from "@/views/LoginView.vue";
 import StylePreviewView from "@/views/StylePreviewView.vue";
 
@@ -35,12 +36,13 @@ const routeNameFromPath = (path: string) => path.replace(/^\//, "").replaceAll("
 export const routes: RouteRecordRaw[] = [
   {
     path: "/",
+    name: "landing",
+    component: LandingView
+  },
+  {
+    path: "/",
     component: AppLayout,
     children: [
-      {
-        path: "",
-        redirect: "/dashboard"
-      },
       ...navigationItems.map((item) => ({
         path: item.path.replace(/^\//, ""),
         name: routeNameFromPath(item.path),

@@ -15,6 +15,7 @@ const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || "http://127.0.0.
 
 const requiredFiles = [
   "docs/frontend/frontend-mvp-guide.md",
+  "apps/web/src/views/LandingView.vue",
   "apps/web/src/views/LoginView.vue",
   "apps/web/src/views/DashboardView.vue",
   "apps/web/src/views/GeoPromptsView.vue",
@@ -31,7 +32,7 @@ const requiredFiles = [
 ];
 
 const routeChecks = [
-  ["/", "GEO 工作台"],
+  ["/", "让 AI 搜索看见你"],
   ["/dashboard", "GEO 工作台"],
   ["/geo-analysis", "GEO 诊断"],
   ["/geo-prompts", "提示词策略库"],
