@@ -154,6 +154,21 @@ const previewQuickLinks = [
   { title: "查看 GEO 报表", icon: PieChart },
   { title: "进入知识库", icon: Files }
 ];
+
+const previewDistribution = [
+  { label: "DeepSeek", value: "34%" },
+  { label: "Kimi", value: "24%" },
+  { label: "通义", value: "22%" },
+  { label: "豆包", value: "20%" }
+];
+
+const previewTopItems = [
+  { name: "待补检测 GEO 词", value: "213" },
+  { name: "待补知识资料", value: "180" },
+  { name: "待处理内容", value: "25" },
+  { name: "默认产品线知识库", value: "171" },
+  { name: "品牌推荐率", value: "30.3%" }
+];
 </script>
 
 <template>
@@ -473,6 +488,80 @@ const previewQuickLinks = [
                     <span>{{ metric.label }}</span>
                     <strong>{{ metric.value }}</strong>
                     <small>{{ metric.description }}</small>
+                  </article>
+                </section>
+
+                <section class="geo-preview-chart-board" aria-label="运营趋势概览">
+                  <article class="geo-preview-card geo-preview-trend-overview">
+                    <div class="geo-preview-card-header">
+                      <div>
+                        <h3>运营趋势概览</h3>
+                        <span>GEO 闭环推进状态，静态 mock</span>
+                      </div>
+                      <span class="geo-preview-range-pill">近 30 天</span>
+                    </div>
+                    <div class="geo-preview-line-chart">
+                      <svg viewBox="0 0 620 220" role="img" aria-label="GEO 闭环趋势曲线">
+                        <path class="geo-preview-chart-grid" d="M0 28H620" />
+                        <path class="geo-preview-chart-grid" d="M0 76H620" />
+                        <path class="geo-preview-chart-grid" d="M0 124H620" />
+                        <path class="geo-preview-chart-grid" d="M0 172H620" />
+                        <path
+                          class="geo-preview-line-primary"
+                          d="M22 172L80 158L138 134L196 142L254 112L312 96L370 118L428 82L486 70L544 88L598 54"
+                        />
+                        <path
+                          class="geo-preview-line-accent"
+                          d="M22 194L80 184L138 178L196 160L254 168L312 142L370 152L428 128L486 138L544 116L598 96"
+                        />
+                        <g class="geo-preview-line-points">
+                          <circle cx="22" cy="172" r="4" />
+                          <circle cx="254" cy="112" r="4" />
+                          <circle cx="428" cy="82" r="4" />
+                          <circle cx="598" cy="54" r="4" />
+                        </g>
+                      </svg>
+                      <div class="geo-preview-line-legend">
+                        <span><i />检测覆盖</span>
+                        <span><i />内容补齐</span>
+                      </div>
+                    </div>
+                  </article>
+
+                  <article class="geo-preview-card geo-preview-donut-card">
+                    <div class="geo-preview-card-header">
+                      <div>
+                        <h3>模型 / 入口分布</h3>
+                        <span>多模型复测入口占比</span>
+                      </div>
+                    </div>
+                    <div class="geo-preview-donut-layout">
+                      <div class="geo-preview-donut" aria-label="模型入口分布圆环图">
+                        <strong>659</strong>
+                        <span>检测记录</span>
+                      </div>
+                      <div class="geo-preview-donut-legend">
+                        <span v-for="item in previewDistribution" :key="item.label">
+                          <i />{{ item.label }} <strong>{{ item.value }}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </article>
+
+                  <article class="geo-preview-card geo-preview-top-card">
+                    <div class="geo-preview-card-header">
+                      <div>
+                        <h3>优化建议 TOP 5</h3>
+                        <span>保留报表感，但服务工作台行动</span>
+                      </div>
+                    </div>
+                    <ol>
+                      <li v-for="(item, index) in previewTopItems" :key="item.name">
+                        <span>{{ String(index + 1).padStart(2, "0") }}</span>
+                        <strong>{{ item.name }}</strong>
+                        <b>{{ item.value }}</b>
+                      </li>
+                    </ol>
                   </article>
                 </section>
 
@@ -2055,7 +2144,7 @@ const previewQuickLinks = [
 
 .geo-preview-dashboard.geo-preview-workbench {
   display: grid;
-  grid-template-columns: 276px minmax(0, 1fr);
+  grid-template-columns: 258px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid #ded8eb;
   border-radius: 18px;
@@ -2069,11 +2158,11 @@ const previewQuickLinks = [
   overflow: hidden;
   flex-direction: column;
   min-height: 910px;
-  padding: 24px 12px 18px;
+  padding: 22px 10px 18px;
   background:
-    radial-gradient(circle at 18% 3%, rgb(109 40 255 / 34%), transparent 26%),
-    radial-gradient(circle at 96% 82%, rgb(109 40 255 / 28%), transparent 24%),
-    linear-gradient(180deg, #050508 0%, #101016 56%, #050508 100%);
+    radial-gradient(circle at 22% 0%, rgb(109 40 255 / 18%), transparent 28%),
+    radial-gradient(circle at 105% 82%, rgb(109 40 255 / 14%), transparent 24%),
+    linear-gradient(180deg, #10121a 0%, #12131d 48%, #0b0d12 100%);
   color: #ffffff;
   isolation: isolate;
 }
@@ -2082,10 +2171,10 @@ const previewQuickLinks = [
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle, rgb(255 255 255 / 18%) 1px, transparent 2px) 78% 8% / 17px 17px,
-    radial-gradient(circle, rgb(255 255 255 / 10%) 1px, transparent 2px) 10% 82% / 14px 14px;
+    radial-gradient(circle, rgb(255 255 255 / 12%) 1px, transparent 2px) 78% 8% / 18px 18px,
+    radial-gradient(circle, rgb(255 255 255 / 7%) 1px, transparent 2px) 10% 82% / 15px 15px;
   content: "";
-  opacity: 0.38;
+  opacity: 0.18;
   z-index: -1;
 }
 
@@ -2093,7 +2182,7 @@ const previewQuickLinks = [
   display: flex;
   align-items: center;
   gap: 13px;
-  padding: 0 14px 24px;
+  padding: 0 13px 22px;
 }
 
 .geo-preview-sidebar-logo {
@@ -2120,14 +2209,14 @@ const previewQuickLinks = [
 
 .geo-preview-sidebar-brand strong {
   color: #ffffff;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 950;
 }
 
 .geo-preview-sidebar nav {
   position: relative;
   display: grid;
-  gap: 7px;
+  gap: 6px;
   z-index: 1;
 }
 
@@ -2135,23 +2224,23 @@ const previewQuickLinks = [
   display: flex;
   align-items: center;
   gap: 11px;
-  min-height: 44px;
-  padding: 0 13px;
+  min-height: 42px;
+  padding: 0 12px;
   border-radius: 9px;
-  color: rgb(255 255 255 / 78%);
-  font-size: 14px;
+  color: rgb(255 255 255 / 74%);
+  font-size: 13px;
   font-weight: 800;
   text-decoration: none;
 }
 
 .geo-preview-sidebar nav a .el-icon {
   color: inherit;
-  font-size: 19px;
+  font-size: 18px;
 }
 
 .geo-preview-sidebar nav a.is-active {
-  background: linear-gradient(135deg, #5d20f5 0%, #7d37ff 56%, #5f25f2 100%);
-  box-shadow: 0 14px 28px rgb(93 32 245 / 32%);
+  background: linear-gradient(135deg, #5220d6 0%, #6a2df0 58%, #4c1fc7 100%);
+  box-shadow: 0 10px 20px rgb(93 32 245 / 18%);
   color: #ffffff;
 }
 
@@ -2162,18 +2251,18 @@ const previewQuickLinks = [
   gap: 10px;
   align-items: center;
   margin-top: auto;
-  padding: 16px 10px 0;
-  border-top: 1px solid rgb(255 255 255 / 12%);
+  padding: 14px 10px 0;
+  border-top: 1px solid rgb(255 255 255 / 9%);
   z-index: 1;
 }
 
 .geo-preview-user-dot {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   place-items: center;
   border-radius: 50%;
-  background: #ffffff;
+  background: rgb(255 255 255 / 90%);
   color: #111019 !important;
   font-weight: 950;
 }
@@ -2181,11 +2270,11 @@ const previewQuickLinks = [
 .geo-preview-sidebar-user strong {
   display: block;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .geo-preview-sidebar-user small {
-  color: rgb(255 255 255 / 58%);
+  color: rgb(255 255 255 / 50%);
   font-size: 11px;
 }
 
@@ -2429,6 +2518,210 @@ const previewQuickLinks = [
   font-weight: 750;
 }
 
+.geo-preview-chart-board {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.45fr) minmax(260px, 0.8fr) minmax(260px, 0.82fr);
+  gap: 16px;
+}
+
+.geo-preview-chart-board .geo-preview-card {
+  min-height: 292px;
+}
+
+.geo-preview-range-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #e2ddeb;
+  border-radius: 999px;
+  background: #fbfaff;
+  color: #5d5669;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.geo-preview-line-chart {
+  display: grid;
+  gap: 12px;
+}
+
+.geo-preview-line-chart svg {
+  width: 100%;
+  height: 210px;
+  margin-top: 2px;
+}
+
+.geo-preview-chart-grid {
+  stroke: #ebe7f1;
+  stroke-width: 1;
+}
+
+.geo-preview-line-primary,
+.geo-preview-line-accent {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5;
+}
+
+.geo-preview-line-primary {
+  stroke: #6d28ff;
+}
+
+.geo-preview-line-accent {
+  stroke: #9bdd0f;
+}
+
+.geo-preview-line-points circle {
+  fill: #6d28ff;
+}
+
+.geo-preview-line-legend {
+  display: flex;
+  gap: 18px;
+  color: #706879;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.geo-preview-line-legend span,
+.geo-preview-donut-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.geo-preview-line-legend i,
+.geo-preview-donut-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6d28ff;
+}
+
+.geo-preview-line-legend span:nth-child(2) i {
+  background: #9bdd0f;
+}
+
+.geo-preview-donut-layout {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  margin-top: 8px;
+}
+
+.geo-preview-donut {
+  position: relative;
+  display: grid;
+  width: 154px;
+  height: 154px;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(#6d28ff 0 34%, #4b1cc4 34% 58%, #baff29 58% 80%, #ded8eb 80% 100%);
+}
+
+.geo-preview-donut::after {
+  position: absolute;
+  inset: 36px;
+  border-radius: 50%;
+  background: #ffffff;
+  content: "";
+}
+
+.geo-preview-donut strong,
+.geo-preview-donut span {
+  position: relative;
+  z-index: 1;
+}
+
+.geo-preview-donut strong {
+  margin-top: 28px;
+  color: #050407;
+  font-size: 30px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.geo-preview-donut span {
+  margin-top: -48px;
+  color: #716a7e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.geo-preview-donut-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  width: 100%;
+}
+
+.geo-preview-donut-legend span {
+  justify-content: space-between;
+  color: #5f586a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.geo-preview-donut-legend span:nth-child(2) i {
+  background: #4b1cc4;
+}
+
+.geo-preview-donut-legend span:nth-child(3) i {
+  background: #baff29;
+}
+
+.geo-preview-donut-legend span:nth-child(4) i {
+  background: #ded8eb;
+}
+
+.geo-preview-top-card ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.geo-preview-top-card li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+}
+
+.geo-preview-top-card li > span {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border-radius: 7px;
+  background: #f0e9ff;
+  color: #6d28ff;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.geo-preview-top-card li:nth-child(-n + 2) > span {
+  background: linear-gradient(135deg, #5b21dc, #7b3cff);
+  color: #ffffff;
+}
+
+.geo-preview-top-card strong {
+  overflow: hidden;
+  color: #282232;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.geo-preview-top-card b {
+  color: #111019;
+  font-size: 13px;
+}
+
 .geo-preview-workbench-grid {
   display: grid;
   grid-template-columns: minmax(420px, 1.3fr) minmax(280px, 0.85fr);
@@ -2648,6 +2941,7 @@ const previewQuickLinks = [
   .geo-preview-hero,
   .geo-preview-login,
   .geo-preview-dashboard,
+  .geo-preview-chart-board,
   .geo-preview-workbench-grid,
   .geo-preview-workbench-cta,
   .geo-preview-workflow,
@@ -2702,6 +2996,7 @@ const previewQuickLinks = [
   .geo-preview-metrics,
   .geo-preview-action-grid,
   .geo-preview-core-grid,
+  .geo-preview-donut-legend,
   .geo-preview-queue-list,
   .geo-preview-flow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2779,6 +3074,7 @@ const previewQuickLinks = [
   .geo-preview-metrics,
   .geo-preview-action-grid,
   .geo-preview-core-grid,
+  .geo-preview-donut-legend,
   .geo-preview-queue-list,
   .geo-preview-quick-grid,
   .geo-preview-cta-stats,
