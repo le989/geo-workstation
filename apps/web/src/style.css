@@ -725,6 +725,7 @@ a {
 .content-items-section,
 .model-filter-card,
 .model-summary-card,
+.model-risk-card,
 .model-record-table-card,
 .uncovered-card,
 .report-filter-card,
@@ -2816,6 +2817,7 @@ a {
 .model-inclusion-hero,
 .model-filter-card,
 .model-summary-card,
+.model-risk-card,
 .model-record-table-card,
 .uncovered-card {
   border: 1px solid var(--geo-border);
@@ -2881,9 +2883,46 @@ a {
 
 .model-summary-card,
 .model-filter-card,
+.model-risk-card,
 .model-record-table-card,
 .uncovered-card {
   padding: 18px;
+}
+
+.model-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.model-risk-metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background: #f8fbfd;
+}
+
+.model-risk-metric div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.model-risk-metric span {
+  color: var(--geo-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.model-risk-metric strong {
+  color: #172326;
+  font-size: 28px;
+  line-height: 1;
 }
 
 .model-summary-grid {
@@ -2943,6 +2982,28 @@ a {
   color: #354248;
 }
 
+.model-filter-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.model-filter-header h2 {
+  margin: 4px 0 0;
+  color: #172326;
+  font-size: 18px;
+}
+
+.model-filter-header span {
+  max-width: 360px;
+  color: var(--geo-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: right;
+}
+
 .model-inclusion-filters,
 .uncovered-filters,
 .model-record-form {
@@ -2951,7 +3012,24 @@ a {
 }
 
 .model-inclusion-filters {
-  grid-template-columns: 1.3fr repeat(5, minmax(120px, 1fr));
+  grid-template-columns: 1.5fr repeat(5, minmax(120px, 1fr)) auto;
+  align-items: end;
+}
+
+.model-inclusion-filters--advanced {
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+}
+
+.model-filter-advanced {
+  margin-top: 12px;
+}
+
+.model-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 18px;
 }
 
 .uncovered-filters {
@@ -2971,6 +3049,104 @@ a {
 .model-record-table,
 .uncovered-prompt-table {
   width: 100%;
+}
+
+.model-record-row--risk td {
+  background: #fffdf7 !important;
+}
+
+.model-record-prompt,
+.model-record-summary {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.model-record-prompt {
+  -webkit-line-clamp: 2;
+  line-height: 1.45;
+}
+
+.model-record-summary {
+  -webkit-line-clamp: 3;
+  color: #354248;
+  line-height: 1.55;
+}
+
+.model-record-tag-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.model-record-detail {
+  display: grid;
+  gap: 14px;
+  padding: 8px 10px 14px;
+  background: #fbfdff;
+}
+
+.model-record-detail section {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.model-record-detail__header {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.model-record-detail__header h3 {
+  margin: 0;
+  color: #172326;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.model-record-detail__grid,
+.model-record-tech-grid {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 120px minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.model-record-detail__grid span,
+.model-record-tech-grid span {
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.model-record-detail__grid strong,
+.model-record-tech-grid strong {
+  min-width: 0;
+  color: #263338;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.model-record-answer {
+  margin: 0 0 10px;
+  color: #354248;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.model-record-detail pre {
+  max-height: 280px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #263338;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .model-prompt-picker {
@@ -3722,8 +3898,11 @@ a {
   .content-workflow-strip,
   .content-detail-grid,
   .knowledge-operation-grid,
+  .model-risk-grid,
   .model-summary-grid,
   .model-distribution-grid,
+  .model-record-detail__grid,
+  .model-record-tech-grid,
   .report-group-nav,
   .model-inclusion-filters,
   .uncovered-filters,
@@ -3795,6 +3974,7 @@ a {
   .model-inclusion-hero,
   .model-filter-card,
   .model-summary-card,
+  .model-risk-card,
   .model-record-table-card,
   .uncovered-card,
   .reports-hero,

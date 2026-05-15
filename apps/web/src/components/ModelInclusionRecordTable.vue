@@ -42,150 +42,197 @@ const getHitLevelType = (value?: string) =>
     | "danger"
     | "info";
 
-const formatJsonPreview = (value?: unknown) => {
+const formatJsonBlock = (value?: unknown) => {
   if (!value) {
     return "--";
   }
 
-  return truncateSummary(JSON.stringify(value), 120);
+  return JSON.stringify(value, null, 2);
 };
+
+const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
+  ["not_mentioned", "competitor_only", "unclear"].includes(String(row.hitLevel))
+    ? "model-record-row--risk"
+    : "";
 </script>
 
 <template>
   <el-table
     v-loading="loading"
     :data="records"
+    :row-class-name="getRowClassName"
     border
     row-key="id"
     empty-text="暂无模型覆盖记录"
     class="model-record-table"
   >
-    <el-table-column label="GEO 提示词" min-width="280" fixed>
+    <el-table-column type="expand" width="54">
       <template #default="{ row }">
-        <strong>{{ row.geoPrompt.promptText }}</strong>
+        <div class="model-record-detail">
+          <section>
+            <div class="model-record-detail__header">
+              <p class="section-kicker">结果摘要</p>
+              <h3>{{ row.geoPrompt.promptText }}</h3>
+            </div>
+            <div class="model-record-detail__grid">
+              <span>平台 / 模型</span>
+              <strong>{{ formatOptional(row.platform) }} / {{ row.model }}</strong>
+              <span>入口 / 方式</span>
+              <strong>
+                {{ formatEntryPoint(row.entryPoint) }} /
+                {{ formatDetectionMethod(row.detectionMethod) }}
+              </strong>
+              <span>设备 / 登录</span>
+              <strong>
+                {{ formatDeviceType(row.deviceType) }} /
+                {{ row.isLoggedIn ? "登录" : "未登录" }}
+              </strong>
+              <span>联网搜索</span>
+              <strong>{{ row.isWebSearchEnabled ? "已启用" : "未启用" }}</strong>
+              <span>推荐位置</span>
+              <strong>{{ row.rankingPosition ?? "--" }}</strong>
+              <span>记录方式</span>
+              <strong>
+                <RecordMethodTag :method="row.recordMethod" />
+              </strong>
+              <span>重试 / 错误分类</span>
+              <strong>{{ row.retryCount ?? 0 }} / {{ row.errorCategory ?? "--" }}</strong>
+              <span>竞品提及</span>
+              <strong>{{ formatCompetitors(row.competitors) }}</strong>
+            </div>
+          </section>
+
+          <section>
+            <div class="model-record-detail__header">
+              <p class="section-kicker">回答内容</p>
+              <h3>摘要与原始回答</h3>
+            </div>
+            <p class="model-record-answer">{{ row.answerSummary || "暂无回答摘要" }}</p>
+            <el-collapse v-if="row.rawAnswer">
+              <el-collapse-item title="展开原始回答" :name="`${row.id}-rawAnswer`">
+                <pre>{{ row.rawAnswer }}</pre>
+              </el-collapse-item>
+            </el-collapse>
+          </section>
+
+          <section>
+            <div class="model-record-detail__header">
+              <p class="section-kicker">证据 / 引用</p>
+              <h3>来源、搜索结果与错误信息</h3>
+            </div>
+            <el-collapse>
+              <el-collapse-item title="引用来源 citations" :name="`${row.id}-citations`">
+                <pre>{{ formatJsonBlock(row.citations) }}</pre>
+              </el-collapse-item>
+              <el-collapse-item title="搜索结果 searchResults" :name="`${row.id}-searchResults`">
+                <pre>{{ formatJsonBlock(row.searchResults) }}</pre>
+              </el-collapse-item>
+              <el-collapse-item
+                v-if="row.screenshotPath"
+                title="截图路径"
+                :name="`${row.id}-screenshotPath`"
+              >
+                <p>{{ row.screenshotPath }}</p>
+              </el-collapse-item>
+              <el-collapse-item
+                v-if="row.errorMessage"
+                title="错误信息"
+                :name="`${row.id}-errorMessage`"
+              >
+                <p>{{ row.errorMessage }}</p>
+              </el-collapse-item>
+            </el-collapse>
+          </section>
+
+          <section>
+            <el-collapse>
+              <el-collapse-item title="技术信息" :name="`${row.id}-tech`">
+                <div class="model-record-tech-grid">
+                  <span>记录 ID</span>
+                  <strong>{{ row.id }}</strong>
+                  <span>GEO 提示词 ID</span>
+                  <strong>{{ row.geoPromptId }}</strong>
+                  <span>创建人</span>
+                  <strong>{{ row.createdBy }}</strong>
+                  <span>创建时间</span>
+                  <strong>{{ formatDateTime(row.createdAt) }}</strong>
+                  <span>检测时间</span>
+                  <strong>{{ formatDateTime(row.checkedAt) }}</strong>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
+          </section>
+        </div>
+      </template>
+    </el-table-column>
+
+    <el-table-column label="GEO 提示词" min-width="300" fixed>
+      <template #default="{ row }">
+        <strong class="model-record-prompt">{{ row.geoPrompt.promptText }}</strong>
         <p class="table-subtext">
-          {{ formatOptional(row.geoPrompt.productLine) }} /
-          {{ getUserIntentLabel(row) }}
+          {{ formatOptional(row.geoPrompt.productLine) }} / {{ getUserIntentLabel(row) }} /
+          <GeoPromptTypeTag :type="row.geoPrompt.type" />
         </p>
       </template>
     </el-table-column>
-    <el-table-column label="类型" width="100">
+
+    <el-table-column label="模型 / 平台" min-width="180">
       <template #default="{ row }">
-        <GeoPromptTypeTag :type="row.geoPrompt.type" />
+        <strong>{{ formatOptional(row.platform) }}</strong>
+        <p class="table-subtext">{{ row.model }}</p>
+        <p class="table-subtext">{{ formatEntryPoint(row.entryPoint) }}</p>
       </template>
     </el-table-column>
-    <el-table-column label="AI 模型" width="130" prop="model" />
-    <el-table-column label="平台" width="120">
-      <template #default="{ row }">{{ formatOptional(row.platform) }}</template>
-    </el-table-column>
-    <el-table-column label="入口" width="130">
-      <template #default="{ row }">{{ formatEntryPoint(row.entryPoint) }}</template>
-    </el-table-column>
-    <el-table-column label="命中等级" width="120">
+
+    <el-table-column label="命中状态" width="130">
       <template #default="{ row }">
         <el-tag :type="getHitLevelType(row.hitLevel)" effect="plain">
           {{ formatHitLevel(row.hitLevel) }}
         </el-tag>
       </template>
     </el-table-column>
-    <el-table-column label="检测方式" width="130">
-      <template #default="{ row }">{{ formatDetectionMethod(row.detectionMethod) }}</template>
-    </el-table-column>
-    <el-table-column label="设备" width="100">
-      <template #default="{ row }">{{ formatDeviceType(row.deviceType) }}</template>
-    </el-table-column>
-    <el-table-column label="查询时间" width="180">
-      <template #default="{ row }">{{ formatDateTime(row.checkedAt) }}</template>
-    </el-table-column>
-    <el-table-column label="联网" width="90">
+
+    <el-table-column label="品牌判断" min-width="220">
       <template #default="{ row }">
-        <ModelInclusionBooleanTag
-          :value="row.isWebSearchEnabled"
-          true-label="联网"
-          false-label="未联网"
-        />
+        <div class="model-record-tag-stack">
+          <ModelInclusionBooleanTag
+            :value="row.brandMentioned"
+            true-label="已提及"
+            false-label="未提及"
+          />
+          <ModelInclusionBooleanTag
+            :value="row.brandRecommended"
+            true-label="已推荐"
+            false-label="未推荐"
+          />
+          <ModelInclusionBooleanTag
+            :value="row.citedOfficialSite"
+            true-label="引用官网"
+            false-label="未引官网"
+          />
+        </div>
       </template>
     </el-table-column>
-    <el-table-column label="登录" width="90">
-      <template #default="{ row }">
-        <ModelInclusionBooleanTag :value="row.isLoggedIn" true-label="登录" false-label="未登录" />
-      </template>
-    </el-table-column>
-    <el-table-column label="品牌提及" width="110">
-      <template #default="{ row }">
-        <ModelInclusionBooleanTag
-          :value="row.brandMentioned"
-          true-label="已提及"
-          false-label="未提及"
-        />
-      </template>
-    </el-table-column>
-    <el-table-column label="品牌推荐" width="110">
-      <template #default="{ row }">
-        <ModelInclusionBooleanTag
-          :value="row.brandRecommended"
-          true-label="已推荐"
-          false-label="未推荐"
-        />
-      </template>
-    </el-table-column>
-    <el-table-column label="推荐位置" width="100">
-      <template #default="{ row }">{{ row.rankingPosition ?? "--" }}</template>
-    </el-table-column>
-    <el-table-column label="官网引用" width="120">
-      <template #default="{ row }">
-        <ModelInclusionBooleanTag
-          :value="row.citedOfficialSite"
-          true-label="已引用官网"
-          false-label="未引用官网"
-        />
-      </template>
-    </el-table-column>
-    <el-table-column label="内容引用" width="120">
-      <template #default="{ row }">
-        <ModelInclusionBooleanTag
-          :value="row.citedContentAsset"
-          true-label="已引用内容"
-          false-label="未引用内容"
-        />
-      </template>
-    </el-table-column>
-    <el-table-column label="出现竞品" width="120">
+
+    <el-table-column label="竞品占位" width="150">
       <template #default="{ row }">
         <ModelInclusionBooleanTag
           :value="row.competitorMentioned"
           true-label="出现竞品"
           false-label="未出现"
         />
+        <p class="table-subtext">{{ formatCompetitors(row.competitors) }}</p>
       </template>
     </el-table-column>
+
     <el-table-column label="回答摘要" min-width="260">
-      <template #default="{ row }">{{ truncateSummary(row.answerSummary) }}</template>
-    </el-table-column>
-    <el-table-column label="原始回答 / 证据" min-width="260">
       <template #default="{ row }">
-        <el-collapse v-if="row.rawAnswer || row.citations || row.searchResults || row.errorMessage">
-          <el-collapse-item title="查看详情" :name="row.id">
-            <p v-if="row.rawAnswer">{{ truncateSummary(row.rawAnswer, 400) }}</p>
-            <p v-if="row.citations">引用：{{ formatJsonPreview(row.citations) }}</p>
-            <p v-if="row.searchResults">搜索：{{ formatJsonPreview(row.searchResults) }}</p>
-            <p v-if="row.screenshotPath">截图：{{ row.screenshotPath }}</p>
-            <p v-if="row.errorMessage">错误：{{ row.errorMessage }}</p>
-          </el-collapse-item>
-        </el-collapse>
-        <span v-else>--</span>
+        <p class="model-record-summary">{{ truncateSummary(row.answerSummary, 140) }}</p>
       </template>
     </el-table-column>
-    <el-table-column label="竞品提及" min-width="180">
-      <template #default="{ row }">{{ formatCompetitors(row.competitors) }}</template>
-    </el-table-column>
-    <el-table-column label="记录方式" width="110">
-      <template #default="{ row }">
-        <RecordMethodTag :method="row.recordMethod" />
-      </template>
-    </el-table-column>
-    <el-table-column label="创建时间" width="180">
-      <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+
+    <el-table-column label="检测时间" width="170">
+      <template #default="{ row }">{{ formatDateTime(row.checkedAt) }}</template>
     </el-table-column>
   </el-table>
 </template>

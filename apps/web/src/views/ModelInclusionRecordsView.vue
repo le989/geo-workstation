@@ -30,7 +30,7 @@ import ModelInclusionSummaryCards from "@/components/ModelInclusionSummaryCards.
 import ModelInclusionWebSearchDialog from "@/components/ModelInclusionWebSearchDialog.vue";
 import UncoveredPromptsTable from "@/components/UncoveredPromptsTable.vue";
 import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
-import { booleanFilterOptions } from "@/config/model-inclusion-options";
+import { booleanFilterOptions, hitLevelTypeMap } from "@/config/model-inclusion-options";
 
 const records = ref<ModelInclusionRecord[]>([]);
 const total = ref(0);
@@ -80,6 +80,72 @@ const uncoveredFilters = reactive<UncoveredPromptsQuery>({
 
 const hasRecordsError = computed(() => Boolean(recordsError.value));
 const isRecordsEmpty = computed(() => !recordsLoading.value && records.value.length === 0);
+const riskMetrics = computed(() => {
+  const currentRecords = records.value;
+  const countByHitLevel = (level: string) =>
+    currentRecords.filter((record) => record.hitLevel === level).length;
+
+  return [
+    {
+      key: "not_mentioned",
+      label: "未命中",
+      count: countByHitLevel("not_mentioned"),
+      helper: "优先补内容和知识库",
+      type: hitLevelTypeMap.not_mentioned
+    },
+    {
+      key: "competitor_only",
+      label: "竞品命中",
+      count: currentRecords.filter(
+        (record) =>
+          record.hitLevel === "competitor_only" ||
+          (record.competitorMentioned && !record.brandMentioned)
+      ).length,
+      helper: "需要关注竞品占位",
+      type: hitLevelTypeMap.competitor_only
+    },
+    {
+      key: "unclear",
+      label: "无法判断",
+      count: countByHitLevel("unclear"),
+      helper: "建议复测或人工复核",
+      type: hitLevelTypeMap.unclear
+    },
+    {
+      key: "recommended",
+      label: "推荐命中",
+      count: currentRecords.filter((record) => record.brandRecommended).length,
+      helper: "已形成推荐信号",
+      type: hitLevelTypeMap.recommended
+    },
+    {
+      key: "mentioned",
+      label: "提及命中",
+      count: currentRecords.filter((record) => record.brandMentioned).length,
+      helper: "已有品牌提及",
+      type: hitLevelTypeMap.mentioned
+    }
+  ];
+});
+
+const riskSummaryText = computed(() => {
+  if (records.value.length === 0) {
+    return "当前列表暂无记录，可先发起联网检测或导入历史检测结果。";
+  }
+
+  const highRiskCount = riskMetrics.value
+    .filter((metric) => ["not_mentioned", "competitor_only", "unclear"].includes(metric.key))
+    .reduce((sum, metric) => sum + metric.count, 0);
+
+  if (highRiskCount > 0) {
+    return `当前页有 ${highRiskCount} 条记录需要优先复核，先看未命中、竞品占位和无法判断项。`;
+  }
+
+  return "当前页暂无明显高风险记录，可继续查看已推荐和已提及结果的证据质量。";
+});
+
+const getMetricTagType = (type?: string) =>
+  (type ?? "info") as "primary" | "success" | "warning" | "danger" | "info";
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -382,15 +448,12 @@ onMounted(() => {
   <section class="model-inclusion-page">
     <header class="model-inclusion-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO 效果复盘</el-tag>
+        <el-tag type="warning" effect="plain">原始检测台账</el-tag>
         <h1>模型覆盖记录</h1>
-        <p>
-          记录 GEO 提示词在不同 AI
-          模型中的品牌提及、推荐、官网引用和竞品出现情况，用于判断哪些词已经被覆盖，哪些词还需要补内容或补资料。
-        </p>
+        <p>查看 Kimi、豆包、通义等模型检测的原始记录，优先定位未命中、竞品占位和无法判断结果。</p>
         <strong>
-          第一版支持人工录入 / 导入覆盖记录，并提供 Kimi Web Search API 联网检测与豆包 /
-          火山方舟联网搜索检测、通义千问 / 阿里云百炼联网搜索检测；不做 PC、移动网页或 App 自动化。
+          本页保留人工录入 / 导入覆盖记录与 Kimi Web Search API 联网检测、豆包 / 火山方舟、通义千问
+          / 阿里云百炼检测记录；GEO 效果复盘请到 GEO 报表查看。
         </strong>
       </div>
       <div class="model-inclusion-hero__actions">
@@ -407,7 +470,7 @@ onMounted(() => {
     </header>
 
     <el-alert
-      title="本页是 GEO 效果复盘，不是普通日志查询；支持模型 API、联网搜索 API、PC/移动网页端和 App 抽查等入口字段，并按推荐命中、提及命中、引用命中、竞品命中、未命中、无法判断统计。记录新增或导入成功后会由后端更新对应提示词的最新覆盖状态。"
+      title="这里是原始检测台账，不是最终汇总报表；支持模型 API、联网搜索 API、PC、移动网页或 App 抽查等入口字段，本页不执行 PC、移动网页或 App 自动化。汇总复盘、平台对比和趋势判断请到「GEO 报表」查看。"
       type="warning"
       :closable="false"
       show-icon
@@ -415,6 +478,31 @@ onMounted(() => {
     />
 
     <AppErrorState v-if="summaryError" title="汇总指标加载失败" :message="summaryError" />
+
+    <el-card class="model-risk-card" shadow="never">
+      <template #header>
+        <div class="table-card-header">
+          <div>
+            <p class="section-kicker">风险优先视图</p>
+            <h2>先看需要处理的检测结果</h2>
+            <span>{{ riskSummaryText }}</span>
+          </div>
+          <strong>当前页 {{ records.length }} / 共 {{ total }} 条</strong>
+        </div>
+      </template>
+      <div class="model-risk-grid">
+        <div v-for="metric in riskMetrics" :key="metric.key" class="model-risk-metric">
+          <div>
+            <el-tag :type="getMetricTagType(metric.type)" effect="plain">
+              {{ metric.label }}
+            </el-tag>
+            <span>{{ metric.helper }}</span>
+          </div>
+          <strong>{{ metric.count }}</strong>
+        </div>
+      </div>
+    </el-card>
+
     <ModelInclusionSummaryCards :summary="summary" :loading="summaryLoading" />
 
     <ModelInclusionFilters
