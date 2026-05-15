@@ -151,8 +151,7 @@ a {
   min-height: 100vh;
   background:
     radial-gradient(circle at 78% 0, rgb(109 40 255 / 7%), transparent 30%),
-    linear-gradient(180deg, #fbfbfd 0, #f6f7fb 300px),
-    var(--geo-page);
+    linear-gradient(180deg, #fbfbfd 0, #f6f7fb 300px), var(--geo-page);
 }
 
 .admin-sidebar {
@@ -500,8 +499,7 @@ a {
   margin: 0 auto;
   padding: 28px 30px 36px;
   background:
-    radial-gradient(circle at 92% 0, rgb(109 40 255 / 4%), transparent 28%),
-    var(--geo-page);
+    radial-gradient(circle at 92% 0, rgb(109 40 255 / 4%), transparent 28%), var(--geo-page);
 }
 
 .login-page {
@@ -819,6 +817,7 @@ a {
   color: var(--geo-muted);
 }
 
+.geo-analysis-filter-panel,
 .geo-prompts-filter-panel,
 .geo-prompts-table-panel,
 .expansion-mode-panel,
@@ -853,6 +852,7 @@ a {
   box-shadow: var(--geo-shadow-sm);
 }
 
+.geo-analysis-filter-panel,
 .geo-prompts-filter-panel,
 .expansion-form-panel,
 .knowledge-filter-panel,
@@ -897,8 +897,7 @@ a {
   border-radius: 18px;
   background:
     radial-gradient(circle at 88% 8%, rgb(109 40 255 / 12%), transparent 24%),
-    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 38%),
-    #ffffff;
+    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 38%), #ffffff;
   box-shadow: 0 18px 45px rgb(24 20 36 / 7%);
 }
 
@@ -1090,9 +1089,7 @@ a {
   padding: 18px;
   border-color: #e5e0ef;
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 86% 16%, rgb(109 40 255 / 10%), transparent 25%),
-    #ffffff;
+  background: radial-gradient(circle at 86% 16%, rgb(109 40 255 / 10%), transparent 25%), #ffffff;
   color: inherit;
   text-decoration: none;
   position: relative;
@@ -1168,9 +1165,7 @@ a {
 
 .dashboard-action-card--warning {
   border-color: #dff59c;
-  background:
-    radial-gradient(circle at 86% 16%, rgb(186 255 41 / 24%), transparent 25%),
-    #ffffff;
+  background: radial-gradient(circle at 86% 16%, rgb(186 255 41 / 24%), transparent 25%), #ffffff;
 }
 
 .dashboard-action-card--danger {
@@ -1401,7 +1396,8 @@ a {
   border-radius: 16px;
   background:
     radial-gradient(circle at 86% 12%, rgb(109 40 255 / 34%), transparent 28%),
-    linear-gradient(100deg, transparent 0 4%, rgb(186 255 41 / 18%) 5% 13%, transparent 14% 100%) left bottom / 280px 80px no-repeat,
+    linear-gradient(100deg, transparent 0 4%, rgb(186 255 41 / 18%) 5% 13%, transparent 14% 100%)
+      left bottom / 280px 80px no-repeat,
     linear-gradient(135deg, #08070b 0%, #151323 55%, #0b0d12 100%);
   color: #ffffff;
 }
@@ -1772,7 +1768,8 @@ a {
 
 .geo-prompts-hero,
 .geo-prompts-filter-panel,
-.geo-prompts-table-panel {
+.geo-prompts-table-panel,
+.geo-prompts-asset-card {
   border: 1px solid var(--geo-border);
   border-radius: 8px;
   background: var(--geo-surface);
@@ -1784,6 +1781,9 @@ a {
   justify-content: space-between;
   gap: 20px;
   padding: 28px;
+  background:
+    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 24%),
+    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), var(--geo-surface);
 }
 
 .geo-prompts-hero h1 {
@@ -1806,6 +1806,45 @@ a {
   margin-top: 12px;
   color: #263338;
   line-height: 1.6;
+}
+
+.geo-prompts-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.geo-prompts-asset-card {
+  display: grid;
+  gap: 8px;
+  min-height: 124px;
+  padding: 18px;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.geo-prompts-asset-card:nth-child(4) {
+  border-color: rgb(186 255 41 / 55%);
+  background: linear-gradient(135deg, rgb(186 255 41 / 18%), transparent 58%), #ffffff;
+}
+
+.geo-prompts-asset-card span {
+  color: var(--geo-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.geo-prompts-asset-card strong {
+  color: #101827;
+  font-size: 34px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.geo-prompts-asset-card p {
+  margin: 0;
+  color: var(--geo-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .geo-prompts-hero__actions {
@@ -1884,10 +1923,13 @@ a {
 }
 
 .prompt-text-cell {
-  display: block;
+  display: -webkit-box;
   color: #13243a;
   font-weight: 650;
   line-height: 1.55;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   white-space: normal;
   word-break: break-word;
 }
@@ -1956,6 +1998,32 @@ a {
   line-height: 1.55;
 }
 
+.geo-analysis-filter-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.geo-analysis-filters {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(4, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.geo-analysis-filters .el-form-item {
+  margin-bottom: 0;
+}
+
+.geo-analysis-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .expansion-page {
   display: grid;
   gap: 22px;
@@ -1968,7 +2036,8 @@ a {
 .expansion-candidate-panel,
 .save-candidates-panel,
 .save-candidates-result,
-.expansion-lookup-panel {
+.expansion-lookup-panel,
+.expansion-flow-strip {
   border: 1px solid var(--geo-border);
   border-radius: 8px;
   background: var(--geo-surface);
@@ -1980,6 +2049,9 @@ a {
   justify-content: space-between;
   gap: 20px;
   padding: 28px;
+  background:
+    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 24%),
+    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), var(--geo-surface);
 }
 
 .expansion-hero h1 {
@@ -2015,6 +2087,47 @@ a {
 .expansion-hero__actions span {
   color: var(--geo-muted);
   font-size: 13px;
+}
+
+.expansion-flow-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.4fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 18px 20px;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.expansion-flow-strip h2 {
+  margin: 0;
+  color: #172326;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.expansion-flow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.expansion-flow-steps span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid #ded8f6;
+  border-radius: 999px;
+  background: #fbfaff;
+  color: #24144a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.expansion-flow-steps span:nth-child(even) {
+  border-color: rgb(186 255 41 / 45%);
+  background: rgb(186 255 41 / 12%);
 }
 
 .expansion-mode-panel,
@@ -2095,6 +2208,40 @@ a {
 
 .expansion-result-panel {
   min-width: 0;
+}
+
+.expansion-result-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.expansion-result-stats article {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #e5edf4;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.expansion-result-stats span {
+  color: var(--geo-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.expansion-result-stats strong {
+  color: #101827;
+  font-size: 28px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.expansion-result-stats p {
+  margin: 0;
+  color: var(--geo-muted);
+  font-size: 13px;
 }
 
 .expansion-job-summary {
@@ -2917,8 +3064,7 @@ a {
   align-items: center;
   background:
     radial-gradient(circle at 88% 8%, rgb(109 40 255 / 14%), transparent 26%),
-    linear-gradient(135deg, rgb(243 239 255 / 90%), transparent 40%),
-    #ffffff;
+    linear-gradient(135deg, rgb(243 239 255 / 90%), transparent 40%), #ffffff;
 }
 
 .knowledge-hero::before,
@@ -3037,9 +3183,7 @@ a {
 .knowledge-asset-overview article.is-warning,
 .instruction-asset-overview article.is-accent {
   border-color: #dff59c;
-  background:
-    radial-gradient(circle at 88% 14%, rgb(186 255 41 / 22%), transparent 28%),
-    #ffffff;
+  background: radial-gradient(circle at 88% 14%, rgb(186 255 41 / 22%), transparent 28%), #ffffff;
 }
 
 .knowledge-asset-overview article.is-warning::before,
@@ -3102,7 +3246,9 @@ a {
 }
 
 .knowledge-filters {
-  grid-template-columns: minmax(260px, 1.35fr) minmax(150px, 0.75fr) minmax(150px, 0.72fr) minmax(170px, 0.72fr) minmax(240px, 1fr);
+  grid-template-columns:
+    minmax(260px, 1.35fr) minmax(150px, 0.75fr) minmax(150px, 0.72fr) minmax(170px, 0.72fr)
+    minmax(240px, 1fr);
   align-items: end;
   gap: 12px;
 }
@@ -3191,9 +3337,7 @@ a {
 
 .knowledge-detail,
 .instruction-detail {
-  background:
-    radial-gradient(circle at 98% 0%, rgb(109 40 255 / 7%), transparent 24%),
-    #f7f8fb;
+  background: radial-gradient(circle at 98% 0%, rgb(109 40 255 / 7%), transparent 24%), #f7f8fb;
 }
 
 .knowledge-detail-header,
@@ -3308,9 +3452,7 @@ a {
   padding: 14px 16px;
   border: 1px solid #dff59c;
   border-radius: 16px;
-  background:
-    linear-gradient(100deg, rgb(186 255 41 / 18%), transparent 48%),
-    #ffffff;
+  background: linear-gradient(100deg, rgb(186 255 41 / 18%), transparent 48%), #ffffff;
   box-shadow: var(--geo-shadow-sm);
 }
 
@@ -3327,7 +3469,9 @@ a {
 }
 
 .instruction-filters {
-  grid-template-columns: minmax(260px, 1.35fr) minmax(150px, 0.82fr) minmax(150px, 0.82fr) minmax(150px, 0.82fr) minmax(170px, 0.82fr) minmax(150px, 0.72fr) minmax(240px, 1fr);
+  grid-template-columns:
+    minmax(260px, 1.35fr) minmax(150px, 0.82fr) minmax(150px, 0.82fr) minmax(150px, 0.82fr)
+    minmax(170px, 0.82fr) minmax(150px, 0.72fr) minmax(240px, 1fr);
   align-items: end;
   gap: 12px;
 }
@@ -3652,8 +3796,7 @@ a {
   padding: 28px 30px;
   background:
     radial-gradient(circle at 88% 12%, rgb(109 40 255 / 15%), transparent 26%),
-    linear-gradient(135deg, rgb(243 239 255 / 92%), transparent 40%),
-    #ffffff;
+    linear-gradient(135deg, rgb(243 239 255 / 92%), transparent 40%), #ffffff;
 }
 
 .content-hero::before {
@@ -3810,9 +3953,7 @@ a {
   overflow: hidden;
   border-color: #e5e0ef;
   border-radius: 14px;
-  background:
-    radial-gradient(circle at 90% 12%, rgb(109 40 255 / 9%), transparent 28%),
-    #ffffff;
+  background: radial-gradient(circle at 90% 12%, rgb(109 40 255 / 9%), transparent 28%), #ffffff;
   box-shadow: none;
 }
 
@@ -4349,8 +4490,7 @@ a {
   border-radius: 18px;
   background:
     radial-gradient(circle at 88% 10%, rgb(109 40 255 / 14%), transparent 26%),
-    linear-gradient(135deg, rgb(243 239 255 / 92%), transparent 42%),
-    #ffffff;
+    linear-gradient(135deg, rgb(243 239 255 / 92%), transparent 42%), #ffffff;
 }
 
 .model-inclusion-hero::before {
@@ -4665,9 +4805,7 @@ a {
 .model-record-detail {
   gap: 12px;
   padding: 14px;
-  background:
-    linear-gradient(135deg, rgb(243 239 255 / 56%), transparent 38%),
-    #fbfaff;
+  background: linear-gradient(135deg, rgb(243 239 255 / 56%), transparent 38%), #fbfaff;
 }
 
 .model-record-detail section {
@@ -4715,9 +4853,7 @@ a {
 }
 
 .uncovered-card {
-  background:
-    linear-gradient(135deg, rgb(186 255 41 / 9%), transparent 28%),
-    #ffffff;
+  background: linear-gradient(135deg, rgb(186 255 41 / 9%), transparent 28%), #ffffff;
 }
 
 .uncovered-filters {
@@ -4820,8 +4956,7 @@ a {
   padding: 26px 28px;
   background:
     radial-gradient(circle at 88% 8%, rgb(109 40 255 / 14%), transparent 26%),
-    linear-gradient(135deg, rgb(243 239 255 / 90%), transparent 40%),
-    #ffffff;
+    linear-gradient(135deg, rgb(243 239 255 / 90%), transparent 40%), #ffffff;
 }
 
 .reports-hero::before {
@@ -4980,9 +5115,7 @@ a {
 .report-group-nav__item:hover,
 .report-group-nav__item.is-active {
   border-color: #cfc1ff;
-  background:
-    radial-gradient(circle at 90% 18%, rgb(109 40 255 / 12%), transparent 32%),
-    #ffffff;
+  background: radial-gradient(circle at 90% 18%, rgb(109 40 255 / 12%), transparent 32%), #ffffff;
   box-shadow: 0 14px 34px rgb(24 20 36 / 7%);
   transform: translateY(-1px);
 }
@@ -5167,9 +5300,7 @@ a {
 
 .report-overview-conclusion {
   padding: 18px;
-  background:
-    linear-gradient(135deg, rgb(243 239 255 / 76%), transparent 44%),
-    #ffffff;
+  background: linear-gradient(135deg, rgb(243 239 255 / 76%), transparent 44%), #ffffff;
 }
 
 .report-overview-conclusion h3,
@@ -5851,6 +5982,9 @@ a {
   .dashboard-operations-grid,
   .dashboard-priority-strip,
   .dashboard-priority-strip dl,
+  .geo-analysis-filters,
+  .geo-analysis-metric-grid,
+  .geo-prompts-asset-grid,
   .metric-grid,
   .metric-grid--prompts,
   .metric-grid--model,
@@ -5878,6 +6012,7 @@ a {
   .geo-prompts-table-header,
   .geo-prompts-pagination,
   .expansion-hero,
+  .expansion-flow-strip,
   .expansion-form-header,
   .expansion-result-header,
   .expansion-candidate-header,
@@ -5929,6 +6064,7 @@ a {
   .geo-prompt-form,
   .geo-prompt-import-form,
   .expansion-form-grid,
+  .expansion-result-stats,
   .save-candidates-form,
   .knowledge-filters,
   .knowledge-inner-filters,
@@ -6001,7 +6137,10 @@ a {
   .geo-prompts-hero,
   .geo-prompts-filter-panel,
   .geo-prompts-table-panel,
+  .geo-prompts-asset-card,
+  .geo-analysis-filter-panel,
   .expansion-hero,
+  .expansion-flow-strip,
   .expansion-mode-panel,
   .expansion-form-panel,
   .expansion-result-panel,

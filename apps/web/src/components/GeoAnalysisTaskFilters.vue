@@ -35,8 +35,8 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
 </script>
 
 <template>
-  <section class="filters-panel">
-    <el-form class="filters-grid" label-position="top">
+  <section class="geo-analysis-filter-panel">
+    <el-form class="geo-analysis-filters" label-position="top">
       <el-form-item label="搜索">
         <el-input
           :model-value="modelValue.search"
@@ -94,10 +94,10 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
       </el-form-item>
     </el-form>
 
-    <div class="filters-actions">
+    <div class="geo-analysis-filter-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button type="success" @click="emit('create')">新建诊断任务</el-button>
+      <el-button plain @click="emit('create')">新建诊断任务</el-button>
     </div>
   </section>
 </template>

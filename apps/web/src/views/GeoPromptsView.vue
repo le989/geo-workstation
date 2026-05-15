@@ -61,6 +61,30 @@ const exporting = ref(false);
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && prompts.value.length === 0);
+const promptAssetCards = computed(() => [
+  {
+    label: "提示词总数",
+    value: total.value,
+    hint: "当前筛选下 GEO 词资产"
+  },
+  {
+    label: "追踪词数量",
+    value: prompts.value.filter((prompt) => prompt.trackEnabled).length,
+    hint: "当前页已开启模型追踪"
+  },
+  {
+    label: "高优先级词",
+    value: prompts.value.filter((prompt) => prompt.priority <= 2).length,
+    hint: "P1 / P2 优先处理"
+  },
+  {
+    label: "待检测 / 未命中",
+    value: prompts.value.filter((prompt) =>
+      ["unknown", "not_mentioned", undefined, ""].includes(prompt.latestCoverageStatus)
+    ).length,
+    hint: "可进入模型覆盖记录复测"
+  }
+]);
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -267,16 +291,26 @@ onMounted(() => {
       <div>
         <el-tag type="success" effect="plain">GEO 提示词策略</el-tag>
         <h1>提示词策略库</h1>
-        <p>沉淀训练词、蒸馏词、品牌词和场景词，用于指导 GEO 内容生成、模型覆盖记录和后续优化。</p>
-        <strong>用户会怎么问 AI？哪些词需要追踪？哪些产品线还要补充提示词？</strong>
+        <p>管理品牌词、产品词、场景词和问题词，作为 GEO 内容生产与模型检测的基础资产。</p>
+        <strong>
+          {{ "用户会怎么问 AI？" }}
+          沉淀训练词、蒸馏词、品牌词和场景词，判断哪些词需要追踪、哪些产品线要补词。
+        </strong>
       </div>
       <div class="geo-prompts-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadPrompts">
-          刷新列表
-        </el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadPrompts"> 刷新列表 </el-button>
+        <el-button :icon="Plus" type="primary" @click="openCreateDialog">新增提示词</el-button>
       </div>
     </header>
+
+    <section class="geo-prompts-asset-grid" aria-label="提示词资产概览">
+      <article v-for="asset in promptAssetCards" :key="asset.label" class="geo-prompts-asset-card">
+        <span>{{ asset.label }}</span>
+        <strong>{{ asset.value }}</strong>
+        <p>{{ asset.hint }}</p>
+      </article>
+    </section>
 
     <GeoPromptFilters
       :model-value="filters"

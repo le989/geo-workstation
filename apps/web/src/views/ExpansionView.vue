@@ -46,6 +46,13 @@ const saveDefaults = reactive({
   defaultTrackEnabled: false
 });
 
+const expansionFlowSteps = [
+  "输入产品 / 场景",
+  "选择拓词规则",
+  "生成候选词",
+  "人工筛选",
+  "保存入库"
+];
 const candidates = computed(() => jobDetail.value?.candidates ?? []);
 const currentJob = computed(() => jobDetail.value?.job ?? null);
 const hasJob = computed(() => Boolean(jobDetail.value));
@@ -57,6 +64,23 @@ const nonDuplicateCount = computed(
         !item.duplicateInBatch && !item.duplicateInDatabase && !item.selected && !item.savedPromptId
     ).length
 );
+const candidateStats = computed(() => [
+  {
+    label: "候选提示词",
+    value: candidates.value.length,
+    hint: "本次拓词输出"
+  },
+  {
+    label: "可入库候选",
+    value: nonDuplicateCount.value,
+    hint: "已排除重复与已保存"
+  },
+  {
+    label: "已勾选",
+    value: selectedCount.value,
+    hint: "等待保存到策略库"
+  }
+]);
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -190,13 +214,10 @@ const goGeoPrompts = () => {
       <div>
         <el-tag type="warning" effect="plain">GEO 拓词</el-tag>
         <h1>AI 拓词</h1>
-        <p>
-          通过手动组合规则、模拟生成或真实 AI 接口，生成用户可能会向 AI
-          提出的问题候选，人工筛选后保存到提示词策略库。
-        </p>
+        <p>基于产品、场景和规则组合扩展候选 GEO 词，筛选后沉淀到提示词策略库。</p>
         <strong>
-          候选词不会自动入库；保存前会检查重复，结果服务于后续内容生成、模型覆盖追踪和 GEO
-          优化闭环。
+          候选词不会自动入库；通过手动组合规则、模拟生成或真实 AI 接口生成用户可能会向 AI
+          提出的问题候选，保存前会检查重复。
         </strong>
       </div>
       <div class="expansion-hero__actions">
@@ -206,6 +227,16 @@ const goGeoPrompts = () => {
         </el-button>
       </div>
     </header>
+
+    <section class="expansion-flow-strip" aria-label="AI 拓词流程">
+      <div>
+        <p class="section-kicker">策略生产流程</p>
+        <h2>从产品与场景扩展候选 GEO 词</h2>
+      </div>
+      <div class="expansion-flow-steps">
+        <span v-for="step in expansionFlowSteps" :key="step">{{ step }}</span>
+      </div>
+    </section>
 
     <ExpansionModeTabs v-model="activeMode" />
 
@@ -233,6 +264,14 @@ const goGeoPrompts = () => {
         >
           刷新当前任务
         </el-button>
+      </div>
+
+      <div v-if="hasJob" class="expansion-result-stats">
+        <article v-for="stat in candidateStats" :key="stat.label">
+          <span>{{ stat.label }}</span>
+          <strong>{{ stat.value }}</strong>
+          <p>{{ stat.hint }}</p>
+        </article>
       </div>
 
       <el-empty

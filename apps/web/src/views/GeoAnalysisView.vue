@@ -81,6 +81,39 @@ const diagnosisRelationLinks = [
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
+const analysisMetricCards = computed(() => {
+  const promptSuggestionCount = tasks.value.reduce(
+    (sum, task) => sum + task.promptSuggestions.length,
+    0
+  );
+  const completedCount = tasks.value.filter((task) => task.status === "succeeded").length;
+  const actionCount = tasks.value.filter((task) =>
+    ["pending", "failed", "running"].includes(task.status)
+  ).length;
+
+  return [
+    {
+      label: "诊断任务",
+      value: total.value,
+      hint: "当前筛选下任务总量"
+    },
+    {
+      label: "提示词建议",
+      value: promptSuggestionCount,
+      hint: "当前页可转入策略库"
+    },
+    {
+      label: "已完成诊断",
+      value: completedCount,
+      hint: "可进入补词 / 补资料"
+    },
+    {
+      label: "待处理动作",
+      value: actionCount,
+      hint: "待运行、失败或进行中"
+    }
+  ];
+});
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -326,33 +359,43 @@ onMounted(() => {
 
 <template>
   <section class="geo-analysis-page">
-    <header class="page-hero">
+    <header class="geo-analysis-hero">
       <div>
-        <el-tag type="success" effect="plain">前期诊断</el-tag>
+        <el-tag type="success" effect="plain">GEO 分析 / 前期诊断</el-tag>
         <h1>GEO 诊断</h1>
         <p>用于前期评估品牌、官网和产品线的 GEO 基础情况，生成提示词、知识库和内容补齐建议。</p>
       </div>
-      <div class="page-hero-actions">
+      <div class="geo-analysis-hero__actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadTasks">刷新</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建诊断任务</el-button>
       </div>
     </header>
 
     <el-alert
-      title="诊断结果用于制定优化方向，不等同于 Kimi / 豆包 / 通义等真实联网检测结果。真实检测请到「模型覆盖记录」，汇总复盘请到「GEO 报表」查看。"
+      title="模拟 GEO 分析结果用于制定优化方向，不等同于 Kimi / 豆包 / 通义等真实联网检测结果。真实检测请到「模型覆盖记录」，汇总复盘请到「GEO 报表」查看。"
       type="warning"
       :closable="false"
       show-icon
-      class="mock-alert"
+      class="geo-analysis-alert"
     />
+
+    <section class="geo-analysis-metric-grid" aria-label="GEO 诊断概览">
+      <article
+        v-for="metric in analysisMetricCards"
+        :key="metric.label"
+        class="geo-analysis-metric"
+      >
+        <span>{{ metric.label }}</span>
+        <strong>{{ metric.value }}</strong>
+        <p>{{ metric.hint }}</p>
+      </article>
+    </section>
 
     <section class="analysis-relation-panel">
       <div class="analysis-relation-panel__copy">
         <p class="section-kicker">流程关系</p>
         <h2>先诊断，再补资产，最后复盘命中</h2>
-        <p>
-          GEO 诊断是前期策略入口；模型覆盖记录保存真实或模拟检测明细，GEO 报表负责汇总复盘。
-        </p>
+        <p>GEO 诊断是前期策略入口；模型覆盖记录保存真实或模拟检测明细，GEO 报表负责汇总复盘。</p>
       </div>
       <div class="analysis-flow">
         <span v-for="step in diagnosisFlowSteps" :key="step">{{ step }}</span>
@@ -380,8 +423,8 @@ onMounted(() => {
 
     <AppErrorState v-if="hasTableError" title="GEO 诊断任务加载失败" :message="tableError" />
 
-    <section class="table-panel">
-      <div class="table-panel-header">
+    <section class="geo-analysis-table-panel">
+      <div class="geo-analysis-table-header">
         <div>
           <p class="section-kicker">诊断任务</p>
           <h2>诊断任务列表</h2>
@@ -443,7 +486,7 @@ onMounted(() => {
             <el-button
               v-if="row.status === 'pending' || row.status === 'failed'"
               size="small"
-              type="warning"
+              type="primary"
               :loading="running && selectedTaskId === row.id"
               @click="runTask(row)"
             >
@@ -505,56 +548,125 @@ onMounted(() => {
 <style scoped>
 .geo-analysis-page {
   display: grid;
-  gap: 18px;
+  gap: 22px;
 }
 
-.page-hero,
-.table-panel-header {
+.geo-analysis-hero,
+.geo-analysis-table-header {
+  position: relative;
+  overflow: hidden;
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
   align-items: flex-start;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 90% 12%, rgb(109 40 255 / 12%), transparent 24%),
+    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 40%), var(--geo-surface);
+  box-shadow: var(--geo-shadow-sm);
 }
 
-.page-hero h1,
-.table-panel-header h2 {
+.geo-analysis-hero {
+  padding: 28px;
+}
+
+.geo-analysis-hero::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  content: "";
+}
+
+.geo-analysis-hero h1,
+.geo-analysis-table-header h2 {
   margin: 8px 0;
-  color: #1f2937;
+  color: #13243a;
+  letter-spacing: 0;
 }
 
-.page-hero p,
-.table-panel-header p {
+.geo-analysis-hero h1 {
+  font-size: 30px;
+  line-height: 1.18;
+}
+
+.geo-analysis-hero p,
+.geo-analysis-table-header p {
   max-width: 820px;
   margin: 0;
-  color: #64748b;
+  color: var(--geo-muted);
   line-height: 1.7;
 }
 
-.page-hero-actions {
+.geo-analysis-hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
 }
 
-.mock-alert {
+.geo-analysis-alert {
   border-radius: 8px;
+}
+
+.geo-analysis-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.geo-analysis-metric {
+  display: grid;
+  gap: 8px;
+  min-height: 126px;
+  padding: 18px;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.geo-analysis-metric:nth-child(4) {
+  border-color: rgb(186 255 41 / 55%);
+  background: linear-gradient(135deg, rgb(186 255 41 / 20%), transparent 58%), #ffffff;
+}
+
+.geo-analysis-metric span {
+  color: var(--geo-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.geo-analysis-metric strong {
+  color: #101827;
+  font-size: 34px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.geo-analysis-metric p {
+  margin: 0;
+  color: var(--geo-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .analysis-relation-panel {
   display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid #d7e2ee;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--geo-border);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgb(35 90 159 / 7%), transparent 42%),
-    #ffffff;
+  background: linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 44%), #ffffff;
+  box-shadow: var(--geo-shadow-sm);
 }
 
 .analysis-relation-panel__copy h2 {
   margin: 4px 0 6px;
-  color: #13243a;
+  color: #101827;
   font-size: 20px;
 }
 
@@ -569,36 +681,61 @@ onMounted(() => {
 .analysis-relation-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .analysis-flow span {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid #c7d6e8;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid #ded8f6;
   border-radius: 999px;
-  background: #f7fbff;
-  color: #24415f;
+  background: #fbfaff;
+  color: #24144a;
   font-size: 13px;
+  font-weight: 700;
 }
 
-.table-panel {
+.analysis-flow span::after {
+  width: 18px;
+  height: 1px;
+  margin-left: 10px;
+  background: linear-gradient(90deg, rgb(109 40 255 / 50%), rgb(186 255 41 / 70%));
+  content: "";
+}
+
+.analysis-flow span:last-child::after {
+  display: none;
+}
+
+.geo-analysis-table-panel {
   display: grid;
   gap: 14px;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--geo-border);
   border-radius: 8px;
   background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.geo-analysis-table-header {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .analysis-task-table {
   width: 100%;
+  overflow: hidden;
 }
 
 .analysis-task-name {
   display: -webkit-box;
+  color: #13243a;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -611,9 +748,26 @@ onMounted(() => {
 }
 
 @media (max-width: 900px) {
-  .page-hero,
-  .table-panel-header {
+  .geo-analysis-hero,
+  .geo-analysis-table-header {
     flex-direction: column;
+  }
+
+  .geo-analysis-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .geo-analysis-hero,
+  .analysis-relation-panel,
+  .geo-analysis-table-panel,
+  .geo-analysis-metric {
+    padding: 16px;
+  }
+
+  .geo-analysis-metric-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -96,7 +96,7 @@ const formatSummaryValue = (value: unknown) => {
     <section class="analysis-detail">
       <div class="analysis-detail-header">
         <div>
-          <el-tag type="success" effect="plain">GEO 诊断</el-tag>
+          <el-tag type="success" effect="plain">GEO 分析 / 诊断详情</el-tag>
           <h2>{{ detail?.task.name ?? "GEO 诊断任务详情" }}</h2>
           <p>
             从品牌、官网和产品线出发，复盘模拟诊断结果，并整理后续提示词、知识库和内容补齐方向。
@@ -104,7 +104,7 @@ const formatSummaryValue = (value: unknown) => {
         </div>
         <div class="analysis-detail-actions">
           <el-button :loading="loading" @click="emit('refresh')">刷新详情</el-button>
-          <el-button v-if="canRun" type="warning" :loading="running" @click="emit('run')">
+          <el-button v-if="canRun" type="primary" :loading="running" @click="emit('run')">
             运行模拟分析
           </el-button>
           <el-button @click="close">关闭</el-button>
@@ -112,7 +112,7 @@ const formatSummaryValue = (value: unknown) => {
       </div>
 
       <el-alert
-        title="当前阶段为模拟 GEO 诊断，不调用真实外部 AI 平台，不访问真实网站，也不等同真实联网检测。"
+        title="当前阶段为模拟 GEO 分析，不调用真实外部 AI 平台，不访问真实网站，也不等同真实联网检测。"
         type="warning"
         :closable="false"
         show-icon
@@ -270,17 +270,40 @@ const formatSummaryValue = (value: unknown) => {
 
 .analysis-detail-header,
 .section-heading {
+  position: relative;
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
 }
 
+.analysis-detail-header {
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 90% 12%, rgb(109 40 255 / 12%), transparent 24%),
+    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.analysis-detail-header::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  content: "";
+}
+
 .analysis-detail-header h2,
 .section-heading h3,
 .summary-card-header h3 {
   margin: 6px 0;
-  color: #1f2937;
+  color: #13243a;
+  letter-spacing: 0;
 }
 
 .analysis-detail-header p,
@@ -301,6 +324,8 @@ const formatSummaryValue = (value: unknown) => {
 
 .analysis-detail-summary {
   background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .analysis-next-action-bar {
@@ -308,10 +333,11 @@ const formatSummaryValue = (value: unknown) => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px;
-  border: 1px solid #d7e2ee;
+  padding: 18px;
+  border: 1px solid var(--geo-border);
   border-radius: 8px;
-  background: linear-gradient(135deg, rgb(35 90 159 / 7%), transparent 44%), #ffffff;
+  background: linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 44%), #ffffff;
+  box-shadow: var(--geo-shadow-sm);
 }
 
 .analysis-next-action-bar h3 {
@@ -342,9 +368,9 @@ const formatSummaryValue = (value: unknown) => {
   display: grid;
   gap: 6px;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e5edf4;
   border-radius: 8px;
-  background: #f8fafc;
+  background: #fbfdff;
 }
 
 .summary-item span {
@@ -380,10 +406,11 @@ const formatSummaryValue = (value: unknown) => {
 .related-prompts-card {
   display: grid;
   gap: 14px;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
+  padding: 18px;
+  border: 1px solid var(--geo-border);
   border-radius: 8px;
   background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
 }
 
 .related-prompt-list {
@@ -397,9 +424,9 @@ const formatSummaryValue = (value: unknown) => {
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e5edf4;
   border-radius: 8px;
-  background: #f8fafc;
+  background: #fbfdff;
 }
 
 .content-task-link {
