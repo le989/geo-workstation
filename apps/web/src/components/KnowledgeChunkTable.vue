@@ -35,7 +35,9 @@ const getWordCount = (value?: string) => (value ? value.length : 0);
       <template #default="{ row }: { row: KnowledgeChunk }">
         <div class="knowledge-chunk-title">
           <strong class="knowledge-main-text">{{ row.title }}</strong>
-          <span>{{ sourceTypeLabelMap[row.sourceType] ?? row.sourceType }}</span>
+          <el-tag class="knowledge-source-tag" effect="plain">
+            {{ sourceTypeLabelMap[row.sourceType] ?? row.sourceType }}
+          </el-tag>
         </div>
       </template>
     </el-table-column>

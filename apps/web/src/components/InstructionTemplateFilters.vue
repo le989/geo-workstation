@@ -44,11 +44,10 @@ watch(
   <section class="instruction-filter-panel">
     <div class="instruction-filter-copy">
       <div>
-        <p class="section-kicker">指令资产</p>
+        <p class="section-kicker">Template Filter</p>
         <h2>筛选指令模板</h2>
         <p>指令库管理内容怎么写；提示词策略库管理用户会问什么。</p>
       </div>
-      <el-button type="primary" @click="emit('create')">新建指令模板</el-button>
     </div>
 
     <el-form class="instruction-filters" label-position="top">
@@ -108,6 +107,9 @@ watch(
       <el-form-item v-if="showAdvancedFilters" label="创建人">
         <el-input v-model="localFilters.createdBy" clearable placeholder="创建人 ID" />
       </el-form-item>
+      <div v-if="showAdvancedFilters" class="instruction-filter-note">
+        高级筛选仍使用现有查询参数，不新增指令库接口请求。
+      </div>
     </el-form>
 
     <div class="instruction-actions">

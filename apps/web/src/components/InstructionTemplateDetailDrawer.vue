@@ -102,8 +102,10 @@ const templateSummary = computed(() => {
   >
     <section class="instruction-detail">
       <div class="instruction-detail-header">
-        <div>
-          <el-tag type="success" effect="plain">GEO 指令库</el-tag>
+        <div class="instruction-detail-header__copy">
+          <el-tag class="instruction-detail-header__tag" type="success" effect="plain">
+            GEO 指令库
+          </el-tag>
           <h2>{{ props.template?.name ?? "指令模板详情" }}</h2>
           <p>查看这条指令如何指导 GEO 内容生成，而不是作为普通 prompt 收藏。</p>
         </div>
@@ -137,7 +139,7 @@ const templateSummary = computed(() => {
               :key="rule.label"
               :class="{ 'is-active': rule.active }"
             >
-              <el-tag :type="rule.active ? 'success' : 'info'" effect="plain">
+              <el-tag class="instruction-rule-tag" :type="rule.active ? 'success' : 'info'" effect="plain">
                 {{ rule.active ? "已包含" : "未标明" }}
               </el-tag>
               <div>
@@ -173,7 +175,7 @@ const templateSummary = computed(() => {
               </div>
             </div>
           </el-collapse-item>
-          <el-collapse-item title="技术信息" name="technical">
+          <el-collapse-item title="技术信息（默认折叠）" name="technical">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="模板 ID">{{ template.id }}</el-descriptions-item>
               <el-descriptions-item label="创建人">

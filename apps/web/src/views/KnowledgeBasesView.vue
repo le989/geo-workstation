@@ -90,6 +90,40 @@ const chunkFormError = ref("");
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && knowledgeBases.value.length === 0);
+const knowledgeAssetMetrics = computed(() => {
+  const activeCount = knowledgeBases.value.filter(
+    (item) => item.status === "active" || item.status === "enabled"
+  ).length;
+  const missingDescriptionCount = knowledgeBases.value.filter(
+    (item) => !item.description?.trim()
+  ).length;
+  const statusReviewCount = knowledgeBases.value.filter(
+    (item) => item.status !== "active" && item.status !== "enabled"
+  ).length;
+
+  return [
+    {
+      label: "知识库数量",
+      value: total.value,
+      note: "当前筛选结果"
+    },
+    {
+      label: "当前页启用",
+      value: activeCount,
+      note: "可作为内容生成事实底座"
+    },
+    {
+      label: "待补资料",
+      value: missingDescriptionCount,
+      note: "缺少说明或事实摘要"
+    },
+    {
+      label: "待检查状态",
+      value: statusReviewCount,
+      note: "需确认是否可继续引用"
+    }
+  ];
+});
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -583,18 +617,33 @@ onMounted(() => {
 <template>
   <section class="knowledge-page">
     <header class="knowledge-hero">
-      <div>
-        <el-tag type="success" effect="plain">企业 GEO 知识库</el-tag>
+      <div class="knowledge-hero__copy">
+        <el-tag class="knowledge-hero__tag" type="success" effect="plain">
+          企业 GEO 知识库
+        </el-tag>
         <h1>企业 GEO 知识库</h1>
-        <p>管理产品资料、FAQ 和知识片段，作为内容生成的事实依据。</p>
+        <p>管理产品资料、FAQ 和知识片段，为内容生成、事实边界和 GEO 复测提供可信依据。</p>
       </div>
       <div class="knowledge-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadKnowledgeBases">
+        <el-button :icon="Refresh" :loading="loading" @click="loadKnowledgeBases">
           刷新列表
         </el-button>
+        <el-button type="primary" @click="openCreateDialog">新建知识库</el-button>
       </div>
     </header>
+
+    <section class="knowledge-asset-overview" aria-label="知识库资产概览">
+      <article
+        v-for="metric in knowledgeAssetMetrics"
+        :key="metric.label"
+        :class="{ 'is-warning': metric.label === '待补资料' }"
+      >
+        <span>{{ metric.label }}</span>
+        <strong>{{ metric.value }}</strong>
+        <small>{{ metric.note }}</small>
+      </article>
+    </section>
 
     <KnowledgeBaseFilters
       :model-value="filters"
@@ -641,9 +690,15 @@ onMounted(() => {
             </span>
           </template>
         </el-table-column>
+        <el-table-column label="文件 / 片段" min-width="150">
+          <template #default>
+            <span class="knowledge-table-hint">详情中查看真实数量</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="92">
           <template #default="{ row }: { row: KnowledgeBase }">
             <el-tag
+              class="knowledge-status-tag"
               :type="row.status === 'active' || row.status === 'enabled' ? 'success' : 'info'"
               effect="plain"
             >
@@ -653,7 +708,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="下一步" width="104">
           <template #default="{ row }: { row: KnowledgeBase }">
-            <el-tag effect="plain">{{ getKnowledgeNextAction(row) }}</el-tag>
+            <el-tag class="knowledge-action-tag" effect="plain">{{ getKnowledgeNextAction(row) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="updatedAt" label="更新时间" min-width="168">

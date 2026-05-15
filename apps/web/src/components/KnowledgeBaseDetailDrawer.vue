@@ -146,12 +146,13 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
   >
     <section class="knowledge-detail">
       <div class="knowledge-detail-header">
-        <div>
-          <el-tag type="success" effect="plain">企业 GEO 知识库</el-tag>
+        <div class="knowledge-detail-header__copy">
+          <el-tag class="knowledge-detail-header__tag" type="success" effect="plain">
+            企业 GEO 知识库
+          </el-tag>
           <h2>{{ detail?.knowledgeBase.name ?? "企业 GEO 知识库详情" }}</h2>
           <p>
-            AI
-            应该引用哪些企业事实资料？在这里查看文件解析状态、知识片段质量和可用于内容生成的资料底座。
+            AI 应该引用哪些企业事实资料？在这里查看文件解析状态、知识片段质量和可用于内容生成的资料底座。
           </p>
         </div>
         <div class="knowledge-detail-actions">
@@ -169,7 +170,9 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
               <p class="section-kicker">基本信息</p>
               <h3>资料底座概况</h3>
             </div>
-            <el-tag effect="plain">{{ getKnowledgeBaseStatusLabel(detail.knowledgeBase.status) }}</el-tag>
+            <el-tag class="knowledge-status-tag" effect="plain">
+              {{ getKnowledgeBaseStatusLabel(detail.knowledgeBase.status) }}
+            </el-tag>
           </div>
           <div class="knowledge-detail-card-grid">
             <article>
@@ -200,6 +203,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
           type="warning"
           show-icon
           :closable="false"
+          class="knowledge-empty-alert"
         />
 
         <section class="knowledge-operation-grid">
@@ -406,7 +410,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
         </el-tabs>
 
         <el-collapse class="knowledge-technical-collapse">
-          <el-collapse-item title="技术信息" name="technical">
+          <el-collapse-item title="技术信息（默认折叠）" name="technical">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="知识库 ID">
                 {{ detail.knowledgeBase.id }}

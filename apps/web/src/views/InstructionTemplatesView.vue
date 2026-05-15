@@ -57,6 +57,34 @@ const duplicateError = ref("");
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && templates.value.length === 0);
+const instructionAssetMetrics = computed(() => {
+  const brandAnchorCount = templates.value.filter(hasBrandAnchor).length;
+  const factBoundaryCount = templates.value.filter(hasFactBoundary).length;
+  const modelScopedCount = templates.value.filter((template) => template.targetModel?.trim()).length;
+
+  return [
+    {
+      label: "指令模板",
+      value: total.value,
+      note: "当前筛选结果"
+    },
+    {
+      label: "品牌锚点",
+      value: brandAnchorCount,
+      note: "当前页已标明"
+    },
+    {
+      label: "事实边界",
+      value: factBoundaryCount,
+      note: "当前页已约束"
+    },
+    {
+      label: "模型适配",
+      value: modelScopedCount,
+      note: "当前页指定模型"
+    }
+  ];
+});
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -273,18 +301,38 @@ onMounted(() => {
 <template>
   <section class="instruction-page">
     <header class="instruction-hero">
-      <div>
-        <el-tag type="success" effect="plain">GEO 指令库</el-tag>
+      <div class="instruction-hero__copy">
+        <el-tag class="instruction-hero__tag" type="success" effect="plain">GEO 指令库</el-tag>
         <h1>指令库</h1>
-        <p>沉淀内容生成方法和规则，不是用户搜索词库。</p>
+        <p>
+          沉淀 GEO 内容生成的指令模板、品牌锚点和事实边界规则，让 GEO 内容生产更稳定。
+        </p>
       </div>
       <div class="instruction-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadTemplates">
+        <el-button :icon="Refresh" :loading="loading" @click="loadTemplates">
           刷新列表
         </el-button>
+        <el-button type="primary" @click="openCreateDialog">新建指令模板</el-button>
       </div>
     </header>
+
+    <section class="instruction-position-note">
+      <strong>提示词策略库管理用户会问什么；指令库管理内容应该怎么写。</strong>
+      <span>这里沉淀品牌锚点、事实边界、结构规则和平台适配方法。</span>
+    </section>
+
+    <section class="instruction-asset-overview" aria-label="指令库资产概览">
+      <article
+        v-for="metric in instructionAssetMetrics"
+        :key="metric.label"
+        :class="{ 'is-accent': metric.label === '事实边界' }"
+      >
+        <span>{{ metric.label }}</span>
+        <strong>{{ metric.value }}</strong>
+        <small>{{ metric.note }}</small>
+      </article>
+    </section>
 
     <InstructionTemplateFilters
       :model-value="filters"
@@ -312,7 +360,7 @@ onMounted(() => {
         class="instruction-template-table"
         row-key="id"
         border
-        empty-text="暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材或 FAQ 指令。"
+        empty-text="暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材、对比与替代或 FAQ 指令。"
       >
         <el-table-column prop="name" label="指令名称" min-width="210" fixed="left">
           <template #default="{ row }: { row: InstructionTemplate }">
@@ -329,13 +377,28 @@ onMounted(() => {
             <span class="instruction-scenario">{{ getTemplateScenario(row) }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="内容类型" min-width="126">
+          <template #default="{ row }: { row: InstructionTemplate }">
+            <el-tag class="instruction-content-type-tag" effect="plain">
+              {{ contentTypeLabelMap[row.contentType] ?? row.contentType }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="规则清单" min-width="180">
           <template #default="{ row }: { row: InstructionTemplate }">
             <div class="instruction-rule-tags">
-              <el-tag :type="hasBrandAnchor(row) ? 'success' : 'info'" effect="plain">
+              <el-tag
+                class="instruction-rule-tag"
+                :type="hasBrandAnchor(row) ? 'success' : 'info'"
+                effect="plain"
+              >
                 {{ hasBrandAnchor(row) ? "品牌锚点" : "无品牌锚点" }}
               </el-tag>
-              <el-tag :type="hasFactBoundary(row) ? 'warning' : 'info'" effect="plain">
+              <el-tag
+                class="instruction-rule-tag"
+                :type="hasFactBoundary(row) ? 'warning' : 'info'"
+                effect="plain"
+              >
                 {{ hasFactBoundary(row) ? "事实边界" : "未标事实边界" }}
               </el-tag>
             </div>
@@ -363,7 +426,7 @@ onMounted(() => {
           <el-empty
             :description="
               isEmpty
-                ? '暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材或 FAQ 指令。'
+                ? '暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材、对比与替代或 FAQ 指令。'
                 : '正在加载 GEO 指令模板'
             "
           >
