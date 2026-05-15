@@ -85,7 +85,6 @@ const workflowSteps = [
         </div>
         <div class="geo-landing-nav-actions">
           <RouterLink class="geo-landing-nav-login" to="/login">登录</RouterLink>
-          <RouterLink class="geo-landing-nav-primary" to="/login">登录工作站</RouterLink>
         </div>
       </nav>
 
@@ -101,7 +100,7 @@ const workflowSteps = [
             一站式 GEO 运营平台，覆盖诊断、策略、资产、内容生成、检测和复盘，构建可被 AI 信任与引用的内容体系。
           </p>
           <div class="geo-landing-actions">
-            <RouterLink class="geo-landing-primary-button" to="/login">登录工作站</RouterLink>
+            <RouterLink class="geo-landing-primary-button" to="/login">进入工作站</RouterLink>
             <a class="geo-landing-secondary-button" href="#workflow">查看工作流程</a>
           </div>
           <div class="geo-landing-hero-checks" aria-label="产品边界提示">
@@ -304,7 +303,6 @@ const workflowSteps = [
   gap: 14px;
 }
 
-.geo-landing-nav-primary,
 .geo-landing-primary-button,
 .geo-landing-secondary-button,
 .geo-landing-dark-button {
@@ -312,16 +310,6 @@ const workflowSteps = [
   align-items: center;
   justify-content: center;
   text-decoration: none;
-}
-
-.geo-landing-nav-primary {
-  min-height: 46px;
-  padding: 0 23px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #5a20ea, #7b3cff);
-  color: #ffffff;
-  font-weight: 900;
-  box-shadow: 0 14px 28px rgb(91 32 234 / 22%);
 }
 
 .geo-landing-hero {
