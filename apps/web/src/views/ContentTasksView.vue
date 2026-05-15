@@ -89,6 +89,49 @@ const publishFormatError = ref("");
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
 
+const contentWorkflowSteps = [
+  {
+    title: "创建任务",
+    description: "选择 GEO 词、知识库和指令"
+  },
+  {
+    title: "生成内容",
+    description: "生成问答、指南、对比或方案"
+  },
+  {
+    title: "质量检查",
+    description: "检查事实边界和 GEO 结构"
+  },
+  {
+    title: "发布优化",
+    description: "生成更稳妥的发布优化稿"
+  },
+  {
+    title: "富文本稿",
+    description: "准备 HTML / Markdown / 纯文本"
+  },
+  {
+    title: "人工发布",
+    description: "发布前人工确认事实与样式"
+  }
+];
+
+const getTaskNextAction = (task: ContentTask) => {
+  if (task.status === "failed") {
+    return "查看失败原因 / 重试";
+  }
+
+  if (task.status === "running" || task.status === "pending") {
+    return "刷新详情查看生成进度";
+  }
+
+  if (task.status === "cancelled") {
+    return "查看任务记录";
+  }
+
+  return "进入详情做质检 / 发布优化";
+};
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
     return `${error.message}。后端未连接时页面仍可访问，请先确认 API 服务是否启动。`;
@@ -436,14 +479,17 @@ onMounted(() => {
 <template>
   <section class="content-page">
     <header class="content-hero">
-      <div>
-        <el-tag type="success" effect="plain">GEO 内容生成</el-tag>
+      <div class="content-hero__copy">
+        <el-tag class="content-hero__tag" type="success" effect="plain">GEO 内容生成</el-tag>
         <h1>GEO 内容生成</h1>
         <p>
-          基于 GEO 提示词、企业知识库和指令模板生成可编辑的内容资产，用于支撑 AI
-          问答、需求决策指南、场景方案、FAQ、对比与替代内容和品牌可信度建设。
+          从未命中词创建内容任务，完成生成、质检、发布优化和富文本发布稿。
         </p>
-        <strong> 默认使用模拟生成；选择真实 AI 接口时会消耗接口额度。 </strong>
+        <div class="content-hero__signals">
+          <span>内容任务已经真实入库</span>
+          <span>真实 AI 接口会消耗接口额度</span>
+          <span>发布前仍需人工确认</span>
+        </div>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -459,6 +505,27 @@ onMounted(() => {
       show-icon
       class="content-boundary-alert"
     />
+
+    <section class="content-workflow-panel" aria-label="内容生产流程概览">
+      <div class="content-workflow-panel__header">
+        <div>
+          <p class="section-kicker">Production Flow</p>
+          <h2>内容生产流程概览</h2>
+        </div>
+        <span>只做流程提示，不改变任务状态和按钮行为。</span>
+      </div>
+      <div class="content-workflow-strip">
+        <article
+          v-for="(step, index) in contentWorkflowSteps"
+          :key="step.title"
+          class="content-workflow-card"
+        >
+          <span>{{ String(index + 1).padStart(2, "0") }}</span>
+          <strong>{{ step.title }}</strong>
+          <small>{{ step.description }}</small>
+        </article>
+      </div>
+    </section>
 
     <ContentTaskFilters
       :model-value="filters"
@@ -489,10 +556,10 @@ onMounted(() => {
         row-key="id"
         empty-text="暂无 GEO 内容任务"
       >
-        <el-table-column label="任务名称" min-width="240" fixed>
+        <el-table-column label="任务 / GEO 线索" min-width="270" fixed>
           <template #default="{ row }">
-            <strong>{{ row.name }}</strong>
-            <p class="table-subtext">{{ formatOptional(row.productLine) }}</p>
+            <strong class="content-task-title">{{ row.name }}</strong>
+            <p class="table-subtext">产品线：{{ formatOptional(row.productLine) }}</p>
           </template>
         </el-table-column>
         <el-table-column label="生成类型" width="140">
@@ -511,6 +578,14 @@ onMounted(() => {
         <el-table-column label="AI 生成方式 / 模型" min-width="190">
           <template #default="{ row }">
             {{ formatProviderModel(row.provider, row.model) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="内容数量 / 下一步" min-width="210">
+          <template #default="{ row }">
+            <div class="content-next-action">
+              <span>内容数量在详情中查看</span>
+              <strong>{{ getTaskNextAction(row) }}</strong>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" width="180">

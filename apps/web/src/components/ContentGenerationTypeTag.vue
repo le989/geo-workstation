@@ -7,7 +7,7 @@ const props = defineProps<{
 </script>
 
 <template>
-  <el-tag type="primary" effect="plain">
+  <el-tag class="content-generation-type-tag" type="primary" effect="plain">
     {{ generationTypeLabelMap[props.type] ?? props.type }}
   </el-tag>
 </template>

@@ -395,8 +395,10 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   >
     <section class="content-detail">
       <div class="content-detail-header">
-        <div>
-          <el-tag type="success" effect="plain">GEO 内容任务</el-tag>
+        <div class="content-detail-header__copy">
+          <el-tag class="content-detail-header__tag" type="success" effect="plain">
+            GEO 内容任务
+          </el-tag>
           <h2>{{ detail?.task.name ?? "GEO 内容任务详情" }}</h2>
           <p>
             查看提示词、企业知识库和指令模板如何共同生成内容资产，判断这些内容是否能支撑 AI
@@ -467,7 +469,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           :type="currentAction.type"
           :closable="false"
           show-icon
-          class="dialog-alert"
+          class="dialog-alert content-current-action-alert"
         />
 
         <el-card class="content-overview-card" shadow="never">
@@ -1140,6 +1142,168 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   overflow: auto;
   padding: 16px;
   white-space: pre-wrap;
+}
+
+.content-detail {
+  background:
+    radial-gradient(circle at 98% 0%, rgb(109 40 255 / 8%), transparent 24%),
+    #f7f8fb;
+}
+
+.content-detail-header,
+.content-flow-card,
+.content-overview-card,
+.content-preview-section,
+.content-items-section,
+.content-technical-collapse,
+.quality-result-card,
+.publish-optimization-card,
+.review-empty-card {
+  border-color: #e5e0ef;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgb(24 20 36 / 5%);
+}
+
+.content-detail-header {
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  background:
+    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 26%),
+    linear-gradient(135deg, #fbfaff, #ffffff 48%);
+}
+
+.content-detail-header::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  content: "";
+}
+
+.content-detail-header__copy,
+.content-detail-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.content-detail-header__tag {
+  width: fit-content;
+  border-color: #ded3ff;
+  border-radius: 999px;
+  background: #f5f1ff;
+  color: var(--geo-primary);
+  font-weight: 850;
+}
+
+.content-detail-header h2 {
+  color: #111019;
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.content-detail-actions :deep(.el-button--warning) {
+  --el-button-bg-color: #fff8ec;
+  --el-button-border-color: #f1d4ab;
+  --el-button-text-color: #9c6b25;
+  --el-button-hover-bg-color: #fff1d9;
+  --el-button-hover-border-color: #e9c27e;
+}
+
+.dialog-alert {
+  border-radius: 14px;
+}
+
+.content-current-action-alert {
+  border-color: #e5e0ef;
+  background: #fbfaff;
+}
+
+.content-flow-card :deep(.el-card__header),
+.content-overview-card :deep(.el-card__header),
+.quality-result-card :deep(.el-card__header),
+.publish-optimization-card :deep(.el-card__header) {
+  border-bottom-color: #eee9f5;
+}
+
+.content-flow-steps :deep(.el-step__head.is-success) {
+  color: #426600;
+  border-color: #b6e85a;
+}
+
+.content-flow-steps :deep(.el-step__head.is-process) {
+  color: var(--geo-primary);
+  border-color: var(--geo-primary);
+}
+
+.content-flow-steps :deep(.el-step__title.is-process),
+.content-flow-steps :deep(.el-step__title.is-success) {
+  color: #111019;
+  font-weight: 850;
+}
+
+.content-flow-notes > div,
+.content-overview-grid > div,
+.content-preview-card,
+.risk-item,
+.quality-summary-grid > div {
+  border-color: #e5e0ef;
+  border-radius: 14px;
+  background: #fbfaff;
+}
+
+.content-flow-notes > div:nth-child(2n),
+.content-overview-grid > div:nth-child(4n) {
+  background: #f8ffe7;
+  border-color: #dff59c;
+}
+
+.content-preview-card__header h4,
+.review-empty-card h4,
+.quality-card-header strong {
+  color: #111019;
+  font-weight: 900;
+}
+
+.content-preview-card__body,
+.optimized-body {
+  color: #273849;
+}
+
+.review-empty-card {
+  overflow: hidden;
+  position: relative;
+}
+
+.review-empty-card::after {
+  position: absolute;
+  right: -22px;
+  bottom: -10px;
+  width: 108px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgb(186 255 41 / 38%);
+  content: "";
+  transform: rotate(-10deg);
+}
+
+.review-empty-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.quality-summary-grid strong {
+  color: #111019;
+}
+
+.positive-list :deep(.el-tag) {
+  --el-tag-bg-color: #f5ffd9;
+  --el-tag-border-color: #dff59c;
+  --el-tag-text-color: #426600;
+  border-radius: 999px;
 }
 
 @media (max-width: 900px) {

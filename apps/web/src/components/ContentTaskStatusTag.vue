@@ -16,7 +16,7 @@ const tagTypeMap: Record<string, "success" | "primary" | "warning" | "info" | "d
 </script>
 
 <template>
-  <el-tag :type="tagTypeMap[props.status] ?? 'info'" effect="plain">
+  <el-tag class="content-task-status-tag" :type="tagTypeMap[props.status] ?? 'info'" effect="plain">
     {{ contentTaskStatusLabelMap[props.status as TaskStatus] ?? props.status }}
   </el-tag>
 </template>
