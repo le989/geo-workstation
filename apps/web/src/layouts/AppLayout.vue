@@ -104,6 +104,8 @@ const roleLabel = computed(() => {
   return role ? labels[role] : "未登录";
 });
 
+const userInitial = computed(() => authStore.currentUser?.name?.slice(0, 1) || "G");
+
 const handleLogout = async () => {
   await authStore.logout();
   window.location.assign("/login");
@@ -120,7 +122,12 @@ const handleUserCommand = (command: string | number | object) => {
   <el-container class="admin-layout">
     <el-aside width="248px" class="admin-sidebar">
       <div class="brand-block">
-        <span class="brand-mark">GEO</span>
+        <span class="brand-mark" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
         <div>
           <strong>GEO 工作站</strong>
           <span>AI 搜索可见度运营闭环</span>
@@ -138,6 +145,15 @@ const handleUserCommand = (command: string | number | object) => {
           </el-menu-item>
         </div>
       </el-menu>
+
+      <div v-if="authStore.currentUser" class="sidebar-user-card">
+        <span class="sidebar-user-card__avatar">{{ userInitial }}</span>
+        <div>
+          <strong>{{ authStore.currentUser.name }}</strong>
+          <span>{{ authStore.currentUser.email }}</span>
+          <em>{{ roleLabel }}</em>
+        </div>
+      </div>
     </el-aside>
 
     <el-container class="admin-main">
