@@ -33,7 +33,7 @@ const requiredFiles = [
 const routeChecks = [
   ["/", "GEO 工作台"],
   ["/dashboard", "GEO 工作台"],
-  ["/geo-analysis", "GEO 分析"],
+  ["/geo-analysis", "GEO 诊断"],
   ["/geo-prompts", "提示词策略库"],
   ["/expansion", "AI 拓词"],
   ["/knowledge-bases", "企业 GEO 知识库"],
@@ -312,7 +312,7 @@ try {
     assert(text.trim().length > 120, `${route} rendered too little content`);
     if (route === "/geo-analysis") {
       assert(
-        text.includes("模拟 GEO 分析") && text.includes("不调用真实外部 AI 平台"),
+        text.includes("GEO 诊断") && text.includes("不等同于 Kimi"),
         "/geo-analysis must render the real GEO analysis page"
       );
     }

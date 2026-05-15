@@ -10,7 +10,7 @@ const realCapabilities = [
   "登录与路由保护"
 ];
 
-const mockCapabilities = ["GEO 分析", "AI 拓词默认模拟生成", "内容生成默认模拟生成"];
+const mockCapabilities = ["GEO 诊断", "AI 拓词默认模拟生成", "内容生成默认模拟生成"];
 
 const pendingCapabilities = [
   "真实外部 AI 自动检测",

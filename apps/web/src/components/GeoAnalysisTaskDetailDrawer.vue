@@ -96,11 +96,10 @@ const formatSummaryValue = (value: unknown) => {
     <section class="analysis-detail">
       <div class="analysis-detail-header">
         <div>
-          <el-tag type="success" effect="plain">GEO 分析</el-tag>
-          <h2>{{ detail?.task.name ?? "GEO 分析任务详情" }}</h2>
+          <el-tag type="success" effect="plain">GEO 诊断</el-tag>
+          <h2>{{ detail?.task.name ?? "GEO 诊断任务详情" }}</h2>
           <p>
-            从品牌提及、推荐、官网引用、竞品出现、提示词缺口、知识库缺口和内容补齐方向复盘模拟 GEO
-            分析结果。
+            从品牌、官网和产品线出发，复盘模拟诊断结果，并整理后续提示词、知识库和内容补齐方向。
           </p>
         </div>
         <div class="analysis-detail-actions">
@@ -113,7 +112,7 @@ const formatSummaryValue = (value: unknown) => {
       </div>
 
       <el-alert
-        title="当前阶段为模拟 GEO 分析，不调用真实外部 AI 平台，不访问真实网站，也不做 SEO 扫描器。"
+        title="当前阶段为模拟 GEO 诊断，不调用真实外部 AI 平台，不访问真实网站，也不等同真实联网检测。"
         type="warning"
         :closable="false"
         show-icon
@@ -257,7 +256,7 @@ const formatSummaryValue = (value: unknown) => {
         </div>
       </template>
 
-      <el-empty v-else description="请选择一个 GEO 分析任务查看详情" />
+      <el-empty v-else description="请选择一个 GEO 诊断任务查看详情" />
     </section>
   </el-drawer>
 </template>

@@ -21,8 +21,8 @@ type QuickAction = {
 
 const actions: QuickAction[] = [
   {
-    title: "新建 GEO 分析",
-    description: "从品牌、官网和产品线开始诊断 AI 回答表现。",
+    title: "新建 GEO 诊断",
+    description: "从品牌、官网和产品线判断前期优化方向。",
     to: "/geo-analysis",
     icon: Search
   },

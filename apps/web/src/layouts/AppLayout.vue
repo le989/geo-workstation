@@ -18,8 +18,8 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     subtitle: "今日运营动作与待处理事项"
   },
   "/geo-analysis": {
-    title: "GEO 分析",
-    subtitle: "创建品牌、网站与可见度诊断"
+    title: "GEO 诊断",
+    subtitle: "前期品牌、官网与产品线诊断"
   },
   "/geo-prompts": {
     title: "提示词策略库",

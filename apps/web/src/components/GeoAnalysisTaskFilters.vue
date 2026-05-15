@@ -97,7 +97,7 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
     <div class="filters-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button type="success" @click="emit('create')">新建分析任务</el-button>
+      <el-button type="success" @click="emit('create')">新建诊断任务</el-button>
     </div>
   </section>
 </template>

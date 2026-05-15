@@ -43,7 +43,7 @@ const form = reactive<FormState>({
 
 const localError = computed(() => {
   if (!form.name.trim()) {
-    return "分析任务名称不能为空。";
+    return "诊断任务名称不能为空。";
   }
   if (!form.brandName.trim()) {
     return "品牌名称不能为空。";
@@ -54,7 +54,7 @@ const localError = computed(() => {
   return "";
 });
 
-const title = computed(() => (props.mode === "create" ? "新建 GEO 分析任务" : "编辑 GEO 分析任务"));
+const title = computed(() => (props.mode === "create" ? "新建 GEO 诊断任务" : "编辑 GEO 诊断任务"));
 
 const resetForm = () => {
   form.baseWordsText = "";
@@ -130,7 +130,7 @@ const close = () => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="当前阶段为模拟 GEO 分析，不调用真实外部 AI 平台，也不访问真实网站。"
+      title="当前阶段为模拟 GEO 诊断，不调用真实外部 AI 平台，也不访问真实网站。"
       type="warning"
       :closable="false"
       show-icon
@@ -222,7 +222,7 @@ const close = () => {
         :disabled="Boolean(localError)"
         @click="handleSubmit"
       >
-        {{ mode === "create" ? "创建分析任务" : "保存修改" }}
+        {{ mode === "create" ? "创建诊断任务" : "保存修改" }}
       </el-button>
     </template>
   </el-dialog>

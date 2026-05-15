@@ -39,12 +39,12 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/geo-analysis",
-    label: "GEO 分析",
-    title: "GEO 分析",
-    question: "品牌在 AI 回答里表现如何？",
-    description: "用于创建分析任务，观察品牌是否被提及、推荐、引用官网以及暴露哪些缺口。",
-    phaseNote: "已接入模拟 GEO 分析任务、提示词建议转入和内容任务创建流程。",
-    nextSteps: ["创建 GEO 分析任务", "运行模拟 GEO 分析", "将提示词建议转入策略库"],
+    label: "GEO 诊断",
+    title: "GEO 诊断",
+    question: "前期应该先补哪些 GEO 基础？",
+    description: "用于前期评估品牌、官网和产品线，生成提示词、知识库和内容补齐建议。",
+    phaseNote: "已接入模拟 GEO 诊断任务、提示词建议转入和内容任务创建流程。",
+    nextSteps: ["创建 GEO 诊断任务", "运行模拟 GEO 诊断", "将提示词建议转入策略库"],
     apiFocus: "已联调 /api/geo-analysis-tasks",
     icon: Search
   },

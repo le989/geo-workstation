@@ -62,6 +62,23 @@ const convertError = ref("");
 const contentTaskSubmitting = ref(false);
 const contentTaskError = ref("");
 
+const diagnosisFlowSteps = [
+  "GEO 诊断",
+  "提示词策略",
+  "知识库补齐",
+  "内容生成",
+  "模型覆盖记录",
+  "GEO 报表复盘"
+];
+
+const diagnosisRelationLinks = [
+  { label: "去提示词策略库", path: "/geo-prompts" },
+  { label: "去知识库", path: "/knowledge-bases" },
+  { label: "去内容生成", path: "/content-tasks" },
+  { label: "去模型覆盖记录", path: "/model-inclusion-records" },
+  { label: "去 GEO 报表", path: "/reports" }
+];
+
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
 
@@ -149,7 +166,7 @@ const openCreateDialog = () => {
 
 const openEditDialog = (task: GeoAnalysisTask) => {
   if (task.status !== "pending") {
-    ElMessage.warning("仅待执行状态的 GEO 分析任务允许编辑。");
+    ElMessage.warning("仅待执行状态的 GEO 诊断任务允许编辑。");
     return;
   }
 
@@ -168,7 +185,7 @@ const handleSubmitTask = async (
   try {
     if (formMode.value === "edit" && editingTask.value) {
       await updateGeoAnalysisTask(editingTask.value.id, payload as UpdateGeoAnalysisTaskPayload);
-      ElMessage.success("GEO 分析任务已更新。");
+      ElMessage.success("GEO 诊断任务已更新。");
       formVisible.value = false;
       await loadTasks();
       if (selectedTaskId.value === editingTask.value.id) {
@@ -178,14 +195,14 @@ const handleSubmitTask = async (
     }
 
     const created = await createGeoAnalysisTask(payload as CreateGeoAnalysisTaskPayload);
-    ElMessage.success("GEO 分析任务已创建，可运行模拟分析。");
+    ElMessage.success("GEO 诊断任务已创建，可运行模拟诊断。");
     formVisible.value = false;
     await loadTasks();
     selectedTaskId.value = created.id;
     detailVisible.value = true;
     await loadDetail();
   } catch (error) {
-    formError.value = error instanceof Error ? error.message : "分析任务保存失败。";
+    formError.value = error instanceof Error ? error.message : "诊断任务保存失败。";
   } finally {
     formSubmitting.value = false;
   }
@@ -225,11 +242,11 @@ const runTask = async (task?: GeoAnalysisTask) => {
 
   try {
     await ElMessageBox.confirm(
-      "当前为模拟分析，不会调用真实外部 AI 平台，也不会访问真实网站。确认运行吗？",
-      "运行模拟 GEO 分析",
+      "当前为模拟诊断，不会调用真实外部 AI 平台，也不会访问真实网站。确认运行吗？",
+      "运行模拟 GEO 诊断",
       {
         cancelButtonText: "取消",
-        confirmButtonText: "运行分析",
+        confirmButtonText: "运行诊断",
         type: "warning"
       }
     );
@@ -241,11 +258,11 @@ const runTask = async (task?: GeoAnalysisTask) => {
     detailVisible.value = true;
     convertResult.value = null;
     convertError.value = "";
-    ElMessage.success("模拟 GEO 分析已完成。");
+    ElMessage.success("模拟 GEO 诊断已完成。");
     await loadTasks();
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error instanceof Error ? error.message : "运行模拟分析失败。");
+      ElMessage.error(error instanceof Error ? error.message : "运行模拟诊断失败。");
     }
   } finally {
     running.value = false;
@@ -283,7 +300,7 @@ const handleCreateContentTask = async (payload: CreateAnalysisContentTaskPayload
     await createAnalysisContentTask(selectedTaskId.value, payload);
     await loadDetail();
     await ElMessageBox.confirm(
-      "已基于分析任务创建 GEO 内容任务，并复用模拟内容生成链路。是否前往内容生成页面查看？",
+      "已基于诊断任务创建 GEO 内容任务，并复用模拟内容生成链路。是否前往内容生成页面查看？",
       "内容任务已创建",
       {
         cancelButtonText: "留在分析详情",
@@ -295,7 +312,7 @@ const handleCreateContentTask = async (payload: CreateAnalysisContentTaskPayload
   } catch (error) {
     if (error !== "cancel") {
       contentTaskError.value =
-        error instanceof Error ? error.message : "基于分析任务创建内容任务失败。";
+        error instanceof Error ? error.message : "基于诊断任务创建内容任务失败。";
     }
   } finally {
     contentTaskSubmitting.value = false;
@@ -311,26 +328,46 @@ onMounted(() => {
   <section class="geo-analysis-page">
     <header class="page-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO 诊断</el-tag>
-        <h1>GEO 分析</h1>
-        <p>
-          通过模拟 GEO 分析任务，模拟品牌、产品线和目标模型在 AI 问答场景中的表现，识别
-          提示词缺口、知识库缺口和内容补齐方向。
-        </p>
+        <el-tag type="success" effect="plain">前期诊断</el-tag>
+        <h1>GEO 诊断</h1>
+        <p>用于前期评估品牌、官网和产品线的 GEO 基础情况，生成提示词、知识库和内容补齐建议。</p>
       </div>
       <div class="page-hero-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadTasks">刷新</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建分析任务</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建诊断任务</el-button>
       </div>
     </header>
 
     <el-alert
-      title="当前阶段为模拟分析，不调用真实外部 AI 平台，不访问真实网站，不做 SEO 扫描器。"
+      title="诊断结果用于制定优化方向，不等同于 Kimi / 豆包 / 通义等真实联网检测结果。真实检测请到「模型覆盖记录」，汇总复盘请到「GEO 报表」查看。"
       type="warning"
       :closable="false"
       show-icon
       class="mock-alert"
     />
+
+    <section class="analysis-relation-panel">
+      <div class="analysis-relation-panel__copy">
+        <p class="section-kicker">流程关系</p>
+        <h2>先诊断，再补资产，最后复盘命中</h2>
+        <p>
+          GEO 诊断是前期策略入口；模型覆盖记录保存真实或模拟检测明细，GEO 报表负责汇总复盘。
+        </p>
+      </div>
+      <div class="analysis-flow">
+        <span v-for="step in diagnosisFlowSteps" :key="step">{{ step }}</span>
+      </div>
+      <div class="analysis-relation-actions">
+        <el-button
+          v-for="link in diagnosisRelationLinks"
+          :key="link.path"
+          plain
+          @click="router.push(link.path)"
+        >
+          {{ link.label }}
+        </el-button>
+      </div>
+    </section>
 
     <GeoAnalysisTaskFilters
       :model-value="filters"
@@ -341,15 +378,15 @@ onMounted(() => {
       @create="openCreateDialog"
     />
 
-    <AppErrorState v-if="hasTableError" title="GEO 分析任务加载失败" :message="tableError" />
+    <AppErrorState v-if="hasTableError" title="GEO 诊断任务加载失败" :message="tableError" />
 
     <section class="table-panel">
       <div class="table-panel-header">
         <div>
-          <p class="section-kicker">分析任务</p>
-          <h2>分析任务列表</h2>
+          <p class="section-kicker">诊断任务</p>
+          <h2>诊断任务列表</h2>
           <p>
-            查看品牌是否被提及、推荐、引用官网，以及哪些任务已经生成提示词建议和内容缺口。
+            查看诊断状态、提示词建议和后续补齐方向。
             <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
           </p>
         </div>
@@ -360,12 +397,12 @@ onMounted(() => {
         :data="tasks"
         border
         row-key="id"
-        empty-text="暂无 GEO 分析任务"
+        empty-text="暂无 GEO 诊断任务"
         class="analysis-task-table"
       >
         <el-table-column label="任务名称" min-width="230" fixed>
           <template #default="{ row }">
-            <strong>{{ row.name }}</strong>
+            <strong class="analysis-task-name">{{ row.name }}</strong>
             <p class="table-subtext">品牌：{{ row.brandName }}</p>
           </template>
         </el-table-column>
@@ -410,7 +447,7 @@ onMounted(() => {
               :loading="running && selectedTaskId === row.id"
               @click="runTask(row)"
             >
-              运行分析
+              运行诊断
             </el-button>
           </template>
         </el-table-column>
@@ -418,8 +455,8 @@ onMounted(() => {
 
       <AppEmptyState
         v-if="isEmpty && !hasTableError"
-        title="暂无 GEO 分析任务"
-        description="先创建一个品牌或产品线分析任务，再运行模拟分析识别提示词、知识库和内容缺口。"
+        title="暂无 GEO 诊断任务"
+        description="先创建一个品牌或产品线诊断任务，再运行模拟诊断识别提示词、知识库和内容缺口。"
       />
 
       <div class="pagination-row">
@@ -504,6 +541,49 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.analysis-relation-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(35 90 159 / 7%), transparent 42%),
+    #ffffff;
+}
+
+.analysis-relation-panel__copy h2 {
+  margin: 4px 0 6px;
+  color: #13243a;
+  font-size: 20px;
+}
+
+.analysis-relation-panel__copy p:not(.section-kicker) {
+  max-width: 840px;
+  margin: 0;
+  color: var(--geo-muted);
+  line-height: 1.65;
+}
+
+.analysis-flow,
+.analysis-relation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.analysis-flow span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #c7d6e8;
+  border-radius: 999px;
+  background: #f7fbff;
+  color: #24415f;
+  font-size: 13px;
+}
+
 .table-panel {
   display: grid;
   gap: 14px;
@@ -515,6 +595,14 @@ onMounted(() => {
 
 .analysis-task-table {
   width: 100%;
+}
+
+.analysis-task-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.45;
 }
 
 .pagination-row {

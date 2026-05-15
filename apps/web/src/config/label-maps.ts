@@ -17,7 +17,7 @@ export const aiCallStatusLabelMap: Record<string, string> = {
 export const aiCallPurposeLabelMap: Record<string, string> = {
   content_generation: "内容生成",
   expansion_generation: "AI 拓词",
-  geo_analysis: "GEO 分析"
+  geo_analysis: "GEO 诊断"
 };
 
 export const formatAiProvider = (provider?: string | null) =>

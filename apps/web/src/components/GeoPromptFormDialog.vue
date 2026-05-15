@@ -185,7 +185,7 @@ const handleSubmit = () => {
         <el-input v-model="form.scenario" placeholder="例如：行车防撞" />
       </el-form-item>
       <el-form-item label="来源">
-        <el-input v-model="form.source" placeholder="例如：人工录入 / 批量导入 / GEO 分析" />
+        <el-input v-model="form.source" placeholder="例如：人工录入 / 批量导入 / GEO 诊断" />
       </el-form-item>
       <el-form-item label="目标模型" class="form-span-2">
         <el-input
