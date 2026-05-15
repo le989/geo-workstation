@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { ElMessage } from "element-plus";
 import type {
   ContentItem,
@@ -95,6 +95,212 @@ const failureAlertDescription = computed(() => {
     : "请查看内容项状态后重试失败任务。";
 });
 
+const expandedContentItemIds = ref<string[]>([]);
+
+const isGeneratedContentItem = (item: ContentItem) => {
+  const hasReadableContent = Boolean(item.title.trim() || item.body.trim());
+
+  return hasReadableContent && item.status !== "failed" && item.status !== "cancelled";
+};
+
+const contentItemsCount = computed(() => props.detail?.items.length ?? 0);
+const generatedItems = computed(() => props.detail?.items.filter(isGeneratedContentItem) ?? []);
+const generatedItemsCount = computed(() => generatedItems.value.length);
+const hasGeneratedContent = computed(() => generatedItemsCount.value > 0);
+const hasQualityCheck = computed(() => Boolean(props.qualityCheckResult));
+const hasPublishOptimization = computed(() => Boolean(props.publishOptimizationResult));
+const hasPublishFormat = computed(() => Boolean(props.publishFormatResult));
+const needsHumanReview = computed(
+  () => props.qualityCheckResult?.result.publishReadiness.needsHumanReview ?? false
+);
+const hasRiskyQuality = computed(() => props.qualityCheckResult?.result.level === "risky");
+
+const getContentPreview = (body: string, maxLength = 360) => {
+  const normalized = body.replace(/\s+/g, " ").trim();
+
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+};
+
+const isContentExpanded = (id: string) => expandedContentItemIds.value.includes(id);
+
+const toggleContentPreview = (id: string) => {
+  expandedContentItemIds.value = isContentExpanded(id)
+    ? expandedContentItemIds.value.filter((itemId) => itemId !== id)
+    : [...expandedContentItemIds.value, id];
+};
+
+const findPromptText = (geoPromptId?: string | null) =>
+  props.detail?.prompts.find((prompt) => prompt.id === geoPromptId)?.promptText ?? "--";
+
+const getWorkflowStepStatus = (index: number) => {
+  const taskStatus = props.detail?.task.status;
+
+  if (index === 0) {
+    if (taskStatus === "failed" || hasFailedItems.value) {
+      return "error";
+    }
+    if (hasGeneratedContent.value) {
+      return "success";
+    }
+    if (taskStatus === "running" || taskStatus === "pending") {
+      return "process";
+    }
+    return "wait";
+  }
+
+  if (index === 1) {
+    if (!hasGeneratedContent.value) {
+      return "wait";
+    }
+    if (!hasQualityCheck.value) {
+      return "process";
+    }
+    return hasRiskyQuality.value || needsHumanReview.value ? "error" : "success";
+  }
+
+  if (index === 2) {
+    if (!hasQualityCheck.value) {
+      return "wait";
+    }
+    return hasPublishOptimization.value ? "success" : "process";
+  }
+
+  if (index === 3) {
+    if (!hasPublishOptimization.value) {
+      return "wait";
+    }
+    return hasPublishFormat.value ? "success" : "process";
+  }
+
+  if (hasPublishFormat.value) {
+    return "process";
+  }
+  return "wait";
+};
+
+const workflowSteps = computed(() => [
+  {
+    title: "生成内容",
+    label:
+      props.detail?.task.status === "failed" || hasFailedItems.value
+        ? "生成失败"
+        : hasGeneratedContent.value
+          ? "生成成功"
+          : props.detail?.task.status === "running"
+            ? "生成中"
+            : "未开始",
+    description: hasGeneratedContent.value
+      ? `已生成 ${generatedItemsCount.value} 个内容项`
+      : "创建任务后由 AI 生成内容项"
+  },
+  {
+    title: "质量检查",
+    label: hasQualityCheck.value
+      ? hasRiskyQuality.value
+        ? "风险较高"
+        : needsHumanReview.value
+          ? "可进入人工审校"
+          : "已完成"
+      : hasGeneratedContent.value
+        ? "待质量检查"
+        : "未开始",
+    description: hasQualityCheck.value
+      ? props.qualityCheckResult?.result.publishReadiness.suggestedAction
+      : "检查事实边界、品牌表达和 GEO 结构"
+  },
+  {
+    title: "发布优化",
+    label: hasPublishOptimization.value
+      ? "已生成发布优化稿"
+      : hasQualityCheck.value
+        ? "需处理"
+        : "未开始",
+    description: hasPublishOptimization.value
+      ? "优化稿不会覆盖原文，可复制审校"
+      : "基于质量检查结果生成更稳妥版本"
+  },
+  {
+    title: "富文本稿",
+    label: hasPublishFormat.value
+      ? "已生成富文本稿"
+      : hasPublishOptimization.value
+        ? "需处理"
+        : "未开始",
+    description: hasPublishFormat.value
+      ? "可复制 HTML / Markdown / 纯文本"
+      : "将原文或优化稿排版为发布稿"
+  },
+  {
+    title: "人工发布",
+    label: hasPublishFormat.value ? "可人工发布" : "未开始",
+    description: "复制到外部平台前仍需人工预览"
+  }
+]);
+
+const currentAction = computed(() => {
+  if (!props.detail) {
+    return {
+      type: "info" as const,
+      title: "请选择一个内容任务",
+      description: "打开任务详情后可查看生成、审校和发布稿准备进度。"
+    };
+  }
+
+  if (props.detail.task.status === "failed" || hasFailedItems.value) {
+    return {
+      type: "error" as const,
+      title: "建议先处理生成失败",
+      description: "查看失败内容项原因，必要时重试失败任务；重试不会重复生成已成功内容项。"
+    };
+  }
+
+  if (!hasGeneratedContent.value) {
+    return {
+      type: "info" as const,
+      title: "内容仍未生成完成",
+      description: "请等待生成结果返回，或刷新详情查看内容项状态。"
+    };
+  }
+
+  if (!hasQualityCheck.value) {
+    return {
+      type: "warning" as const,
+      title: "建议执行质量检查",
+      description: "内容已生成，下一步应检查知识库外参数、协议、认证、过度营销和 GEO 结构风险。"
+    };
+  }
+
+  if (hasRiskyQuality.value || needsHumanReview.value) {
+    return {
+      type: "warning" as const,
+      title: "建议先人工审校风险项",
+      description: "质量检查发现需要复核的内容，先处理风险项，再生成或使用发布优化稿。"
+    };
+  }
+
+  if (!hasPublishOptimization.value) {
+    return {
+      type: "info" as const,
+      title: "可以生成发布优化版",
+      description: "质量检查已完成，可生成更稳妥的发布优化稿；优化稿不会覆盖原文。"
+    };
+  }
+
+  if (!hasPublishFormat.value) {
+    return {
+      type: "info" as const,
+      title: "建议生成富文本发布稿",
+      description: "发布优化版已生成，可以选择优化稿作为来源生成 HTML、Markdown 和纯文本。"
+    };
+  }
+
+  return {
+    type: "success" as const,
+    title: "可以进入人工发布前预览",
+    description: "富文本发布稿已生成，可复制到发布平台；正式发布前仍需人工预览样式和事实边界。"
+  };
+});
+
 const close = () => {
   emit("update:modelValue", false);
 };
@@ -134,9 +340,29 @@ const severityTagMap: Record<string, "info" | "warning" | "danger"> = {
   high: "danger"
 };
 
+const contentItemStatusLabelMap: Record<string, string> = {
+  pending: "待生成",
+  running: "生成中",
+  draft: "草稿（待审校）",
+  succeeded: "生成成功",
+  failed: "生成失败",
+  cancelled: "已取消"
+};
+
+const contentItemStatusTypeMap: Record<string, "success" | "warning" | "danger" | "info"> = {
+  pending: "info",
+  running: "warning",
+  draft: "warning",
+  succeeded: "success",
+  failed: "danger",
+  cancelled: "info"
+};
+
 const getRiskTypeLabel = (item: ContentQualityRiskItem) => riskTypeLabelMap[item.type] ?? item.type;
 const getQualityLevelLabel = (level: string) => qualityLevelLabelMap[level] ?? level;
 const getQualityLevelType = (level: string) => qualityLevelTagMap[level] ?? "info";
+const getContentItemStatusLabel = (status: string) => contentItemStatusLabelMap[status] ?? status;
+const getContentItemStatusType = (status: string) => contentItemStatusTypeMap[status] ?? "info";
 
 const copyOptimizedBody = async () => {
   const text = props.publishOptimizationResult?.result.body;
@@ -207,120 +433,125 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           class="dialog-alert"
         />
 
-        <el-descriptions :column="3" border class="content-detail-summary">
-          <el-descriptions-item label="任务名称">
-            {{ detail.task.name }}
-          </el-descriptions-item>
-          <el-descriptions-item label="产品线">
-            {{ formatOptional(detail.task.productLine) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="任务状态">
-            <ContentTaskStatusTag :status="detail.task.status" />
-          </el-descriptions-item>
-          <el-descriptions-item label="生成类型">
-            <ContentGenerationTypeTag :type="detail.task.generationType" />
-          </el-descriptions-item>
-          <el-descriptions-item label="目标模型">
-            {{ formatOptional(detail.task.targetModel) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="AI 生成方式 / 模型">
-            {{ formatProviderModel(detail.task.provider, detail.task.model) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="知识库">
-            {{ detail.knowledgeBase?.name ?? "--" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="指令模板">
-            {{ detail.instructionTemplate?.name ?? "--" }}
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ formatDateTime(detail.task.updatedAt) }}
-          </el-descriptions-item>
-        </el-descriptions>
-
-        <section class="content-workflow-strip">
-          <div class="content-workflow-card">
-            <span>提示词</span>
-            <strong>{{ detail.prompts.length }} 个</strong>
-            <small>决定内容要服务的 AI 问答入口。</small>
-          </div>
-          <div class="content-workflow-card">
-            <span>知识库</span>
-            <strong>{{ detail.knowledgeBase?.name ?? "未选择" }}</strong>
-            <small>约束内容事实来源，减少未经证实的参数。</small>
-          </div>
-          <div class="content-workflow-card">
-            <span>指令模板</span>
-            <strong>{{ detail.instructionTemplate?.name ?? "未选择" }}</strong>
-            <small>控制文章结构、质量规则和禁止事项。</small>
-          </div>
-          <div class="content-workflow-card">
-            <span>生成方式</span>
-            <strong>{{ formatProviderModel(detail.task.provider, detail.task.model) }}</strong>
-            <small>真实 AI 接口会消耗额度，失败原因会保留在内容项中。</small>
-          </div>
-        </section>
-
-        <div class="content-detail-grid">
-          <el-card shadow="never">
-            <template #header>关联 GEO 提示词</template>
-            <div v-if="detail.prompts.length > 0" class="related-list">
-              <div v-for="prompt in detail.prompts" :key="prompt.id" class="related-item">
-                <strong>{{ prompt.promptText }}</strong>
-                <GeoPromptTypeTag :type="prompt.type" />
-                <span>{{ formatOptional(prompt.productLine) }}</span>
+        <el-card class="content-flow-card" shadow="never">
+          <template #header>
+            <div class="quality-card-header">
+              <div>
+                <span>内容发布准备流程</span>
+                <strong>生成内容 → 质量检查 → 发布优化 → 富文本稿 → 人工发布</strong>
               </div>
             </div>
-            <el-empty v-else description="暂无关联提示词" />
-          </el-card>
+          </template>
 
-          <el-card shadow="never">
-            <template #header>知识库与指令上下文</template>
-            <p>
-              知识库：{{ detail.knowledgeBase?.name ?? "未选择" }} /
-              {{ formatOptional(detail.knowledgeBase?.productLine) }}
-            </p>
-            <p>
-              指令：{{ detail.instructionTemplate?.name ?? "未选择" }} /
-              {{
-                detail.instructionTemplate
-                  ? (instructionTypeLabelMap[detail.instructionTemplate.instructionType] ??
-                    detail.instructionTemplate.instructionType)
-                  : "--"
-              }}
-            </p>
-            <p>
-              内容类型：{{
-                detail.instructionTemplate
-                  ? (contentTypeLabelMap[detail.instructionTemplate.contentType] ??
-                    detail.instructionTemplate.contentType)
-                  : (generationTypeLabelMap[detail.task.generationType] ??
-                    detail.task.generationType)
-              }}
-            </p>
-          </el-card>
+          <el-steps class="content-flow-steps" align-center>
+            <el-step
+              v-for="(step, index) in workflowSteps"
+              :key="step.title"
+              :description="step.label"
+              :status="getWorkflowStepStatus(index)"
+              :title="step.title"
+            />
+          </el-steps>
 
-          <el-card shadow="never">
-            <template #header>AI 调用日志</template>
-            <div v-if="detail.aiCallLogs.length > 0" class="related-list compact">
-              <div v-for="log in detail.aiCallLogs" :key="log.id" class="related-item">
-                <strong>{{ formatProviderModel(log.provider, log.model) }}</strong>
-                <span>{{ aiCallPurposeLabelMap[log.purpose] ?? log.purpose }}</span>
-                <el-tag :type="log.status === 'failed' ? 'danger' : 'success'" effect="plain">
-                  {{ aiCallStatusLabelMap[log.status] ?? log.status }}
+          <div class="content-flow-notes">
+            <div v-for="step in workflowSteps" :key="`${step.title}-note`">
+              <strong>{{ step.title }}</strong>
+              <span>{{ step.description }}</span>
+            </div>
+          </div>
+        </el-card>
+
+        <el-alert
+          :title="currentAction.title"
+          :description="currentAction.description"
+          :type="currentAction.type"
+          :closable="false"
+          show-icon
+          class="dialog-alert"
+        />
+
+        <el-card class="content-overview-card" shadow="never">
+          <template #header>
+            <div class="quality-card-header">
+              <div>
+                <span>任务概览</span>
+                <strong>把技术字段收起来，先看业务链路是否完整</strong>
+              </div>
+            </div>
+          </template>
+          <div class="content-overview-grid">
+            <div>
+              <span>GEO 词 / 提示词</span>
+              <strong>{{
+                detail.prompts.map((prompt) => prompt.promptText).join("、") || "--"
+              }}</strong>
+            </div>
+            <div>
+              <span>Provider</span>
+              <strong>{{ formatProviderModel(detail.task.provider, detail.task.model) }}</strong>
+            </div>
+            <div>
+              <span>任务状态</span>
+              <ContentTaskStatusTag :status="detail.task.status" />
+            </div>
+            <div>
+              <span>内容数量</span>
+              <strong>{{ generatedItemsCount }} / {{ contentItemsCount }} 个已生成</strong>
+            </div>
+            <div>
+              <span>知识库</span>
+              <strong>{{ detail.knowledgeBase?.name ?? "未选择" }}</strong>
+            </div>
+            <div>
+              <span>创建时间</span>
+              <strong>{{ formatDateTime(detail.task.createdAt) }}</strong>
+            </div>
+          </div>
+        </el-card>
+
+        <section class="content-preview-section">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">内容预览</p>
+              <h3>先看标题、摘要和正文，再决定审校动作</h3>
+              <p>默认只展示正文摘要，展开后可阅读全文；不会修改或截断真实内容。</p>
+            </div>
+          </div>
+
+          <div v-if="detail.items.length > 0" class="content-preview-list">
+            <article v-for="item in detail.items" :key="item.id" class="content-preview-card">
+              <div class="content-preview-card__header">
+                <div>
+                  <span>{{ findPromptText(item.geoPromptId) }}</span>
+                  <h4>{{ item.title }}</h4>
+                </div>
+                <el-tag :type="getContentItemStatusType(item.status)" effect="plain">
+                  {{ getContentItemStatusLabel(item.status) }}
                 </el-tag>
-                <span>{{ formatDateTime(log.createdAt) }}</span>
               </div>
-            </div>
-            <el-empty v-else description="暂无 AI 调用日志" />
-          </el-card>
-        </div>
+              <p v-if="item.errorMessage" class="content-preview-card__error">
+                {{ item.errorMessage }}
+              </p>
+              <p class="content-preview-card__body">
+                {{ isContentExpanded(item.id) ? item.body : getContentPreview(item.body) }}
+              </p>
+              <div class="content-preview-card__footer">
+                <span>建议发布位置：{{ formatOptional(item.suggestedPublishChannel) }}</span>
+                <el-button text type="primary" @click="toggleContentPreview(item.id)">
+                  {{ isContentExpanded(item.id) ? "收起正文" : "展开阅读全文" }}
+                </el-button>
+              </div>
+            </article>
+          </div>
+          <el-empty v-else description="暂无内容项" />
+        </section>
 
         <section class="content-items-section">
           <div class="section-heading">
             <div>
-              <p class="section-kicker">内容项</p>
-              <h3>生成内容项</h3>
-              <p>这些内容项服务于具体 GEO 提示词，可编辑、软删除或导出 Markdown。</p>
+              <p class="section-kicker">内容项操作</p>
+              <h3>编辑、质检、优化和导出入口</h3>
+              <p>原有按钮保持不变：查看、编辑、质量检查、生成发布优化版、导出 Markdown。</p>
             </div>
           </div>
           <ContentItemTable
@@ -338,6 +569,98 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             @optimize="emit('optimize', $event)"
           />
         </section>
+
+        <el-collapse class="content-technical-collapse">
+          <el-collapse-item name="technical">
+            <template #title>
+              <span class="technical-collapse-title">技术信息与上下文（默认折叠）</span>
+            </template>
+            <el-descriptions :column="3" border class="content-detail-summary">
+              <el-descriptions-item label="内容任务 ID">
+                {{ detail.task.id }}
+              </el-descriptions-item>
+              <el-descriptions-item label="任务名称">
+                {{ detail.task.name }}
+              </el-descriptions-item>
+              <el-descriptions-item label="生成类型">
+                <ContentGenerationTypeTag :type="detail.task.generationType" />
+              </el-descriptions-item>
+              <el-descriptions-item label="目标模型">
+                {{ formatOptional(detail.task.targetModel) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="Provider 原始字段">
+                {{ formatOptional(detail.task.provider) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="Model 原始字段">
+                {{ formatOptional(detail.task.model) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="指令模板">
+                {{ detail.instructionTemplate?.name ?? "--" }}
+              </el-descriptions-item>
+              <el-descriptions-item label="知识库">
+                {{ detail.knowledgeBase?.name ?? "--" }}
+              </el-descriptions-item>
+              <el-descriptions-item label="更新时间">
+                {{ formatDateTime(detail.task.updatedAt) }}
+              </el-descriptions-item>
+            </el-descriptions>
+
+            <div class="content-detail-grid content-detail-grid--technical">
+              <el-card shadow="never">
+                <template #header>关联 GEO 提示词</template>
+                <div v-if="detail.prompts.length > 0" class="related-list">
+                  <div v-for="prompt in detail.prompts" :key="prompt.id" class="related-item">
+                    <strong>{{ prompt.promptText }}</strong>
+                    <GeoPromptTypeTag :type="prompt.type" />
+                    <span>{{ formatOptional(prompt.productLine) }}</span>
+                  </div>
+                </div>
+                <el-empty v-else description="暂无关联提示词" />
+              </el-card>
+
+              <el-card shadow="never">
+                <template #header>知识库与指令上下文</template>
+                <p>
+                  知识库：{{ detail.knowledgeBase?.name ?? "未选择" }} /
+                  {{ formatOptional(detail.knowledgeBase?.productLine) }}
+                </p>
+                <p>
+                  指令：{{ detail.instructionTemplate?.name ?? "未选择" }} /
+                  {{
+                    detail.instructionTemplate
+                      ? (instructionTypeLabelMap[detail.instructionTemplate.instructionType] ??
+                        detail.instructionTemplate.instructionType)
+                      : "--"
+                  }}
+                </p>
+                <p>
+                  内容类型：{{
+                    detail.instructionTemplate
+                      ? (contentTypeLabelMap[detail.instructionTemplate.contentType] ??
+                        detail.instructionTemplate.contentType)
+                      : (generationTypeLabelMap[detail.task.generationType] ??
+                        detail.task.generationType)
+                  }}
+                </p>
+              </el-card>
+
+              <el-card shadow="never">
+                <template #header>AI 调用日志</template>
+                <div v-if="detail.aiCallLogs.length > 0" class="related-list compact">
+                  <div v-for="log in detail.aiCallLogs" :key="log.id" class="related-item">
+                    <strong>{{ formatProviderModel(log.provider, log.model) }}</strong>
+                    <span>{{ aiCallPurposeLabelMap[log.purpose] ?? log.purpose }}</span>
+                    <el-tag :type="log.status === 'failed' ? 'danger' : 'success'" effect="plain">
+                      {{ aiCallStatusLabelMap[log.status] ?? log.status }}
+                    </el-tag>
+                    <span>{{ formatDateTime(log.createdAt) }}</span>
+                  </div>
+                </div>
+                <el-empty v-else description="暂无 AI 调用日志" />
+              </el-card>
+            </div>
+          </el-collapse-item>
+        </el-collapse>
 
         <section class="content-quality-section">
           <div class="section-heading">
@@ -442,6 +765,15 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               </div>
             </div>
           </el-card>
+          <el-card v-else shadow="never" class="review-empty-card">
+            <div>
+              <el-tag type="warning" effect="plain">待质量检查</el-tag>
+              <h4>先检查，再进入发布优化</h4>
+              <p>
+                内容已生成时，建议先执行质量检查，确认是否存在知识库外参数、协议、认证、过度营销或品牌表达风险。
+              </p>
+            </div>
+          </el-card>
 
           <el-alert
             v-if="publishOptimizationError"
@@ -489,6 +821,18 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               </div>
             </div>
           </el-card>
+          <el-card v-else shadow="never" class="review-empty-card">
+            <div>
+              <el-tag :type="hasQualityCheck ? 'warning' : 'info'" effect="plain">
+                {{ hasQualityCheck ? "待发布优化" : "未开始" }}
+              </el-tag>
+              <h4>发布优化版不会覆盖原文</h4>
+              <p>
+                建议在质量检查后生成发布优化版，用于弱化事实风险、保留 GEO
+                结构，并作为富文本稿的优先来源。
+              </p>
+            </div>
+          </el-card>
 
           <PublishFormatPanel
             :items="detail.items"
@@ -509,6 +853,189 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 <style scoped>
 .content-quality-section {
   margin-top: 20px;
+}
+
+.content-flow-card,
+.content-overview-card,
+.content-preview-section,
+.content-technical-collapse {
+  margin-top: 16px;
+}
+
+.content-flow-steps {
+  margin: 6px 0 20px;
+}
+
+.content-flow-notes {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.content-flow-notes > div {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: var(--geo-surface-muted);
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.content-flow-notes strong {
+  color: var(--geo-ink);
+  font-size: 13px;
+}
+
+.content-flow-notes span {
+  color: var(--geo-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.content-overview-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.content-overview-grid > div {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.content-overview-grid span {
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.content-overview-grid strong {
+  color: var(--geo-ink);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.content-preview-section {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.content-preview-list {
+  display: grid;
+  gap: 12px;
+}
+
+.content-preview-card {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: var(--geo-surface-muted);
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.content-preview-card__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.content-preview-card__header div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.content-preview-card__header span,
+.content-preview-card__footer span {
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.content-preview-card__header h4 {
+  color: var(--geo-ink);
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.content-preview-card__body {
+  color: var(--geo-ink);
+  line-height: 1.8;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.content-preview-card__error {
+  border-left: 3px solid var(--geo-danger);
+  color: var(--geo-danger);
+  line-height: 1.7;
+  margin: 0;
+  padding-left: 10px;
+}
+
+.content-preview-card__footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.content-technical-collapse {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.content-technical-collapse :deep(.el-collapse-item__header) {
+  color: var(--geo-ink);
+  font-weight: 700;
+  padding: 0 16px;
+}
+
+.content-technical-collapse :deep(.el-collapse-item__content) {
+  padding: 0 16px 16px;
+}
+
+.technical-collapse-title {
+  font-size: 14px;
+}
+
+.content-detail-grid--technical {
+  margin-top: 14px;
+}
+
+.review-empty-card {
+  margin-top: 16px;
+}
+
+.review-empty-card div {
+  display: grid;
+  gap: 8px;
+}
+
+.review-empty-card h4,
+.review-empty-card p {
+  margin: 0;
+}
+
+.review-empty-card h4 {
+  color: var(--geo-ink);
+}
+
+.review-empty-card p {
+  color: var(--geo-muted);
+  line-height: 1.7;
 }
 
 .quality-result-card,
@@ -616,6 +1143,17 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 @media (max-width: 900px) {
+  .content-flow-notes,
+  .content-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .content-preview-card__header,
+  .content-preview-card__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .quality-summary-grid,
   .quality-columns {
     grid-template-columns: 1fr;
