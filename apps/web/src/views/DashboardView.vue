@@ -3,7 +3,6 @@ import { computed, onMounted, ref, type Component } from "vue";
 import {
   EditPen,
   Files,
-  PieChart,
   Refresh,
   TrendCharts
 } from "@element-plus/icons-vue";
@@ -14,9 +13,7 @@ import {
   type OptimizationSuggestion
 } from "@/api/reports";
 import AppErrorState from "@/components/AppErrorState.vue";
-import CapabilityBoundaryCard from "@/components/CapabilityBoundaryCard.vue";
 import DashboardSection from "@/components/DashboardSection.vue";
-import MetricCard from "@/components/MetricCard.vue";
 import OptimizationSuggestionList from "@/components/OptimizationSuggestionList.vue";
 import QuickActionGrid from "@/components/QuickActionGrid.vue";
 
@@ -66,14 +63,6 @@ const formatPercent = (value: number | undefined | null) => {
   }
 
   return `${(value * 100).toFixed(1)}%`;
-};
-
-const toProgressPercent = (value: number | undefined | null) => {
-  if (value === undefined || value === null || Number.isNaN(value)) {
-    return 0;
-  }
-
-  return value * 100;
 };
 
 const getCountTone = (value: number, warningThreshold = 1) => {
@@ -129,7 +118,7 @@ const coreMetrics = computed(() => [
   {
     label: "GEO 提示词",
     value: formatNumber(report.value.promptTotal),
-    description: `${report.value.trackedPromptCount} 个追踪词 / ${report.value.highPriorityPromptCount} 个高优先级词`,
+    description: `${report.value.trackedPromptCount} 追踪 / ${report.value.highPriorityPromptCount} 高优先级`,
     to: "/geo-prompts",
     buttonLabel: "管理提示词",
     tone: "default" as const
@@ -137,7 +126,7 @@ const coreMetrics = computed(() => [
   {
     label: "知识库",
     value: formatNumber(report.value.knowledgeBaseCount),
-    description: `${report.value.knowledgeChunkCount} 条知识片段可供内容引用`,
+    description: `${report.value.knowledgeChunkCount} 条片段`,
     to: "/knowledge-bases",
     buttonLabel: "去补资料",
     tone: report.value.knowledgeChunkCount > 0 ? ("good" as const) : ("warning" as const)
@@ -148,7 +137,7 @@ const coreMetrics = computed(() => [
     description:
       report.value.failedContentTaskCount > 0
         ? `${report.value.failedContentTaskCount} 个失败任务待处理`
-        : "内容生成链路当前无失败任务",
+        : "暂无失败任务",
     to: "/content-tasks",
     buttonLabel: "去看内容",
     tone: report.value.failedContentTaskCount > 0 ? ("danger" as const) : ("good" as const)
@@ -161,123 +150,6 @@ const coreMetrics = computed(() => [
     )}`,
     to: "/model-inclusion-records",
     buttonLabel: "补检测记录",
-    tone: report.value.uncoveredTrackedPromptCount > 0 ? ("warning" as const) : ("default" as const)
-  }
-]);
-
-const promptMetrics = computed(() => [
-  {
-    label: "提示词总量",
-    value: formatNumber(report.value.promptTotal),
-    description: "全部 GEO 提示词资产"
-  },
-  {
-    label: "训练词数量",
-    value: formatNumber(report.value.basePromptCount),
-    description: "GEO 诊断和拓词的基础词"
-  },
-  {
-    label: "蒸馏词数量",
-    value: formatNumber(report.value.distilledPromptCount),
-    description: "用户会向 AI 提问的选择型问法"
-  },
-  {
-    label: "品牌词数量",
-    value: formatNumber(report.value.brandPromptCount),
-    description: "品牌验证和品牌推荐相关问法"
-  },
-  {
-    label: "场景词数量",
-    value: formatNumber(report.value.scenePromptCount),
-    description: "应用场景驱动的 GEO 问法"
-  },
-  {
-    label: "追踪提示词数量",
-    value: formatNumber(report.value.trackedPromptCount),
-    description: "需要持续记录模型表现的提示词"
-  },
-  {
-    label: "高优先级提示词数量",
-    value: formatNumber(report.value.highPriorityPromptCount),
-    description: "优先补检测、资料和内容的提示词",
-    tone: "warning" as const
-  }
-]);
-
-const assetMetrics = computed(() => [
-  {
-    label: "知识库数量",
-    value: formatNumber(report.value.knowledgeBaseCount),
-    description: "企业 GEO 知识资产集合"
-  },
-  {
-    label: "知识片段数量",
-    value: formatNumber(report.value.knowledgeChunkCount),
-    description: "可被内容生成引用的事实片段"
-  },
-  {
-    label: "内容任务数量",
-    value: formatNumber(report.value.contentTaskCount),
-    description: "围绕提示词创建的 GEO 内容任务"
-  },
-  {
-    label: "内容项数量",
-    value: formatNumber(report.value.contentItemCount),
-    description: "已沉淀的生成内容资产"
-  },
-  {
-    label: "失败内容任务",
-    value: formatNumber(report.value.failedContentTaskCount),
-    description: "需要重试或补充输入的任务",
-    tone: report.value.failedContentTaskCount > 0 ? ("danger" as const) : ("default" as const)
-  }
-]);
-
-const modelMetrics = computed(() => [
-  {
-    label: "模型覆盖记录数",
-    value: formatNumber(report.value.modelInclusionRecordCount),
-    description: "人工录入或导入的模型表现记录"
-  },
-  {
-    label: "品牌提及次数",
-    value: formatNumber(report.value.brandMentionedCount),
-    description: "AI 回答中出现品牌的次数",
-    tone: "good" as const
-  },
-  {
-    label: "品牌推荐次数",
-    value: formatNumber(report.value.brandRecommendedCount),
-    description: "AI 明确推荐品牌的次数",
-    tone: "good" as const
-  },
-  {
-    label: "品牌提及率",
-    value: formatPercent(report.value.brandMentionRate),
-    description: "品牌在覆盖记录中被提及的比例",
-    percent: toProgressPercent(report.value.brandMentionRate)
-  },
-  {
-    label: "品牌推荐率",
-    value: formatPercent(report.value.brandRecommendRate),
-    description: "品牌在覆盖记录中被推荐的比例",
-    percent: toProgressPercent(report.value.brandRecommendRate)
-  },
-  {
-    label: "官网引用次数",
-    value: formatNumber(report.value.citedOfficialSiteCount),
-    description: "AI 回答引用官网或可信来源的次数"
-  },
-  {
-    label: "官网引用率",
-    value: formatPercent(report.value.citedOfficialSiteRate),
-    description: "官网引用记录占模型记录的比例",
-    percent: toProgressPercent(report.value.citedOfficialSiteRate)
-  },
-  {
-    label: "未覆盖追踪提示词数",
-    value: formatNumber(report.value.uncoveredTrackedPromptCount),
-    description: "仍缺模型表现记录的追踪词",
     tone: report.value.uncoveredTrackedPromptCount > 0 ? ("warning" as const) : ("default" as const)
   }
 ]);
@@ -295,7 +167,7 @@ type DashboardAction = {
 const todayActions = computed<DashboardAction[]>(() => [
   {
     title: "补 GEO 检测",
-    description: "先把追踪词的模型覆盖记录补齐，避免报表缺少判断依据。",
+    description: "补齐追踪词检测记录。",
     signal:
       report.value.uncoveredTrackedPromptCount > 0
         ? `${report.value.uncoveredTrackedPromptCount} 个追踪词待补检测`
@@ -307,7 +179,7 @@ const todayActions = computed<DashboardAction[]>(() => [
   },
   {
     title: "补内容",
-    description: "围绕未命中词或高优先级词补内容任务，让 AI 有可引用素材。",
+    description: "围绕未命中词生成素材。",
     signal: `${report.value.contentTaskCount} 个任务 / ${report.value.contentItemCount} 篇内容`,
     buttonLabel: "去生成内容",
     to: "/content-tasks",
@@ -316,7 +188,7 @@ const todayActions = computed<DashboardAction[]>(() => [
   },
   {
     title: "补知识库",
-    description: "补企业事实、选型边界和 FAQ，减少内容生成里的未经证实表达。",
+    description: "补企业事实和选型边界。",
     signal:
       report.value.knowledgeChunkCount > 0
         ? `${report.value.knowledgeChunkCount} 条知识片段`
@@ -325,22 +197,13 @@ const todayActions = computed<DashboardAction[]>(() => [
     to: "/knowledge-bases",
     tone: report.value.knowledgeChunkCount > 0 ? "good" : "warning",
     icon: Files
-  },
-  {
-    title: "看命中结果",
-    description: "查看平台命中、品牌提及和推荐表现，决定下一轮补什么。",
-    signal: `${report.value.modelInclusionRecordCount} 条检测记录`,
-    buttonLabel: "去看报表",
-    to: "/reports",
-    tone: report.value.modelInclusionRecordCount > 0 ? "good" : "warning",
-    icon: PieChart
   }
 ]);
 
 const operationQueue = computed(() => [
   {
     title: "待补检测 GEO 词",
-    description: "优先处理高优先级、已开启追踪但还没有检测记录的词。",
+    description: "优先补高优先级追踪词。",
     status:
       report.value.uncoveredTrackedPromptCount > 0
         ? `${report.value.uncoveredTrackedPromptCount} 个追踪词待处理`
@@ -351,7 +214,7 @@ const operationQueue = computed(() => [
   },
   {
     title: "待质检 / 优化内容",
-    description: "内容生成后建议先做质量检查，再准备发布优化版和富文本稿。",
+    description: "先质检，再做发布优化。",
     status:
       report.value.failedContentTaskCount > 0
         ? `${report.value.failedContentTaskCount} 个失败任务需处理`
@@ -362,7 +225,7 @@ const operationQueue = computed(() => [
   },
   {
     title: "待补知识资料",
-    description: "如果内容中常出现未证实参数，优先补知识库和指令模板事实边界。",
+    description: "补事实、FAQ 和选型边界。",
     status: `${report.value.knowledgeBaseCount} 个知识库 / ${report.value.knowledgeChunkCount} 条片段`,
     to: "/knowledge-bases",
     buttonLabel: "查看知识库",
@@ -370,7 +233,7 @@ const operationQueue = computed(() => [
   },
   {
     title: "待看命中汇总",
-    description: "定期看各平台最新命中结果，找出未提及、竞品占位和推荐不足的词。",
+    description: "看未命中、竞品占位和推荐不足。",
     status: `品牌推荐率 ${formatPercent(report.value.brandRecommendRate)}`,
     to: "/reports",
     buttonLabel: "打开 GEO 报表",
@@ -378,7 +241,105 @@ const operationQueue = computed(() => [
   }
 ]);
 
-const recentSuggestionPreview = computed(() => suggestions.value.slice(0, 5));
+const normalizeSuggestionProductLine = (item: OptimizationSuggestion) =>
+  item.relatedProductLine?.trim() || "默认产品线";
+
+const getGroupedSuggestionTitle = (
+  item: OptimizationSuggestion,
+  productLine: string,
+  count: number
+) => {
+  if (item.type === "product_line_without_knowledge") {
+    return `${productLine}缺少知识库资料`;
+  }
+
+  if (item.type === "prompt_without_record") {
+    return `${productLine}有 ${count} 个词待补检测`;
+  }
+
+  if (item.type === "prompt_without_content") {
+    return `${productLine}有 ${count} 个词缺内容`;
+  }
+
+  if (item.type === "prompt_not_mentioned") {
+    return `${productLine}有 ${count} 个词未命中品牌`;
+  }
+
+  return count > 1 ? `${count} 个内容任务失败` : item.title;
+};
+
+const getGroupedSuggestionReason = (
+  item: OptimizationSuggestion,
+  productLine: string,
+  count: number
+) => {
+  if (count <= 1) {
+    return item.reason;
+  }
+
+  if (item.type === "product_line_without_knowledge") {
+    return `合并 ${count} 条相似建议：${productLine}资料不足会影响内容生成和命中判断。`;
+  }
+
+  if (item.type === "prompt_without_record") {
+    return `合并 ${count} 条相似建议：这些词缺少检测记录，报表判断会偏弱。`;
+  }
+
+  if (item.type === "prompt_without_content") {
+    return `合并 ${count} 条相似建议：这些词缺少内容资产支撑。`;
+  }
+
+  if (item.type === "prompt_not_mentioned") {
+    return `合并 ${count} 条相似建议：这些词需要补品牌内容或外部资料。`;
+  }
+
+  return `合并 ${count} 条相似建议：优先处理失败任务。`;
+};
+
+const getGroupedSuggestionAction = (item: OptimizationSuggestion) => {
+  if (item.type === "product_line_without_knowledge") {
+    return "去知识库补资料";
+  }
+
+  if (item.type === "prompt_without_record") {
+    return "去补检测记录";
+  }
+
+  if (item.type === "prompt_without_content" || item.type === "prompt_not_mentioned") {
+    return "去生成内容";
+  }
+
+  return item.suggestedAction || "去内容任务处理";
+};
+
+const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
+  const groups = new Map<string, OptimizationSuggestion[]>();
+
+  suggestions.value.forEach((item) => {
+    const productLine = normalizeSuggestionProductLine(item);
+    const key = `${item.type}-${productLine}-${item.relatedModel ?? ""}`;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  });
+
+  return Array.from(groups.values())
+    .map((items) => {
+      const [first] = items;
+      const productLine = normalizeSuggestionProductLine(first);
+
+      return {
+        ...first,
+        priority: Math.max(...items.map((item) => item.priority)),
+        title: getGroupedSuggestionTitle(first, productLine, items.length),
+        reason: getGroupedSuggestionReason(first, productLine, items.length),
+        suggestedAction: getGroupedSuggestionAction(first),
+        relatedPromptText:
+          items.length > 1 ? `已合并 ${items.length} 条相似建议` : first.relatedPromptText,
+        relatedProductLine: productLine
+      };
+    })
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 5);
+});
 </script>
 
 <template>
@@ -386,11 +347,8 @@ const recentSuggestionPreview = computed(() => suggestions.value.slice(0, 5));
     <header class="dashboard-hero">
       <div class="dashboard-hero__copy">
         <el-tag type="success" effect="plain">GEO 工作台</el-tag>
-        <h1>今天先把 GEO 闭环往前推进一步</h1>
-        <p>
-          首页优先展示今天该处理的运营动作：补检测、补内容、补知识库，再查看命中结果。
-          下面的数据仍来自现有 GEO 总览和优化建议接口。
-        </p>
+        <h1>今天先处理三件事</h1>
+        <p>补检测、补内容、补知识库。其余数据下移，避免首页变成说明书。</p>
       </div>
       <div class="dashboard-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -403,8 +361,8 @@ const recentSuggestionPreview = computed(() => suggestions.value.slice(0, 5));
     <AppErrorState v-if="hasOverviewError" title="GEO 总览加载失败" :message="overviewError" />
 
     <DashboardSection
-      title="今天建议先处理这几件事"
-      description="把首页当作运营入口：先看动作，再进入对应页面处理，不在首页自动执行任何操作。"
+      title="今日三件事"
+      description="先处理最能推动 GEO 闭环的动作。"
     >
       <div class="dashboard-action-grid">
         <RouterLink
@@ -428,7 +386,7 @@ const recentSuggestionPreview = computed(() => suggestions.value.slice(0, 5));
 
     <DashboardSection
       title="核心数据概况"
-      description="只保留首屏最需要看的 4 个指标，帮助快速判断今天该补哪里。"
+      description="只看 4 个关键数字。"
     >
       <div class="dashboard-core-metric-grid">
         <RouterLink
@@ -450,7 +408,7 @@ const recentSuggestionPreview = computed(() => suggestions.value.slice(0, 5));
 
     <DashboardSection
       title="待处理运营队列"
-      description="这里不新增任务，只把现有数据组织成下一步入口。"
+      description="含合并后的待优化建议。"
     >
       <div class="dashboard-queue-grid">
         <article
@@ -468,77 +426,24 @@ const recentSuggestionPreview = computed(() => suggestions.value.slice(0, 5));
           </RouterLink>
         </article>
       </div>
+      <div class="dashboard-suggestion-panel">
+        <div class="dashboard-suggestion-panel__header">
+          <strong>合并后的优化建议</strong>
+          <span>按类型和产品线合并，展示 5 条以内</span>
+        </div>
+        <OptimizationSuggestionList
+          :items="groupedSuggestionPreview"
+          :loading="loading && suggestions.length === 0"
+          :error-message="suggestionsError"
+        />
+      </div>
     </DashboardSection>
 
-    <DashboardSection
-      title="最近待优化建议"
-      description="默认展示 5 条以内，优先作为今日处理线索；完整清单可进入报表继续看。"
-    >
-      <OptimizationSuggestionList
-        :items="recentSuggestionPreview"
-        :loading="loading && suggestions.length === 0"
-        :error-message="suggestionsError"
-      />
-    </DashboardSection>
-
-    <DashboardSection title="快捷入口" description="常用运营页面保留在这里，作为首页动作卡片的补充。">
+    <DashboardSection title="快捷入口" description="常用运营页面。">
       <QuickActionGrid />
-    </DashboardSection>
-
-    <DashboardSection
-      title="更多数据概况"
-      description="次要指标下移展示，保留原有统计来源，避免首屏变成指标墙。"
-    >
-      <el-collapse class="dashboard-secondary-collapse">
-        <el-collapse-item title="提示词资产细分" name="prompts">
-          <div class="metric-grid metric-grid--prompts">
-            <MetricCard
-              v-for="metric in promptMetrics"
-              :key="metric.label"
-              :label="metric.label"
-              :value="metric.value"
-              :description="metric.description"
-              :tone="metric.tone"
-              :loading="isInitialLoading"
-            />
-          </div>
-        </el-collapse-item>
-        <el-collapse-item title="知识库与内容资产" name="assets">
-          <div class="metric-grid">
-            <MetricCard
-              v-for="metric in assetMetrics"
-              :key="metric.label"
-              :label="metric.label"
-              :value="metric.value"
-              :description="metric.description"
-              :tone="metric.tone"
-              :loading="isInitialLoading"
-            />
-          </div>
-        </el-collapse-item>
-        <el-collapse-item title="模型覆盖效果" name="models">
-          <div class="metric-grid metric-grid--model">
-            <MetricCard
-              v-for="metric in modelMetrics"
-              :key="metric.label"
-              :label="metric.label"
-              :value="metric.value"
-              :description="metric.description"
-              :tone="metric.tone"
-              :percent="metric.percent"
-              :loading="isInitialLoading"
-            />
-          </div>
-        </el-collapse-item>
-      </el-collapse>
-    </DashboardSection>
-
-    <DashboardSection
-      title="当前能力边界"
-      description="明确哪些能力已经真实入库，哪些仍是模拟生成，避免把演示流程误判为自动化检测。"
-    >
-      <div class="dashboard-boundary-layout">
-        <CapabilityBoundaryCard />
+      <div class="dashboard-boundary-note">
+        <span>当前为本地测试版本，关键发布和参数事实仍需人工确认。</span>
+        <RouterLink to="/help">查看使用教程</RouterLink>
       </div>
     </DashboardSection>
   </section>
