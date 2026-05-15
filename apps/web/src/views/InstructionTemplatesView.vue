@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Refresh } from "@element-plus/icons-vue";
+import { Refresh } from "@element-plus/icons-vue";
 import {
   createInstructionTemplate,
   deleteInstructionTemplate,
@@ -276,11 +276,7 @@ onMounted(() => {
       <div>
         <el-tag type="success" effect="plain">GEO 指令库</el-tag>
         <h1>指令库</h1>
-        <p>
-          沉淀适用于 GEO 内容生成的指令模板，用于指导 AI
-          问答素材、需求决策指南、场景方案、FAQ、对比与替代内容的生产。
-        </p>
-        <strong>用什么指令指导 GEO 内容生成？哪些指令适合蒸馏词、品牌词和场景词？</strong>
+        <p>沉淀内容生成方法和规则，不是用户搜索词库。</p>
       </div>
       <div class="instruction-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -306,9 +302,8 @@ onMounted(() => {
         <div>
           <p class="section-kicker">可复用方法</p>
           <h2>GEO 指令模板列表</h2>
-          <p>沉淀可复用的 GEO 内容生产方法，后续内容任务会选择这些模板来约束输出结构和质量。</p>
+          <p>查看模板适用场景、规则清单和更新时间。</p>
         </div>
-        <el-button :icon="Plus" type="primary" @click="openCreateDialog"> 新建指令模板 </el-button>
       </div>
 
       <el-table

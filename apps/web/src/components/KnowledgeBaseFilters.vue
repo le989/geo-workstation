@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch } from "vue";
+import { reactive, ref, watch } from "vue";
 import type { KnowledgeBaseQuery } from "@/api/knowledge";
 import { knowledgeBaseStatusOptions } from "@/config/knowledge-options";
 
@@ -16,6 +16,7 @@ const emit = defineEmits<{
 }>();
 
 const localFilters = reactive<KnowledgeBaseQuery>({ ...props.modelValue });
+const showAdvancedFilters = ref(false);
 
 watch(
   () => props.modelValue,
@@ -39,8 +40,8 @@ watch(
     <div class="knowledge-filter-copy">
       <div>
         <p class="section-kicker">知识资产</p>
-        <h2>知识库筛选</h2>
-        <p>按产品线、状态和关键词查看哪些企业事实资料已经沉淀为 GEO 知识资产。</p>
+        <h2>筛选知识库</h2>
+        <p>按关键词、产品线和状态快速定位企业事实资料。</p>
       </div>
       <el-button type="primary" @click="emit('create')">新建知识库</el-button>
     </div>
@@ -67,7 +68,7 @@ watch(
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="创建人">
+      <el-form-item v-if="showAdvancedFilters" label="创建人">
         <el-input v-model="localFilters.createdBy" clearable placeholder="创建人 ID" />
       </el-form-item>
     </el-form>
@@ -75,7 +76,9 @@ watch(
     <div class="knowledge-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button type="success" @click="emit('create')">新建知识库</el-button>
+      <el-button text @click="showAdvancedFilters = !showAdvancedFilters">
+        {{ showAdvancedFilters ? "收起更多筛选" : "更多筛选" }}
+      </el-button>
     </div>
   </section>
 </template>

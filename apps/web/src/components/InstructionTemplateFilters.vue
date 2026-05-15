@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch } from "vue";
+import { reactive, ref, watch } from "vue";
 import type { InstructionTemplateQuery } from "@/api/instructions";
 import type { GeoPromptType } from "@/api/geo-prompts";
 import {
@@ -21,6 +21,7 @@ const emit = defineEmits<{
 }>();
 
 const localFilters = reactive<InstructionTemplateQuery>({ ...props.modelValue });
+const showAdvancedFilters = ref(false);
 
 watch(
   () => props.modelValue,
@@ -44,8 +45,8 @@ watch(
     <div class="instruction-filter-copy">
       <div>
         <p class="section-kicker">指令资产</p>
-        <h2>指令模板筛选</h2>
-        <p>按 GEO 内容生产方法、内容类型、适用提示词类型和模型筛选可复用指令。</p>
+        <h2>筛选指令模板</h2>
+        <p>指令库管理内容怎么写；提示词策略库管理用户会问什么。</p>
       </div>
       <el-button type="primary" @click="emit('create')">新建指令模板</el-button>
     </div>
@@ -91,7 +92,7 @@ watch(
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="适用提示词类型">
+      <el-form-item v-if="showAdvancedFilters" label="适用提示词类型">
         <el-select v-model="localFilters.targetPromptType" clearable placeholder="全部提示词类型">
           <el-option
             v-for="option in targetPromptTypeOptions"
@@ -101,10 +102,10 @@ watch(
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="适用模型">
+      <el-form-item v-if="showAdvancedFilters" label="适用模型">
         <el-input v-model="localFilters.targetModel" clearable placeholder="例如 deepseek-chat" />
       </el-form-item>
-      <el-form-item label="创建人">
+      <el-form-item v-if="showAdvancedFilters" label="创建人">
         <el-input v-model="localFilters.createdBy" clearable placeholder="创建人 ID" />
       </el-form-item>
     </el-form>
@@ -112,7 +113,9 @@ watch(
     <div class="instruction-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button type="success" @click="emit('create')">新建指令</el-button>
+      <el-button text @click="showAdvancedFilters = !showAdvancedFilters">
+        {{ showAdvancedFilters ? "收起更多筛选" : "更多筛选" }}
+      </el-button>
     </div>
   </section>
 </template>

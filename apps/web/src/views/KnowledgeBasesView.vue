@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Refresh } from "@element-plus/icons-vue";
+import { Refresh } from "@element-plus/icons-vue";
 import {
   createKnowledgeBase,
   deleteKnowledgeBase,
@@ -586,11 +586,7 @@ onMounted(() => {
       <div>
         <el-tag type="success" effect="plain">企业 GEO 知识库</el-tag>
         <h1>企业 GEO 知识库</h1>
-        <p>
-          沉淀产品、参数、场景、案例、资质、FAQ 等企业事实资料，作为 GEO 内容生成和 AI
-          可引用信息的基础。
-        </p>
-        <strong>AI 应该引用哪些企业事实资料？哪些资料已经解析成可用知识片段？</strong>
+        <p>管理产品资料、FAQ 和知识片段，作为内容生成的事实依据。</p>
       </div>
       <div class="knowledge-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -616,9 +612,8 @@ onMounted(() => {
         <div>
           <p class="section-kicker">事实底座</p>
           <h2>企业事实资料库</h2>
-          <p>查看各产品线的知识资产建设情况，并进入详情完成文本导入、文件解析和片段维护。</p>
+          <p>查看知识资产建设情况，进入详情维护文件和片段。</p>
         </div>
-        <el-button :icon="Plus" type="primary" @click="openCreateDialog">新建知识库</el-button>
       </div>
 
       <el-table
