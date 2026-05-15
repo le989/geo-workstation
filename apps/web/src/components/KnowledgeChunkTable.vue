@@ -18,6 +18,8 @@ const emit = defineEmits<{
   edit: [chunk: KnowledgeChunk];
   delete: [chunk: KnowledgeChunk];
 }>();
+
+const getWordCount = (value?: string) => (value ? value.length : 0);
 </script>
 
 <template>
@@ -29,19 +31,31 @@ const emit = defineEmits<{
     border
     empty-text="暂无知识片段，可先文本导入或上传 txt/md/csv 文件。"
   >
-    <el-table-column prop="title" label="标题" min-width="200" fixed="left">
+    <el-table-column prop="title" label="片段" min-width="250" fixed="left">
       <template #default="{ row }: { row: KnowledgeChunk }">
-        <strong class="knowledge-main-text">{{ row.title }}</strong>
+        <div class="knowledge-chunk-title">
+          <strong class="knowledge-main-text">{{ row.title }}</strong>
+          <span>{{ sourceTypeLabelMap[row.sourceType] ?? row.sourceType }}</span>
+        </div>
       </template>
     </el-table-column>
-    <el-table-column prop="content" label="内容摘要" min-width="320">
+    <el-table-column prop="content" label="内容摘要" min-width="360">
       <template #default="{ row }: { row: KnowledgeChunk }">
-        <span class="knowledge-content-summary">{{ truncateKnowledgeText(row.content, 120) }}</span>
-      </template>
-    </el-table-column>
-    <el-table-column prop="sourceType" label="来源" width="112">
-      <template #default="{ row }: { row: KnowledgeChunk }">
-        {{ sourceTypeLabelMap[row.sourceType] ?? row.sourceType }}
+        <div class="knowledge-content-preview">
+          <span class="knowledge-content-summary">{{ truncateKnowledgeText(row.content, 150) }}</span>
+          <div class="knowledge-content-meta">
+            <small>{{ getWordCount(row.content) }} 字</small>
+            <el-popover placement="left" trigger="click" width="560">
+              <template #reference>
+                <el-button link type="primary">展开阅读全文</el-button>
+              </template>
+              <div class="knowledge-full-content">
+                <strong>{{ row.title }}</strong>
+                <pre>{{ row.content }}</pre>
+              </div>
+            </el-popover>
+          </div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column prop="productLine" label="产品线" min-width="130">

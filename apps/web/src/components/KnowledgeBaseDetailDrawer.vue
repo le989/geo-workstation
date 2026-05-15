@@ -163,29 +163,44 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
       <el-skeleton v-if="detailLoading && !detail" :rows="6" animated />
 
       <template v-else-if="detail">
-        <el-descriptions :column="3" border class="knowledge-detail-summary">
-          <el-descriptions-item label="知识库名称">
-            {{ detail.knowledgeBase.name }}
-          </el-descriptions-item>
-          <el-descriptions-item label="产品线">
-            {{ formatOptional(detail.knowledgeBase.productLine) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="状态">
-            {{ getKnowledgeBaseStatusLabel(detail.knowledgeBase.status) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="文件数">
-            {{ detail.filesCount }}
-          </el-descriptions-item>
-          <el-descriptions-item label="知识片段数">
-            {{ detail.chunksCount }}
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ formatDateTime(detail.knowledgeBase.updatedAt) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="说明" :span="3">
+        <section class="knowledge-readable-section">
+          <div class="knowledge-readable-section__header">
+            <div>
+              <p class="section-kicker">基本信息</p>
+              <h3>资料底座概况</h3>
+            </div>
+            <el-tag effect="plain">{{ getKnowledgeBaseStatusLabel(detail.knowledgeBase.status) }}</el-tag>
+          </div>
+          <div class="knowledge-detail-card-grid">
+            <article>
+              <span>产品线</span>
+              <strong>{{ formatOptional(detail.knowledgeBase.productLine) }}</strong>
+            </article>
+            <article>
+              <span>资料文件</span>
+              <strong>{{ detail.filesCount }} 个</strong>
+            </article>
+            <article>
+              <span>知识片段</span>
+              <strong>{{ detail.chunksCount }} 条</strong>
+            </article>
+            <article>
+              <span>更新时间</span>
+              <strong>{{ formatDateTime(detail.knowledgeBase.updatedAt) }}</strong>
+            </article>
+          </div>
+          <p class="knowledge-readable-summary">
             {{ formatOptional(detail.knowledgeBase.description) }}
-          </el-descriptions-item>
-        </el-descriptions>
+          </p>
+        </section>
+
+        <el-alert
+          v-if="detail.chunksCount === 0"
+          title="当前知识库还没有知识片段，建议先补产品能力、应用场景、FAQ 或选型规则。"
+          type="warning"
+          show-icon
+          :closable="false"
+        />
 
         <section class="knowledge-operation-grid">
           <button
@@ -211,9 +226,9 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
             type="button"
             @click="emit('update:activeTab', 'text-import')"
           >
-            <span>文本导入</span>
-            <strong>快速补充事实资料</strong>
-            <small>适合先录入产品说明、FAQ、场景资料和选型边界。</small>
+            <span>新增资料</span>
+            <strong>上传或粘贴资料</strong>
+            <small>新增资料入口包含上传文件和粘贴文本。</small>
           </button>
         </section>
 
@@ -228,7 +243,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                 <div>
                   <p class="section-kicker">知识片段</p>
                   <h3>可被 GEO 内容引用的知识片段</h3>
-                  <p>查看、筛选和编辑企业事实资料，避免把知识库做成普通文件柜。</p>
+                  <p>默认显示摘要，点击展开可阅读和复制全文。</p>
                 </div>
               </div>
 
@@ -299,13 +314,11 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
             </section>
           </el-tab-pane>
 
-          <el-tab-pane label="文件资料" name="files">
-            <KnowledgeFileUpload :uploading="uploading" @upload="emit('upload-file', $event)" />
-
+          <el-tab-pane label="资料文件" name="files">
             <section class="knowledge-tab-panel">
               <div class="knowledge-tab-header">
                 <div>
-                  <p class="section-kicker">解析文件</p>
+                  <p class="section-kicker">资料文件</p>
                   <h3>文件解析状态</h3>
                   <p>解析失败会保留错误信息，可重新解析；删除文件会同步软删除关联知识片段。</p>
                 </div>
@@ -371,14 +384,45 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
             </section>
           </el-tab-pane>
 
-          <el-tab-pane label="文本导入" name="text-import">
-            <KnowledgeTextImportForm
-              :default-product-line="detail.knowledgeBase.productLine"
-              :submitting="textImportSubmitting"
-              @submit="emit('text-import', $event)"
-            />
+          <el-tab-pane label="新增资料" name="text-import">
+            <section class="knowledge-tab-panel">
+              <div class="knowledge-tab-header">
+                <div>
+                  <p class="section-kicker">新增资料</p>
+                  <h3>上传文件或粘贴文本</h3>
+                  <p>把产品能力、应用场景、FAQ 和选型规则补进知识库。</p>
+                </div>
+              </div>
+              <div class="knowledge-add-source-grid">
+                <KnowledgeFileUpload :uploading="uploading" @upload="emit('upload-file', $event)" />
+                <KnowledgeTextImportForm
+                  :default-product-line="detail.knowledgeBase.productLine"
+                  :submitting="textImportSubmitting"
+                  @submit="emit('text-import', $event)"
+                />
+              </div>
+            </section>
           </el-tab-pane>
         </el-tabs>
+
+        <el-collapse class="knowledge-technical-collapse">
+          <el-collapse-item title="技术信息" name="technical">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="知识库 ID">
+                {{ detail.knowledgeBase.id }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建人">
+                {{ formatOptional(detail.knowledgeBase.createdBy) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建时间">
+                {{ formatDateTime(detail.knowledgeBase.createdAt) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="更新时间">
+                {{ formatDateTime(detail.knowledgeBase.updatedAt) }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-collapse-item>
+        </el-collapse>
       </template>
     </section>
   </el-drawer>

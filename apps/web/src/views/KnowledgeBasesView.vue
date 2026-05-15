@@ -104,6 +104,28 @@ const trimOptional = (value?: string) => {
   return trimmed ? trimmed : undefined;
 };
 
+const formatKnowledgeDescription = (value?: string) => {
+  const description = value?.trim();
+
+  if (!description) {
+    return "暂无说明，建议补充产品能力、应用场景或 FAQ。";
+  }
+
+  return description.length > 72 ? `${description.slice(0, 72)}...` : description;
+};
+
+const getKnowledgeNextAction = (knowledgeBase: KnowledgeBase) => {
+  if (!knowledgeBase.description?.trim()) {
+    return "补说明";
+  }
+
+  if (knowledgeBase.status !== "active" && knowledgeBase.status !== "enabled") {
+    return "检查状态";
+  }
+
+  return "维护片段";
+};
+
 const buildKnowledgeBaseQuery = (): KnowledgeBaseQuery => ({
   createdBy: trimOptional(filters.createdBy),
   page: page.value,
@@ -617,9 +639,11 @@ onMounted(() => {
             {{ formatOptional(row.productLine) }}
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="说明" min-width="260">
+        <el-table-column prop="description" label="说明摘要" min-width="260">
           <template #default="{ row }: { row: KnowledgeBase }">
-            {{ formatOptional(row.description) }}
+            <span class="knowledge-description-line">
+              {{ formatKnowledgeDescription(row.description) }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="92">
@@ -632,9 +656,14 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" min-width="168">
+        <el-table-column label="下一步" width="104">
           <template #default="{ row }: { row: KnowledgeBase }">
-            {{ formatDateTime(row.createdAt) }}
+            <el-tag effect="plain">{{ getKnowledgeNextAction(row) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="updatedAt" label="更新时间" min-width="168">
+          <template #default="{ row }: { row: KnowledgeBase }">
+            {{ formatDateTime(row.updatedAt) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="154" fixed="right">

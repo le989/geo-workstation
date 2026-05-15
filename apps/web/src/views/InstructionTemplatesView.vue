@@ -24,8 +24,7 @@ import InstructionTemplateTypeTag from "@/components/InstructionTemplateTypeTag.
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   contentTypeLabelMap,
-  targetPromptTypeLabelMap,
-  truncateInstructionText
+  targetPromptTypeLabelMap
 } from "@/config/instruction-options";
 
 const templates = ref<InstructionTemplate[]>([]);
@@ -70,6 +69,41 @@ const getErrorMessage = (error: unknown) => {
 const trimOptional = (value?: string) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+};
+
+const getTemplateText = (template: InstructionTemplate) =>
+  [
+    template.instruction,
+    template.outputFormat,
+    template.qualityRules,
+    template.forbiddenRules
+  ].join("\n");
+
+const templateContainsAny = (template: InstructionTemplate, keywords: string[]) => {
+  const text = getTemplateText(template);
+  return keywords.some((keyword) => text.includes(keyword));
+};
+
+const hasBrandAnchor = (template: InstructionTemplate) =>
+  templateContainsAny(template, ["品牌锚点", "目标品牌", "凯基特", "品牌实体", "品牌推荐"]);
+
+const hasFactBoundary = (template: InstructionTemplate) =>
+  templateContainsAny(template, [
+    "事实边界",
+    "禁止虚构",
+    "不要虚构",
+    "未证实",
+    "具体参数",
+    "防护等级",
+    "认证"
+  ]);
+
+const getTemplateScenario = (template: InstructionTemplate) => {
+  const contentType = contentTypeLabelMap[template.contentType] ?? template.contentType;
+  const promptType = template.targetPromptType
+    ? targetPromptTypeLabelMap[template.targetPromptType]
+    : "全部提示词";
+  return `${contentType} / ${promptType}`;
 };
 
 const buildQuery = (): InstructionTemplateQuery => ({
@@ -295,14 +329,21 @@ onMounted(() => {
             <InstructionTemplateTypeTag :type="row.instructionType" />
           </template>
         </el-table-column>
-        <el-table-column prop="contentType" label="内容类型" min-width="120">
+        <el-table-column label="适用场景" min-width="180">
           <template #default="{ row }: { row: InstructionTemplate }">
-            {{ contentTypeLabelMap[row.contentType] ?? row.contentType }}
+            <span class="instruction-scenario">{{ getTemplateScenario(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="targetPromptType" label="适用提示词类型" width="132">
+        <el-table-column label="规则清单" min-width="180">
           <template #default="{ row }: { row: InstructionTemplate }">
-            {{ row.targetPromptType ? targetPromptTypeLabelMap[row.targetPromptType] : "--" }}
+            <div class="instruction-rule-tags">
+              <el-tag :type="hasBrandAnchor(row) ? 'success' : 'info'" effect="plain">
+                {{ hasBrandAnchor(row) ? "品牌锚点" : "无品牌锚点" }}
+              </el-tag>
+              <el-tag :type="hasFactBoundary(row) ? 'warning' : 'info'" effect="plain">
+                {{ hasFactBoundary(row) ? "事实边界" : "未标事实边界" }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="targetModel" label="适用模型" min-width="126">
@@ -310,16 +351,9 @@ onMounted(() => {
             {{ formatOptional(row.targetModel) }}
           </template>
         </el-table-column>
-        <el-table-column prop="instruction" label="指令摘要" min-width="320">
+        <el-table-column prop="updatedAt" label="更新时间" min-width="168">
           <template #default="{ row }: { row: InstructionTemplate }">
-            <span class="instruction-summary">{{
-              truncateInstructionText(row.instruction, 130)
-            }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" min-width="168">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            {{ formatDateTime(row.createdAt) }}
+            {{ formatDateTime(row.updatedAt) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="184" fixed="right">
