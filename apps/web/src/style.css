@@ -522,6 +522,71 @@ a {
   color: #5f576b;
 }
 
+.header-company-dropdown {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.header-company-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  max-width: 180px;
+  padding: 0 10px;
+  border: 1px solid #e2dcf0;
+  border-radius: 999px;
+  background: #fff;
+  color: #17131f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.header-company-trigger:hover,
+.header-company-trigger:focus-visible {
+  border-color: #cfc1ff;
+  background: #fbfaff;
+  box-shadow: 0 6px 18px rgb(109 40 255 / 8%);
+  outline: none;
+}
+
+.header-company-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-company-trigger .el-icon,
+.header-company-tag .el-icon {
+  flex: 0 0 auto;
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.header-company-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  height: 30px;
+  border-color: #e2dcf0;
+  background: #fff;
+  color: #4f465c;
+  font-weight: 750;
+}
+
+.header-company-tag span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .header-user-dropdown {
   flex: 0 0 auto;
 }

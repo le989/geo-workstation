@@ -45,6 +45,11 @@ export type ApiEnvironment = {
 
 export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvironment {
   const nodeEnv = getString(config.NODE_ENV, "development");
+  const bypassAuthForTests = getOptionalString(config.BYPASS_AUTH_FOR_TESTS);
+
+  if (nodeEnv === "production" && bypassAuthForTests === "true") {
+    throw new Error("BYPASS_AUTH_FOR_TESTS cannot be enabled in production.");
+  }
 
   return {
     NODE_ENV: nodeEnv,
@@ -57,7 +62,7 @@ export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvi
     JWT_EXPIRES_IN: getString(config.JWT_EXPIRES_IN, "12h"),
     DEFAULT_ADMIN_EMAIL: getString(config.DEFAULT_ADMIN_EMAIL, "admin@geo-workstation.local"),
     DEFAULT_ADMIN_PASSWORD: getString(config.DEFAULT_ADMIN_PASSWORD, "change_me_admin_password"),
-    BYPASS_AUTH_FOR_TESTS: getOptionalString(config.BYPASS_AUTH_FOR_TESTS),
+    BYPASS_AUTH_FOR_TESTS: bypassAuthForTests,
     AI_PROVIDER: getString(config.AI_PROVIDER, "mock"),
     AI_OPENAI_COMPATIBLE_BASE_URL: getString(
       config.AI_OPENAI_COMPATIBLE_BASE_URL,

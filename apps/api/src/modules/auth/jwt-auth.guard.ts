@@ -48,7 +48,19 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const payload = this.jwtTokenService.verifyToken(token);
-    request.user = await this.authService.getCurrentUser(payload.sub);
+    const session = await this.authService.getCurrentSession(
+      payload.sub,
+      this.extractCompanyId(request)
+    );
+    request.authSession = session;
+    request.user = session.user;
+    request.currentCompany = session.currentCompany;
+    request.currentMembership = {
+      companyId: session.currentCompany.id,
+      role: session.currentCompany.role,
+      isDefault: session.currentCompany.isDefault,
+      isPlatformAdmin: session.user.isPlatformAdmin
+    };
 
     return true;
   }
@@ -72,5 +84,13 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     return token;
+  }
+
+  private extractCompanyId(request: AuthenticatedRequest): string | undefined {
+    const value = request.headers["x-company-id"] ?? request.headers["X-Company-Id"];
+    const companyId = Array.isArray(value) ? value[0] : value;
+    const trimmedCompanyId = companyId?.trim();
+
+    return trimmedCompanyId || undefined;
   }
 }

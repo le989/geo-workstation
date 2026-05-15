@@ -11,7 +11,8 @@ export class JwtTokenService {
     const payload: JwtUserPayload = {
       sub: user.id,
       email: user.email,
-      role: user.role
+      role: user.role,
+      isPlatformAdmin: user.isPlatformAdmin
     };
 
     const expiresIn = (this.configService.get<string>("JWT_EXPIRES_IN") ??
@@ -53,7 +54,8 @@ export class JwtTokenService {
       typeof payload === "object" &&
       typeof payload.sub === "string" &&
       typeof payload.email === "string" &&
-      typeof payload.role === "string"
+      typeof payload.role === "string" &&
+      (payload.isPlatformAdmin === undefined || typeof payload.isPlatformAdmin === "boolean")
     );
   }
 }

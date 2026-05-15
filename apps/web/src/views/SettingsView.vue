@@ -61,6 +61,9 @@ const trimOptional = (value: string) => {
 
 const joinValues = (values: string[]) => values.join("\n");
 const roleLabelMap = {
+  platform_admin: "平台管理员",
+  company_admin: "公司管理员",
+  operator: "运营人员",
   admin: "管理员",
   geo_operator: "GEO 运营",
   content_editor: "内容编辑",

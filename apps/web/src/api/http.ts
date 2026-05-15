@@ -3,6 +3,7 @@ import type { ApiResponse } from "./types";
 export const DEFAULT_API_BASE_URL = "http://localhost:3000";
 
 let authTokenGetter: (() => string | null) | undefined;
+let currentCompanyGetter: (() => string | null) | undefined;
 let unauthorizedHandler: (() => void) | undefined;
 
 export class ApiClientError extends Error {
@@ -21,6 +22,10 @@ export class ApiClientError extends Error {
 
 export const setAuthTokenGetter = (getter: () => string | null) => {
   authTokenGetter = getter;
+};
+
+export const setCurrentCompanyGetter = (getter: () => string | null) => {
+  currentCompanyGetter = getter;
 };
 
 export const setUnauthorizedHandler = (handler: () => void) => {
@@ -46,6 +51,10 @@ export const resolveApiUrl = (path: string) => {
 };
 
 const hasRequestBody = (body: unknown) => body !== undefined && body !== null;
+const shouldAttachCompanyHeader = (path: string) => {
+  const normalizedPath = path.replace(/^\/+/, "");
+  return !["health", "api/auth/login"].includes(normalizedPath);
+};
 
 const isApiResponse = <T>(payload: unknown): payload is ApiResponse<T> => {
   if (!payload || typeof payload !== "object") {
@@ -66,6 +75,16 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const token = authTokenGetter?.();
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const currentCompanyId = currentCompanyGetter?.();
+  if (
+    token &&
+    currentCompanyId &&
+    !headers.has("X-Company-Id") &&
+    shouldAttachCompanyHeader(path)
+  ) {
+    headers.set("X-Company-Id", currentCompanyId);
   }
 
   const response = await fetch(resolveApiUrl(path), {

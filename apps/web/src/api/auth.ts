@@ -1,10 +1,29 @@
-import { apiGet, apiRequest } from "./http";
+import { apiRequest } from "./http";
+
+export type AuthRole =
+  | "platform_admin"
+  | "company_admin"
+  | "operator"
+  | "admin"
+  | "geo_operator"
+  | "content_editor"
+  | "viewer";
 
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "geo_operator" | "content_editor" | "viewer";
+  role: AuthRole;
+  status: "active" | "disabled";
+  isPlatformAdmin: boolean;
+};
+
+export type AuthCompany = {
+  id: string;
+  name: string;
+  code: string;
+  role: "platform_admin" | "company_admin" | "operator";
+  isDefault: boolean;
   status: "active" | "disabled";
 };
 
@@ -13,9 +32,14 @@ export type LoginPayload = {
   password: string;
 };
 
-export type LoginResult = {
-  token: string;
+export type AuthSession = {
   user: AuthUser;
+  companies: AuthCompany[];
+  currentCompany: AuthCompany;
+};
+
+export type LoginResult = AuthSession & {
+  token: string;
 };
 
 export const login = (payload: LoginPayload) =>
@@ -24,7 +48,11 @@ export const login = (payload: LoginPayload) =>
     body: JSON.stringify(payload)
   });
 
-export const getCurrentUser = () => apiGet<AuthUser>("/api/auth/me");
+export const getCurrentUser = (companyId?: string | null) =>
+  apiRequest<AuthSession>("/api/auth/me", {
+    method: "GET",
+    headers: companyId ? { "X-Company-Id": companyId } : undefined
+  });
 
 export const logout = () =>
   apiRequest<{ loggedOut: boolean }>("/api/auth/logout", {

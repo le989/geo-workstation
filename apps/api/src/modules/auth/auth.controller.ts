@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Inject, Post, UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-import { CurrentUser } from "./current-user.decorator";
+import { CurrentSession } from "./current-session.decorator";
 import { LoginDto } from "./dto/login.dto";
 import { Public } from "./public.decorator";
-import type { AuthUser } from "./auth.types";
+import type { AuthSession } from "./auth.types";
 
 @Controller("api/auth")
 export class AuthController {
@@ -16,12 +16,12 @@ export class AuthController {
   }
 
   @Get("me")
-  me(@CurrentUser() user: AuthUser | undefined) {
-    if (!user) {
+  me(@CurrentSession() session: AuthSession | undefined) {
+    if (!session) {
       throw new UnauthorizedException("请先登录");
     }
 
-    return user;
+    return session;
   }
 
   @Post("logout")

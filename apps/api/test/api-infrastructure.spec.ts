@@ -17,6 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module";
 import { configureApiApp } from "../src/common/bootstrap/configure-api-app";
 import { createValidationPipe } from "../src/common/validation/create-validation-pipe";
+import { validateApiEnvironment } from "../src/config/api-environment";
 import { GeoAnalysisModule } from "../src/modules/geo-analysis/geo-analysis.module";
 import { GeoContentModule } from "../src/modules/geo-content/geo-content.module";
 import { GeoExpansionModule } from "../src/modules/geo-expansion/geo-expansion.module";
@@ -187,5 +188,17 @@ describe("Phase 2A API infrastructure", () => {
     );
 
     await moduleRef.close();
+  });
+
+  it("rejects auth bypass in production configuration", () => {
+    expect(() =>
+      validateApiEnvironment({
+        NODE_ENV: "production",
+        DATABASE_URL:
+          "postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public",
+        JWT_SECRET: "production-test-secret",
+        BYPASS_AUTH_FOR_TESTS: "true"
+      })
+    ).toThrow("BYPASS_AUTH_FOR_TESTS cannot be enabled in production.");
   });
 });

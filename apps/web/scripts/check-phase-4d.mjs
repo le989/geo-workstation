@@ -19,7 +19,11 @@ const requiredSnippets = [
   ["/api/auth/me", "src/api/auth.ts"],
   ["/api/auth/logout", "src/api/auth.ts"],
   ["geo-workstation.auth-token", "src/stores/auth.ts"],
+  ["geo-workstation.auth-current-company-id", "src/stores/auth.ts"],
+  ["setCurrentCompanyGetter", "src/api/http.ts"],
+  ["X-Company-Id", "src/api/http.ts"],
   ["geo-auth:unauthorized", "src/stores/auth.ts"],
+  ["setCurrentCompany", "src/stores/auth.ts"],
   ["beforeEach", "src/router/index.ts"],
   ["requiresAuth", "src/router/routes.ts"],
   ["publicOnly", "src/router/routes.ts"],
@@ -27,7 +31,8 @@ const requiredSnippets = [
   ["AI 搜索可见度运营闭环", "src/views/LoginView.vue"],
   ["内部访问控制", "src/views/LoginView.vue"],
   ["退出登录", "src/layouts/AppLayout.vue"],
-  ["currentUser", "src/layouts/AppLayout.vue"]
+  ["currentUser", "src/layouts/AppLayout.vue"],
+  ["currentCompany", "src/layouts/AppLayout.vue"]
 ];
 
 const assert = (condition, message) => {

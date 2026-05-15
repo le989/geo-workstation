@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-import { ArrowDown, Connection, Expand, Fold, SwitchButton } from "@element-plus/icons-vue";
+import {
+  ArrowDown,
+  Connection,
+  Expand,
+  Fold,
+  OfficeBuilding,
+  SwitchButton
+} from "@element-plus/icons-vue";
 import { navigationItems } from "@/config/navigation";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
@@ -124,6 +131,9 @@ const navigationGroups = [
 const roleLabel = computed(() => {
   const role = authStore.currentUser?.role;
   const labels = {
+    platform_admin: "平台管理员",
+    company_admin: "公司管理员",
+    operator: "运营人员",
     admin: "管理员",
     geo_operator: "GEO 运营",
     content_editor: "内容编辑",
@@ -133,6 +143,7 @@ const roleLabel = computed(() => {
   return role ? labels[role] : "未登录";
 });
 
+const currentCompanyLabel = computed(() => authStore.currentCompany?.name ?? "未选择公司");
 const userInitial = computed(() => authStore.currentUser?.name?.slice(0, 1) || "G");
 const sidebarToggleLabel = computed(() =>
   isSidebarCollapseActive.value ? "展开菜单" : "收起菜单"
@@ -146,6 +157,12 @@ const handleLogout = async () => {
 const handleUserCommand = (command: string | number | object) => {
   if (command === "logout") {
     void handleLogout();
+  }
+};
+
+const handleCompanyCommand = (command: string | number | object) => {
+  if (typeof command === "string") {
+    authStore.setCurrentCompany(command);
   }
 };
 </script>
@@ -212,7 +229,7 @@ const handleUserCommand = (command: string | number | object) => {
       <div
         v-if="authStore.currentUser"
         class="sidebar-user-card"
-        :title="`${authStore.currentUser.name} / ${roleLabel}`"
+        :title="`${authStore.currentUser.name} / ${currentCompanyLabel} / ${roleLabel}`"
       >
         <span class="sidebar-user-card__avatar">{{ userInitial }}</span>
         <div>
@@ -232,6 +249,45 @@ const handleUserCommand = (command: string | number | object) => {
         <div class="header-actions">
           <el-tag class="header-env-tag" type="success" effect="plain">
             {{ appStore.environmentLabel }}
+          </el-tag>
+          <el-dropdown
+            v-if="authStore.companies.length > 1"
+            class="header-company-dropdown"
+            trigger="click"
+            @command="handleCompanyCommand"
+          >
+            <button class="header-company-trigger" type="button">
+              <el-icon>
+                <OfficeBuilding />
+              </el-icon>
+              <span>{{ currentCompanyLabel }}</span>
+              <el-icon>
+                <ArrowDown />
+              </el-icon>
+            </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="company in authStore.companies"
+                  :key="company.id"
+                  :command="company.id"
+                  :disabled="company.id === authStore.currentCompany?.id"
+                >
+                  <span>{{ company.name }}</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <el-tag
+            v-else-if="authStore.currentCompany"
+            class="header-company-tag"
+            effect="plain"
+            type="info"
+          >
+            <el-icon>
+              <OfficeBuilding />
+            </el-icon>
+            <span>{{ authStore.currentCompany.name }}</span>
           </el-tag>
           <el-tooltip :content="appStore.healthUrl" placement="bottom">
             <el-button class="header-status-button" :icon="Connection" plain>API 状态</el-button>

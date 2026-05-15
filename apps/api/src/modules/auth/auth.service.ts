@@ -1,13 +1,19 @@
-import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
-import { UserStatus, type User } from "@prisma/client";
+import { ForbiddenException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  CompanyStatus,
+  MembershipRole,
+  MembershipStatus,
+  UserRole,
+  UserStatus,
+  type User
+} from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import type { AuthUser } from "./auth.types";
+import type { AuthCompanyOption, AuthSession, AuthUser } from "./auth.types";
 import { JwtTokenService } from "./jwt-token.service";
 import { verifyPassword } from "./utils/password-hash.util";
 
-type LoginResult = {
+type LoginResult = AuthSession & {
   token: string;
-  user: AuthUser;
 };
 
 @Injectable()
@@ -34,15 +40,19 @@ export class AuthService {
       throw new UnauthorizedException("账号或密码错误");
     }
 
-    const safeUser = this.toAuthUser(user);
+    const session = await this.toAuthSession(user);
 
     return {
-      token: this.jwtTokenService.signUser(safeUser),
-      user: safeUser
+      token: this.jwtTokenService.signUser(session.user),
+      ...session
     };
   }
 
   async getCurrentUser(userId: string): Promise<AuthUser> {
+    return (await this.getCurrentSession(userId)).user;
+  }
+
+  async getCurrentSession(userId: string, requestedCompanyId?: string): Promise<AuthSession> {
     const user = await this.prisma.user.findUnique({
       where: {
         id: userId
@@ -53,7 +63,7 @@ export class AuthService {
       throw new UnauthorizedException("登录状态无效或已过期");
     }
 
-    return this.toAuthUser(user);
+    return this.toAuthSession(user, requestedCompanyId);
   }
 
   toAuthUser(user: User): AuthUser {
@@ -62,7 +72,94 @@ export class AuthService {
       name: user.name,
       email: user.email,
       role: user.role,
-      status: user.status
+      status: user.status,
+      isPlatformAdmin: this.isPlatformAdminRole(user.role)
     };
+  }
+
+  private async toAuthSession(user: User, requestedCompanyId?: string): Promise<AuthSession> {
+    const safeUser = this.toAuthUser(user);
+    const companies = await this.resolveAccessibleCompanies(user);
+
+    if (!companies.length) {
+      throw new ForbiddenException("当前账号没有可用公司");
+    }
+
+    const currentCompany = requestedCompanyId
+      ? companies.find((company) => company.id === requestedCompanyId)
+      : companies.find((company) => company.isDefault) ?? companies[0];
+
+    if (!currentCompany) {
+      throw new ForbiddenException("无权访问当前公司");
+    }
+
+    return {
+      user: safeUser,
+      companies,
+      currentCompany
+    };
+  }
+
+  private async resolveAccessibleCompanies(user: User): Promise<AuthCompanyOption[]> {
+    if (this.isPlatformAdminRole(user.role)) {
+      const memberships = await this.prisma.membership.findMany({
+        where: {
+          userId: user.id,
+          status: MembershipStatus.active,
+          company: {
+            status: CompanyStatus.active
+          }
+        },
+        select: {
+          companyId: true,
+          isDefault: true
+        }
+      });
+      const defaultCompanyIds = new Set(
+        memberships.filter((membership) => membership.isDefault).map((membership) => membership.companyId)
+      );
+      const companies = await this.prisma.company.findMany({
+        where: {
+          status: CompanyStatus.active
+        },
+        orderBy: [{ createdAt: "asc" }, { name: "asc" }]
+      });
+
+      return companies.map((company) => ({
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        role: MembershipRole.platform_admin,
+        isDefault: defaultCompanyIds.has(company.id),
+        status: company.status
+      }));
+    }
+
+    const memberships = await this.prisma.membership.findMany({
+      where: {
+        userId: user.id,
+        status: MembershipStatus.active,
+        company: {
+          status: CompanyStatus.active
+        }
+      },
+      include: {
+        company: true
+      },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
+    });
+
+    return memberships.map((membership) => ({
+      id: membership.company.id,
+      name: membership.company.name,
+      code: membership.company.code,
+      role: membership.role,
+      isDefault: membership.isDefault,
+      status: membership.company.status
+    }));
+  }
+
+  private isPlatformAdminRole(role: UserRole): boolean {
+    return role === UserRole.platform_admin || role === UserRole.admin;
   }
 }
