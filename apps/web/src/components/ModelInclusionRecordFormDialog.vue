@@ -226,7 +226,6 @@ const handleSubmit = () => {
     citations,
     competitorMentioned: form.competitorMentioned,
     competitors: splitCommaValues(form.competitorsText),
-    createdBy: trimOptional(form.createdBy),
     detectionMethod: form.detectionMethod || undefined,
     deviceType: form.deviceType || undefined,
     entryPoint: form.entryPoint || undefined,
@@ -402,9 +401,6 @@ const handleSubmit = () => {
       </el-form-item>
       <el-form-item label="截图路径">
         <el-input v-model="form.screenshotPath" placeholder="可选：截图路径或截图说明" />
-      </el-form-item>
-      <el-form-item label="创建人">
-        <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
       </el-form-item>
       <el-form-item label="回答摘要" class="form-span-2">
         <el-input

@@ -1,5 +1,17 @@
 import { Body, Controller, Get, Inject, Post, Query } from "@nestjs/common";
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
+import {
+  buildResourceAccessContext,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
+import { CurrentCompany } from "../auth/current-company.decorator";
+import { CurrentMembership } from "../auth/current-membership.decorator";
+import { CurrentUser } from "../auth/current-user.decorator";
+import type {
+  AuthCompanyOption,
+  AuthUser,
+  CurrentMembershipContext
+} from "../auth/auth.types";
 import { CreateModelInclusionRecordDto } from "./dto/create-model-inclusion-record.dto";
 import { ImportModelInclusionRecordsDto } from "./dto/import-model-inclusion-records.dto";
 import { QueryModelInclusionRecordsDto } from "./dto/query-model-inclusion-records.dto";
@@ -18,56 +30,106 @@ export class ModelInclusionRecordsController {
   @Get()
   findMany(
     @Query(createValidationPipe(QueryModelInclusionRecordsDto))
-    query: QueryModelInclusionRecordsDto
+    query: QueryModelInclusionRecordsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.modelInclusionRecordsService.findMany(query);
+    return this.modelInclusionRecordsService.findMany(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post()
   create(
     @Body(createValidationPipe(CreateModelInclusionRecordDto))
-    body: CreateModelInclusionRecordDto
+    body: CreateModelInclusionRecordDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.modelInclusionRecordsService.create(body);
+    return this.modelInclusionRecordsService.create(
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post("import")
   importRecords(
     @Body(createValidationPipe(ImportModelInclusionRecordsDto))
-    body: ImportModelInclusionRecordsDto
+    body: ImportModelInclusionRecordsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.modelInclusionRecordsService.importRecords(body);
+    return this.modelInclusionRecordsService.importRecords(
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post("web-search-check")
   webSearchCheck(
     @Body(createValidationPipe(WebSearchCheckDto))
-    body: WebSearchCheckDto
+    body: WebSearchCheckDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.modelInclusionRecordsService.webSearchCheck(body);
+    return this.modelInclusionRecordsService.webSearchCheck(
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Get("export")
   exportCsv(
     @Query(createValidationPipe(QueryModelInclusionRecordsDto))
-    query: QueryModelInclusionRecordsDto
+    query: QueryModelInclusionRecordsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.modelInclusionRecordsService.exportCsv(query);
+    return this.modelInclusionRecordsService.exportCsv(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Get("uncovered-prompts")
   findUncoveredPrompts(
     @Query(createValidationPipe(QueryUncoveredPromptsDto))
-    query: QueryUncoveredPromptsDto
+    query: QueryUncoveredPromptsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.modelInclusionRecordsService.findUncoveredPrompts(query);
+    return this.modelInclusionRecordsService.findUncoveredPrompts(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Get("summary")
   getSummary(
     @Query(createValidationPipe(QueryModelInclusionSummaryDto))
-    query: QueryModelInclusionSummaryDto
+    query: QueryModelInclusionSummaryDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.modelInclusionRecordsService.getSummary(query);
+    return this.modelInclusionRecordsService.getSummary(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  private buildContext(
+    user?: AuthUser,
+    currentCompany?: AuthCompanyOption,
+    currentMembership?: CurrentMembershipContext
+  ): ResourceAccessContext | undefined {
+    return buildResourceAccessContext(user, currentCompany, currentMembership);
   }
 }

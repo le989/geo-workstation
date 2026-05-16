@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Inject, Injectable } from "@nestjs/common";
 import {
   GeoPromptType,
   Prisma,
@@ -45,6 +45,13 @@ import {
 import { AliyunBailianWebSearchProvider } from "./providers/aliyun-bailian-web-search.provider";
 import { VolcengineWebSearchProvider } from "./providers/volcengine-web-search.provider";
 import { PrismaService } from "../../prisma/prisma.service";
+import {
+  buildResourceReadWhere,
+  getCurrentCompanyId,
+  getEffectiveRole,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
+import { buildOwnerCompanyReadWhere } from "../auth/owner-company-policy";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const MAX_EXPORT_ROWS = 5000;
@@ -208,9 +215,12 @@ export class ModelInclusionRecordsService {
     private readonly aliyunBailianWebSearchProvider: AliyunBailianWebSearchProvider
   ) {}
 
-  async findMany(query: QueryModelInclusionRecordsDto): Promise<ModelInclusionRecordListResponse> {
+  async findMany(
+    query: QueryModelInclusionRecordsDto,
+    context?: ResourceAccessContext
+  ): Promise<ModelInclusionRecordListResponse> {
     const normalized = normalizeQueryModelInclusionRecords(query);
-    const where = this.buildRecordWhere(normalized);
+    const where = this.buildRecordWhere(normalized, context);
 
     if (normalized.search) {
       const allItems = await this.prisma.modelInclusionRecord.findMany({
@@ -263,12 +273,16 @@ export class ModelInclusionRecordsService {
     };
   }
 
-  async create(input: CreateModelInclusionRecordDto): Promise<ModelInclusionRecordResponse> {
+  async create(
+    input: CreateModelInclusionRecordDto,
+    context?: ResourceAccessContext
+  ): Promise<ModelInclusionRecordResponse> {
+    this.assertCanCreate(context);
     const normalized = normalizeCreateModelInclusionRecord(input);
-    const geoPrompt = await this.findActiveGeoPromptById(normalized.geoPromptId);
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
-    const created = await this.createRecord(normalized, geoPrompt.id, createdById);
-    await this.refreshLatestCoverageStatus(geoPrompt.id);
+    const geoPrompt = await this.findActiveGeoPromptById(normalized.geoPromptId, context);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
+    const created = await this.createRecord(normalized, geoPrompt.id, createdById, context);
+    await this.refreshLatestCoverageStatus(geoPrompt.id, context);
 
     return this.toRecordResponse({
       ...created,
@@ -277,8 +291,10 @@ export class ModelInclusionRecordsService {
   }
 
   async importRecords(
-    input: ImportModelInclusionRecordsDto
+    input: ImportModelInclusionRecordsDto,
+    context?: ResourceAccessContext
   ): Promise<ImportModelInclusionRecordsResponse> {
+    this.assertCanImportModelInclusion(context);
     const createdItems: ModelInclusionRecordResponse[] = [];
     const failedRows: FailedModelInclusionImportRow[] = [];
 
@@ -287,10 +303,11 @@ export class ModelInclusionRecordsService {
 
       try {
         const normalized = normalizeImportModelInclusionRecordRow(row);
-        const geoPrompt = await this.resolveImportGeoPrompt(normalized);
-        const createdById = await this.resolveCreatedById(normalized.createdBy);
-        const created = await this.createRecord(normalized, geoPrompt.id, createdById);
-        await this.refreshLatestCoverageStatus(geoPrompt.id);
+        const geoPrompt = await this.resolveImportGeoPrompt(normalized, context);
+        const createdById =
+          context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
+        const created = await this.createRecord(normalized, geoPrompt.id, createdById, context);
+        await this.refreshLatestCoverageStatus(geoPrompt.id, context);
         createdItems.push(
           this.toRecordResponse({
             ...created,
@@ -315,10 +332,14 @@ export class ModelInclusionRecordsService {
     };
   }
 
-  async webSearchCheck(input: WebSearchCheckDto): Promise<WebSearchCheckResponse> {
+  async webSearchCheck(
+    input: WebSearchCheckDto,
+    context?: ResourceAccessContext
+  ): Promise<WebSearchCheckResponse> {
+    this.assertCanRunWebSearch(context);
     const uniquePromptIds = [...new Set(input.geoPromptIds)].slice(0, input.limit ?? 20);
     const providerRuntime = this.resolveWebSearchProvider(input);
-    const profile = await this.resolveProjectProfileContext();
+    const profile = await this.resolveProjectProfileContext(context);
     const brandContext = {
       brandName: input.brandName ?? profile.brandName,
       companyName: input.companyName ?? profile.companyName,
@@ -326,14 +347,14 @@ export class ModelInclusionRecordsService {
     };
     const createdItems: ModelInclusionRecordResponse[] = [];
     const failedItems: FailedWebSearchCheckItem[] = [];
-    const createdById = await this.resolveCreatedById();
+    const createdById = context?.user.id ?? (await this.resolveCreatedById());
     const model = providerRuntime.model;
 
     for (const geoPromptId of uniquePromptIds) {
       let geoPrompt: GeoPrompt | null = null;
 
       try {
-        geoPrompt = await this.findActiveGeoPromptById(geoPromptId);
+        geoPrompt = await this.findActiveGeoPromptById(geoPromptId, context);
         const searchResult = await providerRuntime.search({
           promptText: geoPrompt.promptText,
           model,
@@ -375,9 +396,10 @@ export class ModelInclusionRecordsService {
             createdBy: undefined
           },
           geoPrompt.id,
-          createdById
+          createdById,
+          context
         );
-        await this.refreshLatestCoverageStatus(geoPrompt.id);
+        await this.refreshLatestCoverageStatus(geoPrompt.id, context);
         createdItems.push({
           ...this.toRecordResponse({
             ...created,
@@ -423,9 +445,10 @@ export class ModelInclusionRecordsService {
               createdBy: undefined
             },
             geoPrompt.id,
-            createdById
+            createdById,
+            context
           );
-          await this.refreshLatestCoverageStatus(geoPrompt.id);
+          await this.refreshLatestCoverageStatus(geoPrompt.id, context);
           failureRecord = {
             ...this.toRecordResponse({
               ...created,
@@ -498,17 +521,22 @@ export class ModelInclusionRecordsService {
     return Array.isArray(value) ? value : [];
   }
 
-  async exportCsv(query: QueryModelInclusionRecordsDto): Promise<string> {
+  async exportCsv(
+    query: QueryModelInclusionRecordsDto,
+    context?: ResourceAccessContext
+  ): Promise<string> {
+    this.assertCanExportModelInclusion(context);
     const normalized = normalizeQueryModelInclusionRecords(query, 1, MAX_EXPORT_ROWS);
-    const records = await this.findRecordsForExport(normalized);
+    const records = await this.findRecordsForExport(normalized, context);
     return buildModelInclusionRecordsCsv(records);
   }
 
   async findUncoveredPrompts(
-    query: QueryUncoveredPromptsDto
+    query: QueryUncoveredPromptsDto,
+    context?: ResourceAccessContext
   ): Promise<UncoveredGeoPromptListResponse> {
     const normalized = normalizeQueryUncoveredPrompts(query);
-    const where = this.buildUncoveredPromptWhere(normalized);
+    const where = this.buildUncoveredPromptWhere(normalized, context);
 
     const [items, total] = await Promise.all([
       this.prisma.geoPrompt.findMany({
@@ -532,9 +560,12 @@ export class ModelInclusionRecordsService {
     };
   }
 
-  async getSummary(query: QueryModelInclusionSummaryDto): Promise<ModelInclusionSummaryResponse> {
+  async getSummary(
+    query: QueryModelInclusionSummaryDto,
+    context?: ResourceAccessContext
+  ): Promise<ModelInclusionSummaryResponse> {
     const normalized = normalizeQueryModelInclusionSummary(query);
-    const where = this.buildSummaryWhere(normalized);
+    const where = this.buildSummaryWhere(normalized, context);
     const records = await this.prisma.modelInclusionRecord.findMany({
       where,
       include: {
@@ -582,10 +613,20 @@ export class ModelInclusionRecordsService {
   private async createRecord(
     input: NormalizedCreateModelInclusionRecord | NormalizedImportModelInclusionRecord,
     geoPromptId: string,
-    createdById: string
+    createdById: string,
+    context?: ResourceAccessContext
   ): Promise<ModelInclusionRecord> {
     return this.prisma.modelInclusionRecord.create({
       data: {
+        ...(context
+          ? {
+              company: {
+                connect: {
+                  id: getCurrentCompanyId(context)
+                }
+              }
+            }
+          : {}),
         geoPrompt: {
           connect: {
             id: geoPromptId
@@ -618,13 +659,23 @@ export class ModelInclusionRecordsService {
           connect: {
             id: createdById
           }
-        }
+        },
+        ...(context
+          ? {
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
       }
     });
   }
 
   private buildRecordWhere(
-    query: NormalizedQueryModelInclusionRecords
+    query: NormalizedQueryModelInclusionRecords,
+    context?: ResourceAccessContext
   ): Prisma.ModelInclusionRecordWhereInput {
     const promptWhere: Prisma.GeoPromptWhereInput = {
       deletedAt: null
@@ -699,13 +750,17 @@ export class ModelInclusionRecordsService {
       };
     }
 
-    return where;
+    return this.withRecordScope(where, context);
   }
 
   private buildUncoveredPromptWhere(
-    query: NormalizedQueryUncoveredPrompts
+    query: NormalizedQueryUncoveredPrompts,
+    context?: ResourceAccessContext
   ): Prisma.GeoPromptWhereInput {
-    const inclusionWhere: Prisma.ModelInclusionRecordWhereInput = {};
+    const inclusionWhere: Prisma.ModelInclusionRecordWhereInput = this.withRecordScope(
+      {},
+      context
+    );
 
     if (query.model) {
       inclusionWhere.model = query.model;
@@ -717,43 +772,103 @@ export class ModelInclusionRecordsService {
       };
     }
 
-    return {
+    const baseWhere: Prisma.GeoPromptWhereInput = {
       deletedAt: null,
       trackEnabled: query.trackEnabled,
       ...(query.productLine ? { productLine: query.productLine } : {}),
       ...(query.promptType ? { type: query.promptType } : {}),
-      ...(query.userIntent ? { userIntent: query.userIntent } : {}),
-      inclusionRecords: {
-        none: inclusionWhere
-      }
+      ...(query.userIntent ? { userIntent: query.userIntent } : {})
+    };
+
+    return {
+      AND: [
+        baseWhere,
+        ...(context ? [buildResourceReadWhere(context)] : []),
+        {
+          inclusionRecords: {
+            none: inclusionWhere
+          }
+        }
+      ]
     };
   }
 
   private buildSummaryWhere(
-    query: NormalizedQueryModelInclusionSummary
+    query: NormalizedQueryModelInclusionSummary,
+    context?: ResourceAccessContext
   ): Prisma.ModelInclusionRecordWhereInput {
-    return {
-      geoPrompt: {
-        deletedAt: null,
-        ...(query.productLine ? { productLine: query.productLine } : {})
-      },
-      ...(query.model ? { model: query.model } : {}),
-      ...(query.checkedFrom || query.checkedTo
-        ? {
-            checkedAt: {
-              ...(query.checkedFrom ? { gte: query.checkedFrom } : {}),
-              ...(query.checkedTo ? { lte: query.checkedTo } : {})
+    return this.withRecordScope(
+      {
+        geoPrompt: {
+          deletedAt: null,
+          ...(query.productLine ? { productLine: query.productLine } : {})
+        },
+        ...(query.model ? { model: query.model } : {}),
+        ...(query.checkedFrom || query.checkedTo
+          ? {
+              checkedAt: {
+                ...(query.checkedFrom ? { gte: query.checkedFrom } : {}),
+                ...(query.checkedTo ? { lte: query.checkedTo } : {})
+              }
             }
-          }
-        : {})
+          : {})
+      },
+      context
+    );
+  }
+
+  private withRecordScope(
+    where: Prisma.ModelInclusionRecordWhereInput,
+    context?: ResourceAccessContext
+  ): Prisma.ModelInclusionRecordWhereInput {
+    if (!context) {
+      return where;
+    }
+
+    return {
+      AND: [
+        buildOwnerCompanyReadWhere(context) as Prisma.ModelInclusionRecordWhereInput,
+        where
+      ]
     };
   }
 
+  private assertCanCreate(context?: ResourceAccessContext): void {
+    if (context && getEffectiveRole(context) === "viewer") {
+      throw new ForbiddenException("当前角色无权新增 AI 收录记录");
+    }
+  }
+
+  private assertCanImportModelInclusion(context?: ResourceAccessContext): void {
+    if (!context) {
+      return;
+    }
+
+    const role = getEffectiveRole(context);
+
+    if (role !== "platform_admin" && role !== "company_admin") {
+      throw new ForbiddenException("无权导入 AI 收录记录");
+    }
+  }
+
+  private assertCanExportModelInclusion(context?: ResourceAccessContext): void {
+    if (context && getEffectiveRole(context) === "viewer") {
+      throw new ForbiddenException("当前角色无权导出 AI 收录记录");
+    }
+  }
+
+  private assertCanRunWebSearch(context?: ResourceAccessContext): void {
+    if (context && getEffectiveRole(context) === "viewer") {
+      throw new ForbiddenException("当前角色无权发起 AI 收录检测");
+    }
+  }
+
   private async findRecordsForExport(
-    query: NormalizedQueryModelInclusionRecords
+    query: NormalizedQueryModelInclusionRecords,
+    context?: ResourceAccessContext
   ): Promise<ModelInclusionRecordWithPrompt[]> {
     const records = await this.prisma.modelInclusionRecord.findMany({
-      where: this.buildRecordWhere(query),
+      where: this.buildRecordWhere(query, context),
       include: {
         geoPrompt: true
       },
@@ -792,11 +907,19 @@ export class ModelInclusionRecordsService {
     );
   }
 
-  private async findActiveGeoPromptById(id: string): Promise<GeoPrompt> {
+  private async findActiveGeoPromptById(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeoPrompt> {
     const geoPrompt = await this.prisma.geoPrompt.findFirst({
       where: {
-        id,
-        deletedAt: null
+        AND: [
+          {
+            id,
+            deletedAt: null
+          },
+          ...(context ? [buildResourceReadWhere(context)] : [])
+        ]
       }
     });
 
@@ -807,8 +930,15 @@ export class ModelInclusionRecordsService {
     return geoPrompt;
   }
 
-  private async resolveProjectProfileContext(): Promise<ProjectProfileContext> {
+  private async resolveProjectProfileContext(
+    context?: ResourceAccessContext
+  ): Promise<ProjectProfileContext> {
     const profile = await this.prisma.projectProfile.findFirst({
+      where: context
+        ? {
+            companyId: getCurrentCompanyId(context)
+          }
+        : undefined,
       orderBy: {
         createdAt: "asc"
       },
@@ -827,10 +957,11 @@ export class ModelInclusionRecordsService {
   }
 
   private async resolveImportGeoPrompt(
-    row: NormalizedImportModelInclusionRecord
+    row: NormalizedImportModelInclusionRecord,
+    context?: ResourceAccessContext
   ): Promise<GeoPrompt> {
     if (row.geoPromptId) {
-      return this.findActiveGeoPromptById(row.geoPromptId);
+      return this.findActiveGeoPromptById(row.geoPromptId, context);
     }
 
     const promptText = row.promptText;
@@ -841,8 +972,13 @@ export class ModelInclusionRecordsService {
 
     const geoPrompt = await this.prisma.geoPrompt.findFirst({
       where: {
-        promptText,
-        deletedAt: null
+        AND: [
+          {
+            promptText,
+            deletedAt: null
+          },
+          ...(context ? [buildResourceReadWhere(context)] : [])
+        ]
       },
       orderBy: {
         createdAt: "desc"
@@ -856,14 +992,20 @@ export class ModelInclusionRecordsService {
     return geoPrompt;
   }
 
-  private async refreshLatestCoverageStatus(geoPromptId: string): Promise<void> {
+  private async refreshLatestCoverageStatus(
+    geoPromptId: string,
+    context?: ResourceAccessContext
+  ): Promise<void> {
     const latestRecord = await this.prisma.modelInclusionRecord.findFirst({
-      where: {
-        geoPromptId,
-        geoPrompt: {
-          deletedAt: null
-        }
-      },
+      where: this.withRecordScope(
+        {
+          geoPromptId,
+          geoPrompt: {
+            deletedAt: null
+          }
+        },
+        context
+      ),
       orderBy: [
         {
           checkedAt: "desc"

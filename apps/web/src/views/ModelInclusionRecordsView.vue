@@ -31,6 +31,9 @@ import ModelInclusionWebSearchDialog from "@/components/ModelInclusionWebSearchD
 import UncoveredPromptsTable from "@/components/UncoveredPromptsTable.vue";
 import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
 import { booleanFilterOptions, hitLevelTypeMap } from "@/config/model-inclusion-options";
+import { useAuthStore } from "@/stores/auth";
+
+const authStore = useAuthStore();
 
 const records = ref<ModelInclusionRecord[]>([]);
 const total = ref(0);
@@ -80,6 +83,44 @@ const uncoveredFilters = reactive<UncoveredPromptsQuery>({
 
 const hasRecordsError = computed(() => Boolean(recordsError.value));
 const isRecordsEmpty = computed(() => !recordsLoading.value && records.value.length === 0);
+const normalizedRole = computed(() => {
+  const role = String(authStore.currentRole ?? authStore.currentUser?.role ?? "");
+
+  if (role === "admin" || role === "platform_admin") {
+    return "platform_admin";
+  }
+
+  if (role === "company_admin") {
+    return "company_admin";
+  }
+
+  if (["operator", "geo_operator", "content_editor"].includes(role)) {
+    return "operator";
+  }
+
+  return "viewer";
+});
+const isViewer = computed(() => normalizedRole.value === "viewer");
+const isOperator = computed(() => normalizedRole.value === "operator");
+const canCreateRecord = computed(() => !isViewer.value);
+const canRunWebSearch = computed(() => !isViewer.value);
+const canImportRecords = computed(() =>
+  ["platform_admin", "company_admin"].includes(normalizedRole.value)
+);
+const canExportRecords = computed(() => !isViewer.value);
+const inclusionScopeLabel = computed(() => {
+  const companyName = authStore.currentCompany?.name ?? "当前公司";
+
+  if (isOperator.value) {
+    return `${companyName} / 我的记录`;
+  }
+
+  if (normalizedRole.value === "viewer") {
+    return `${companyName} / 只读范围`;
+  }
+
+  return `${companyName} / 全部收录记录`;
+});
 const riskMetrics = computed(() => {
   const currentRecords = records.value;
   const countByHitLevel = (level: string) =>
@@ -309,6 +350,11 @@ const handlePageSizeChange = (nextPageSize: number) => {
 };
 
 const openCreateDialog = () => {
+  if (!canCreateRecord.value) {
+    ElMessage.warning("当前角色无权新增 AI 收录记录。");
+    return;
+  }
+
   formError.value = "";
   formVisible.value = true;
 };
@@ -330,12 +376,22 @@ const handleCreateRecord = async (payload: CreateModelInclusionRecordPayload) =>
 };
 
 const openImportDialog = () => {
+  if (!canImportRecords.value) {
+    ElMessage.warning("当前角色无权批量导入 AI 收录记录。");
+    return;
+  }
+
   importError.value = "";
   importResult.value = null;
   importVisible.value = true;
 };
 
 const openWebSearchDialog = () => {
+  if (!canRunWebSearch.value) {
+    ElMessage.warning("当前角色无权发起联网检测。");
+    return;
+  }
+
   webSearchError.value = "";
   webSearchResult.value = null;
   webSearchVisible.value = true;
@@ -394,6 +450,11 @@ const downloadCsv = (csv: string) => {
 };
 
 const handleExport = async () => {
+  if (!canExportRecords.value) {
+    ElMessage.warning("当前角色无权导出 AI 收录记录。");
+    return;
+  }
+
   exporting.value = true;
 
   try {
@@ -466,11 +527,20 @@ onMounted(() => {
         <el-button :icon="Refresh" :loading="recordsLoading || summaryLoading" @click="refreshAll">
           刷新
         </el-button>
-        <el-button type="success" :icon="Connection" @click="openWebSearchDialog">
+        <el-button
+          v-if="canRunWebSearch"
+          type="success"
+          :icon="Connection"
+          @click="openWebSearchDialog"
+        >
           联网检测
         </el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">手动新增记录</el-button>
-        <el-button :icon="Upload" @click="openImportDialog">批量导入</el-button>
+        <el-button v-if="canCreateRecord" type="primary" :icon="Plus" @click="openCreateDialog">
+          手动新增记录
+        </el-button>
+        <el-button v-if="canImportRecords" :icon="Upload" @click="openImportDialog">
+          批量导入
+        </el-button>
       </div>
     </header>
 
@@ -496,6 +566,13 @@ onMounted(() => {
         </div>
       </template>
       <div class="model-risk-grid">
+        <div class="model-risk-metric model-risk-metric--scope">
+          <div>
+            <el-tag type="info" effect="plain">统计范围</el-tag>
+            <span>列表、汇总、未覆盖提示词和导出均按当前权限范围计算。</span>
+          </div>
+          <strong>{{ inclusionScopeLabel }}</strong>
+        </div>
         <div
           v-for="metric in riskMetrics"
           :key="metric.key"
@@ -519,6 +596,7 @@ onMounted(() => {
       :model-value="filters"
       :loading="recordsLoading"
       :exporting="exporting"
+      :can-export="canExportRecords"
       @update:model-value="Object.assign(filters, $event)"
       @search="handleSearch"
       @reset="handleReset"
@@ -537,7 +615,12 @@ onMounted(() => {
           </div>
           <div class="model-table-actions">
             <strong>{{ total }} 条记录</strong>
-            <el-button :icon="Download" :loading="exporting" @click="handleExport">
+            <el-button
+              v-if="canExportRecords"
+              :icon="Download"
+              :loading="exporting"
+              @click="handleExport"
+            >
               导出 CSV
             </el-button>
           </div>

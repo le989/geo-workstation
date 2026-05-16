@@ -15,6 +15,7 @@ const props = defineProps<{
   modelValue: ModelInclusionRecordQuery;
   loading?: boolean;
   exporting?: boolean;
+  canExport?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -111,7 +112,9 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
       <div class="model-filter-actions">
         <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
         <el-button @click="emit('reset')">重置</el-button>
-        <el-button :loading="exporting" @click="emit('export')">导出 CSV</el-button>
+        <el-button v-if="canExport !== false" :loading="exporting" @click="emit('export')">
+          导出 CSV
+        </el-button>
         <el-button text @click="showAdvancedFilters = !showAdvancedFilters">
           {{ showAdvancedFilters ? "收起筛选" : "更多筛选" }}
         </el-button>

@@ -1,8 +1,19 @@
 import { BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { GeoPromptType, RecordMethod, UserIntent, UserRole, UserStatus } from "@prisma/client";
+import {
+  CompanyStatus,
+  CompanyType,
+  GeoPromptType,
+  MembershipRole,
+  RecordMethod,
+  UserIntent,
+  UserRole,
+  UserStatus,
+  Visibility
+} from "@prisma/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { ModelInclusionRecordsService } from "../src/modules/model-inclusion/model-inclusion-records.service";
 import {
   classifyProviderError,
@@ -105,6 +116,135 @@ describe("ModelInclusionRecordsService", () => {
             id: createdBy
           }
         }
+      }
+    });
+  }
+
+  async function createCompany(label: string) {
+    return prisma.company.create({
+      data: {
+        name: unique(`公司 ${label}`),
+        code: `model-inclusion-${label}-${runId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+  }
+
+  async function createUser(label: string, role: UserRole) {
+    return prisma.user.create({
+      data: {
+        email: `model-inclusion-${label}-${runId}@example.com`,
+        name: `Model Inclusion ${label}`,
+        role,
+        status: UserStatus.active
+      }
+    });
+  }
+
+  function buildContext(
+    user: Awaited<ReturnType<typeof createUser>>,
+    company: Awaited<ReturnType<typeof createCompany>>,
+    role: MembershipRole
+  ): ResourceAccessContext {
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        isPlatformAdmin: user.role === UserRole.platform_admin || user.role === UserRole.admin
+      },
+      currentCompany: {
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        role,
+        isDefault: true,
+        status: company.status
+      },
+      currentMembership: {
+        companyId: company.id,
+        role,
+        isDefault: true,
+        isPlatformAdmin: role === MembershipRole.platform_admin
+      }
+    };
+  }
+
+  async function createCompanyGeoPrompt(
+    label: string,
+    companyId: string,
+    userId: string,
+    options: {
+      promptText?: string;
+      visibility?: Visibility;
+      trackEnabled?: boolean;
+      latestCoverageStatus?: string;
+      productLine?: string;
+    } = {}
+  ) {
+    return prisma.geoPrompt.create({
+      data: {
+        company: {
+          connect: {
+            id: companyId
+          }
+        },
+        type: GeoPromptType.distilled,
+        baseWord: "激光测距传感器",
+        promptText: options.promptText ?? unique(label),
+        productLine: options.productLine ?? unique("隔离产品线"),
+        scenario: "模型收录隔离测试",
+        userIntent: UserIntent.selection,
+        priority: 3,
+        trackEnabled: options.trackEnabled ?? true,
+        latestCoverageStatus: options.latestCoverageStatus,
+        visibility: options.visibility ?? Visibility.COMPANY,
+        createdBy: {
+          connect: {
+            id: userId
+          }
+        }
+      }
+    });
+  }
+
+  async function createScopedRecord(input: {
+    companyId: string;
+    geoPromptId: string;
+    createdById: string;
+    model: string;
+    brandMentioned?: boolean;
+    checkedAt?: Date;
+  }) {
+    return prisma.modelInclusionRecord.create({
+      data: {
+        company: {
+          connect: {
+            id: input.companyId
+          }
+        },
+        geoPrompt: {
+          connect: {
+            id: input.geoPromptId
+          }
+        },
+        createdBy: {
+          connect: {
+            id: input.createdById
+          }
+        },
+        model: input.model,
+        platform: "Isolation Test",
+        checkedAt: input.checkedAt ?? new Date(),
+        brandMentioned: input.brandMentioned ?? false,
+        brandRecommended: false,
+        citedOfficialSite: false,
+        citedContentAsset: false,
+        competitorMentioned: false,
+        recordMethod: RecordMethod.manual
       }
     });
   }
@@ -1283,6 +1423,311 @@ describe("ModelInclusionRecordsService", () => {
       productLine,
       userIntent: UserIntent.brand_verification
     });
+  });
+
+  it("scopes model inclusion list, export, and summary by current company and owner", async () => {
+    const companyA = await createCompany("scope-a");
+    const companyB = await createCompany("scope-b");
+    const operatorA = await createUser("scope-operator-a", UserRole.operator);
+    const operatorB = await createUser("scope-operator-b", UserRole.operator);
+    const companyAdminA = await createUser("scope-admin-a", UserRole.company_admin);
+    const platformAdmin = await createUser("scope-platform", UserRole.platform_admin);
+    const operatorAContext = buildContext(operatorA, companyA, MembershipRole.operator);
+    const companyAdminAContext = buildContext(companyAdminA, companyA, MembershipRole.company_admin);
+    const platformCompanyBContext = buildContext(
+      platformAdmin,
+      companyB,
+      MembershipRole.platform_admin
+    );
+    const model = unique("隔离模型");
+    const promptAByOperatorA = await createCompanyGeoPrompt(
+      "scope prompt a by operator a",
+      companyA.id,
+      operatorA.id
+    );
+    const promptAByOperatorB = await createCompanyGeoPrompt(
+      "scope prompt a by operator b",
+      companyA.id,
+      operatorB.id
+    );
+    const promptBByOperatorB = await createCompanyGeoPrompt(
+      "scope prompt b by operator b",
+      companyB.id,
+      operatorB.id
+    );
+
+    await createScopedRecord({
+      companyId: companyA.id,
+      geoPromptId: promptAByOperatorA.id,
+      createdById: operatorA.id,
+      model,
+      brandMentioned: true
+    });
+    await createScopedRecord({
+      companyId: companyA.id,
+      geoPromptId: promptAByOperatorB.id,
+      createdById: operatorB.id,
+      model,
+      brandMentioned: false
+    });
+    await createScopedRecord({
+      companyId: companyB.id,
+      geoPromptId: promptBByOperatorB.id,
+      createdById: operatorB.id,
+      model,
+      brandMentioned: true
+    });
+
+    const operatorList = await service.findMany(
+      {
+        model,
+        page: 1,
+        pageSize: 20
+      },
+      operatorAContext
+    );
+    expect(operatorList.total).toBe(1);
+    expect(operatorList.items[0]?.geoPromptId).toBe(promptAByOperatorA.id);
+
+    const companyAdminList = await service.findMany(
+      {
+        model,
+        page: 1,
+        pageSize: 20
+      },
+      companyAdminAContext
+    );
+    expect(companyAdminList.total).toBe(2);
+
+    const platformList = await service.findMany(
+      {
+        model,
+        page: 1,
+        pageSize: 20
+      },
+      platformCompanyBContext
+    );
+    expect(platformList.total).toBe(1);
+    expect(platformList.items[0]?.geoPromptId).toBe(promptBByOperatorB.id);
+
+    const csv = await service.exportCsv({ model }, operatorAContext);
+    expect(csv).toContain(promptAByOperatorA.promptText);
+    expect(csv).not.toContain(promptAByOperatorB.promptText);
+    expect(csv).not.toContain(promptBByOperatorB.promptText);
+
+    const operatorSummary = await service.getSummary({ model }, operatorAContext);
+    expect(operatorSummary.totalRecords).toBe(1);
+    expect(operatorSummary.mentionedCount).toBe(1);
+
+    const companyAdminSummary = await service.getSummary({ model }, companyAdminAContext);
+    expect(companyAdminSummary.totalRecords).toBe(2);
+  });
+
+  it("creates records with current company and current user and rejects unreadable prompts", async () => {
+    const companyA = await createCompany("create-a");
+    const companyB = await createCompany("create-b");
+    const operatorA = await createUser("create-operator-a", UserRole.operator);
+    const operatorB = await createUser("create-operator-b", UserRole.operator);
+    const operatorAContext = buildContext(operatorA, companyA, MembershipRole.operator);
+    const promptA = await createCompanyGeoPrompt("create prompt a", companyA.id, operatorA.id);
+    const promptB = await createCompanyGeoPrompt("create prompt b", companyB.id, operatorB.id);
+
+    const created = await service.create(
+      {
+        geoPromptId: promptA.id,
+        model: unique("手动模型"),
+        brandMentioned: true,
+        createdBy: operatorB.id
+      },
+      operatorAContext
+    );
+    const stored = await prisma.modelInclusionRecord.findUniqueOrThrow({
+      where: {
+        id: created.id
+      }
+    });
+
+    expect(created.createdBy).toBe(operatorA.id);
+    expect(stored.companyId).toBe(companyA.id);
+    expect(stored.createdById).toBe(operatorA.id);
+    expect(stored.updatedById).toBe(operatorA.id);
+
+    await expect(
+      service.create(
+        {
+          geoPromptId: promptB.id,
+          model: unique("跨公司模型")
+        },
+        operatorAContext
+      )
+    ).rejects.toThrow("GEO prompt not found or deleted");
+  });
+
+  it("restricts import to admins and resolves promptText inside the current company", async () => {
+    const companyA = await createCompany("import-a");
+    const companyB = await createCompany("import-b");
+    const operatorA = await createUser("import-operator-a", UserRole.operator);
+    const operatorB = await createUser("import-operator-b", UserRole.operator);
+    const companyAdminA = await createUser("import-admin-a", UserRole.company_admin);
+    const operatorAContext = buildContext(operatorA, companyA, MembershipRole.operator);
+    const companyAdminAContext = buildContext(companyAdminA, companyA, MembershipRole.company_admin);
+    const sharedPromptText = unique("同名导入提示词");
+    const promptA = await createCompanyGeoPrompt("import prompt a", companyA.id, operatorA.id, {
+      promptText: sharedPromptText
+    });
+    await createCompanyGeoPrompt("import prompt b", companyB.id, operatorB.id, {
+      promptText: sharedPromptText
+    });
+
+    await expect(
+      service.importRecords(
+        {
+          rows: [
+            {
+              promptText: sharedPromptText,
+              model: unique("导入模型")
+            }
+          ]
+        },
+        operatorAContext
+      )
+    ).rejects.toThrow("无权导入");
+
+    const result = await service.importRecords(
+      {
+        rows: [
+          {
+            promptText: sharedPromptText,
+            model: unique("导入模型"),
+            createdBy: operatorB.id
+          }
+        ]
+      },
+      companyAdminAContext
+    );
+    const importedId = result.createdItems[0]?.id;
+    expect(importedId).toBeTruthy();
+    const stored = await prisma.modelInclusionRecord.findUniqueOrThrow({
+      where: {
+        id: importedId as string
+      }
+    });
+
+    expect(result.successCount).toBe(1);
+    expect(result.createdItems[0]?.geoPromptId).toBe(promptA.id);
+    expect(result.createdItems[0]?.createdBy).toBe(companyAdminA.id);
+    expect(stored.companyId).toBe(companyA.id);
+    expect(stored.createdById).toBe(companyAdminA.id);
+  });
+
+  it("scopes uncovered prompts by readable prompts and model inclusion record scope", async () => {
+    const companyA = await createCompany("uncovered-a");
+    const companyB = await createCompany("uncovered-b");
+    const operatorA = await createUser("uncovered-operator-a", UserRole.operator);
+    const operatorB = await createUser("uncovered-operator-b", UserRole.operator);
+    const operatorAContext = buildContext(operatorA, companyA, MembershipRole.operator);
+    const model = unique("未覆盖模型");
+    const productLine = unique("未覆盖产品线");
+    const companyPrompt = await createCompanyGeoPrompt(
+      "uncovered company prompt",
+      companyA.id,
+      operatorA.id,
+      {
+        productLine,
+        trackEnabled: true
+      }
+    );
+    const otherPrivatePrompt = await createCompanyGeoPrompt(
+      "uncovered private prompt",
+      companyA.id,
+      operatorB.id,
+      {
+        productLine,
+        visibility: Visibility.PRIVATE,
+        trackEnabled: true
+      }
+    );
+    const companyBPrompt = await createCompanyGeoPrompt(
+      "uncovered company b prompt",
+      companyB.id,
+      operatorB.id,
+      {
+        productLine,
+        trackEnabled: true
+      }
+    );
+
+    const result = await service.findUncoveredPrompts(
+      {
+        model,
+        productLine,
+        trackEnabled: true,
+        page: 1,
+        pageSize: 20
+      },
+      operatorAContext
+    );
+
+    expect(result.items.map((item) => item.geoPromptId)).toContain(companyPrompt.id);
+    expect(result.items.map((item) => item.geoPromptId)).not.toContain(otherPrivatePrompt.id);
+    expect(result.items.map((item) => item.geoPromptId)).not.toContain(companyBPrompt.id);
+  });
+
+  it("writes web-search records to current company/current user and blocks unreadable prompts", async () => {
+    const companyA = await createCompany("web-search-a");
+    const companyB = await createCompany("web-search-b");
+    const operatorA = await createUser("web-search-operator-a", UserRole.operator);
+    const operatorB = await createUser("web-search-operator-b", UserRole.operator);
+    const operatorAContext = buildContext(operatorA, companyA, MembershipRole.operator);
+    const promptA = await createCompanyGeoPrompt("web-search prompt a", companyA.id, operatorA.id);
+    const promptB = await createCompanyGeoPrompt("web-search prompt b", companyB.id, operatorB.id);
+    kimiProvider.search.mockResolvedValue({
+      finalAnswer: "联网搜索后，凯基特被提及。",
+      rawAnswer: "联网搜索后，凯基特被提及。",
+      citations: [],
+      searchResults: [],
+      retryCount: 0
+    });
+
+    const success = await service.webSearchCheck(
+      {
+        geoPromptIds: [promptA.id],
+        provider: "kimi_web_search",
+        brandName: "凯基特"
+      },
+      operatorAContext
+    );
+    const successId = success.createdItems[0]?.id;
+    expect(successId).toBeTruthy();
+    const stored = await prisma.modelInclusionRecord.findUniqueOrThrow({
+      where: {
+        id: successId as string
+      }
+    });
+
+    expect(success.successCount).toBe(1);
+    expect(success.createdItems[0]?.createdBy).toBe(operatorA.id);
+    expect(stored.companyId).toBe(companyA.id);
+    expect(stored.createdById).toBe(operatorA.id);
+
+    const denied = await service.webSearchCheck(
+      {
+        geoPromptIds: [promptB.id],
+        provider: "kimi_web_search",
+        brandName: "凯基特"
+      },
+      operatorAContext
+    );
+    const leakedRecords = await prisma.modelInclusionRecord.count({
+      where: {
+        geoPromptId: promptB.id
+      }
+    });
+
+    expect(denied.successCount).toBe(0);
+    expect(denied.failedCount).toBe(1);
+    expect(denied.failedItems[0]?.record).toBeUndefined();
+    expect(leakedRecords).toBe(0);
   });
 
   it("imports rows independently, resolves prompts by promptText, parses booleans, and forces import method", async () => {
