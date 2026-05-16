@@ -10,7 +10,8 @@ import {
   PieChart,
   Search,
   Setting,
-  TrendCharts
+  TrendCharts,
+  User
 } from "@element-plus/icons-vue";
 import type { NormalizedRole } from "@/utils/permission";
 
@@ -138,6 +139,18 @@ export const navigationItems: GeoPageMeta[] = [
     apiFocus: "已联调 /api/reports",
     icon: PieChart,
     allowedRoles: allRoles
+  },
+  {
+    path: "/users",
+    label: "用户管理",
+    title: "用户管理",
+    question: "谁可以进入 GEO 工作站并操作哪些公司？",
+    description: "管理系统账号、所属公司与角色，仅平台管理员可使用。",
+    phaseNote: "已支持用户列表、新增用户、重置密码、启用禁用和默认公司角色分配。",
+    nextSteps: ["查看账号状态", "创建运营账号", "重置密码或调整公司角色"],
+    apiFocus: "已联调 /api/users；密码只写入 passwordHash，不返回明文或哈希。",
+    icon: User,
+    allowedRoles: ["platform_admin"]
   },
   {
     path: "/settings",

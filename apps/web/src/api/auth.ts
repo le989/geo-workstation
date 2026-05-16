@@ -22,7 +22,7 @@ export type AuthCompany = {
   id: string;
   name: string;
   code: string;
-  role: "platform_admin" | "company_admin" | "operator";
+  role: "platform_admin" | "company_admin" | "operator" | "viewer";
   isDefault: boolean;
   status: "active" | "disabled";
 };

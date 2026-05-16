@@ -86,6 +86,10 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "数据报表",
     subtitle: "查看覆盖、命中和优化建议"
   },
+  "/users": {
+    title: "用户管理",
+    subtitle: "管理系统账号、所属公司与角色"
+  },
   "/settings": {
     title: "系统设置",
     subtitle: "管理项目档案和品牌上下文"
@@ -124,7 +128,7 @@ const navigationGroups = [
   {
     label: "复盘与配置",
     items: navigationItems.filter((item) =>
-      ["/model-inclusion-records", "/reports", "/settings"].includes(item.path)
+      ["/model-inclusion-records", "/reports", "/users", "/settings"].includes(item.path)
     )
   },
   {

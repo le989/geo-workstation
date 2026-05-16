@@ -13,6 +13,7 @@ import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
 import ReportsView from "@/views/ReportsView.vue";
 import SettingsView from "@/views/SettingsView.vue";
+import UsersView from "@/views/UsersView.vue";
 import HelpView from "@/views/HelpView.vue";
 import LandingView from "@/views/LandingView.vue";
 import LoginView from "@/views/LoginView.vue";
@@ -66,11 +67,13 @@ export const routes: RouteRecordRaw[] = [
                           ? ModelInclusionRecordsView
                           : item.path === "/reports"
                             ? ReportsView
-                            : item.path === "/settings"
-                              ? SettingsView
-                              : item.path === "/help"
-                                ? HelpView
-                                : ModulePlaceholderView,
+                            : item.path === "/users"
+                              ? UsersView
+                              : item.path === "/settings"
+                                ? SettingsView
+                                : item.path === "/help"
+                                  ? HelpView
+                                  : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path],
           requiresAuth: true,

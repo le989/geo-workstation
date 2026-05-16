@@ -68,7 +68,7 @@ export const canAccessRoute = (
   }
 
   if (path === "/users") {
-    return false;
+    return normalizeRole(role) === "platform_admin";
   }
 
   const normalizedRole = normalizeRole(role);
