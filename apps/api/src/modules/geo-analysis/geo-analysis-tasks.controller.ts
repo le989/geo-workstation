@@ -1,5 +1,17 @@
 import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
+import {
+  buildResourceAccessContext,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
+import { CurrentCompany } from "../auth/current-company.decorator";
+import { CurrentMembership } from "../auth/current-membership.decorator";
+import { CurrentUser } from "../auth/current-user.decorator";
+import type {
+  AuthCompanyOption,
+  AuthUser,
+  CurrentMembershipContext
+} from "../auth/auth.types";
 import { ConvertAnalysisPromptsDto } from "./dto/convert-analysis-prompts.dto";
 import { CreateAnalysisContentTaskDto } from "./dto/create-analysis-content-task.dto";
 import { CreateGeoAnalysisTaskDto } from "./dto/create-geo-analysis-task.dto";
@@ -17,53 +29,110 @@ export class GeoAnalysisTasksController {
   @Get()
   findMany(
     @Query(createValidationPipe(QueryGeoAnalysisTasksDto))
-    query: QueryGeoAnalysisTasksDto
+    query: QueryGeoAnalysisTasksDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.geoAnalysisTasksService.findMany(query);
+    return this.geoAnalysisTasksService.findMany(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post()
   create(
     @Body(createValidationPipe(CreateGeoAnalysisTaskDto))
-    body: CreateGeoAnalysisTaskDto
+    body: CreateGeoAnalysisTaskDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.geoAnalysisTasksService.create(body);
+    return this.geoAnalysisTasksService.create(
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Get(":id")
-  getDetail(@Param("id") id: string) {
-    return this.geoAnalysisTasksService.getDetail(id);
+  getDetail(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.geoAnalysisTasksService.getDetail(
+      id,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Patch(":id")
   update(
     @Param("id") id: string,
     @Body(createValidationPipe(UpdateGeoAnalysisTaskDto))
-    body: UpdateGeoAnalysisTaskDto
+    body: UpdateGeoAnalysisTaskDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.geoAnalysisTasksService.update(id, body);
+    return this.geoAnalysisTasksService.update(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post(":id/run")
-  run(@Param("id") id: string) {
-    return this.geoAnalysisTasksService.run(id);
+  run(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.geoAnalysisTasksService.run(
+      id,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post(":id/convert-prompts")
   convertPrompts(
     @Param("id") id: string,
     @Body(createValidationPipe(ConvertAnalysisPromptsDto))
-    body: ConvertAnalysisPromptsDto
+    body: ConvertAnalysisPromptsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.geoAnalysisTasksService.convertPrompts(id, body);
+    return this.geoAnalysisTasksService.convertPrompts(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post(":id/create-content-task")
   createContentTask(
     @Param("id") id: string,
     @Body(createValidationPipe(CreateAnalysisContentTaskDto))
-    body: CreateAnalysisContentTaskDto
+    body: CreateAnalysisContentTaskDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.geoAnalysisTasksService.createContentTask(id, body);
+    return this.geoAnalysisTasksService.createContentTask(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  private buildContext(
+    user?: AuthUser,
+    currentCompany?: AuthCompanyOption,
+    currentMembership?: CurrentMembershipContext
+  ): ResourceAccessContext | undefined {
+    return buildResourceAccessContext(user, currentCompany, currentMembership);
   }
 }

@@ -18,6 +18,7 @@ export type AnalysisPromptSuggestion = {
 
 export type GeoAnalysisTask = {
   id: string;
+  companyId?: string;
   name: string;
   brandName: string;
   websiteUrl?: string;

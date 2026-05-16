@@ -38,6 +38,11 @@ import {
   type ProjectProfileResponse
 } from "../project-profile/project-profile.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import {
+  buildResourceReadWhere,
+  getCurrentCompanyId,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const AI_CALL_PURPOSE = "content_generation";
@@ -193,16 +198,26 @@ export class ContentTasksService {
     };
   }
 
-  async create(input: CreateContentTaskDto): Promise<ContentTaskDetailResponse> {
+  async create(
+    input: CreateContentTaskDto,
+    context?: ResourceAccessContext
+  ): Promise<ContentTaskDetailResponse> {
     const normalized = normalizeCreateContentTask(input);
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
-    const prompts = await this.findActiveGeoPrompts(normalized.geoPromptIds);
-    const knowledgeBase = await this.findOptionalKnowledgeBase(normalized.knowledgeBaseId);
-    const instructionTemplate = await this.findOptionalInstructionTemplate(
-      normalized.instructionTemplateId
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
+    const prompts = await this.findActiveGeoPrompts(normalized.geoPromptIds, context);
+    const knowledgeBase = await this.findOptionalKnowledgeBase(
+      normalized.knowledgeBaseId,
+      context
     );
-    const knowledgeChunks = knowledgeBase ? await this.findKnowledgeChunks(knowledgeBase.id) : [];
+    const instructionTemplate = await this.findOptionalInstructionTemplate(
+      normalized.instructionTemplateId,
+      context
+    );
+    const knowledgeChunks = knowledgeBase
+      ? await this.findKnowledgeChunks(knowledgeBase.id, context)
+      : [];
     const projectProfile = await this.findProjectProfileContext();
+    const companyId = context ? getCurrentCompanyId(context) : undefined;
 
     const task = await this.prisma.contentTask.create({
       data: {
@@ -231,7 +246,21 @@ export class ContentTasksService {
           connect: {
             id: createdById
           }
-        }
+        },
+        ...(companyId
+          ? {
+              company: {
+                connect: {
+                  id: companyId
+                }
+              },
+              updatedBy: {
+                connect: {
+                  id: context!.user.id
+                }
+              }
+            }
+          : {})
       }
     });
 
@@ -274,13 +303,22 @@ export class ContentTasksService {
             body: generated.body,
             geoOptimizationPoints: generated.geoOptimizationPoints as Prisma.InputJsonValue,
             suggestedPublishChannel: generated.suggestedPublishChannel,
-            status: "draft"
+            status: "draft",
+            ...(companyId
+              ? {
+                  company: {
+                    connect: {
+                      id: companyId
+                    }
+                  }
+                }
+              : {})
           }
         });
         createdItems.push(item);
       } catch (error) {
         failedCount += 1;
-        const item = await this.createFailedContentItem(task.id, prompt, error);
+        const item = await this.createFailedContentItem(task.id, prompt, error, companyId);
         createdItems.push(item);
       }
     }
@@ -296,7 +334,15 @@ export class ContentTasksService {
         status: nextStatus
       }
     });
-    await this.recordAiCall(normalized, task.id, nextStatus, prompts, createdItems, aiUsage);
+    await this.recordAiCall(
+      normalized,
+      task.id,
+      nextStatus,
+      prompts,
+      createdItems,
+      aiUsage,
+      context
+    );
 
     return this.getDetail(task.id);
   }
@@ -720,13 +766,21 @@ export class ContentTasksService {
     return task;
   }
 
-  private async findActiveGeoPrompts(ids: string[]): Promise<GeoPrompt[]> {
+  private async findActiveGeoPrompts(
+    ids: string[],
+    context?: ResourceAccessContext
+  ): Promise<GeoPrompt[]> {
     const prompts = await this.prisma.geoPrompt.findMany({
       where: {
-        id: {
-          in: ids
-        },
-        deletedAt: null
+        AND: [
+          {
+            id: {
+              in: ids
+            },
+            deletedAt: null
+          },
+          ...(context ? [buildResourceReadWhere(context)] : [])
+        ]
       }
     });
     const promptById = new Map(prompts.map((prompt) => [prompt.id, prompt]));
@@ -741,15 +795,25 @@ export class ContentTasksService {
       .filter((prompt): prompt is GeoPrompt => Boolean(prompt));
   }
 
-  private async findOptionalKnowledgeBase(id?: string): Promise<KnowledgeBase | undefined> {
+  private async findOptionalKnowledgeBase(
+    id?: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBase | undefined> {
     if (!id) {
       return undefined;
     }
 
     const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
       where: {
-        id,
-        deletedAt: null
+        AND: [
+          {
+            id,
+            deletedAt: null
+          },
+          ...(context
+            ? [buildResourceReadWhere(context) as Prisma.KnowledgeBaseWhereInput]
+            : [])
+        ]
       }
     });
 
@@ -761,7 +825,8 @@ export class ContentTasksService {
   }
 
   private async findOptionalInstructionTemplate(
-    id?: string | null
+    id?: string | null,
+    context?: ResourceAccessContext
   ): Promise<InstructionTemplate | undefined> {
     if (!id) {
       return undefined;
@@ -769,8 +834,15 @@ export class ContentTasksService {
 
     const instructionTemplate = await this.prisma.instructionTemplate.findFirst({
       where: {
-        id,
-        deletedAt: null
+        AND: [
+          {
+            id,
+            deletedAt: null
+          },
+          ...(context
+            ? [buildResourceReadWhere(context) as Prisma.InstructionTemplateWhereInput]
+            : [])
+        ]
       }
     });
 
@@ -781,11 +853,19 @@ export class ContentTasksService {
     return instructionTemplate;
   }
 
-  private async findKnowledgeChunks(knowledgeBaseId: string): Promise<KnowledgeChunk[]> {
+  private async findKnowledgeChunks(
+    knowledgeBaseId: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeChunk[]> {
     return this.prisma.knowledgeChunk.findMany({
       where: {
         knowledgeBaseId,
-        deletedAt: null
+        deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {})
       },
       orderBy: {
         updatedAt: "desc"
@@ -797,7 +877,8 @@ export class ContentTasksService {
   private async createFailedContentItem(
     taskId: string,
     prompt: GeoPrompt,
-    error: unknown
+    error: unknown,
+    companyId?: string
   ): Promise<ContentItem> {
     return this.prisma.contentItem.create({
       data: {
@@ -814,7 +895,16 @@ export class ContentTasksService {
         title: `GEO内容生成失败：${prompt.promptText}`,
         body: "内容生成失败占位内容，用于保留 GEO 提示词与任务的重试关系。",
         status: "failed",
-        errorMessage: error instanceof Error ? error.message : "GEO content generation failed."
+        errorMessage: error instanceof Error ? error.message : "GEO content generation failed.",
+        ...(companyId
+          ? {
+              company: {
+                connect: {
+                  id: companyId
+                }
+              }
+            }
+          : {})
       }
     });
   }
@@ -836,7 +926,8 @@ export class ContentTasksService {
     status: TaskStatus,
     prompts: GeoPrompt[],
     items: Array<ContentItem | { body?: string }>,
-    usage?: AiUsageSummary
+    usage?: AiUsageSummary,
+    context?: ResourceAccessContext
   ): Promise<void> {
     const inputText = JSON.stringify({
       name: input.name,
@@ -859,7 +950,21 @@ export class ContentTasksService {
         tokenInput: usage?.tokenInput ?? this.estimateTokenCount(inputText),
         tokenOutput: usage?.tokenOutput ?? this.estimateTokenCount(outputText),
         costEstimate: 0,
-        status: status === TaskStatus.failed ? AiCallStatus.failed : AiCallStatus.succeeded
+        status: status === TaskStatus.failed ? AiCallStatus.failed : AiCallStatus.succeeded,
+        ...(context
+          ? {
+              company: {
+                connect: {
+                  id: getCurrentCompanyId(context)
+                }
+              },
+              createdBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
       }
     });
   }

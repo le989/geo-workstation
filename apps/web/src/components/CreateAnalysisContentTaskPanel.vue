@@ -24,7 +24,6 @@ const emit = defineEmits<{
 }>();
 
 const form = reactive({
-  createdBy: "",
   generationType: "article",
   geoPromptIds: [] as string[],
   instructionTemplateId: "",
@@ -106,7 +105,6 @@ const selectRelatedPrompts = () => {
 
 const handleSubmit = () => {
   emit("submit", {
-    createdBy: trimOptional(form.createdBy),
     generationType: trimOptional(form.generationType) ?? "article",
     geoPromptIds: form.geoPromptIds,
     instructionTemplateId: trimOptional(form.instructionTemplateId),
@@ -200,9 +198,6 @@ const handleSubmit = () => {
         <p v-if="selectedInstructionTemplate" class="form-help">
           内容类型：{{ selectedInstructionContentTypeLabel }}
         </p>
-      </el-form-item>
-      <el-form-item label="创建人">
-        <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
       </el-form-item>
       <el-form-item label="选择 GEO 提示词" class="form-span-3">
         <div class="related-prompt-actions">

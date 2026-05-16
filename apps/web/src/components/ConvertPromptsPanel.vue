@@ -31,7 +31,6 @@ const selectedPromptTexts = defineModel<string[]>("selectedPromptTexts", {
 });
 
 const form = reactive({
-  createdBy: "",
   priority: 3,
   productLine: "",
   promptType: "distilled" as GeoPromptType,
@@ -71,7 +70,6 @@ const handleSubmit = () => {
   }
 
   emit("submit", {
-    createdBy: trimOptional(form.createdBy),
     priority: form.priority,
     productLine: trimOptional(form.productLine),
     promptType: form.promptType,
@@ -139,9 +137,6 @@ const handleSubmit = () => {
       </el-form-item>
       <el-form-item label="是否追踪">
         <el-switch v-model="form.trackEnabled" active-text="追踪" inactive-text="不追踪" />
-      </el-form-item>
-      <el-form-item label="创建人">
-        <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
       </el-form-item>
     </el-form>
 

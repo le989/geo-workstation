@@ -142,6 +142,9 @@ const formatSummaryValue = (value: unknown) => {
           <el-descriptions-item label="状态">
             <GeoAnalysisStatusTag :status="detail.task.status" />
           </el-descriptions-item>
+          <el-descriptions-item label="创建人">
+            {{ formatOptional(detail.task.createdBy) }}
+          </el-descriptions-item>
           <el-descriptions-item label="官网">
             {{ formatOptional(detail.task.websiteUrl) }}
           </el-descriptions-item>

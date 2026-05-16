@@ -6,6 +6,7 @@ import {
   UserIntent,
   UserRole,
   UserStatus,
+  Visibility,
   type GeoAnalysisTask,
   type GeoModelResult,
   type GeoPrompt
@@ -35,6 +36,18 @@ import {
   type NormalizedCreateAnalysisContentTask,
   type NormalizedQueryGeoAnalysisTasks
 } from "./utils/normalize-geo-analysis-task";
+import {
+  buildResourceReadWhere,
+  getCurrentCompanyId,
+  resolveCreateVisibility,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
+import {
+  assertCanManageCompanyTask,
+  buildTaskReadWhere,
+  buildTaskReadWhereById,
+  resolveTaskCreateData
+} from "../auth/task-policy";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const ANALYSIS_PROMPT_SOURCE_PREFIX = "geo_analysis:";
@@ -45,6 +58,7 @@ type GeoAnalysisTaskWithResults = GeoAnalysisTask & {
 
 export type GeoAnalysisTaskResponse = {
   id: string;
+  companyId?: string;
   name: string;
   brandName: string;
   websiteUrl?: string;
@@ -118,9 +132,12 @@ export class GeoAnalysisTasksService {
     @Inject(ContentTasksService) private readonly contentTasksService: ContentTasksService
   ) {}
 
-  async findMany(query: QueryGeoAnalysisTasksDto): Promise<GeoAnalysisTaskListResponse> {
+  async findMany(
+    query: QueryGeoAnalysisTasksDto,
+    context?: ResourceAccessContext
+  ): Promise<GeoAnalysisTaskListResponse> {
     const normalized = normalizeQueryGeoAnalysisTasks(query);
-    const where = this.buildWhere(normalized);
+    const where = this.buildWhere(normalized, context);
 
     if (normalized.targetModel) {
       const allItems = await this.prisma.geoAnalysisTask.findMany({
@@ -167,9 +184,12 @@ export class GeoAnalysisTasksService {
     };
   }
 
-  async create(input: CreateGeoAnalysisTaskDto): Promise<GeoAnalysisTaskResponse> {
+  async create(
+    input: CreateGeoAnalysisTaskDto,
+    context?: ResourceAccessContext
+  ): Promise<GeoAnalysisTaskResponse> {
     const normalized = normalizeCreateGeoAnalysisTask(input);
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const task = await this.prisma.geoAnalysisTask.create({
       data: {
         name: normalized.name,
@@ -182,20 +202,27 @@ export class GeoAnalysisTasksService {
           isMock: false,
           inputBaseWords: normalized.baseWords
         },
-        createdBy: {
-          connect: {
-            id: createdById
-          }
-        }
+        ...(context
+          ? resolveTaskCreateData(context)
+          : {
+              createdBy: {
+                connect: {
+                  id: createdById
+                }
+              }
+            })
       }
     });
 
     return this.toTaskResponse(task);
   }
 
-  async getDetail(id: string): Promise<GeoAnalysisTaskDetailResponse> {
-    const task = await this.findTaskWithResults(id);
-    const relatedPrompts = await this.findRelatedPrompts(id);
+  async getDetail(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeoAnalysisTaskDetailResponse> {
+    const task = await this.findTaskWithResults(id, context);
+    const relatedPrompts = await this.findRelatedPrompts(id, context);
 
     return {
       task: this.toTaskResponse(task),
@@ -205,11 +232,18 @@ export class GeoAnalysisTasksService {
     };
   }
 
-  async update(id: string, input: UpdateGeoAnalysisTaskDto): Promise<GeoAnalysisTaskResponse> {
-    const task = await this.findTask(id);
+  async update(
+    id: string,
+    input: UpdateGeoAnalysisTaskDto,
+    context?: ResourceAccessContext
+  ): Promise<GeoAnalysisTaskResponse> {
+    const task = await this.findTask(id, context);
 
     if (task.status === TaskStatus.running) {
       throw new BadRequestException("running GEO analysis task cannot be edited");
+    }
+    if (context) {
+      assertCanManageCompanyTask(context, task);
     }
 
     const normalized = normalizeUpdateGeoAnalysisTask(input);
@@ -224,6 +258,15 @@ export class GeoAnalysisTasksService {
         ...(normalized.productLine !== undefined ? { productLine: normalized.productLine } : {}),
         ...(normalized.targetModels !== undefined
           ? { targetModels: normalized.targetModels as Prisma.InputJsonValue }
+          : {}),
+        ...(context
+          ? {
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
           : {})
       }
     });
@@ -231,11 +274,14 @@ export class GeoAnalysisTasksService {
     return this.toTaskResponse(updated);
   }
 
-  async run(id: string): Promise<GeoAnalysisTaskDetailResponse> {
-    const task = await this.findTask(id);
+  async run(id: string, context?: ResourceAccessContext): Promise<GeoAnalysisTaskDetailResponse> {
+    const task = await this.findTask(id, context);
 
     if (task.status === TaskStatus.running) {
       throw new BadRequestException("running GEO analysis task cannot be executed again");
+    }
+    if (context) {
+      assertCanManageCompanyTask(context, task);
     }
 
     const runningTask = await this.prisma.geoAnalysisTask.update({
@@ -287,7 +333,7 @@ export class GeoAnalysisTasksService {
         })
       ]);
 
-      return this.getDetail(id);
+      return this.getDetail(id, context);
     } catch (error) {
       await this.prisma.geoAnalysisTask.update({
         where: {
@@ -308,9 +354,13 @@ export class GeoAnalysisTasksService {
 
   async convertPrompts(
     id: string,
-    input: ConvertAnalysisPromptsDto
+    input: ConvertAnalysisPromptsDto,
+    context?: ResourceAccessContext
   ): Promise<ConvertAnalysisPromptsResponse> {
-    const task = await this.findTask(id);
+    const task = await this.findTask(id, context);
+    if (context) {
+      assertCanManageCompanyTask(context, task);
+    }
     const normalized = normalizeConvertAnalysisPrompts(input);
     const suggestions = normalizeAnalysisPromptSuggestions(task.promptSuggestions);
 
@@ -328,7 +378,8 @@ export class GeoAnalysisTasksService {
       throw new BadRequestException("selectedPromptTexts did not match any promptSuggestions");
     }
 
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
+    const visibility = context ? resolveCreateVisibility(context) : undefined;
     const createdItems: RelatedAnalysisPromptResponse[] = [];
     const skippedItems: Array<{ promptText: string; reason: string }> = [];
     const seenPromptTexts = new Set<string>();
@@ -347,7 +398,12 @@ export class GeoAnalysisTasksService {
       const existingPrompt = await this.prisma.geoPrompt.findFirst({
         where: {
           promptText: suggestion.promptText,
-          deletedAt: null
+          deletedAt: null,
+          ...(context
+            ? {
+                companyId: getCurrentCompanyId(context)
+              }
+            : {})
         }
       });
 
@@ -371,6 +427,21 @@ export class GeoAnalysisTasksService {
           targetModels: this.toStringArray(task.targetModels) as Prisma.InputJsonValue,
           source: this.analysisPromptSource(id),
           trackEnabled: normalized.trackEnabled,
+          ...(context
+            ? {
+                company: {
+                  connect: {
+                    id: getCurrentCompanyId(context)
+                  }
+                },
+                visibility: visibility ?? Visibility.COMPANY,
+                updatedBy: {
+                  connect: {
+                    id: context.user.id
+                  }
+                }
+              }
+            : {}),
           createdBy: {
             connect: {
               id: createdById
@@ -392,31 +463,41 @@ export class GeoAnalysisTasksService {
 
   async createContentTask(
     id: string,
-    input: CreateAnalysisContentTaskDto
+    input: CreateAnalysisContentTaskDto,
+    context?: ResourceAccessContext
   ): Promise<ContentTaskDetailResponse> {
-    const task = await this.findTask(id);
+    const task = await this.findTask(id, context);
+    if (context) {
+      assertCanManageCompanyTask(context, task);
+    }
     const normalized = normalizeCreateAnalysisContentTask(input);
-    const geoPromptIds = await this.resolveContentTaskPromptIds(task, normalized);
+    const geoPromptIds = await this.resolveContentTaskPromptIds(task, normalized, context);
 
-    return this.contentTasksService.create({
-      name: normalized.name ?? `${task.name} 内容补齐任务`,
-      productLine: task.productLine ?? undefined,
-      knowledgeBaseId: normalized.knowledgeBaseId,
-      instructionTemplateId: normalized.instructionTemplateId,
-      generationType: normalized.generationType,
-      targetModel: normalized.targetModel ?? this.toStringArray(task.targetModels)[0],
-      provider: "mock",
-      model: "mock-content-v1",
-      geoPromptIds,
-      createdBy: normalized.createdBy
-    });
+    return this.contentTasksService.create(
+      {
+        name: normalized.name ?? `${task.name} 内容补齐任务`,
+        productLine: task.productLine ?? undefined,
+        knowledgeBaseId: normalized.knowledgeBaseId,
+        instructionTemplateId: normalized.instructionTemplateId,
+        generationType: normalized.generationType,
+        targetModel: normalized.targetModel ?? this.toStringArray(task.targetModels)[0],
+        provider: "mock",
+        model: "mock-content-v1",
+        geoPromptIds,
+        createdBy: normalized.createdBy
+      },
+      context
+    );
   }
 
-  private buildWhere(query: NormalizedQueryGeoAnalysisTasks): Prisma.GeoAnalysisTaskWhereInput {
-    const where: Prisma.GeoAnalysisTaskWhereInput = {};
+  private buildWhere(
+    query: NormalizedQueryGeoAnalysisTasks,
+    context?: ResourceAccessContext
+  ): Prisma.GeoAnalysisTaskWhereInput {
+    const filterWhere: Prisma.GeoAnalysisTaskWhereInput = {};
 
     if (query.search) {
-      where.OR = [
+      filterWhere.OR = [
         {
           name: {
             contains: query.search,
@@ -444,33 +525,41 @@ export class GeoAnalysisTasksService {
       ];
     }
     if (query.status) {
-      where.status = query.status;
+      filterWhere.status = query.status;
     }
     if (query.productLine) {
-      where.productLine = query.productLine;
+      filterWhere.productLine = query.productLine;
     }
     if (query.createdBy) {
-      where.createdById = query.createdBy;
+      filterWhere.createdById = query.createdBy;
     }
     if (query.createdFrom || query.createdTo) {
-      where.createdAt = {
+      filterWhere.createdAt = {
         ...(query.createdFrom ? { gte: query.createdFrom } : {}),
         ...(query.createdTo ? { lte: query.createdTo } : {})
       };
     }
 
-    return where;
+    return context
+      ? {
+          AND: [buildTaskReadWhere(context), filterWhere]
+        }
+      : filterWhere;
   }
 
   private async resolveContentTaskPromptIds(
     task: GeoAnalysisTask,
-    input: NormalizedCreateAnalysisContentTask
+    input: NormalizedCreateAnalysisContentTask,
+    context?: ResourceAccessContext
   ): Promise<string[]> {
     if (input.geoPromptIds.length > 0) {
+      if (context) {
+        await this.assertGeoPromptsReadable(input.geoPromptIds, context);
+      }
       return input.geoPromptIds;
     }
 
-    const relatedPrompts = await this.findRelatedPrompts(task.id);
+    const relatedPrompts = await this.findRelatedPrompts(task.id, context);
 
     if (relatedPrompts.length > 0) {
       return relatedPrompts.map((prompt) => prompt.id);
@@ -478,13 +567,13 @@ export class GeoAnalysisTasksService {
 
     const converted = await this.convertPrompts(task.id, {
       createdBy: input.createdBy
-    });
+    }, context);
 
     if (converted.createdItems.length > 0) {
       return converted.createdItems.map((prompt) => prompt.id);
     }
 
-    const existingPromptIds = await this.findExistingPromptIdsFromSuggestions(task);
+    const existingPromptIds = await this.findExistingPromptIdsFromSuggestions(task, context);
 
     if (existingPromptIds.length === 0) {
       throw new BadRequestException(
@@ -495,7 +584,10 @@ export class GeoAnalysisTasksService {
     return existingPromptIds;
   }
 
-  private async findExistingPromptIdsFromSuggestions(task: GeoAnalysisTask): Promise<string[]> {
+  private async findExistingPromptIdsFromSuggestions(
+    task: GeoAnalysisTask,
+    context?: ResourceAccessContext
+  ): Promise<string[]> {
     const promptTexts = normalizeAnalysisPromptSuggestions(task.promptSuggestions).map(
       (suggestion) => suggestion.promptText
     );
@@ -509,7 +601,12 @@ export class GeoAnalysisTasksService {
         promptText: {
           in: promptTexts
         },
-        deletedAt: null
+        deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {})
       },
       orderBy: {
         createdAt: "asc"
@@ -522,11 +619,44 @@ export class GeoAnalysisTasksService {
       .filter((promptId): promptId is string => Boolean(promptId));
   }
 
-  private async findTask(id: string): Promise<GeoAnalysisTask> {
-    const task = await this.prisma.geoAnalysisTask.findUnique({
+  private async assertGeoPromptsReadable(
+    ids: string[],
+    context: ResourceAccessContext
+  ): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
+
+    const prompts = await this.prisma.geoPrompt.findMany({
       where: {
-        id
+        AND: [
+          {
+            id: {
+              in: ids
+            },
+            deletedAt: null
+          },
+          buildResourceReadWhere(context)
+        ]
+      },
+      select: {
+        id: true
       }
+    });
+    const promptById = new Set(prompts.map((prompt) => prompt.id));
+    const missingIds = ids.filter((id) => !promptById.has(id));
+
+    if (missingIds.length > 0) {
+      throw new BadRequestException(`GEO prompts not found or inaccessible: ${missingIds.join(", ")}`);
+    }
+  }
+
+  private async findTask(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeoAnalysisTask> {
+    const task = await this.prisma.geoAnalysisTask.findFirst({
+      where: context ? buildTaskReadWhereById(id, context) : { id }
     });
 
     if (!task) {
@@ -536,11 +666,12 @@ export class GeoAnalysisTasksService {
     return task;
   }
 
-  private async findTaskWithResults(id: string): Promise<GeoAnalysisTaskWithResults> {
-    const task = await this.prisma.geoAnalysisTask.findUnique({
-      where: {
-        id
-      },
+  private async findTaskWithResults(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeoAnalysisTaskWithResults> {
+    const task = await this.prisma.geoAnalysisTask.findFirst({
+      where: context ? buildTaskReadWhereById(id, context) : { id },
       include: {
         modelResults: {
           orderBy: {
@@ -557,11 +688,19 @@ export class GeoAnalysisTasksService {
     return task;
   }
 
-  private async findRelatedPrompts(id: string): Promise<RelatedAnalysisPromptResponse[]> {
+  private async findRelatedPrompts(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<RelatedAnalysisPromptResponse[]> {
     const prompts = await this.prisma.geoPrompt.findMany({
       where: {
         source: this.analysisPromptSource(id),
-        deletedAt: null
+        deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {})
       },
       orderBy: {
         createdAt: "asc"
@@ -591,6 +730,7 @@ export class GeoAnalysisTasksService {
   private toTaskResponse(task: GeoAnalysisTask): GeoAnalysisTaskResponse {
     return {
       id: task.id,
+      companyId: task.companyId ?? undefined,
       name: task.name,
       brandName: task.brandName,
       websiteUrl: task.websiteUrl ?? undefined,

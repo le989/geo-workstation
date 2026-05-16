@@ -15,7 +15,6 @@ type FormState = {
   productLine: string;
   baseWordsText: string;
   targetModelsText: string;
-  createdBy: string;
 };
 
 const props = defineProps<{
@@ -34,7 +33,6 @@ const emit = defineEmits<{
 const form = reactive<FormState>({
   baseWordsText: "",
   brandName: "",
-  createdBy: "",
   name: "",
   productLine: "",
   targetModelsText: defaultTargetModels.join("，"),
@@ -59,7 +57,6 @@ const title = computed(() => (props.mode === "create" ? "新建 GEO 诊断任务
 const resetForm = () => {
   form.baseWordsText = "";
   form.brandName = "";
-  form.createdBy = "";
   form.name = "";
   form.productLine = "";
   form.targetModelsText = defaultTargetModels.join("，");
@@ -69,7 +66,6 @@ const resetForm = () => {
 const fillTask = (task: GeoAnalysisTask) => {
   form.baseWordsText = "";
   form.brandName = task.brandName ?? "";
-  form.createdBy = task.createdBy ?? "";
   form.name = task.name ?? "";
   form.productLine = task.productLine ?? "";
   form.targetModelsText = task.targetModels.join("，");
@@ -110,7 +106,6 @@ const handleSubmit = () => {
 
   if (props.mode === "create") {
     payload.baseWords = splitCommaValues(form.baseWordsText);
-    payload.createdBy = trimOptional(form.createdBy);
   }
 
   emit("submit", payload);
@@ -197,9 +192,6 @@ const close = () => {
               :rows="3"
               placeholder="逗号或换行分隔，例如：deepseek-chat，doubao，kimi"
             />
-          </el-form-item>
-          <el-form-item v-if="mode === 'create'" label="创建人">
-            <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
           </el-form-item>
         </div>
       </section>
