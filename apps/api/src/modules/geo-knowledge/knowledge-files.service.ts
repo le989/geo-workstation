@@ -17,6 +17,13 @@ import { LocalFileStorageService, type UploadedKnowledgeFile } from "./local-fil
 import { resolveKnowledgeFileType } from "./utils/file-type.util";
 import { trimOptional } from "./utils/normalize-knowledge-base";
 import { jsonTagsToArray, normalizeTags } from "./utils/tags.util";
+import {
+  assertCanDeleteResource,
+  assertCanUpdateResource,
+  canReadResource,
+  getCurrentCompanyId,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const DEFAULT_PAGE = 1;
@@ -39,6 +46,7 @@ export type KnowledgeFileResponse = {
   fileName: string;
   fileType: string;
   fileSize?: number;
+  companyId?: string;
   storagePath?: string;
   parseStatus: ParseStatus;
   errorMessage?: string;
@@ -100,12 +108,17 @@ export class KnowledgeFilesService {
   async upload(
     knowledgeBaseId: string,
     file: UploadedKnowledgeFile | undefined,
-    input: UploadKnowledgeFileDto
+    input: UploadKnowledgeFileDto,
+    context?: ResourceAccessContext
   ): Promise<KnowledgeFileParseResponse> {
-    const knowledgeBase = await this.findKnowledgeBaseForFileImport(knowledgeBaseId);
+    const knowledgeBase = await this.findKnowledgeBaseForFileImport(knowledgeBaseId, context);
+    if (context) {
+      assertCanUpdateResource(context, knowledgeBase);
+    }
     this.assertUploadFile(file);
     const fileType = this.resolveFileType(file.originalname);
-    const createdById = await this.resolveCreatedById(input.createdBy);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(input.createdBy));
+    const companyId = context ? getCurrentCompanyId(context) : undefined;
     const storagePath = await this.storage.saveKnowledgeFile(knowledgeBaseId, file);
 
     const knowledgeFile = await this.prisma.knowledgeFile.create({
@@ -120,25 +133,44 @@ export class KnowledgeFilesService {
         fileSize: file.size,
         storagePath,
         parseStatus: ParseStatus.pending,
+        ...(companyId
+          ? {
+              company: {
+                connect: {
+                  id: companyId
+                }
+              }
+            }
+          : {}),
         createdBy: {
           connect: {
             id: createdById
           }
-        }
+        },
+        ...(context
+          ? {
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
       }
     });
 
-    return this.parseAndStoreChunks(knowledgeFile.id, input);
+    return this.parseAndStoreChunks(knowledgeFile.id, input, context);
   }
 
   async findMany(
     knowledgeBaseId: string,
-    query: QueryKnowledgeFilesDto
+    query: QueryKnowledgeFilesDto,
+    context?: ResourceAccessContext
   ): Promise<KnowledgeFileListResponse> {
-    await this.assertActiveKnowledgeBase(knowledgeBaseId);
+    await this.assertActiveKnowledgeBase(knowledgeBaseId, context);
     const page = Math.max(toOptionalInt(query.page) ?? DEFAULT_PAGE, 1);
     const pageSize = Math.min(Math.max(toOptionalInt(query.pageSize) ?? DEFAULT_PAGE_SIZE, 1), 100);
-    const where = this.buildWhere(knowledgeBaseId, query);
+    const where = this.buildWhere(knowledgeBaseId, query, context);
 
     const [items, total] = await Promise.all([
       this.prisma.knowledgeFile.findMany({
@@ -162,8 +194,11 @@ export class KnowledgeFilesService {
     };
   }
 
-  async getDetail(id: string): Promise<KnowledgeFileDetailResponse> {
-    const knowledgeFile = await this.findActiveKnowledgeFile(id);
+  async getDetail(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeFileDetailResponse> {
+    const knowledgeFile = await this.findActiveKnowledgeFile(id, context);
     const [chunksCount, latestChunks] = await Promise.all([
       this.prisma.knowledgeChunk.count({
         where: {
@@ -190,13 +225,23 @@ export class KnowledgeFilesService {
     };
   }
 
-  async reparse(id: string, input: ReparseKnowledgeFileDto): Promise<KnowledgeFileParseResponse> {
-    await this.findActiveKnowledgeFile(id);
-    return this.parseAndStoreChunks(id, input);
+  async reparse(
+    id: string,
+    input: ReparseKnowledgeFileDto,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeFileParseResponse> {
+    const knowledgeFile = await this.findActiveKnowledgeFileWithBase(id, context);
+    if (context) {
+      assertCanUpdateResource(context, knowledgeFile.knowledgeBase);
+    }
+    return this.parseAndStoreChunks(id, input, context);
   }
 
-  async softDelete(id: string): Promise<DeleteKnowledgeFileResponse> {
-    const existing = await this.findExistingKnowledgeFile(id);
+  async softDelete(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<DeleteKnowledgeFileResponse> {
+    const existing = await this.findExistingKnowledgeFile(id, context);
 
     if (existing.deletedAt) {
       return {
@@ -205,6 +250,9 @@ export class KnowledgeFilesService {
         alreadyDeleted: true,
         deletedAt: existing.deletedAt
       };
+    }
+    if (context) {
+      assertCanDeleteResource(context, existing.knowledgeBase);
     }
 
     const deletedAt = new Date();
@@ -238,11 +286,15 @@ export class KnowledgeFilesService {
 
   private async parseAndStoreChunks(
     knowledgeFileId: string,
-    input: ParseOptions
+    input: ParseOptions,
+    context?: ResourceAccessContext
   ): Promise<KnowledgeFileParseResponse> {
-    const knowledgeFile = await this.findActiveKnowledgeFileWithBase(knowledgeFileId);
+    const knowledgeFile = await this.findActiveKnowledgeFileWithBase(knowledgeFileId, context);
     const materialType = trimOptional(input.materialType) ?? "file_import";
     const tags = normalizeTags(input.tags);
+    const companyId = context
+      ? getCurrentCompanyId(context)
+      : (knowledgeFile.companyId ?? knowledgeFile.knowledgeBase.companyId ?? undefined);
 
     await this.prisma.knowledgeFile.update({
       where: {
@@ -295,7 +347,16 @@ export class KnowledgeFilesService {
             sourceType: "uploaded_file",
             productLine: knowledgeFile.knowledgeBase.productLine,
             materialType,
-            tags
+            tags,
+            ...(companyId
+              ? {
+                  company: {
+                    connect: {
+                      id: companyId
+                    }
+                  }
+                }
+              : {})
           }
         });
         createdChunks.push(created);
@@ -341,12 +402,16 @@ export class KnowledgeFilesService {
 
   private buildWhere(
     knowledgeBaseId: string,
-    query: QueryKnowledgeFilesDto
+    query: QueryKnowledgeFilesDto,
+    context?: ResourceAccessContext
   ): Prisma.KnowledgeFileWhereInput {
     const where: Prisma.KnowledgeFileWhereInput = {
       knowledgeBaseId,
       deletedAt: null
     };
+    if (context) {
+      where.companyId = getCurrentCompanyId(context);
+    }
     const search = trimOptional(query.search);
 
     if (query.parseStatus) {
@@ -365,14 +430,17 @@ export class KnowledgeFilesService {
     return where;
   }
 
-  private async findKnowledgeBaseForFileImport(id: string): Promise<KnowledgeBase> {
-    const knowledgeBase = await this.prisma.knowledgeBase.findUnique({
+  private async findKnowledgeBaseForFileImport(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBase> {
+    const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
       where: {
         id
       }
     });
 
-    if (!knowledgeBase) {
+    if (!knowledgeBase || (context && !canReadResource(context, knowledgeBase))) {
       throw new NotFoundException(`GEO knowledge base not found: ${id}`);
     }
 
@@ -383,52 +451,46 @@ export class KnowledgeFilesService {
     return knowledgeBase;
   }
 
-  private async assertActiveKnowledgeBase(knowledgeBaseId: string): Promise<void> {
+  private async assertActiveKnowledgeBase(
+    knowledgeBaseId: string,
+    context?: ResourceAccessContext
+  ): Promise<void> {
     const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
       where: {
         id: knowledgeBaseId,
         deletedAt: null
-      },
-      select: {
-        id: true
       }
     });
 
-    if (!knowledgeBase) {
+    if (!knowledgeBase || (context && !canReadResource(context, knowledgeBase))) {
       throw new NotFoundException(`GEO knowledge base not found: ${knowledgeBaseId}`);
     }
   }
 
-  private async findExistingKnowledgeFile(id: string): Promise<KnowledgeFile> {
-    const knowledgeFile = await this.prisma.knowledgeFile.findUnique({
-      where: {
-        id
-      }
-    });
-
-    if (!knowledgeFile) {
-      throw new NotFoundException(`GEO knowledge file not found: ${id}`);
-    }
-
-    return knowledgeFile;
-  }
-
-  private async findActiveKnowledgeFile(id: string): Promise<KnowledgeFile> {
+  private async findExistingKnowledgeFile(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeFileWithBase> {
     const knowledgeFile = await this.prisma.knowledgeFile.findFirst({
       where: {
-        id,
-        deletedAt: null
+        id
+      },
+      include: {
+        knowledgeBase: true
       }
     });
 
-    if (!knowledgeFile) {
+    if (!knowledgeFile || (context && !canReadResource(context, knowledgeFile.knowledgeBase))) {
       throw new NotFoundException(`GEO knowledge file not found: ${id}`);
     }
 
     return knowledgeFile;
   }
 
-  private async findActiveKnowledgeFileWithBase(id: string): Promise<KnowledgeFileWithBase> {
+  private async findActiveKnowledgeFile(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeFileWithBase> {
     const knowledgeFile = await this.prisma.knowledgeFile.findFirst({
       where: {
         id,
@@ -439,7 +501,28 @@ export class KnowledgeFilesService {
       }
     });
 
-    if (!knowledgeFile) {
+    if (!knowledgeFile || (context && !canReadResource(context, knowledgeFile.knowledgeBase))) {
+      throw new NotFoundException(`GEO knowledge file not found: ${id}`);
+    }
+
+    return knowledgeFile;
+  }
+
+  private async findActiveKnowledgeFileWithBase(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeFileWithBase> {
+    const knowledgeFile = await this.prisma.knowledgeFile.findFirst({
+      where: {
+        id,
+        deletedAt: null
+      },
+      include: {
+        knowledgeBase: true
+      }
+    });
+
+    if (!knowledgeFile || (context && !canReadResource(context, knowledgeFile.knowledgeBase))) {
       throw new NotFoundException(`GEO knowledge file not found: ${id}`);
     }
 
@@ -485,6 +568,7 @@ export class KnowledgeFilesService {
       fileName: file.fileName,
       fileType: file.fileType,
       fileSize: file.fileSize ?? undefined,
+      companyId: file.companyId ?? undefined,
       storagePath: file.storagePath ?? undefined,
       parseStatus: file.parseStatus,
       errorMessage: file.errorMessage ?? undefined,

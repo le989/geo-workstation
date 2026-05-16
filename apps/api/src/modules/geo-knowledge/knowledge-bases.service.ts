@@ -3,6 +3,7 @@ import {
   Prisma,
   UserRole,
   UserStatus,
+  Visibility,
   type KnowledgeBase,
   type KnowledgeChunk
 } from "@prisma/client";
@@ -18,6 +19,14 @@ import {
 } from "./utils/normalize-knowledge-base";
 import { normalizeTextImportKnowledge } from "./utils/normalize-knowledge-chunk";
 import { jsonTagsToArray } from "./utils/tags.util";
+import {
+  assertCanDeleteResource,
+  assertCanUpdateResource,
+  buildResourceReadWhere,
+  getCurrentCompanyId,
+  resolveCreateVisibility,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const DEFAULT_PAGE = 1;
@@ -31,6 +40,8 @@ export type KnowledgeBaseResponse = {
   productLine?: string;
   description?: string;
   status: string;
+  companyId?: string;
+  visibility: Visibility;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -75,10 +86,13 @@ export type DeleteKnowledgeBaseResponse = {
 export class KnowledgeBasesService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async findMany(query: QueryKnowledgeBasesDto): Promise<KnowledgeBaseListResponse> {
+  async findMany(
+    query: QueryKnowledgeBasesDto,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBaseListResponse> {
     const page = Math.max(toOptionalInt(query.page) ?? DEFAULT_PAGE, 1);
     const pageSize = Math.min(Math.max(toOptionalInt(query.pageSize) ?? DEFAULT_PAGE_SIZE, 1), 100);
-    const where = this.buildWhere(query);
+    const where = this.buildWhere(query, context);
 
     const [items, total] = await Promise.all([
       this.prisma.knowledgeBase.findMany({
@@ -102,11 +116,16 @@ export class KnowledgeBasesService {
     };
   }
 
-  async create(input: CreateKnowledgeBaseDto): Promise<KnowledgeBaseResponse> {
+  async create(
+    input: CreateKnowledgeBaseDto,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBaseResponse> {
     const normalized = normalizeCreateKnowledgeBase(input);
     this.assertKnowledgeBaseName(normalized.name);
-    await this.assertKnowledgeBaseNameIsUnique(normalized.name, normalized.productLine);
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    await this.assertKnowledgeBaseNameIsUnique(normalized.name, normalized.productLine, undefined, context);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
+    const companyId = context ? getCurrentCompanyId(context) : undefined;
+    const visibility = context ? resolveCreateVisibility(context) : undefined;
 
     const created = await this.prisma.knowledgeBase.create({
       data: {
@@ -114,28 +133,45 @@ export class KnowledgeBasesService {
         productLine: normalized.productLine,
         description: normalized.description,
         status: normalized.status,
+        ...(companyId
+          ? {
+              company: {
+                connect: {
+                  id: companyId
+                }
+              }
+            }
+          : {}),
+        ...(visibility
+          ? {
+              visibility
+            }
+          : {}),
         createdBy: {
           connect: {
             id: createdById
           }
-        }
+        },
+        ...(context
+          ? {
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
       }
     });
 
     return this.toKnowledgeBaseResponse(created);
   }
 
-  async getDetail(id: string): Promise<KnowledgeBaseDetailResponse> {
-    const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
-      where: {
-        id,
-        deletedAt: null
-      }
-    });
-
-    if (!knowledgeBase) {
-      throw new NotFoundException(`GEO knowledge base not found: ${id}`);
-    }
+  async getDetail(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBaseDetailResponse> {
+    const knowledgeBase = await this.findActiveKnowledgeBase(id, context);
 
     const [filesCount, chunksCount, latestChunks] = await Promise.all([
       this.prisma.knowledgeFile.count({
@@ -170,11 +206,18 @@ export class KnowledgeBasesService {
     };
   }
 
-  async update(id: string, input: UpdateKnowledgeBaseDto): Promise<KnowledgeBaseResponse> {
-    const existing = await this.findExistingKnowledgeBase(id);
+  async update(
+    id: string,
+    input: UpdateKnowledgeBaseDto,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBaseResponse> {
+    const existing = await this.findExistingKnowledgeBase(id, context);
 
     if (existing.deletedAt) {
       throw new BadRequestException(`Deleted GEO knowledge base cannot be updated: ${id}`);
+    }
+    if (context) {
+      assertCanUpdateResource(context, existing);
     }
 
     const normalized = normalizeUpdateKnowledgeBase(input);
@@ -187,7 +230,7 @@ export class KnowledgeBasesService {
     }
 
     if (normalized.name !== undefined || "productLine" in normalized) {
-      await this.assertKnowledgeBaseNameIsUnique(nextName, nextProductLine, id);
+      await this.assertKnowledgeBaseNameIsUnique(nextName, nextProductLine, id, context);
     }
 
     const updateData: Prisma.KnowledgeBaseUpdateInput = {};
@@ -204,6 +247,13 @@ export class KnowledgeBasesService {
     if ("status" in normalized) {
       updateData.status = normalized.status ?? "active";
     }
+    if (context) {
+      updateData.updatedBy = {
+        connect: {
+          id: context.user.id
+        }
+      };
+    }
 
     const updated = await this.prisma.knowledgeBase.update({
       where: {
@@ -215,8 +265,11 @@ export class KnowledgeBasesService {
     return this.toKnowledgeBaseResponse(updated);
   }
 
-  async softDelete(id: string): Promise<DeleteKnowledgeBaseResponse> {
-    const existing = await this.findExistingKnowledgeBase(id);
+  async softDelete(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<DeleteKnowledgeBaseResponse> {
+    const existing = await this.findExistingKnowledgeBase(id, context);
 
     if (existing.deletedAt) {
       return {
@@ -225,6 +278,9 @@ export class KnowledgeBasesService {
         alreadyDeleted: true,
         deletedAt: existing.deletedAt
       };
+    }
+    if (context) {
+      assertCanDeleteResource(context, existing);
     }
 
     const deletedAt = new Date();
@@ -267,14 +323,18 @@ export class KnowledgeBasesService {
 
   async textImport(
     knowledgeBaseId: string,
-    input: TextImportKnowledgeDto
+    input: TextImportKnowledgeDto,
+    context?: ResourceAccessContext
   ): Promise<KnowledgeChunkResponse> {
-    const knowledgeBase = await this.findExistingKnowledgeBase(knowledgeBaseId);
+    const knowledgeBase = await this.findExistingKnowledgeBase(knowledgeBaseId, context);
 
     if (knowledgeBase.deletedAt) {
       throw new BadRequestException(
         `Deleted GEO knowledge base cannot accept text import: ${knowledgeBaseId}`
       );
+    }
+    if (context) {
+      assertCanUpdateResource(context, knowledgeBase);
     }
 
     const normalized = normalizeTextImportKnowledge(input);
@@ -297,14 +357,26 @@ export class KnowledgeBasesService {
         sourceType: normalized.sourceType,
         productLine: normalized.productLine ?? knowledgeBase.productLine,
         materialType: normalized.materialType,
-        tags: normalized.tags
+        tags: normalized.tags,
+        ...(context
+          ? {
+              company: {
+                connect: {
+                  id: getCurrentCompanyId(context)
+                }
+              }
+            }
+          : {})
       }
     });
 
     return this.toKnowledgeChunkResponse(created);
   }
 
-  private buildWhere(query: QueryKnowledgeBasesDto): Prisma.KnowledgeBaseWhereInput {
+  private buildWhere(
+    query: QueryKnowledgeBasesDto,
+    context?: ResourceAccessContext
+  ): Prisma.KnowledgeBaseWhereInput {
     const where: Prisma.KnowledgeBaseWhereInput = {
       deletedAt: null
     };
@@ -343,14 +415,60 @@ export class KnowledgeBasesService {
       where.createdById = query.createdBy;
     }
 
-    return where;
+    if (!context) {
+      return where;
+    }
+
+    return {
+      AND: [where, buildResourceReadWhere(context) as Prisma.KnowledgeBaseWhereInput]
+    };
   }
 
-  private async findExistingKnowledgeBase(id: string): Promise<KnowledgeBase> {
-    const knowledgeBase = await this.prisma.knowledgeBase.findUnique({
-      where: {
-        id
-      }
+  private async findExistingKnowledgeBase(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBase> {
+    const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
+      where: context
+        ? {
+            AND: [
+              {
+                id
+              },
+              buildResourceReadWhere(context) as Prisma.KnowledgeBaseWhereInput
+            ]
+          }
+        : {
+            id
+          }
+    });
+
+    if (!knowledgeBase) {
+      throw new NotFoundException(`GEO knowledge base not found: ${id}`);
+    }
+
+    return knowledgeBase;
+  }
+
+  private async findActiveKnowledgeBase(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeBase> {
+    const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
+      where: context
+        ? {
+            AND: [
+              {
+                id,
+                deletedAt: null
+              },
+              buildResourceReadWhere(context) as Prisma.KnowledgeBaseWhereInput
+            ]
+          }
+        : {
+            id,
+            deletedAt: null
+          }
     });
 
     if (!knowledgeBase) {
@@ -363,13 +481,19 @@ export class KnowledgeBasesService {
   private async assertKnowledgeBaseNameIsUnique(
     name: string,
     productLine?: string,
-    excludeId?: string
+    excludeId?: string,
+    context?: ResourceAccessContext
   ): Promise<void> {
     const duplicate = await this.prisma.knowledgeBase.findFirst({
       where: {
         name,
         productLine: productLine ?? null,
         deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {}),
         ...(excludeId
           ? {
               id: {
@@ -415,6 +539,8 @@ export class KnowledgeBasesService {
       productLine: knowledgeBase.productLine ?? undefined,
       description: knowledgeBase.description ?? undefined,
       status: knowledgeBase.status,
+      companyId: knowledgeBase.companyId ?? undefined,
+      visibility: knowledgeBase.visibility,
       createdBy: knowledgeBase.createdById,
       createdAt: knowledgeBase.createdAt,
       updatedAt: knowledgeBase.updatedAt

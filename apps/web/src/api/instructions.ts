@@ -1,4 +1,4 @@
-import type { GeoPromptType } from "./geo-prompts";
+import type { GeoPromptType, ResourceVisibility } from "./geo-prompts";
 import { apiRequest } from "./http";
 
 export type PaginatedResponse<T> = {
@@ -19,6 +19,8 @@ export type InstructionTemplate = {
   outputFormat?: string;
   qualityRules?: string;
   forbiddenRules?: string;
+  companyId?: string;
+  visibility: ResourceVisibility;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

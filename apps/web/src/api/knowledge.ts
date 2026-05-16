@@ -1,4 +1,5 @@
 import { apiRequest } from "./http";
+import type { ResourceVisibility } from "./geo-prompts";
 
 export type ParseStatus = "pending" | "parsing" | "succeeded" | "failed";
 
@@ -15,6 +16,8 @@ export type KnowledgeBase = {
   productLine?: string;
   description?: string;
   status: string;
+  companyId?: string;
+  visibility: ResourceVisibility;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -40,6 +43,7 @@ export type KnowledgeFile = {
   fileName: string;
   fileType: string;
   fileSize?: number;
+  companyId?: string;
   storagePath?: string;
   parseStatus: ParseStatus;
   errorMessage?: string;

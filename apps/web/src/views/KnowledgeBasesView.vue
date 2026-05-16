@@ -37,7 +37,9 @@ import KnowledgeBaseFormDialog from "@/components/KnowledgeBaseFormDialog.vue";
 import KnowledgeChunkFormDialog from "@/components/KnowledgeChunkFormDialog.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { knowledgeBaseStatusLabelMap, parseStatusLabelMap } from "@/config/knowledge-options";
+import { useAuthStore } from "@/stores/auth";
 
+const authStore = useAuthStore();
 const knowledgeBases = ref<KnowledgeBase[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -90,6 +92,12 @@ const chunkFormError = ref("");
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && knowledgeBases.value.length === 0);
+const selectedKnowledgeBase = computed(
+  () =>
+    detail.value?.knowledgeBase ??
+    knowledgeBases.value.find((item) => item.id === selectedKnowledgeBaseId.value) ??
+    null
+);
 const knowledgeAssetMetrics = computed(() => {
   const activeCount = knowledgeBases.value.filter(
     (item) => item.status === "active" || item.status === "enabled"
@@ -124,6 +132,36 @@ const knowledgeAssetMetrics = computed(() => {
     }
   ];
 });
+
+const visibilityLabelMap = {
+  COMPANY: "公司公共",
+  PLATFORM: "平台公共",
+  PRIVATE: "我的"
+} as const;
+
+const visibilityTagTypeMap = {
+  COMPANY: "success",
+  PLATFORM: "warning",
+  PRIVATE: "info"
+} as const;
+
+const isOperatorRole = () =>
+  ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
+
+const canManageKnowledgeBase = (knowledgeBase?: KnowledgeBase | null) => {
+  if (!knowledgeBase || knowledgeBase.visibility === "PLATFORM") {
+    return false;
+  }
+
+  if (isOperatorRole()) {
+    return (
+      knowledgeBase.visibility === "PRIVATE" &&
+      knowledgeBase.createdBy === authStore.currentUser?.id
+    );
+  }
+
+  return authStore.currentRole !== "viewer";
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -706,6 +744,13 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="visibility" label="可见性" width="104">
+          <template #default="{ row }: { row: KnowledgeBase }">
+            <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
+              {{ visibilityLabelMap[row.visibility] }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="下一步" width="104">
           <template #default="{ row }: { row: KnowledgeBase }">
             <el-tag class="knowledge-action-tag" effect="plain">{{ getKnowledgeNextAction(row) }}</el-tag>
@@ -719,8 +764,17 @@ onMounted(() => {
         <el-table-column label="操作" width="154" fixed="right">
           <template #default="{ row }: { row: KnowledgeBase }">
             <el-button link type="primary" @click="openDetailDrawer(row)">查看</el-button>
-            <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDeleteKnowledgeBase(row)">删除</el-button>
+            <el-button v-if="canManageKnowledgeBase(row)" link type="primary" @click="openEditDialog(row)">
+              编辑
+            </el-button>
+            <el-button
+              v-if="canManageKnowledgeBase(row)"
+              link
+              type="danger"
+              @click="handleDeleteKnowledgeBase(row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
         <template #empty>
@@ -778,6 +832,7 @@ onMounted(() => {
       :files-loading="filesLoading"
       :text-import-submitting="textImportSubmitting"
       :uploading="uploading"
+      :can-manage="canManageKnowledgeBase(selectedKnowledgeBase)"
       :reparsing-ids="reparsingIds"
       :deleting-file-ids="deletingFileIds"
       :deleting-chunk-ids="deletingChunkIds"

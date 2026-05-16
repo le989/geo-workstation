@@ -4,6 +4,7 @@ import {
   Prisma,
   UserRole,
   UserStatus,
+  Visibility,
   type InstructionTemplate
 } from "@prisma/client";
 import type { CreateInstructionTemplateDto } from "./dto/create-instruction-template.dto";
@@ -23,11 +24,21 @@ import {
   type NormalizedQueryInstructionTemplates
 } from "./utils/normalize-instruction-template";
 import { PrismaService } from "../../prisma/prisma.service";
+import {
+  assertCanDeleteResource,
+  assertCanUpdateResource,
+  buildResourceReadWhere,
+  getCurrentCompanyId,
+  resolveCreateVisibility,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 
 export type InstructionTemplateResponse = {
   id: string;
+  companyId?: string;
+  visibility: Visibility;
   name: string;
   instructionType: string;
   contentType: string;
@@ -60,9 +71,12 @@ export type DeleteInstructionTemplateResponse = {
 export class InstructionTemplatesService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async findMany(query: QueryInstructionTemplatesDto): Promise<InstructionTemplateListResponse> {
+  async findMany(
+    query: QueryInstructionTemplatesDto,
+    context?: ResourceAccessContext
+  ): Promise<InstructionTemplateListResponse> {
     const normalized = normalizeQueryInstructionTemplates(query);
-    const where = this.buildWhere(normalized);
+    const where = this.buildWhere(normalized, context);
 
     const [items, total] = await Promise.all([
       this.prisma.instructionTemplate.findMany({
@@ -86,10 +100,14 @@ export class InstructionTemplatesService {
     };
   }
 
-  async create(input: CreateInstructionTemplateDto): Promise<InstructionTemplateResponse> {
+  async create(
+    input: CreateInstructionTemplateDto,
+    context?: ResourceAccessContext
+  ): Promise<InstructionTemplateResponse> {
     const normalized = normalizeCreateInstructionTemplate(input);
-    await this.assertNameIsUnique(normalized.instructionType, normalized.name);
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    await this.assertNameIsUnique(normalized.instructionType, normalized.name, undefined, context);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
+    const visibility = context ? resolveCreateVisibility(context) : undefined;
 
     const created = await this.prisma.instructionTemplate.create({
       data: {
@@ -106,26 +124,48 @@ export class InstructionTemplatesService {
           connect: {
             id: createdById
           }
-        }
+        },
+        ...(context
+          ? {
+              company: {
+                connect: {
+                  id: getCurrentCompanyId(context)
+                }
+              },
+              visibility,
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
       }
     });
 
     return this.toResponse(created);
   }
 
-  async getDetail(id: string): Promise<InstructionTemplateResponse> {
-    const existing = await this.findActiveInstructionTemplate(id);
+  async getDetail(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<InstructionTemplateResponse> {
+    const existing = await this.findActiveInstructionTemplate(id, context);
     return this.toResponse(existing);
   }
 
   async update(
     id: string,
-    input: UpdateInstructionTemplateDto
+    input: UpdateInstructionTemplateDto,
+    context?: ResourceAccessContext
   ): Promise<InstructionTemplateResponse> {
-    const existing = await this.findExistingInstructionTemplate(id);
+    const existing = await this.findExistingInstructionTemplate(id, context);
 
     if (existing.deletedAt) {
       throw new BadRequestException(`Deleted GEO instruction template cannot be updated: ${id}`);
+    }
+    if (context) {
+      assertCanUpdateResource(context, existing);
     }
 
     const normalized = normalizeUpdateInstructionTemplate(input);
@@ -133,7 +173,7 @@ export class InstructionTemplatesService {
     const nextName = normalized.name ?? existing.name;
 
     if (nextInstructionType !== existing.instructionType || nextName !== existing.name) {
-      await this.assertNameIsUnique(nextInstructionType, nextName, id);
+      await this.assertNameIsUnique(nextInstructionType, nextName, id, context);
     }
 
     const data: Prisma.InstructionTemplateUpdateInput = {};
@@ -165,6 +205,13 @@ export class InstructionTemplatesService {
     if (normalized.forbiddenRules !== undefined) {
       data.forbiddenRules = normalized.forbiddenRules;
     }
+    if (context) {
+      data.updatedBy = {
+        connect: {
+          id: context.user.id
+        }
+      };
+    }
 
     const updated = await this.prisma.instructionTemplate.update({
       where: {
@@ -178,15 +225,16 @@ export class InstructionTemplatesService {
 
   async duplicate(
     id: string,
-    input: DuplicateInstructionTemplateDto
+    input: DuplicateInstructionTemplateDto,
+    context?: ResourceAccessContext
   ): Promise<InstructionTemplateResponse> {
-    const source = await this.findActiveInstructionTemplate(id);
+    const source = await this.findActiveInstructionTemplate(id, context);
     const normalized = normalizeDuplicateInstructionTemplate(input);
     const baseName = normalized.name ?? buildInstructionTemplateCopyName(source.name);
-    const copyName = await this.resolveAvailableCopyName(source.instructionType, baseName);
-    const createdById = normalized.createdBy
-      ? await this.resolveCreatedById(normalized.createdBy)
-      : source.createdById;
+    const copyName = await this.resolveAvailableCopyName(source.instructionType, baseName, context);
+    const createdById =
+      context?.user.id ??
+      (normalized.createdBy ? await this.resolveCreatedById(normalized.createdBy) : source.createdById);
 
     const duplicated = await this.prisma.instructionTemplate.create({
       data: {
@@ -203,15 +251,33 @@ export class InstructionTemplatesService {
           connect: {
             id: createdById
           }
-        }
+        },
+        ...(context
+          ? {
+              company: {
+                connect: {
+                  id: getCurrentCompanyId(context)
+                }
+              },
+              visibility: Visibility.PRIVATE,
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
       }
     });
 
     return this.toResponse(duplicated);
   }
 
-  async softDelete(id: string): Promise<DeleteInstructionTemplateResponse> {
-    const existing = await this.findExistingInstructionTemplate(id);
+  async softDelete(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<DeleteInstructionTemplateResponse> {
+    const existing = await this.findExistingInstructionTemplate(id, context);
 
     if (existing.deletedAt) {
       return {
@@ -220,6 +286,9 @@ export class InstructionTemplatesService {
         alreadyDeleted: true,
         deletedAt: existing.deletedAt
       };
+    }
+    if (context) {
+      assertCanDeleteResource(context, existing);
     }
 
     const deleted = await this.prisma.instructionTemplate.update({
@@ -240,14 +309,13 @@ export class InstructionTemplatesService {
   }
 
   private buildWhere(
-    query: NormalizedQueryInstructionTemplates
+    query: NormalizedQueryInstructionTemplates,
+    context?: ResourceAccessContext
   ): Prisma.InstructionTemplateWhereInput {
-    const where: Prisma.InstructionTemplateWhereInput = {
-      deletedAt: null
-    };
+    const filterWhere: Prisma.InstructionTemplateWhereInput = {};
 
     if (query.search) {
-      where.OR = [
+      filterWhere.OR = [
         {
           name: {
             contains: query.search,
@@ -276,29 +344,54 @@ export class InstructionTemplatesService {
     }
 
     if (query.instructionType) {
-      where.instructionType = query.instructionType;
+      filterWhere.instructionType = query.instructionType;
     }
     if (query.contentType) {
-      where.contentType = query.contentType;
+      filterWhere.contentType = query.contentType;
     }
     if (query.targetPromptType) {
-      where.targetPromptType = query.targetPromptType;
+      filterWhere.targetPromptType = query.targetPromptType;
     }
     if (query.targetModel) {
-      where.targetModel = query.targetModel;
+      filterWhere.targetModel = query.targetModel;
     }
     if (query.createdBy) {
-      where.createdById = query.createdBy;
+      filterWhere.createdById = query.createdBy;
     }
 
-    return where;
+    return context
+      ? {
+          AND: [
+            {
+              deletedAt: null
+            },
+            buildResourceReadWhere(context) as Prisma.InstructionTemplateWhereInput,
+            filterWhere
+          ]
+        }
+      : {
+          deletedAt: null,
+          ...filterWhere
+        };
   }
 
-  private async findExistingInstructionTemplate(id: string): Promise<InstructionTemplate> {
-    const existing = await this.prisma.instructionTemplate.findUnique({
-      where: {
-        id
-      }
+  private async findExistingInstructionTemplate(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<InstructionTemplate> {
+    const existing = await this.prisma.instructionTemplate.findFirst({
+      where: context
+        ? {
+            AND: [
+              {
+                id
+              },
+              buildResourceReadWhere(context) as Prisma.InstructionTemplateWhereInput
+            ]
+          }
+        : {
+            id
+          }
     });
 
     if (!existing) {
@@ -308,8 +401,11 @@ export class InstructionTemplatesService {
     return existing;
   }
 
-  private async findActiveInstructionTemplate(id: string): Promise<InstructionTemplate> {
-    const existing = await this.findExistingInstructionTemplate(id);
+  private async findActiveInstructionTemplate(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<InstructionTemplate> {
+    const existing = await this.findExistingInstructionTemplate(id, context);
 
     if (existing.deletedAt) {
       throw new BadRequestException(`Deleted GEO instruction template cannot be accessed: ${id}`);
@@ -321,13 +417,19 @@ export class InstructionTemplatesService {
   private async assertNameIsUnique(
     instructionType: string,
     name: string,
-    excludeId?: string
+    excludeId?: string,
+    context?: ResourceAccessContext
   ): Promise<void> {
     const existing = await this.prisma.instructionTemplate.findFirst({
       where: {
         instructionType,
         name,
         deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {}),
         ...(excludeId
           ? {
               id: {
@@ -350,12 +452,13 @@ export class InstructionTemplatesService {
 
   private async resolveAvailableCopyName(
     instructionType: string,
-    baseName: string
+    baseName: string,
+    context?: ResourceAccessContext
   ): Promise<string> {
     let candidateName = baseName;
     let sequence = 2;
 
-    while (await this.activeNameExists(instructionType, candidateName)) {
+    while (await this.activeNameExists(instructionType, candidateName, context)) {
       candidateName = buildInstructionTemplateNumberedCopyName(baseName, sequence);
       sequence += 1;
     }
@@ -363,12 +466,21 @@ export class InstructionTemplatesService {
     return candidateName;
   }
 
-  private async activeNameExists(instructionType: string, name: string): Promise<boolean> {
+  private async activeNameExists(
+    instructionType: string,
+    name: string,
+    context?: ResourceAccessContext
+  ): Promise<boolean> {
     const existing = await this.prisma.instructionTemplate.findFirst({
       where: {
         instructionType,
         name,
-        deletedAt: null
+        deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {})
       },
       select: {
         id: true
@@ -381,6 +493,8 @@ export class InstructionTemplatesService {
   private toResponse(template: InstructionTemplate): InstructionTemplateResponse {
     return {
       id: template.id,
+      companyId: template.companyId ?? undefined,
+      visibility: template.visibility,
       name: template.name,
       instructionType: template.instructionType,
       contentType: template.contentType,

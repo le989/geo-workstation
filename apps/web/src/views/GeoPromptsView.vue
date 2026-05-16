@@ -30,8 +30,10 @@ import {
   formatTargetModels,
   userIntentLabelMap
 } from "@/config/geo-prompt-options";
+import { useAuthStore } from "@/stores/auth";
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const prompts = ref<GeoPrompt[]>([]);
 const total = ref(0);
@@ -85,6 +87,33 @@ const promptAssetCards = computed(() => [
     hint: "可进入模型覆盖记录复测"
   }
 ]);
+
+const visibilityLabelMap = {
+  COMPANY: "公司公共",
+  PLATFORM: "平台公共",
+  PRIVATE: "我的"
+} as const;
+
+const visibilityTagTypeMap = {
+  COMPANY: "success",
+  PLATFORM: "warning",
+  PRIVATE: "info"
+} as const;
+
+const isOperatorRole = () =>
+  ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
+
+const canManagePrompt = (prompt: GeoPrompt) => {
+  if (prompt.visibility === "PLATFORM") {
+    return false;
+  }
+
+  if (isOperatorRole()) {
+    return prompt.visibility === "PRIVATE" && prompt.createdBy === authStore.currentUser?.id;
+  }
+
+  return authStore.currentRole !== "viewer";
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -362,6 +391,13 @@ onMounted(() => {
             <GeoPromptTypeTag :type="row.type" />
           </template>
         </el-table-column>
+        <el-table-column prop="visibility" label="可见性" width="104">
+          <template #default="{ row }: { row: GeoPrompt }">
+            <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
+              {{ visibilityLabelMap[row.visibility] }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="baseWord" label="训练词" min-width="150">
           <template #default="{ row }: { row: GeoPrompt }">
             {{ formatOptional(row.baseWord) }}
@@ -423,8 +459,11 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" width="138" fixed="right">
           <template #default="{ row }: { row: GeoPrompt }">
-            <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <template v-if="canManagePrompt(row)">
+              <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
+              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            </template>
+            <span v-else class="muted-table-action">只读</span>
           </template>
         </el-table-column>
         <template #empty>

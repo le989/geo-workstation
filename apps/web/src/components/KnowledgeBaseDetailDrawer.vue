@@ -39,6 +39,7 @@ const props = defineProps<{
   filesLoading?: boolean;
   textImportSubmitting?: boolean;
   uploading?: boolean;
+  canManage?: boolean;
   reparsingIds?: string[];
   deletingFileIds?: string[];
   deletingChunkIds?: string[];
@@ -226,6 +227,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
             <small>跟踪 txt / md / csv 的解析状态，失败后可重新解析。</small>
           </button>
           <button
+            v-if="canManage"
             class="knowledge-operation-card"
             type="button"
             @click="emit('update:activeTab', 'text-import')"
@@ -299,6 +301,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                 :chunks="chunks"
                 :loading="chunksLoading"
                 :deleting-ids="deletingChunkIds"
+                :can-manage="canManage"
                 @edit="emit('edit-chunk', $event)"
                 @delete="emit('delete-chunk', $event)"
               />
@@ -368,6 +371,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                 :loading="filesLoading"
                 :reparsing-ids="reparsingIds"
                 :deleting-ids="deletingFileIds"
+                :can-manage="canManage"
                 @detail="emit('file-detail', $event)"
                 @reparse="emit('reparse-file', $event)"
                 @delete="emit('delete-file', $event)"
@@ -388,7 +392,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
             </section>
           </el-tab-pane>
 
-          <el-tab-pane label="新增资料" name="text-import">
+          <el-tab-pane v-if="canManage" label="新增资料" name="text-import">
             <section class="knowledge-tab-panel">
               <div class="knowledge-tab-header">
                 <div>

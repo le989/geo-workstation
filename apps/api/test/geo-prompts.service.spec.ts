@@ -1,8 +1,20 @@
-import { BadRequestException } from "@nestjs/common";
-import { GeoPromptType, UserIntent, UserRole, UserStatus } from "@prisma/client";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import {
+  CompanyStatus,
+  CompanyType,
+  GeoPromptType,
+  MembershipRole,
+  UserIntent,
+  UserRole,
+  UserStatus,
+  Visibility,
+  type Company,
+  type User
+} from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GeoPromptsService } from "../src/modules/geo-prompts/geo-prompts.service";
+import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -14,12 +26,67 @@ describe("GeoPromptsService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let service: GeoPromptsService;
   let createdBy: string;
+  let companyA: Company;
+  let companyB: Company;
+  let platformAdmin: User;
+  let companyAdmin: User;
+  let operatorA: User;
+  let operatorB: User;
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
     prisma = createPrismaClient();
     await prisma.$connect();
     service = new GeoPromptsService(prisma as unknown as PrismaService);
+
+    companyA = await prisma.company.create({
+      data: {
+        name: `Geo Prompts Company A ${runId}`,
+        code: `geo-prompts-a-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyB = await prisma.company.create({
+      data: {
+        name: `Geo Prompts Company B ${runId}`,
+        code: `geo-prompts-b-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    platformAdmin = await prisma.user.create({
+      data: {
+        email: `geo-prompts-platform-${runId}@example.com`,
+        name: "Auth 4B Platform Admin",
+        role: UserRole.platform_admin,
+        status: UserStatus.active
+      }
+    });
+    companyAdmin = await prisma.user.create({
+      data: {
+        email: `geo-prompts-company-admin-${runId}@example.com`,
+        name: "Auth 4B Company Admin",
+        role: UserRole.company_admin,
+        status: UserStatus.active
+      }
+    });
+    operatorA = await prisma.user.create({
+      data: {
+        email: `geo-prompts-operator-a-${runId}@example.com`,
+        name: "Auth 4B Operator A",
+        role: UserRole.operator,
+        status: UserStatus.active
+      }
+    });
+    operatorB = await prisma.user.create({
+      data: {
+        email: `geo-prompts-operator-b-${runId}@example.com`,
+        name: "Auth 4B Operator B",
+        role: UserRole.operator,
+        status: UserStatus.active
+      }
+    });
 
     const user = await prisma.user.create({
       data: {
@@ -38,6 +105,38 @@ describe("GeoPromptsService", () => {
 
   function uniquePrompt(label: string): string {
     return `Phase 2B ${label} ${runId}`;
+  }
+
+  function contextFor(
+    user: User,
+    company: Company,
+    role: MembershipRole,
+    isPlatformAdmin = false
+  ): ResourceAccessContext {
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        isPlatformAdmin
+      },
+      currentCompany: {
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        role,
+        isDefault: true,
+        status: company.status
+      },
+      currentMembership: {
+        companyId: company.id,
+        role,
+        isDefault: true,
+        isPlatformAdmin
+      }
+    };
   }
 
   it("creates one GEO prompt and normalizes GEO prompt text fields", async () => {
@@ -256,5 +355,210 @@ describe("GeoPromptsService", () => {
     expect(csv).toContain("id,type,baseWord,promptText,productLine");
     expect(csv).toContain(promptText);
     expect(csv).toContain('"[""deepseek-chat"",""kimi""]"');
+  });
+
+  it("isolates GEO prompt list and export by current company, visibility, and owner", async () => {
+    const prefix = uniquePrompt("隔离列表");
+    const operatorContext = contextFor(operatorA, companyA, MembershipRole.operator);
+
+    const companyPrompt = await prisma.geoPrompt.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        type: GeoPromptType.base,
+        promptText: `${prefix} COMPANY`,
+        userIntent: UserIntent.selection,
+        createdById: companyAdmin.id
+      }
+    });
+    const ownPrivatePrompt = await prisma.geoPrompt.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.PRIVATE,
+        type: GeoPromptType.scene,
+        promptText: `${prefix} OWN PRIVATE`,
+        userIntent: UserIntent.application_solution,
+        createdById: operatorA.id
+      }
+    });
+    await prisma.geoPrompt.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.PRIVATE,
+        type: GeoPromptType.brand,
+        promptText: `${prefix} OTHER PRIVATE`,
+        userIntent: UserIntent.brand_verification,
+        createdById: operatorB.id
+      }
+    });
+    await prisma.geoPrompt.create({
+      data: {
+        companyId: companyB.id,
+        visibility: Visibility.COMPANY,
+        type: GeoPromptType.base,
+        promptText: `${prefix} COMPANY B`,
+        userIntent: UserIntent.selection,
+        createdById: operatorB.id
+      }
+    });
+    const platformPrompt = await prisma.geoPrompt.create({
+      data: {
+        visibility: Visibility.PLATFORM,
+        type: GeoPromptType.distilled,
+        promptText: `${prefix} PLATFORM`,
+        userIntent: UserIntent.comparison,
+        createdById: platformAdmin.id
+      }
+    });
+
+    const list = await service.findMany(
+      {
+        search: prefix,
+        page: 1,
+        pageSize: 20
+      },
+      operatorContext
+    );
+    const promptTexts = list.items.map((item) => item.promptText);
+
+    expect(promptTexts).toEqual(
+      expect.arrayContaining([
+        companyPrompt.promptText,
+        ownPrivatePrompt.promptText,
+        platformPrompt.promptText
+      ])
+    );
+    expect(promptTexts).not.toEqual(
+      expect.arrayContaining([`${prefix} OTHER PRIVATE`, `${prefix} COMPANY B`])
+    );
+
+    const csv = await service.exportCsv(
+      {
+        search: prefix
+      },
+      operatorContext
+    );
+    expect(csv).toContain(companyPrompt.promptText);
+    expect(csv).toContain(ownPrivatePrompt.promptText);
+    expect(csv).toContain(platformPrompt.promptText);
+    expect(csv).not.toContain(`${prefix} OTHER PRIVATE`);
+    expect(csv).not.toContain(`${prefix} COMPANY B`);
+  });
+
+  it("enforces GEO prompt write permissions and IDOR protection", async () => {
+    const prefix = uniquePrompt("隔离写入");
+    const operatorContext = contextFor(operatorA, companyA, MembershipRole.operator);
+    const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const companyBAdminContext = contextFor(companyAdmin, companyB, MembershipRole.company_admin);
+
+    const companyPrompt = await prisma.geoPrompt.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        type: GeoPromptType.base,
+        promptText: `${prefix} COMPANY`,
+        userIntent: UserIntent.selection,
+        createdById: companyAdmin.id
+      }
+    });
+    const privatePrompt = await prisma.geoPrompt.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.PRIVATE,
+        type: GeoPromptType.scene,
+        promptText: `${prefix} PRIVATE`,
+        userIntent: UserIntent.application_solution,
+        createdById: operatorA.id
+      }
+    });
+
+    await expect(
+      service.update(companyPrompt.id, { priority: 5 }, operatorContext)
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.softDelete(companyPrompt.id, operatorContext)).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+
+    const updatedPrivate = await service.update(
+      privatePrompt.id,
+      {
+        priority: 4,
+        latestCoverageStatus: "mentioned"
+      },
+      operatorContext
+    );
+    expect(updatedPrivate.priority).toBe(4);
+    expect(updatedPrivate.latestCoverageStatus).toBe("mentioned");
+
+    const adminUpdated = await service.update(
+      companyPrompt.id,
+      {
+        priority: 2
+      },
+      companyAdminContext
+    );
+    expect(adminUpdated.priority).toBe(2);
+
+    await expect(
+      service.update(companyPrompt.id, { priority: 1 }, companyBAdminContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("creates and bulk imports GEO prompts from trusted auth context", async () => {
+    const operatorContext = contextFor(operatorA, companyA, MembershipRole.operator);
+    const promptText = uniquePrompt("上下文创建");
+    const crossCompanyDuplicate = uniquePrompt("跨公司重复");
+
+    await prisma.geoPrompt.create({
+      data: {
+        companyId: companyB.id,
+        visibility: Visibility.COMPANY,
+        type: GeoPromptType.base,
+        promptText: crossCompanyDuplicate,
+        userIntent: UserIntent.selection,
+        createdById: operatorB.id
+      }
+    });
+
+    const created = await service.create(
+      {
+        type: GeoPromptType.base,
+        promptText,
+        userIntent: UserIntent.selection,
+        createdBy: operatorB.id
+      },
+      operatorContext
+    );
+    const createdRecord = await prisma.geoPrompt.findUniqueOrThrow({
+      where: {
+        id: created.id
+      }
+    });
+    expect(createdRecord.companyId).toBe(companyA.id);
+    expect(createdRecord.createdById).toBe(operatorA.id);
+    expect(createdRecord.visibility).toBe(Visibility.PRIVATE);
+
+    const imported = await service.bulkImport(
+      {
+        rows: [
+          {
+            type: GeoPromptType.brand,
+            promptText: crossCompanyDuplicate,
+            userIntent: UserIntent.brand_verification
+          }
+        ],
+        createdBy: operatorB.id
+      },
+      operatorContext
+    );
+    expect(imported.successCount).toBe(1);
+    const importedRecord = await prisma.geoPrompt.findUniqueOrThrow({
+      where: {
+        id: imported.createdItems[0]?.id
+      }
+    });
+    expect(importedRecord.companyId).toBe(companyA.id);
+    expect(importedRecord.createdById).toBe(operatorA.id);
+    expect(importedRecord.visibility).toBe(Visibility.PRIVATE);
   });
 });

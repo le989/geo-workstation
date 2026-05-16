@@ -26,7 +26,9 @@ import {
   contentTypeLabelMap,
   targetPromptTypeLabelMap
 } from "@/config/instruction-options";
+import { useAuthStore } from "@/stores/auth";
 
+const authStore = useAuthStore();
 const templates = ref<InstructionTemplate[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -85,6 +87,33 @@ const instructionAssetMetrics = computed(() => {
     }
   ];
 });
+
+const visibilityLabelMap = {
+  COMPANY: "公司公共",
+  PLATFORM: "平台公共",
+  PRIVATE: "我的"
+} as const;
+
+const visibilityTagTypeMap = {
+  COMPANY: "success",
+  PLATFORM: "warning",
+  PRIVATE: "info"
+} as const;
+
+const isOperatorRole = () =>
+  ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
+
+const canManageTemplate = (template: InstructionTemplate) => {
+  if (template.visibility === "PLATFORM") {
+    return false;
+  }
+
+  if (isOperatorRole()) {
+    return template.visibility === "PRIVATE" && template.createdBy === authStore.currentUser?.id;
+  }
+
+  return authStore.currentRole !== "viewer";
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -384,6 +413,13 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="visibility" label="可见性" width="104">
+          <template #default="{ row }: { row: InstructionTemplate }">
+            <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
+              {{ visibilityLabelMap[row.visibility] }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="规则清单" min-width="180">
           <template #default="{ row }: { row: InstructionTemplate }">
             <div class="instruction-rule-tags">
@@ -417,9 +453,13 @@ onMounted(() => {
         <el-table-column label="操作" width="184" fixed="right">
           <template #default="{ row }: { row: InstructionTemplate }">
             <el-button link type="primary" @click="openDetailDrawer(row)">查看</el-button>
-            <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
+            <el-button v-if="canManageTemplate(row)" link type="primary" @click="openEditDialog(row)">
+              编辑
+            </el-button>
             <el-button link type="warning" @click="openDuplicateDialog(row)">复制</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="canManageTemplate(row)" link type="danger" @click="handleDelete(row)">
+              删除
+            </el-button>
           </template>
         </el-table-column>
         <template #empty>

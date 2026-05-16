@@ -1,6 +1,7 @@
 import { apiRequest } from "./http";
 
 export type GeoPromptType = "base" | "distilled" | "brand" | "scene";
+export type ResourceVisibility = "PRIVATE" | "COMPANY" | "PLATFORM";
 
 export type UserIntent =
   | "selection"
@@ -25,6 +26,8 @@ export type GeoPrompt = {
   source?: string;
   trackEnabled: boolean;
   latestCoverageStatus?: string;
+  companyId?: string;
+  visibility: ResourceVisibility;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

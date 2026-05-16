@@ -9,6 +9,7 @@ defineProps<{
   loading?: boolean;
   reparsingIds?: string[];
   deletingIds?: string[];
+  canManage?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -62,22 +63,24 @@ const emit = defineEmits<{
     <el-table-column label="操作" width="190" fixed="right">
       <template #default="{ row }: { row: KnowledgeFile }">
         <el-button link type="primary" @click="emit('detail', row)">查看详情</el-button>
-        <el-button
-          link
-          type="warning"
-          :loading="reparsingIds?.includes(row.id)"
-          @click="emit('reparse', row)"
-        >
-          重新解析
-        </el-button>
-        <el-button
-          link
-          type="danger"
-          :loading="deletingIds?.includes(row.id)"
-          @click="emit('delete', row)"
-        >
-          删除
-        </el-button>
+        <template v-if="canManage">
+          <el-button
+            link
+            type="warning"
+            :loading="reparsingIds?.includes(row.id)"
+            @click="emit('reparse', row)"
+          >
+            重新解析
+          </el-button>
+          <el-button
+            link
+            type="danger"
+            :loading="deletingIds?.includes(row.id)"
+            @click="emit('delete', row)"
+          >
+            删除
+          </el-button>
+        </template>
       </template>
     </el-table-column>
     <template #empty>

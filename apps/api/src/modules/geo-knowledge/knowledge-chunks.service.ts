@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, type KnowledgeChunk } from "@prisma/client";
+import { Prisma, type KnowledgeBase, type KnowledgeChunk } from "@prisma/client";
 import type { QueryKnowledgeChunksDto } from "./dto/query-knowledge-chunks.dto";
 import type { UpdateKnowledgeChunkDto } from "./dto/update-knowledge-chunk.dto";
 import {
@@ -7,6 +7,13 @@ import {
   normalizeUpdateKnowledgeChunk
 } from "./utils/normalize-knowledge-chunk";
 import { jsonTagsToArray } from "./utils/tags.util";
+import {
+  assertCanDeleteResource,
+  assertCanUpdateResource,
+  canReadResource,
+  getCurrentCompanyId,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const MIN_KNOWLEDGE_CONTENT_LENGTH = 10;
@@ -45,11 +52,12 @@ export class KnowledgeChunksService {
 
   async findMany(
     knowledgeBaseId: string,
-    query: QueryKnowledgeChunksDto
+    query: QueryKnowledgeChunksDto,
+    context?: ResourceAccessContext
   ): Promise<KnowledgeChunkListResponse> {
-    await this.assertActiveKnowledgeBase(knowledgeBaseId);
+    await this.assertActiveKnowledgeBase(knowledgeBaseId, context);
     const normalized = normalizeQueryKnowledgeChunks(query);
-    const where = this.buildWhere(knowledgeBaseId, normalized);
+    const where = this.buildWhere(knowledgeBaseId, normalized, context);
 
     const [items, total] = await Promise.all([
       this.prisma.knowledgeChunk.findMany({
@@ -73,11 +81,18 @@ export class KnowledgeChunksService {
     };
   }
 
-  async update(id: string, input: UpdateKnowledgeChunkDto): Promise<KnowledgeChunkResponse> {
-    const existing = await this.findExistingKnowledgeChunk(id);
+  async update(
+    id: string,
+    input: UpdateKnowledgeChunkDto,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeChunkResponse> {
+    const existing = await this.findExistingKnowledgeChunk(id, context);
 
     if (existing.deletedAt) {
       throw new BadRequestException(`Deleted GEO knowledge chunk cannot be updated: ${id}`);
+    }
+    if (context) {
+      assertCanUpdateResource(context, existing.knowledgeBase);
     }
 
     const normalized = normalizeUpdateKnowledgeChunk(input);
@@ -120,8 +135,11 @@ export class KnowledgeChunksService {
     return this.toResponse(updated);
   }
 
-  async softDelete(id: string): Promise<DeleteKnowledgeChunkResponse> {
-    const existing = await this.findExistingKnowledgeChunk(id);
+  async softDelete(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<DeleteKnowledgeChunkResponse> {
+    const existing = await this.findExistingKnowledgeChunk(id, context);
 
     if (existing.deletedAt) {
       return {
@@ -130,6 +148,9 @@ export class KnowledgeChunksService {
         alreadyDeleted: true,
         deletedAt: existing.deletedAt
       };
+    }
+    if (context) {
+      assertCanDeleteResource(context, existing.knowledgeBase);
     }
 
     const deleted = await this.prisma.knowledgeChunk.update({
@@ -151,12 +172,16 @@ export class KnowledgeChunksService {
 
   private buildWhere(
     knowledgeBaseId: string,
-    query: ReturnType<typeof normalizeQueryKnowledgeChunks>
+    query: ReturnType<typeof normalizeQueryKnowledgeChunks>,
+    context?: ResourceAccessContext
   ): Prisma.KnowledgeChunkWhereInput {
     const where: Prisma.KnowledgeChunkWhereInput = {
       knowledgeBaseId,
       deletedAt: null
     };
+    if (context) {
+      where.companyId = getCurrentCompanyId(context);
+    }
 
     if (query.search) {
       where.OR = [
@@ -192,30 +217,36 @@ export class KnowledgeChunksService {
     return where;
   }
 
-  private async assertActiveKnowledgeBase(knowledgeBaseId: string): Promise<void> {
+  private async assertActiveKnowledgeBase(
+    knowledgeBaseId: string,
+    context?: ResourceAccessContext
+  ): Promise<void> {
     const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
       where: {
         id: knowledgeBaseId,
         deletedAt: null
-      },
-      select: {
-        id: true
       }
     });
 
-    if (!knowledgeBase) {
+    if (!knowledgeBase || (context && !canReadResource(context, knowledgeBase))) {
       throw new NotFoundException(`GEO knowledge base not found: ${knowledgeBaseId}`);
     }
   }
 
-  private async findExistingKnowledgeChunk(id: string): Promise<KnowledgeChunk> {
-    const chunk = await this.prisma.knowledgeChunk.findUnique({
+  private async findExistingKnowledgeChunk(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeChunk & { knowledgeBase: KnowledgeBase }> {
+    const chunk = await this.prisma.knowledgeChunk.findFirst({
       where: {
         id
+      },
+      include: {
+        knowledgeBase: true
       }
     });
 
-    if (!chunk) {
+    if (!chunk || (context && !canReadResource(context, chunk.knowledgeBase))) {
       throw new NotFoundException(`GEO knowledge chunk not found: ${id}`);
     }
 

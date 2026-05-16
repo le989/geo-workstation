@@ -5,6 +5,7 @@ import {
   UserIntent,
   UserRole,
   UserStatus,
+  Visibility,
   type GeoPrompt
 } from "@prisma/client";
 import { plainToInstance } from "class-transformer";
@@ -25,6 +26,14 @@ import {
   type NormalizedCreateGeoPrompt
 } from "./utils/normalize-geo-prompt";
 import { PrismaService } from "../../prisma/prisma.service";
+import {
+  assertCanDeleteResource,
+  assertCanUpdateResource,
+  buildResourceReadWhere,
+  getCurrentCompanyId,
+  resolveCreateVisibility,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -32,6 +41,8 @@ const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 
 export type GeoPromptResponse = {
   id: string;
+  companyId?: string;
+  visibility: Visibility;
   type: GeoPromptType;
   baseWord?: string;
   promptText: string;
@@ -89,10 +100,13 @@ export type DeleteGeoPromptResponse = {
 export class GeoPromptsService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async findMany(query: QueryGeoPromptsDto): Promise<GeoPromptListResponse> {
+  async findMany(
+    query: QueryGeoPromptsDto,
+    context?: ResourceAccessContext
+  ): Promise<GeoPromptListResponse> {
     const page = Math.max(toOptionalInt(query.page) ?? DEFAULT_PAGE, 1);
     const pageSize = Math.min(Math.max(toOptionalInt(query.pageSize) ?? DEFAULT_PAGE_SIZE, 1), 100);
-    const where = this.buildWhere(query);
+    const where = this.buildWhere(query, context);
 
     const [items, total] = await Promise.all([
       this.prisma.geoPrompt.findMany({
@@ -116,37 +130,40 @@ export class GeoPromptsService {
     };
   }
 
-  async create(input: CreateGeoPromptDto): Promise<GeoPromptResponse> {
+  async create(
+    input: CreateGeoPromptDto,
+    context?: ResourceAccessContext
+  ): Promise<GeoPromptResponse> {
     const normalized = normalizeCreateGeoPrompt(input);
-    await this.assertPromptTextIsUnique(normalized.promptText);
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    await this.assertPromptTextIsUnique(normalized.promptText, undefined, context);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
+    const visibility = context ? resolveCreateVisibility(context) : undefined;
 
     const created = await this.prisma.geoPrompt.create({
-      data: this.toCreateData(normalized, createdById)
+      data: this.toCreateData(normalized, createdById, context, visibility)
     });
 
     return this.toResponse(created);
   }
 
-  async update(id: string, input: UpdateGeoPromptDto): Promise<GeoPromptResponse> {
-    const existing = await this.prisma.geoPrompt.findUnique({
-      where: {
-        id
-      }
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`GEO prompt not found: ${id}`);
-    }
+  async update(
+    id: string,
+    input: UpdateGeoPromptDto,
+    context?: ResourceAccessContext
+  ): Promise<GeoPromptResponse> {
+    const existing = await this.findExistingGeoPrompt(id, context);
 
     if (existing.deletedAt) {
       throw new BadRequestException(`Deleted GEO prompt cannot be updated: ${id}`);
+    }
+    if (context) {
+      assertCanUpdateResource(context, existing);
     }
 
     const normalized = normalizeUpdateGeoPrompt(input);
 
     if (normalized.promptText !== undefined && normalized.promptText !== existing.promptText) {
-      await this.assertPromptTextIsUnique(normalized.promptText, id);
+      await this.assertPromptTextIsUnique(normalized.promptText, id, context);
     }
 
     const updateData: Prisma.GeoPromptUpdateInput = {};
@@ -184,10 +201,17 @@ export class GeoPromptsService {
     if ("latestCoverageStatus" in normalized) {
       updateData.latestCoverageStatus = normalized.latestCoverageStatus ?? null;
     }
-    if ("createdBy" in normalized && normalized.createdBy !== undefined) {
+    if (!context && "createdBy" in normalized && normalized.createdBy !== undefined) {
       updateData.createdBy = {
         connect: {
           id: await this.resolveCreatedById(normalized.createdBy)
+        }
+      };
+    }
+    if (context) {
+      updateData.updatedBy = {
+        connect: {
+          id: context.user.id
         }
       };
     }
@@ -202,16 +226,11 @@ export class GeoPromptsService {
     return this.toResponse(updated);
   }
 
-  async softDelete(id: string): Promise<DeleteGeoPromptResponse> {
-    const existing = await this.prisma.geoPrompt.findUnique({
-      where: {
-        id
-      }
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`GEO prompt not found: ${id}`);
-    }
+  async softDelete(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<DeleteGeoPromptResponse> {
+    const existing = await this.findExistingGeoPrompt(id, context);
 
     if (existing.deletedAt) {
       return {
@@ -220,6 +239,9 @@ export class GeoPromptsService {
         alreadyDeleted: true,
         deletedAt: existing.deletedAt
       };
+    }
+    if (context) {
+      assertCanDeleteResource(context, existing);
     }
 
     const deleted = await this.prisma.geoPrompt.update({
@@ -239,7 +261,10 @@ export class GeoPromptsService {
     };
   }
 
-  async bulkImport(input: BulkImportGeoPromptsDto): Promise<BulkImportGeoPromptsResponse> {
+  async bulkImport(
+    input: BulkImportGeoPromptsDto,
+    context?: ResourceAccessContext
+  ): Promise<BulkImportGeoPromptsResponse> {
     const duplicateRows: DuplicateGeoPromptRow[] = [];
     const failedRows: FailedGeoPromptRow[] = [];
     const candidates: Array<{ rowIndex: number; normalized: NormalizedCreateGeoPrompt }> = [];
@@ -277,7 +302,8 @@ export class GeoPromptsService {
     });
 
     const databaseDuplicates = await this.findExistingPromptTexts(
-      candidates.map((candidate) => candidate.normalized.promptText)
+      candidates.map((candidate) => candidate.normalized.promptText),
+      context
     );
     const rowsToCreate = candidates.filter((candidate) => {
       if (databaseDuplicates.has(candidate.normalized.promptText)) {
@@ -292,12 +318,13 @@ export class GeoPromptsService {
       return true;
     });
 
-    const createdById = await this.resolveCreatedById(input.createdBy);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(input.createdBy));
+    const visibility = context ? resolveCreateVisibility(context) : undefined;
     const createdItems: GeoPromptResponse[] = [];
 
     for (const candidate of rowsToCreate) {
       const created = await this.prisma.geoPrompt.create({
-        data: this.toCreateData(candidate.normalized, createdById)
+        data: this.toCreateData(candidate.normalized, createdById, context, visibility)
       });
       createdItems.push(this.toResponse(created));
     }
@@ -317,9 +344,9 @@ export class GeoPromptsService {
     };
   }
 
-  async exportCsv(query: QueryGeoPromptsDto): Promise<string> {
+  async exportCsv(query: QueryGeoPromptsDto, context?: ResourceAccessContext): Promise<string> {
     const items = await this.prisma.geoPrompt.findMany({
-      where: this.buildWhere(query),
+      where: this.buildWhere(query, context),
       orderBy: {
         createdAt: "desc"
       }
@@ -328,14 +355,15 @@ export class GeoPromptsService {
     return buildGeoPromptsCsv(items.map((item) => this.toResponse(item)));
   }
 
-  private buildWhere(query: QueryGeoPromptsDto): Prisma.GeoPromptWhereInput {
-    const where: Prisma.GeoPromptWhereInput = {
-      deletedAt: null
-    };
+  private buildWhere(
+    query: QueryGeoPromptsDto,
+    context?: ResourceAccessContext
+  ): Prisma.GeoPromptWhereInput {
+    const filterWhere: Prisma.GeoPromptWhereInput = {};
     const search = trimOptional(query.search);
 
     if (search) {
-      where.OR = [
+      filterWhere.OR = [
         {
           promptText: {
             contains: search,
@@ -364,38 +392,60 @@ export class GeoPromptsService {
     }
 
     if (query.type) {
-      where.type = query.type;
+      filterWhere.type = query.type;
     }
     if (query.productLine) {
-      where.productLine = query.productLine;
+      filterWhere.productLine = query.productLine;
     }
     if (query.userIntent) {
-      where.userIntent = query.userIntent;
+      filterWhere.userIntent = query.userIntent;
     }
     const priority = toOptionalInt(query.priority);
     const trackEnabled = toOptionalBoolean(query.trackEnabled);
 
     if (priority !== undefined) {
-      where.priority = priority;
+      filterWhere.priority = priority;
     }
     if (trackEnabled !== undefined) {
-      where.trackEnabled = trackEnabled;
+      filterWhere.trackEnabled = trackEnabled;
     }
     if (query.latestCoverageStatus) {
-      where.latestCoverageStatus = query.latestCoverageStatus;
+      filterWhere.latestCoverageStatus = query.latestCoverageStatus;
     }
     if (query.createdBy) {
-      where.createdById = query.createdBy;
+      filterWhere.createdById = query.createdBy;
     }
 
-    return where;
+    return context
+      ? {
+          AND: [
+            {
+              deletedAt: null
+            },
+            buildResourceReadWhere(context),
+            filterWhere
+          ]
+        }
+      : {
+          deletedAt: null,
+          ...filterWhere
+        };
   }
 
-  private async assertPromptTextIsUnique(promptText: string, excludeId?: string): Promise<void> {
+  private async assertPromptTextIsUnique(
+    promptText: string,
+    excludeId?: string,
+    context?: ResourceAccessContext
+  ): Promise<void> {
     const duplicate = await this.prisma.geoPrompt.findFirst({
       where: {
         promptText,
         deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {}),
         ...(excludeId
           ? {
               id: {
@@ -414,7 +464,10 @@ export class GeoPromptsService {
     }
   }
 
-  private async findExistingPromptTexts(promptTexts: string[]): Promise<Set<string>> {
+  private async findExistingPromptTexts(
+    promptTexts: string[],
+    context?: ResourceAccessContext
+  ): Promise<Set<string>> {
     if (promptTexts.length === 0) {
       return new Set();
     }
@@ -424,7 +477,12 @@ export class GeoPromptsService {
         promptText: {
           in: promptTexts
         },
-        deletedAt: null
+        deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {})
       },
       select: {
         promptText: true
@@ -432,6 +490,32 @@ export class GeoPromptsService {
     });
 
     return new Set(existingPrompts.map((prompt) => prompt.promptText));
+  }
+
+  private async findExistingGeoPrompt(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeoPrompt> {
+    const existing = await this.prisma.geoPrompt.findFirst({
+      where: context
+        ? {
+            AND: [
+              {
+                id
+              },
+              buildResourceReadWhere(context)
+            ]
+          }
+        : {
+            id
+          }
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`GEO prompt not found: ${id}`);
+    }
+
+    return existing;
   }
 
   private validateBulkRow(
@@ -533,9 +617,11 @@ export class GeoPromptsService {
 
   private toCreateData(
     normalized: NormalizedCreateGeoPrompt,
-    createdById: string
+    createdById: string,
+    context?: ResourceAccessContext,
+    visibility?: Visibility
   ): Prisma.GeoPromptCreateInput {
-    return {
+    const data: Prisma.GeoPromptCreateInput = {
       type: normalized.type,
       baseWord: normalized.baseWord,
       promptText: normalized.promptText,
@@ -553,11 +639,29 @@ export class GeoPromptsService {
         }
       }
     };
+
+    if (context) {
+      data.company = {
+        connect: {
+          id: getCurrentCompanyId(context)
+        }
+      };
+      data.visibility = visibility ?? resolveCreateVisibility(context);
+      data.updatedBy = {
+        connect: {
+          id: context.user.id
+        }
+      };
+    }
+
+    return data;
   }
 
   private toResponse(record: GeoPrompt): GeoPromptResponse {
     return {
       id: record.id,
+      companyId: record.companyId ?? undefined,
+      visibility: record.visibility,
       type: record.type,
       baseWord: record.baseWord ?? undefined,
       promptText: record.promptText,

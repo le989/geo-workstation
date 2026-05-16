@@ -1,13 +1,25 @@
 import { rm, unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { ParseStatus, UserRole, UserStatus } from "@prisma/client";
+import {
+  CompanyStatus,
+  CompanyType,
+  MembershipRole,
+  ParseStatus,
+  UserRole,
+  UserStatus,
+  Visibility,
+  type Company,
+  type User
+} from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { KnowledgeFileParserService } from "../src/modules/geo-knowledge/knowledge-file-parser.service";
 import { KnowledgeFilesService } from "../src/modules/geo-knowledge/knowledge-files.service";
 import { KnowledgeBasesService } from "../src/modules/geo-knowledge/knowledge-bases.service";
 import { LocalFileStorageService } from "../src/modules/geo-knowledge/local-file-storage.service";
+import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -21,6 +33,11 @@ describe("KnowledgeFilesService", () => {
   let knowledgeBasesService: KnowledgeBasesService;
   let knowledgeFilesService: KnowledgeFilesService;
   let createdBy: string;
+  let companyA: Company;
+  let companyB: Company;
+  let companyAdmin: User;
+  let operatorA: User;
+  let operatorB: User;
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -39,6 +56,47 @@ describe("KnowledgeFilesService", () => {
       storage,
       parser
     );
+
+    companyA = await prisma.company.create({
+      data: {
+        name: `Knowledge File Company A ${runId}`,
+        code: `knowledge-file-a-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyB = await prisma.company.create({
+      data: {
+        name: `Knowledge File Company B ${runId}`,
+        code: `knowledge-file-b-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyAdmin = await prisma.user.create({
+      data: {
+        email: `knowledge-file-company-admin-${runId}@example.com`,
+        name: "Auth 4B Knowledge File Company Admin",
+        role: UserRole.company_admin,
+        status: UserStatus.active
+      }
+    });
+    operatorA = await prisma.user.create({
+      data: {
+        email: `knowledge-file-operator-a-${runId}@example.com`,
+        name: "Auth 4B Knowledge File Operator A",
+        role: UserRole.operator,
+        status: UserStatus.active
+      }
+    });
+    operatorB = await prisma.user.create({
+      data: {
+        email: `knowledge-file-operator-b-${runId}@example.com`,
+        name: "Auth 4B Knowledge File Operator B",
+        role: UserRole.operator,
+        status: UserStatus.active
+      }
+    });
 
     const user = await prisma.user.create({
       data: {
@@ -74,6 +132,38 @@ describe("KnowledgeFilesService", () => {
       productLine: `Phase 2E 产品线 ${label}`,
       createdBy
     });
+  }
+
+  function contextFor(
+    user: User,
+    company: Company,
+    role: MembershipRole,
+    isPlatformAdmin = false
+  ): ResourceAccessContext {
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        isPlatformAdmin
+      },
+      currentCompany: {
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        role,
+        isDefault: true,
+        status: company.status
+      },
+      currentMembership: {
+        companyId: company.id,
+        role,
+        isDefault: true,
+        isPlatformAdmin
+      }
+    };
   }
 
   it("uploads txt, md, and csv files, creates knowledge_file records, and parses chunks", async () => {
@@ -244,5 +334,93 @@ describe("KnowledgeFilesService", () => {
       }
     });
     expect(activeChunks).toBe(0);
+  });
+
+  it("enforces knowledge file permissions through parent knowledge base access", async () => {
+    const operatorContext = contextFor(operatorA, companyA, MembershipRole.operator);
+    const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+
+    const companyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        name: `Auth 4B File Company Base ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const privateBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.PRIVATE,
+        name: `Auth 4B File Private Base ${runId}`,
+        status: "active",
+        createdById: operatorA.id
+      }
+    });
+    const otherCompanyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyB.id,
+        visibility: Visibility.COMPANY,
+        name: `Auth 4B File Other Company Base ${runId}`,
+        status: "active",
+        createdById: operatorB.id
+      }
+    });
+    const otherCompanyFile = await prisma.knowledgeFile.create({
+      data: {
+        companyId: companyB.id,
+        knowledgeBaseId: otherCompanyBase.id,
+        fileName: "other.txt",
+        fileType: "txt",
+        parseStatus: ParseStatus.succeeded,
+        createdById: operatorB.id
+      }
+    });
+
+    await expect(
+      knowledgeFilesService.upload(
+        companyBase.id,
+        uploadFile("public.txt", "公共知识库不允许运营人员直接上传文件。"),
+        {},
+        operatorContext
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const uploaded = await knowledgeFilesService.upload(
+      privateBase.id,
+      uploadFile("private.txt", "私有知识库允许运营人员上传自己的 GEO 资料。"),
+      {
+        createdBy: operatorB.id
+      },
+      operatorContext
+    );
+    const uploadedRecord = await prisma.knowledgeFile.findUniqueOrThrow({
+      where: {
+        id: uploaded.knowledgeFile.id
+      }
+    });
+    expect(uploadedRecord.companyId).toBe(companyA.id);
+    expect(uploadedRecord.createdById).toBe(operatorA.id);
+
+    await expect(
+      knowledgeFilesService.getDetail(otherCompanyFile.id, operatorContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      knowledgeFilesService.reparse(otherCompanyFile.id, {}, operatorContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      knowledgeFilesService.reparse(uploaded.knowledgeFile.id, {}, operatorContext)
+    ).resolves.toMatchObject({
+      parseStatus: ParseStatus.succeeded
+    });
+
+    await expect(
+      knowledgeFilesService.softDelete(uploaded.knowledgeFile.id, companyAdminContext)
+    ).resolves.toMatchObject({
+      deleted: true,
+      alreadyDeleted: false
+    });
   });
 });

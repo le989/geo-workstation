@@ -43,6 +43,11 @@
   --geo-radius: 8px;
 }
 
+.muted-table-action {
+  color: var(--geo-soft-muted);
+  font-size: 13px;
+}
+
 * {
   box-sizing: border-box;
 }

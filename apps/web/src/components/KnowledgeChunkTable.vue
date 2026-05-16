@@ -12,6 +12,7 @@ defineProps<{
   chunks: KnowledgeChunk[];
   loading?: boolean;
   deletingIds?: string[];
+  canManage?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -82,15 +83,18 @@ const getWordCount = (value?: string) => (value ? value.length : 0);
     </el-table-column>
     <el-table-column label="操作" width="124" fixed="right">
       <template #default="{ row }: { row: KnowledgeChunk }">
-        <el-button link type="primary" @click="emit('edit', row)">编辑</el-button>
-        <el-button
-          link
-          type="danger"
-          :loading="deletingIds?.includes(row.id)"
-          @click="emit('delete', row)"
-        >
-          删除
-        </el-button>
+        <template v-if="canManage">
+          <el-button link type="primary" @click="emit('edit', row)">编辑</el-button>
+          <el-button
+            link
+            type="danger"
+            :loading="deletingIds?.includes(row.id)"
+            @click="emit('delete', row)"
+          >
+            删除
+          </el-button>
+        </template>
+        <span v-else class="muted-table-action">只读</span>
       </template>
     </el-table-column>
     <template #empty>
