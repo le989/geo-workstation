@@ -32,6 +32,7 @@ import UncoveredPromptsTable from "@/components/UncoveredPromptsTable.vue";
 import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
 import { booleanFilterOptions, hitLevelTypeMap } from "@/config/model-inclusion-options";
 import { useAuthStore } from "@/stores/auth";
+import { canUseAction, normalizeRole } from "@/utils/permission";
 
 const authStore = useAuthStore();
 
@@ -85,29 +86,13 @@ const hasRecordsError = computed(() => Boolean(recordsError.value));
 const isRecordsEmpty = computed(() => !recordsLoading.value && records.value.length === 0);
 const normalizedRole = computed(() => {
   const role = String(authStore.currentRole ?? authStore.currentUser?.role ?? "");
-
-  if (role === "admin" || role === "platform_admin") {
-    return "platform_admin";
-  }
-
-  if (role === "company_admin") {
-    return "company_admin";
-  }
-
-  if (["operator", "geo_operator", "content_editor"].includes(role)) {
-    return "operator";
-  }
-
-  return "viewer";
+  return normalizeRole(role);
 });
-const isViewer = computed(() => normalizedRole.value === "viewer");
 const isOperator = computed(() => normalizedRole.value === "operator");
-const canCreateRecord = computed(() => !isViewer.value);
-const canRunWebSearch = computed(() => !isViewer.value);
-const canImportRecords = computed(() =>
-  ["platform_admin", "company_admin"].includes(normalizedRole.value)
-);
-const canExportRecords = computed(() => !isViewer.value);
+const canCreateRecord = computed(() => canUseAction("create", normalizedRole.value));
+const canRunWebSearch = computed(() => canUseAction("detect", normalizedRole.value));
+const canImportRecords = computed(() => canUseAction("import", normalizedRole.value));
+const canExportRecords = computed(() => canUseAction("export", normalizedRole.value));
 const inclusionScopeLabel = computed(() => {
   const companyName = authStore.currentCompany?.name ?? "当前公司";
 

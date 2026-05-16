@@ -27,6 +27,7 @@ import {
   targetPromptTypeLabelMap
 } from "@/config/instruction-options";
 import { useAuthStore } from "@/stores/auth";
+import { canUseAction } from "@/utils/permission";
 
 const authStore = useAuthStore();
 const templates = ref<InstructionTemplate[]>([]);
@@ -102,6 +103,8 @@ const visibilityTagTypeMap = {
 
 const isOperatorRole = () =>
   ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
+const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
+const canCreateTemplate = computed(() => canUseAction("create", currentRole.value));
 
 const canManageTemplate = (template: InstructionTemplate) => {
   if (template.visibility === "PLATFORM") {
@@ -226,6 +229,11 @@ const handlePageSizeChange = (nextPageSize: number) => {
 };
 
 const openCreateDialog = () => {
+  if (!canCreateTemplate.value) {
+    ElMessage.warning("当前账号无权新建指令模板。");
+    return;
+  }
+
   formMode.value = "create";
   editingTemplate.value = null;
   formError.value = "";
@@ -342,7 +350,7 @@ onMounted(() => {
         <el-button :icon="Refresh" :loading="loading" @click="loadTemplates">
           刷新列表
         </el-button>
-        <el-button type="primary" @click="openCreateDialog">新建指令模板</el-button>
+        <el-button v-if="canCreateTemplate" type="primary" @click="openCreateDialog">新建指令模板</el-button>
       </div>
     </header>
 
@@ -456,7 +464,7 @@ onMounted(() => {
             <el-button v-if="canManageTemplate(row)" link type="primary" @click="openEditDialog(row)">
               编辑
             </el-button>
-            <el-button link type="warning" @click="openDuplicateDialog(row)">复制</el-button>
+            <el-button v-if="canCreateTemplate" link type="warning" @click="openDuplicateDialog(row)">复制</el-button>
             <el-button v-if="canManageTemplate(row)" link type="danger" @click="handleDelete(row)">
               删除
             </el-button>

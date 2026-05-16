@@ -12,6 +12,7 @@ import {
 import { navigationItems } from "@/config/navigation";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
+import { canAccessRoute, getRoleLabel } from "@/utils/permission";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "geo-workstation.sidebar-collapsed";
 
@@ -92,6 +93,10 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
   "/help": {
     title: "使用教程",
     subtitle: "查看 SOP、版本说明和操作指南"
+  },
+  "/403": {
+    title: "无权访问",
+    subtitle: "当前账号没有访问该页面的权限"
   }
 };
 
@@ -128,19 +133,21 @@ const navigationGroups = [
   }
 ];
 
-const roleLabel = computed(() => {
-  const role = authStore.currentUser?.role;
-  const labels = {
-    platform_admin: "平台管理员",
-    company_admin: "公司管理员",
-    operator: "运营人员",
-    admin: "管理员",
-    geo_operator: "GEO 运营",
-    content_editor: "内容编辑",
-    viewer: "查看者"
-  };
+const visibleNavigationGroups = computed(() => {
+  const role = authStore.currentRole ?? authStore.currentUser?.role;
 
-  return role ? labels[role] : "未登录";
+  return navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccessRoute(item.path, role, item.allowedRoles))
+    }))
+    .filter((group) => group.items.length > 0);
+});
+
+const roleLabel = computed(() => {
+  const role = authStore.currentRole ?? authStore.currentUser?.role;
+
+  return role ? getRoleLabel(role) : "未登录";
 });
 
 const currentCompanyLabel = computed(() => authStore.currentCompany?.name ?? "未选择公司");
@@ -210,7 +217,7 @@ const handleCompanyCommand = (command: string | number | object) => {
         router
         class="sidebar-menu"
       >
-        <div v-for="group in navigationGroups" :key="group.label" class="sidebar-menu-group">
+        <div v-for="group in visibleNavigationGroups" :key="group.label" class="sidebar-menu-group">
           <p class="sidebar-menu-group__label">{{ group.label }}</p>
           <el-menu-item
             v-for="item in group.items"

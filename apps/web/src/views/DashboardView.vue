@@ -17,6 +17,7 @@ import DashboardSection from "@/components/DashboardSection.vue";
 import OptimizationSuggestionList from "@/components/OptimizationSuggestionList.vue";
 import QuickActionGrid from "@/components/QuickActionGrid.vue";
 import { useAuthStore } from "@/stores/auth";
+import { normalizeRole } from "@/utils/permission";
 
 const authStore = useAuthStore();
 const overview = ref<GeoOverviewReport | null>(null);
@@ -58,18 +59,7 @@ const hasOverviewError = computed(() => Boolean(overviewError.value));
 const isInitialLoading = computed(() => loading.value && !overview.value);
 const normalizedRole = computed(() => {
   const role = String(authStore.currentRole ?? authStore.currentUser?.role ?? "");
-
-  if (role === "platform_admin" || role === "admin") {
-    return "platform_admin";
-  }
-  if (role === "company_admin") {
-    return "company_admin";
-  }
-  if (role === "operator" || role === "geo_operator" || role === "content_editor") {
-    return "operator";
-  }
-
-  return "viewer";
+  return normalizeRole(role);
 });
 const dashboardScopeText = computed(() => {
   const companyName = authStore.currentCompany?.name ?? "当前公司";

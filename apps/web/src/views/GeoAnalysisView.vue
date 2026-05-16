@@ -27,8 +27,11 @@ import GeoAnalysisTaskDetailDrawer from "@/components/GeoAnalysisTaskDetailDrawe
 import GeoAnalysisTaskFilters from "@/components/GeoAnalysisTaskFilters.vue";
 import GeoAnalysisTaskFormDialog from "@/components/GeoAnalysisTaskFormDialog.vue";
 import { formatDateTime, formatOptional, formatTargetModels } from "@/config/geo-prompt-options";
+import { useAuthStore } from "@/stores/auth";
+import { canUseAction } from "@/utils/permission";
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const tasks = ref<GeoAnalysisTask[]>([]);
 const total = ref(0);
@@ -81,6 +84,8 @@ const diagnosisRelationLinks = [
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
+const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
+const canManageAnalysisActions = computed(() => canUseAction("run", currentRole.value));
 const analysisMetricCards = computed(() => {
   const promptSuggestionCount = tasks.value.reduce(
     (sum, task) => sum + task.promptSuggestions.length,
@@ -191,6 +196,11 @@ const handlePageSizeChange = (nextPageSize: number) => {
 };
 
 const openCreateDialog = () => {
+  if (!canManageAnalysisActions.value) {
+    ElMessage.warning("当前账号无权新建 GEO 诊断任务。");
+    return;
+  }
+
   formMode.value = "create";
   editingTask.value = null;
   formError.value = "";
@@ -198,6 +208,11 @@ const openCreateDialog = () => {
 };
 
 const openEditDialog = (task: GeoAnalysisTask) => {
+  if (!canManageAnalysisActions.value) {
+    ElMessage.warning("当前账号无权编辑 GEO 诊断任务。");
+    return;
+  }
+
   if (task.status !== "pending") {
     ElMessage.warning("仅待执行状态的 GEO 诊断任务允许编辑。");
     return;
@@ -268,6 +283,11 @@ const loadDetail = async () => {
 };
 
 const runTask = async (task?: GeoAnalysisTask) => {
+  if (!canManageAnalysisActions.value) {
+    ElMessage.warning("当前账号无权运行 GEO 诊断任务。");
+    return;
+  }
+
   const targetId = task?.id ?? selectedTaskId.value;
   if (!targetId) {
     return;
@@ -303,6 +323,11 @@ const runTask = async (task?: GeoAnalysisTask) => {
 };
 
 const handleConvertPrompts = async (payload: ConvertAnalysisPromptsPayload) => {
+  if (!canManageAnalysisActions.value) {
+    ElMessage.warning("当前账号无权转入提示词。");
+    return;
+  }
+
   if (!selectedTaskId.value) {
     return;
   }
@@ -322,6 +347,11 @@ const handleConvertPrompts = async (payload: ConvertAnalysisPromptsPayload) => {
 };
 
 const handleCreateContentTask = async (payload: CreateAnalysisContentTaskPayload) => {
+  if (!canManageAnalysisActions.value) {
+    ElMessage.warning("当前账号无权创建内容任务。");
+    return;
+  }
+
   if (!selectedTaskId.value) {
     return;
   }
@@ -367,7 +397,7 @@ onMounted(() => {
       </div>
       <div class="geo-analysis-hero__actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadTasks">刷新</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建诊断任务</el-button>
+        <el-button v-if="canManageAnalysisActions" type="primary" :icon="Plus" @click="openCreateDialog">新建诊断任务</el-button>
       </div>
     </header>
 
@@ -415,6 +445,7 @@ onMounted(() => {
     <GeoAnalysisTaskFilters
       :model-value="filters"
       :loading="loading"
+      :can-create="canManageAnalysisActions"
       @update:model-value="Object.assign(filters, $event)"
       @search="handleSearch"
       @reset="handleReset"
@@ -483,6 +514,7 @@ onMounted(() => {
           <template #default="{ row }">
             <el-button size="small" @click="openDetailDrawer(row)">查看详情</el-button>
             <el-button
+              v-if="canManageAnalysisActions"
               size="small"
               :disabled="row.status !== 'pending'"
               @click="openEditDialog(row)"
@@ -490,7 +522,7 @@ onMounted(() => {
               编辑
             </el-button>
             <el-button
-              v-if="row.status === 'pending' || row.status === 'failed'"
+              v-if="canManageAnalysisActions && (row.status === 'pending' || row.status === 'failed')"
               size="small"
               type="primary"
               :loading="running && selectedTaskId === row.id"
@@ -541,6 +573,7 @@ onMounted(() => {
       :convert-result="convertResult"
       :convert-error="convertError"
       :content-task-error="contentTaskError"
+      :can-manage-actions="canManageAnalysisActions"
       @refresh="loadDetail"
       @run="runTask"
       @convert-prompts="handleConvertPrompts"

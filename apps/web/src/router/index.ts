@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { canAccessRoute, type NormalizedRole } from "@/utils/permission";
 import { routes } from "./routes";
 
 export const router = createRouter({
@@ -23,6 +24,22 @@ router.beforeEach(async (to) => {
         redirect: to.fullPath
       }
     };
+  }
+
+  if (requiresAuth) {
+    const allowedRoles = to.matched
+      .map((record) => record.meta.allowedRoles)
+      .find(Boolean) as NormalizedRole[] | undefined;
+    const role = authStore.currentRole ?? authStore.currentUser?.role;
+
+    if (!canAccessRoute(to.path, role, allowedRoles)) {
+      return {
+        path: "/403",
+        query: {
+          from: to.fullPath
+        }
+      };
+    }
   }
 
   return true;

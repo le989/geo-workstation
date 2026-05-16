@@ -12,6 +12,10 @@ import {
   Setting,
   TrendCharts
 } from "@element-plus/icons-vue";
+import type { NormalizedRole } from "@/utils/permission";
+
+const allRoles: NormalizedRole[] = ["platform_admin", "company_admin", "operator", "viewer"];
+const activeBusinessRoles: NormalizedRole[] = ["platform_admin", "company_admin", "operator"];
 
 export type GeoPageMeta = {
   path: string;
@@ -23,6 +27,7 @@ export type GeoPageMeta = {
   nextSteps: string[];
   apiFocus: string;
   icon: Component;
+  allowedRoles: NormalizedRole[];
 };
 
 export const navigationItems: GeoPageMeta[] = [
@@ -35,7 +40,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已接入总览指标、优化建议和核心操作入口，适合作为内部日常运营首页。",
     nextSteps: ["查看 GEO 资产概览", "进入待优化建议", "串联诊断、策略、内容和复盘流程"],
     apiFocus: "读取 /api/reports/geo-overview 和 /api/reports/optimization-suggestions",
-    icon: DataBoard
+    icon: DataBoard,
+    allowedRoles: allRoles
   },
   {
     path: "/geo-analysis",
@@ -46,7 +52,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已接入模拟 GEO 诊断任务、提示词建议转入和内容任务创建流程。",
     nextSteps: ["创建 GEO 诊断任务", "运行模拟 GEO 诊断", "将提示词建议转入策略库"],
     apiFocus: "已联调 /api/geo-analysis-tasks",
-    icon: Search
+    icon: Search,
+    allowedRoles: allRoles
   },
   {
     path: "/geo-prompts",
@@ -57,7 +64,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已支持提示词查询、筛选、新增、编辑、软删除、批量导入和 CSV 导出。",
     nextSteps: ["维护训练词和蒸馏词", "补充品牌词与场景词", "为内容生成和覆盖记录提供资产"],
     apiFocus: "已联调 /api/geo-prompts",
-    icon: CollectionTag
+    icon: CollectionTag,
+    allowedRoles: allRoles
   },
   {
     path: "/expansion",
@@ -68,7 +76,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已支持规则拓词、默认模拟生成、可选真实 AI 接口、候选词去重和勾选保存。",
     nextSteps: ["规则拓词表单", "AI 候选词预览", "勾选保存到提示词库"],
     apiFocus: "POST /api/expansion/rule-generate, POST /api/expansion/ai-generate",
-    icon: MagicStick
+    icon: MagicStick,
+    allowedRoles: activeBusinessRoles
   },
   {
     path: "/knowledge-bases",
@@ -79,7 +88,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已支持知识库管理、文本导入、txt/md/csv 上传解析、片段编辑和解析重试。",
     nextSteps: ["维护产品线知识库", "导入可引用事实资料", "检查解析失败文件和知识片段质量"],
     apiFocus: "已联调 /api/knowledge-bases 和 /api/knowledge-files",
-    icon: Files
+    icon: Files,
+    allowedRoles: allRoles
   },
   {
     path: "/instruction-templates",
@@ -90,7 +100,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已支持指令模板查询、创建、编辑、详情查看、复制和软删除。",
     nextSteps: ["沉淀通用内容方法", "维护产品线专属约束", "为内容任务选择合适模板"],
     apiFocus: "已联调 /api/instruction-templates",
-    icon: DocumentChecked
+    icon: DocumentChecked,
+    allowedRoles: allRoles
   },
   {
     path: "/content-tasks",
@@ -101,7 +112,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已支持模拟生成和真实 AI 接口生成，内容项可编辑、软删除和导出 Markdown。",
     nextSteps: ["选择提示词、知识库和指令模板", "审核生成内容", "沉淀可发布的 GEO 内容资产"],
     apiFocus: "已联调 /api/content-tasks 和 /api/content-items",
-    icon: EditPen
+    icon: EditPen,
+    allowedRoles: allRoles
   },
   {
     path: "/model-inclusion-records",
@@ -112,7 +124,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已支持人工录入、批量导入、未覆盖提示词查询、基础统计和 CSV 导出。",
     nextSteps: ["记录真实模型表现", "定位未覆盖提示词", "为报表和优化建议提供依据"],
     apiFocus: "已联调 /api/model-inclusion-records",
-    icon: TrendCharts
+    icon: TrendCharts,
+    allowedRoles: allRoles
   },
   {
     path: "/reports",
@@ -123,7 +136,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "已支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。",
     nextSteps: ["复盘覆盖率和推荐率", "发现内容与知识库缺口", "导出 CSV 进行运营复盘"],
     apiFocus: "已联调 /api/reports",
-    icon: PieChart
+    icon: PieChart,
+    allowedRoles: allRoles
   },
   {
     path: "/settings",
@@ -136,7 +150,8 @@ export const navigationItems: GeoPageMeta[] = [
       "项目档案适用于企业品牌、产品、服务、课程、门店、本地生活、个人品牌或其他项目；具体事实仍以知识库为准。",
     nextSteps: ["配置项目档案", "确认 AI 接口配置边界", "维护禁止表达和内容语气"],
     apiFocus: "已联调 /api/project-profile；AI_PROVIDER 由后端环境变量控制",
-    icon: Setting
+    icon: Setting,
+    allowedRoles: ["platform_admin"]
   },
   {
     path: "/help",
@@ -147,7 +162,8 @@ export const navigationItems: GeoPageMeta[] = [
     phaseNote: "本页只整理前端帮助文档和说明，不新增后端 API、不修改数据模型或业务字段。",
     nextSteps: ["查看快速开始", "按 SOP 跑通日常流程", "对照版本记录做交接说明"],
     apiFocus: "前端静态帮助页面，不调用后端业务 API",
-    icon: Guide
+    icon: Guide,
+    allowedRoles: allRoles
   }
 ];
 

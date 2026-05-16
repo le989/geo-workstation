@@ -15,6 +15,7 @@ import AppLoadingState from "@/components/AppLoadingState.vue";
 import { formatDateTime, formatOptional, splitCommaValues } from "@/config/geo-prompt-options";
 import { getApiBaseUrl } from "@/api/http";
 import { useAuthStore } from "@/stores/auth";
+import { getRoleLabel } from "@/utils/permission";
 
 type ProjectProfileFormState = {
   projectName: string;
@@ -60,16 +61,6 @@ const trimOptional = (value: string) => {
 };
 
 const joinValues = (values: string[]) => values.join("\n");
-const roleLabelMap = {
-  platform_admin: "平台管理员",
-  company_admin: "公司管理员",
-  operator: "运营人员",
-  admin: "管理员",
-  geo_operator: "GEO 运营",
-  content_editor: "内容编辑",
-  viewer: "只读查看"
-};
-
 const currentUser = computed(() => authStore.currentUser);
 
 const providerStatusItems = [
@@ -138,7 +129,7 @@ const settingsOverviewItems = computed(() => [
   },
   {
     label: "当前身份",
-    value: formatRole(currentUser.value?.role),
+    value: getRoleLabel(authStore.currentRole ?? currentUser.value?.role),
     hint: currentUser.value?.name ?? "未读取当前用户"
   },
   {
@@ -147,9 +138,6 @@ const settingsOverviewItems = computed(() => [
     hint: "不提供清理 / 备份 / 导出按钮"
   }
 ]);
-
-const formatRole = (role?: string) =>
-  role ? (roleLabelMap[role as keyof typeof roleLabelMap] ?? role) : "--";
 
 const resetForm = () => {
   form.brandName = profile.value?.brandName ?? "";
@@ -449,7 +437,7 @@ onMounted(() => {
             </div>
             <div>
               <span>角色</span>
-              <strong>{{ formatRole(currentUser?.role) }}</strong>
+              <strong>{{ getRoleLabel(authStore.currentRole ?? currentUser?.role) }}</strong>
             </div>
             <div class="settings-info-grid__full">
               <span>权限说明</span>

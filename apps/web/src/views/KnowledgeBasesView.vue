@@ -38,6 +38,7 @@ import KnowledgeChunkFormDialog from "@/components/KnowledgeChunkFormDialog.vue"
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { knowledgeBaseStatusLabelMap, parseStatusLabelMap } from "@/config/knowledge-options";
 import { useAuthStore } from "@/stores/auth";
+import { canUseAction } from "@/utils/permission";
 
 const authStore = useAuthStore();
 const knowledgeBases = ref<KnowledgeBase[]>([]);
@@ -147,6 +148,8 @@ const visibilityTagTypeMap = {
 
 const isOperatorRole = () =>
   ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
+const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
+const canCreateKnowledgeBase = computed(() => canUseAction("create", currentRole.value));
 
 const canManageKnowledgeBase = (knowledgeBase?: KnowledgeBase | null) => {
   if (!knowledgeBase || knowledgeBase.visibility === "PLATFORM") {
@@ -257,6 +260,11 @@ const handlePageSizeChange = (nextPageSize: number) => {
 };
 
 const openCreateDialog = () => {
+  if (!canCreateKnowledgeBase.value) {
+    ElMessage.warning("当前账号无权新建知识库。");
+    return;
+  }
+
   formMode.value = "create";
   editingKnowledgeBase.value = null;
   formError.value = "";
@@ -667,7 +675,7 @@ onMounted(() => {
         <el-button :icon="Refresh" :loading="loading" @click="loadKnowledgeBases">
           刷新列表
         </el-button>
-        <el-button type="primary" @click="openCreateDialog">新建知识库</el-button>
+        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">新建知识库</el-button>
       </div>
     </header>
 

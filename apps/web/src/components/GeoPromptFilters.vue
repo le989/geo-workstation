@@ -11,6 +11,10 @@ const props = defineProps<{
   modelValue: GeoPromptQuery;
   activeType?: GeoPromptType;
   loading?: boolean;
+  canCreate?: boolean;
+  canImport?: boolean;
+  canExport?: boolean;
+  canExpansion?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -116,10 +120,12 @@ const handleTabChange = (name: string | number) => {
     <div class="geo-prompts-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button plain @click="emit('create')">新增提示词</el-button>
-      <el-button @click="emit('import')">批量导入</el-button>
-      <el-button @click="emit('export')">导出 CSV</el-button>
-      <el-button type="primary" plain @click="emit('expansion')">AI 拓词</el-button>
+      <el-button v-if="canCreate !== false" plain @click="emit('create')">新增提示词</el-button>
+      <el-button v-if="canImport !== false" @click="emit('import')">批量导入</el-button>
+      <el-button v-if="canExport !== false" @click="emit('export')">导出 CSV</el-button>
+      <el-button v-if="canExpansion !== false" type="primary" plain @click="emit('expansion')">
+        AI 拓词
+      </el-button>
     </div>
   </section>
 </template>

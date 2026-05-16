@@ -38,6 +38,7 @@ import {
   toReportPercent
 } from "@/config/report-options";
 import { useAuthStore } from "@/stores/auth";
+import { canUseAction, normalizeRole } from "@/utils/permission";
 
 type ReportMetric = {
   label: string;
@@ -121,21 +122,10 @@ const exporting = ref<ReportExportType | "">("");
 
 const normalizedRole = computed(() => {
   const role = String(authStore.currentRole ?? authStore.currentUser?.role ?? "");
-
-  if (role === "platform_admin" || role === "admin") {
-    return "platform_admin";
-  }
-  if (role === "company_admin") {
-    return "company_admin";
-  }
-  if (role === "operator" || role === "geo_operator" || role === "content_editor") {
-    return "operator";
-  }
-
-  return "viewer";
+  return normalizeRole(role);
 });
 const isPersonalReportScope = computed(() => normalizedRole.value === "operator");
-const canExportReports = computed(() => normalizedRole.value !== "viewer");
+const canExportReports = computed(() => canUseAction("export", normalizedRole.value));
 const reportScopeText = computed(() => {
   const companyName = authStore.currentCompany?.name ?? "当前公司";
 

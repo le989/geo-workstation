@@ -30,6 +30,7 @@ const props = defineProps<{
   convertResult?: ConvertAnalysisPromptsResult | null;
   convertError?: string;
   contentTaskError?: string;
+  canManageActions?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -45,8 +46,11 @@ const emit = defineEmits<{
 const selectedPromptTexts = ref<string[]>([]);
 
 const canRun = computed(
-  () => props.detail?.task.status === "pending" || props.detail?.task.status === "failed"
+  () =>
+    props.canManageActions !== false &&
+    (props.detail?.task.status === "pending" || props.detail?.task.status === "failed")
 );
+const canManageActions = computed(() => props.canManageActions !== false);
 const summaryEntries = computed(() => {
   const summary = props.detail?.task.summary;
   if (!summary) {
@@ -207,6 +211,7 @@ const formatSummaryValue = (value: unknown) => {
         </div>
 
         <ConvertPromptsPanel
+          v-if="canManageActions"
           v-model:selected-prompt-texts="selectedPromptTexts"
           :suggestions="detail.task.promptSuggestions"
           :product-line="detail.task.productLine"
@@ -245,6 +250,7 @@ const formatSummaryValue = (value: unknown) => {
         <GeoModelResultsTable :results="detail.modelResults" />
 
         <CreateAnalysisContentTaskPanel
+          v-if="canManageActions"
           :task="detail.task"
           :related-prompts="detail.relatedPrompts"
           :submitting="contentTaskSubmitting"

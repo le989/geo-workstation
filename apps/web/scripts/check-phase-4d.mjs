@@ -8,9 +8,12 @@ const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const requiredFiles = [
   "src/api/auth.ts",
   "src/stores/auth.ts",
+  "src/utils/permission.ts",
   "src/views/LoginView.vue",
+  "src/views/ForbiddenView.vue",
   "src/router/index.ts",
   "src/router/routes.ts",
+  "src/config/navigation.ts",
   "src/layouts/AppLayout.vue"
 ];
 
@@ -24,15 +27,28 @@ const requiredSnippets = [
   ["X-Company-Id", "src/api/http.ts"],
   ["geo-auth:unauthorized", "src/stores/auth.ts"],
   ["setCurrentCompany", "src/stores/auth.ts"],
+  ["normalizeRole", "src/utils/permission.ts"],
+  ["getRoleLabel", "src/utils/permission.ts"],
+  ["canAccessRoute", "src/utils/permission.ts"],
+  ["canUseAction", "src/utils/permission.ts"],
+  ["settings_write", "src/utils/permission.ts"],
+  ["allowedRoles", "src/config/navigation.ts"],
+  ['path: "/403"', "src/router/routes.ts"],
+  ["ForbiddenView", "src/router/routes.ts"],
+  ["canAccessRoute", "src/router/index.ts"],
+  ["allowedRoles", "src/router/routes.ts"],
   ["beforeEach", "src/router/index.ts"],
   ["requiresAuth", "src/router/routes.ts"],
   ["publicOnly", "src/router/routes.ts"],
   ["/login", "src/router/routes.ts"],
+  ["无权访问", "src/views/ForbiddenView.vue"],
   ["AI 搜索可见度运营闭环", "src/views/LoginView.vue"],
   ["内部访问控制", "src/views/LoginView.vue"],
   ["退出登录", "src/layouts/AppLayout.vue"],
   ["currentUser", "src/layouts/AppLayout.vue"],
-  ["currentCompany", "src/layouts/AppLayout.vue"]
+  ["currentCompany", "src/layouts/AppLayout.vue"],
+  ["visibleNavigationGroups", "src/layouts/AppLayout.vue"],
+  ["getRoleLabel", "src/layouts/AppLayout.vue"]
 ];
 
 const assert = (condition, message) => {

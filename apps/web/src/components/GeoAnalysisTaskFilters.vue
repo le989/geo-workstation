@@ -5,6 +5,7 @@ import { geoAnalysisStatusOptions } from "@/config/geo-analysis-options";
 defineProps<{
   modelValue: GeoAnalysisTaskQuery;
   loading?: boolean;
+  canCreate?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -97,7 +98,7 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
     <div class="geo-analysis-filter-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button plain @click="emit('create')">新建诊断任务</el-button>
+      <el-button v-if="canCreate !== false" plain @click="emit('create')">新建诊断任务</el-button>
     </div>
   </section>
 </template>

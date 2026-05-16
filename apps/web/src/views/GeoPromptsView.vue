@@ -31,6 +31,7 @@ import {
   userIntentLabelMap
 } from "@/config/geo-prompt-options";
 import { useAuthStore } from "@/stores/auth";
+import { canAccessRoute, canUseAction } from "@/utils/permission";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -102,6 +103,11 @@ const visibilityTagTypeMap = {
 
 const isOperatorRole = () =>
   ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
+const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
+const canCreatePromptAction = computed(() => canUseAction("create", currentRole.value));
+const canImportPrompts = computed(() => canUseAction("import", currentRole.value));
+const canExportPrompts = computed(() => canUseAction("export", currentRole.value));
+const canOpenExpansion = computed(() => canAccessRoute("/expansion", currentRole.value));
 
 const canManagePrompt = (prompt: GeoPrompt) => {
   if (prompt.visibility === "PLATFORM") {
@@ -200,6 +206,11 @@ const handlePageSizeChange = (nextPageSize: number) => {
 };
 
 const openCreateDialog = () => {
+  if (!canCreatePromptAction.value) {
+    ElMessage.warning("当前账号无权新增 GEO 提示词。");
+    return;
+  }
+
   formMode.value = "create";
   editingPrompt.value = null;
   formError.value = "";
@@ -258,6 +269,11 @@ const handleDelete = async (prompt: GeoPrompt) => {
 };
 
 const openImportDialog = () => {
+  if (!canImportPrompts.value) {
+    ElMessage.warning("当前账号无权批量导入 GEO 提示词。");
+    return;
+  }
+
   importError.value = "";
   importResult.value = null;
   importVisible.value = true;
@@ -284,6 +300,11 @@ const handleBulkImport = async (payload: BulkImportGeoPromptsPayload) => {
 };
 
 const handleExport = async () => {
+  if (!canExportPrompts.value) {
+    ElMessage.warning("当前账号无权导出 GEO 提示词。");
+    return;
+  }
+
   exporting.value = true;
 
   try {
@@ -306,6 +327,11 @@ const handleExport = async () => {
 };
 
 const goExpansion = () => {
+  if (!canOpenExpansion.value) {
+    ElMessage.warning("当前账号无权使用 AI 拓词。");
+    return;
+  }
+
   void router.push("/expansion");
 };
 
@@ -329,7 +355,7 @@ onMounted(() => {
       <div class="geo-prompts-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" @click="loadPrompts"> 刷新列表 </el-button>
-        <el-button :icon="Plus" type="primary" @click="openCreateDialog">新增提示词</el-button>
+        <el-button v-if="canCreatePromptAction" :icon="Plus" type="primary" @click="openCreateDialog">新增提示词</el-button>
       </div>
     </header>
 
@@ -345,6 +371,10 @@ onMounted(() => {
       :model-value="filters"
       :active-type="activeType"
       :loading="loading"
+      :can-create="canCreatePromptAction"
+      :can-import="canImportPrompts"
+      :can-export="canExportPrompts"
+      :can-expansion="canOpenExpansion"
       @update:model-value="Object.assign(filters, $event)"
       @search="handleSearch"
       @reset="handleReset"
@@ -365,9 +395,9 @@ onMounted(() => {
           <p>从策略词、追踪状态和覆盖结果判断下一步应该补词、补内容还是补检测。</p>
         </div>
         <div class="geo-prompts-table-tools">
-          <el-button :icon="MagicStick" @click="goExpansion">AI 拓词</el-button>
-          <el-button :icon="Plus" type="primary" @click="openCreateDialog">新增提示词</el-button>
-          <el-button :icon="Download" :loading="exporting" @click="handleExport">
+          <el-button v-if="canOpenExpansion" :icon="MagicStick" @click="goExpansion">AI 拓词</el-button>
+          <el-button v-if="canCreatePromptAction" :icon="Plus" type="primary" @click="openCreateDialog">新增提示词</el-button>
+          <el-button v-if="canExportPrompts" :icon="Download" :loading="exporting" @click="handleExport">
             导出 CSV
           </el-button>
         </div>

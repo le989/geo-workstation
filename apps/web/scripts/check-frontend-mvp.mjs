@@ -1,6 +1,7 @@
-/* global fetch, setTimeout, WebSocket */
+/* global fetch, setTimeout, URL, WebSocket */
 import { access, readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { createServer } from "node:http";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -8,10 +9,12 @@ import { fileURLToPath } from "node:url";
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(webRoot, "../..");
 const port = Number(process.env.FRONTEND_MVP_PORT || 5174);
+const stubApiPort = Number(process.env.FRONTEND_MVP_API_PORT || port + 2000);
 const baseUrl = process.env.FRONTEND_BASE_URL || `http://127.0.0.1:${port}`;
+const stubApiBaseUrl = `http://127.0.0.1:${stubApiPort}`;
 const chromePath =
   process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || "http://127.0.0.1:59999";
+const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || stubApiBaseUrl;
 
 const requiredFiles = [
   "docs/frontend/frontend-mvp-guide.md",
@@ -105,6 +108,84 @@ const waitForHttp = async (url, timeoutMs = 20000) => {
   }
   throw new Error(`Timed out waiting for ${url}`);
 };
+
+const sendJson = (response, statusCode, payload) => {
+  response.writeHead(statusCode, {
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Company-Id",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "application/json; charset=utf-8"
+  });
+  response.end(JSON.stringify(payload));
+};
+
+const startStubApi = async () =>
+  new Promise((resolve, reject) => {
+    const server = createServer((request, response) => {
+      if (request.method === "OPTIONS") {
+        sendJson(response, 204, null);
+        return;
+      }
+
+      const url = new URL(request.url || "/", stubApiBaseUrl);
+
+      if (request.method === "GET" && url.pathname === "/api/auth/me") {
+        sendJson(response, 200, {
+          code: 0,
+          message: "ok",
+          data: {
+            user: {
+              id: "frontend-mvp-user",
+              name: "前端验收用户",
+              email: "frontend-mvp@example.com",
+              role: "platform_admin",
+              status: "active",
+              isPlatformAdmin: true
+            },
+            companies: [
+              {
+                id: "company_frontend_mvp",
+                name: "前端验收公司",
+                code: "frontend",
+                role: "platform_admin",
+                isDefault: true,
+                status: "active"
+              }
+            ],
+            currentCompany: {
+              id: "company_frontend_mvp",
+              name: "前端验收公司",
+              code: "frontend",
+              role: "platform_admin",
+              isDefault: true,
+              status: "active"
+            }
+          }
+        });
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+        sendJson(response, 200, {
+          code: 0,
+          message: "ok",
+          data: {
+            loggedOut: true
+          }
+        });
+        return;
+      }
+
+      sendJson(response, 503, {
+        code: 503,
+        message: "后端未连接",
+        data: null
+      });
+    });
+
+    server.on("error", reject);
+    server.listen(stubApiPort, "127.0.0.1", () => resolve(server));
+  });
 
 const startVite = async () => {
   await runCommand("pnpm", ["--filter", "@geo-workstation/shared", "build"]);
@@ -273,6 +354,7 @@ for (const snippet of requiredGuideSnippets) {
   assert(guide.includes(snippet), `Frontend MVP guide missing ${snippet}`);
 }
 
+const stubApi = process.env.VITE_API_BASE_URL ? undefined : await startStubApi();
 const vite = await startVite();
 let chrome;
 
@@ -333,6 +415,7 @@ try {
 } finally {
   chrome?.child.kill("SIGTERM");
   vite.kill("SIGTERM");
+  stubApi?.close();
 }
 
 process.stdout.write("Frontend MVP route and offline check passed\n");

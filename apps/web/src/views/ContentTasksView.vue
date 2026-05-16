@@ -34,6 +34,7 @@ import ContentTaskStatusTag from "@/components/ContentTaskStatusTag.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { formatProviderModel } from "@/config/label-maps";
 import { useAuthStore } from "@/stores/auth";
+import { canUseAction } from "@/utils/permission";
 
 const authStore = useAuthStore();
 const tasks = ref<ContentTask[]>([]);
@@ -90,7 +91,8 @@ const publishFormatError = ref("");
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
-const canManageContentActions = computed(() => authStore.currentUser?.role !== "viewer");
+const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
+const canManageContentActions = computed(() => canUseAction("create", currentRole.value));
 
 const contentWorkflowSteps = [
   {

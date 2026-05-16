@@ -4,6 +4,7 @@ import { navigationItems, pageMetaByPath } from "@/config/navigation";
 import DashboardView from "@/views/DashboardView.vue";
 import ContentTasksView from "@/views/ContentTasksView.vue";
 import ExpansionView from "@/views/ExpansionView.vue";
+import ForbiddenView from "@/views/ForbiddenView.vue";
 import GeoAnalysisView from "@/views/GeoAnalysisView.vue";
 import GeoPromptsView from "@/views/GeoPromptsView.vue";
 import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
@@ -72,10 +73,19 @@ export const routes: RouteRecordRaw[] = [
                                 : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path],
-          requiresAuth: true
+          requiresAuth: true,
+          allowedRoles: item.allowedRoles
         }
       }))
     ]
+  },
+  {
+    path: "/403",
+    name: "forbidden",
+    component: ForbiddenView,
+    meta: {
+      requiresAuth: true
+    }
   },
   {
     path: "/login",

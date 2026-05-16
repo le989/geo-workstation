@@ -32,7 +32,13 @@ export const useAuthStore = defineStore("auth", () => {
 
   const isAuthenticated = computed(() => Boolean(token.value && currentUser.value));
   const isPlatformAdmin = computed(() => Boolean(currentUser.value?.isPlatformAdmin));
-  const currentRole = computed(() => currentCompany.value?.role ?? currentUser.value?.role ?? null);
+  const currentRole = computed(() => {
+    if (currentUser.value?.role === "viewer") {
+      return "viewer";
+    }
+
+    return currentCompany.value?.role ?? currentUser.value?.role ?? null;
+  });
 
   const selectCurrentCompany = (
     availableCompanies: AuthCompany[],
