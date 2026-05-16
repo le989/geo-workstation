@@ -19,7 +19,6 @@ type ContentTaskFormState = {
   provider: string;
   model: string;
   geoPromptIds: string[];
-  createdBy: string;
 };
 
 const props = defineProps<{
@@ -34,7 +33,6 @@ const emit = defineEmits<{
 }>();
 
 const form = reactive<ContentTaskFormState>({
-  createdBy: "",
   generationType: "article",
   geoPromptIds: [],
   instructionTemplateId: "",
@@ -87,7 +85,6 @@ const getInstructionContentTypeLabel = (template: InstructionTemplate) =>
   contentTypeLabelMap[template.contentType] ?? template.contentType;
 
 const resetForm = () => {
-  form.createdBy = "";
   form.generationType = "article";
   form.geoPromptIds = [];
   form.instructionTemplateId = "";
@@ -173,7 +170,6 @@ const handleSubmit = () => {
   }
 
   emit("submit", {
-    createdBy: trimOptional(form.createdBy),
     generationType: form.generationType.trim(),
     geoPromptIds: form.geoPromptIds,
     instructionTemplateId: trimOptional(form.instructionTemplateId),
@@ -343,9 +339,6 @@ const handleSubmit = () => {
           </el-form-item>
           <el-form-item label="模型名称">
             <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
-          </el-form-item>
-          <el-form-item label="创建人">
-            <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
           </el-form-item>
         </div>
       </section>

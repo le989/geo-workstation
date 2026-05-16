@@ -1,8 +1,19 @@
 import { BadRequestException } from "@nestjs/common";
-import { GeoPromptType, TaskStatus, UserIntent, UserRole, UserStatus } from "@prisma/client";
+import {
+  CompanyStatus,
+  CompanyType,
+  GeoPromptType,
+  MembershipRole,
+  TaskStatus,
+  UserIntent,
+  UserRole,
+  UserStatus,
+  Visibility
+} from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ContentTasksService } from "../src/modules/geo-content/content-tasks.service";
+import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -14,6 +25,12 @@ describe("ContentTasksService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let service: ContentTasksService;
   let createdBy: string;
+  let companyA: { id: string; name: string; code: string };
+  let companyB: { id: string; name: string; code: string };
+  let platformAdmin: { id: string };
+  let companyAdminA: { id: string };
+  let operatorA: { id: string };
+  let operatorB: { id: string };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -30,6 +47,67 @@ describe("ContentTasksService", () => {
       }
     });
     createdBy = user.id;
+
+    companyA = await prisma.company.create({
+      data: {
+        name: `Auth 4D Content Company A ${runId}`,
+        code: `auth4d-content-a-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyB = await prisma.company.create({
+      data: {
+        name: `Auth 4D Content Company B ${runId}`,
+        code: `auth4d-content-b-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    platformAdmin = await prisma.user.create({
+      data: {
+        email: `auth4d-content-platform-${runId}@example.com`,
+        name: "Auth 4D Content Platform Admin",
+        role: UserRole.platform_admin,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    companyAdminA = await prisma.user.create({
+      data: {
+        email: `auth4d-content-company-admin-${runId}@example.com`,
+        name: "Auth 4D Content Company Admin A",
+        role: UserRole.company_admin,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    operatorA = await prisma.user.create({
+      data: {
+        email: `auth4d-content-operator-a-${runId}@example.com`,
+        name: "Auth 4D Content Operator A",
+        role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    operatorB = await prisma.user.create({
+      data: {
+        email: `auth4d-content-operator-b-${runId}@example.com`,
+        name: "Auth 4D Content Operator B",
+        role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
   });
 
   afterAll(async () => {
@@ -116,6 +194,100 @@ describe("ContentTasksService", () => {
     });
   }
 
+  const contextFor = (
+    user: { id: string },
+    company: { id: string; name: string; code: string },
+    role: MembershipRole,
+    isPlatformAdmin = false
+  ): ResourceAccessContext => ({
+    user: {
+      id: user.id,
+      email: `${user.id}@auth4d.local`,
+      name: user.id,
+      role: isPlatformAdmin
+        ? UserRole.platform_admin
+        : role === MembershipRole.company_admin
+          ? UserRole.company_admin
+          : UserRole.operator,
+      status: UserStatus.active,
+      isPlatformAdmin
+    },
+    currentCompany: {
+      id: company.id,
+      name: company.name,
+      code: company.code,
+      role,
+      isDefault: true,
+      status: CompanyStatus.active
+    },
+    currentMembership: {
+      companyId: company.id,
+      role,
+      isDefault: true,
+      isPlatformAdmin
+    }
+  });
+
+  async function createScopedPrompt(
+    label: string,
+    company: { id: string },
+    user: { id: string },
+    visibility = Visibility.COMPANY
+  ) {
+    return prisma.geoPrompt.create({
+      data: {
+        companyId: company.id,
+        type: GeoPromptType.distilled,
+        baseWord: "激光测距传感器",
+        promptText: unique(label),
+        productLine: "激光测距传感器",
+        userIntent: UserIntent.selection,
+        priority: 3,
+        visibility,
+        createdById: user.id
+      }
+    });
+  }
+
+  async function createScopedContentTask(
+    label: string,
+    company: { id: string },
+    user: { id: string },
+    status = TaskStatus.succeeded
+  ) {
+    const prompt = await createScopedPrompt(`${label} 提示词`, company, user);
+    const task = await prisma.contentTask.create({
+      data: {
+        companyId: company.id,
+        name: unique(label),
+        productLine: "激光测距传感器",
+        generationType: "faq",
+        status,
+        provider: "mock",
+        model: "mock-content-v1",
+        createdById: user.id
+      }
+    });
+    const item = await prisma.contentItem.create({
+      data: {
+        companyId: company.id,
+        taskId: task.id,
+        geoPromptId: prompt.id,
+        title: unique(`${label} 内容项`),
+        body: "## FAQ 总结\n这是用于 Auth-4D 内容任务隔离测试的内容项。",
+        geoOptimizationPoints: ["隔离测试"],
+        status: status === TaskStatus.failed ? "failed" : "draft",
+        errorMessage: status === TaskStatus.failed ? "previous failure" : null
+      }
+    });
+
+    return {
+      task,
+      item,
+      prompt
+    };
+  }
+
   it("creates a content task, generates content items, and records a mock AI call log", async () => {
     const prompt = await createGeoPrompt("创建内容任务提示词");
     const knowledgeBase = await createKnowledgeBase("创建内容任务知识库");
@@ -155,6 +327,190 @@ describe("ContentTasksService", () => {
       }
     });
     expect(aiCallLog?.status).toBe("succeeded");
+  });
+
+  it("isolates content task lists, details, and retry by company and owner", async () => {
+    const own = await createScopedContentTask("operator-a-visible-task", companyA, operatorA);
+    const sameCompanyOtherUser = await createScopedContentTask(
+      "operator-b-hidden-task",
+      companyA,
+      operatorB,
+      TaskStatus.failed
+    );
+    const otherCompany = await createScopedContentTask("company-b-hidden-task", companyB, operatorB);
+
+    const operatorList = await service.findMany(
+      {
+        page: 1,
+        pageSize: 50
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(operatorList.items.map((item) => item.id)).toContain(own.task.id);
+    expect(operatorList.items.map((item) => item.id)).not.toContain(sameCompanyOtherUser.task.id);
+    expect(operatorList.items.map((item) => item.id)).not.toContain(otherCompany.task.id);
+
+    const adminList = await service.findMany(
+      {
+        page: 1,
+        pageSize: 50
+      },
+      contextFor(companyAdminA, companyA, MembershipRole.company_admin)
+    );
+    expect(adminList.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([own.task.id, sameCompanyOtherUser.task.id])
+    );
+    expect(adminList.items.map((item) => item.id)).not.toContain(otherCompany.task.id);
+
+    const platformCompanyBList = await service.findMany(
+      {
+        page: 1,
+        pageSize: 50
+      },
+      contextFor(platformAdmin, companyB, MembershipRole.platform_admin, true)
+    );
+    expect(platformCompanyBList.items.map((item) => item.id)).toContain(otherCompany.task.id);
+    expect(platformCompanyBList.items.map((item) => item.id)).not.toContain(own.task.id);
+
+    await expect(
+      service.getDetail(
+        sameCompanyOtherUser.task.id,
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO content task not found");
+    await expect(
+      service.getDetail(
+        otherCompany.task.id,
+        contextFor(companyAdminA, companyA, MembershipRole.company_admin)
+      )
+    ).rejects.toThrow("GEO content task not found");
+    await expect(
+      service.retry(
+        sameCompanyOtherUser.task.id,
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO content task not found");
+  });
+
+  it("writes current company and user on direct content task creation", async () => {
+    const prompt = await createScopedPrompt("current-company-create-prompt", companyA, operatorA);
+    const result = await service.create(
+      {
+        name: unique("current company create"),
+        productLine: "激光测距传感器",
+        generationType: "faq",
+        geoPromptIds: [prompt.id],
+        createdBy: operatorB.id
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+
+    const stored = await prisma.contentTask.findUniqueOrThrow({
+      where: {
+        id: result.task.id
+      },
+      include: {
+        contentItems: true
+      }
+    });
+    expect(stored.companyId).toBe(companyA.id);
+    expect(stored.createdById).toBe(operatorA.id);
+    expect(stored.updatedById).toBe(operatorA.id);
+    expect(stored.contentItems.every((item) => item.companyId === companyA.id)).toBe(true);
+
+    const aiCallLog = await prisma.aiCallLog.findFirst({
+      where: {
+        relatedType: "content_task",
+        relatedId: stored.id
+      }
+    });
+    expect(aiCallLog?.companyId).toBe(companyA.id);
+    expect(aiCallLog?.createdById).toBe(operatorA.id);
+  });
+
+  it("rejects unreadable associated resources when creating content tasks", async () => {
+    const otherCompanyPrompt = await createScopedPrompt(
+      "other-company-create-prompt",
+      companyB,
+      operatorB
+    );
+    const privatePromptByOtherUser = await createScopedPrompt(
+      "same-company-private-other-user-prompt",
+      companyA,
+      operatorB,
+      Visibility.PRIVATE
+    );
+    const otherCompanyKnowledgeBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyB.id,
+        name: unique("other-company-knowledge"),
+        status: "active",
+        visibility: Visibility.COMPANY,
+        createdById: operatorB.id
+      }
+    });
+    const otherCompanyInstruction = await prisma.instructionTemplate.create({
+      data: {
+        companyId: companyB.id,
+        name: unique("other-company-instruction"),
+        instructionType: "faq",
+        contentType: "faq",
+        instruction: "只用于验证跨公司不可引用。",
+        visibility: Visibility.COMPANY,
+        createdById: operatorB.id
+      }
+    });
+
+    await expect(
+      service.create(
+        {
+          name: unique("reject other company prompt"),
+          generationType: "faq",
+          geoPromptIds: [otherCompanyPrompt.id],
+          createdBy: operatorA.id
+        },
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO prompts not found or deleted");
+
+    await expect(
+      service.create(
+        {
+          name: unique("reject private prompt"),
+          generationType: "faq",
+          geoPromptIds: [privatePromptByOtherUser.id],
+          createdBy: operatorA.id
+        },
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO prompts not found or deleted");
+
+    const readablePrompt = await createScopedPrompt("readable-prompt", companyA, operatorA);
+    await expect(
+      service.create(
+        {
+          name: unique("reject other company knowledge"),
+          generationType: "faq",
+          geoPromptIds: [readablePrompt.id],
+          knowledgeBaseId: otherCompanyKnowledgeBase.id,
+          createdBy: operatorA.id
+        },
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO knowledge base not found or deleted");
+
+    await expect(
+      service.create(
+        {
+          name: unique("reject other company instruction"),
+          generationType: "faq",
+          geoPromptIds: [readablePrompt.id],
+          instructionTemplateId: otherCompanyInstruction.id,
+          createdBy: operatorA.id
+        },
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO instruction template not found or deleted");
   });
 
   it("creates content with an openai_compatible provider when selected", async () => {

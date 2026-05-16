@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ContentItem, RelatedGeoPrompt } from "@/api/content";
+import { computed } from "vue";
 import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
 import {
   contentItemStatusLabelMap,
@@ -16,6 +17,7 @@ const props = defineProps<{
   deletingIds?: string[];
   qualityCheckingIds?: string[];
   optimizingIds?: string[];
+  canManageActions?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -29,6 +31,8 @@ const emit = defineEmits<{
 
 const findGeoPrompt = (geoPromptId?: string | null) =>
   props.prompts?.find((prompt) => prompt.id === geoPromptId);
+
+const canManageActions = computed(() => props.canManageActions !== false);
 
 const getItemStatusType = (status: string) => {
   if (status === "failed") {
@@ -97,8 +101,11 @@ const getItemStatusType = (status: string) => {
       <template #default="{ row }">
         <div class="content-item-table__actions">
           <el-button text type="primary" @click="emit('view', row)">查看</el-button>
-          <el-button text type="primary" @click="emit('edit', row)">编辑</el-button>
+          <el-button v-if="canManageActions" text type="primary" @click="emit('edit', row)">
+            编辑
+          </el-button>
           <el-button
+            v-if="canManageActions"
             text
             type="success"
             :loading="qualityCheckingIds?.includes(row.id)"
@@ -107,6 +114,7 @@ const getItemStatusType = (status: string) => {
             质量检查
           </el-button>
           <el-button
+            v-if="canManageActions"
             text
             type="warning"
             :loading="optimizingIds?.includes(row.id)"
@@ -115,6 +123,7 @@ const getItemStatusType = (status: string) => {
             生成发布优化版
           </el-button>
           <el-button
+            v-if="canManageActions"
             text
             type="primary"
             :loading="exportingIds?.includes(row.id)"
@@ -123,6 +132,7 @@ const getItemStatusType = (status: string) => {
             导出 Markdown
           </el-button>
           <el-button
+            v-if="canManageActions"
             text
             type="danger"
             :loading="deletingIds?.includes(row.id)"

@@ -1,9 +1,20 @@
 import { BadRequestException } from "@nestjs/common";
-import { GeoPromptType, TaskStatus, UserIntent, UserRole, UserStatus } from "@prisma/client";
+import {
+  CompanyStatus,
+  CompanyType,
+  GeoPromptType,
+  MembershipRole,
+  TaskStatus,
+  UserIntent,
+  UserRole,
+  UserStatus,
+  Visibility
+} from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { ContentItemsService } from "../src/modules/geo-content/content-items.service";
 import { ContentTasksService } from "../src/modules/geo-content/content-tasks.service";
+import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -16,6 +27,11 @@ describe("ContentItemsService", () => {
   let tasksService: ContentTasksService;
   let itemsService: ContentItemsService;
   let createdBy: string;
+  let companyA: { id: string; name: string; code: string };
+  let companyB: { id: string; name: string; code: string };
+  let companyAdminA: { id: string };
+  let operatorA: { id: string };
+  let operatorB: { id: string };
   const aiProvider = {
     generateText: async () => ({
       text: JSON.stringify({
@@ -61,6 +77,56 @@ describe("ContentItemsService", () => {
       }
     });
     createdBy = user.id;
+
+    companyA = await prisma.company.create({
+      data: {
+        name: `Auth 4D Content Item Company A ${runId}`,
+        code: `auth4d-item-a-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyB = await prisma.company.create({
+      data: {
+        name: `Auth 4D Content Item Company B ${runId}`,
+        code: `auth4d-item-b-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyAdminA = await prisma.user.create({
+      data: {
+        email: `auth4d-item-company-admin-${runId}@example.com`,
+        name: "Auth 4D Content Item Company Admin A",
+        role: UserRole.company_admin,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    operatorA = await prisma.user.create({
+      data: {
+        email: `auth4d-item-operator-a-${runId}@example.com`,
+        name: "Auth 4D Content Item Operator A",
+        role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    operatorB = await prisma.user.create({
+      data: {
+        email: `auth4d-item-operator-b-${runId}@example.com`,
+        name: "Auth 4D Content Item Operator B",
+        role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
   });
 
   afterAll(async () => {
@@ -205,6 +271,85 @@ describe("ContentItemsService", () => {
     });
   }
 
+  const contextFor = (
+    user: { id: string },
+    company: { id: string; name: string; code: string },
+    role: MembershipRole
+  ): ResourceAccessContext => ({
+    user: {
+      id: user.id,
+      email: `${user.id}@auth4d.local`,
+      name: user.id,
+      role: role === MembershipRole.company_admin ? UserRole.company_admin : UserRole.operator,
+      status: UserStatus.active,
+      isPlatformAdmin: false
+    },
+    currentCompany: {
+      id: company.id,
+      name: company.name,
+      code: company.code,
+      role,
+      isDefault: true,
+      status: CompanyStatus.active
+    },
+    currentMembership: {
+      companyId: company.id,
+      role,
+      isDefault: true,
+      isPlatformAdmin: false
+    }
+  });
+
+  async function createScopedItem(
+    label: string,
+    company: { id: string },
+    user: { id: string }
+  ) {
+    const prompt = await prisma.geoPrompt.create({
+      data: {
+        companyId: company.id,
+        type: GeoPromptType.scene,
+        baseWord: "激光测距传感器",
+        promptText: unique(`${label} 提示词`),
+        productLine: "激光测距传感器",
+        userIntent: UserIntent.application_solution,
+        priority: 2,
+        visibility: Visibility.COMPANY,
+        createdById: user.id
+      }
+    });
+    const task = await prisma.contentTask.create({
+      data: {
+        companyId: company.id,
+        name: unique(label),
+        productLine: "激光测距传感器",
+        generationType: "application_solution",
+        status: TaskStatus.succeeded,
+        provider: "mock",
+        model: "mock-content-v1",
+        createdById: user.id
+      }
+    });
+    const item = await prisma.contentItem.create({
+      data: {
+        companyId: company.id,
+        taskId: task.id,
+        geoPromptId: prompt.id,
+        title: unique(`${label} 内容项`),
+        body: "## 适用场景\n用于 Auth-4D ContentItem 隔离测试。\n## FAQ 总结\n问：是否隔离？答：必须隔离。",
+        geoOptimizationPoints: ["隔离测试"],
+        suggestedPublishChannel: "官网文章",
+        status: "draft"
+      }
+    });
+
+    return {
+      task,
+      item,
+      prompt
+    };
+  }
+
   it("queries, edits, exports, and soft deletes content items", async () => {
     const created = await createTaskWithItem();
     const item = created.items[0];
@@ -253,6 +398,58 @@ describe("ContentItemsService", () => {
       taskId: created.task.id
     });
     expect(listAfterDelete.total).toBe(0);
+  });
+
+  it("isolates content item list and actions through parent content task ownership", async () => {
+    const own = await createScopedItem("operator-a-visible-item", companyA, operatorA);
+    const sameCompanyOtherUser = await createScopedItem(
+      "operator-b-hidden-item",
+      companyA,
+      operatorB
+    );
+    const otherCompany = await createScopedItem("company-b-hidden-item", companyB, operatorB);
+
+    const operatorList = await itemsService.findMany(
+      {
+        page: 1,
+        pageSize: 50
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(operatorList.items.map((item) => item.id)).toContain(own.item.id);
+    expect(operatorList.items.map((item) => item.id)).not.toContain(sameCompanyOtherUser.item.id);
+    expect(operatorList.items.map((item) => item.id)).not.toContain(otherCompany.item.id);
+
+    await expect(
+      itemsService.update(
+        sameCompanyOtherUser.item.id,
+        {
+          title: "operator A cannot edit this item"
+        },
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO content item not found");
+    await expect(
+      itemsService.exportMarkdown(otherCompany.item.id, contextFor(operatorA, companyA, MembershipRole.operator))
+    ).rejects.toThrow("GEO content item not found");
+    await expect(
+      itemsService.qualityCheck(
+        sameCompanyOtherUser.item.id,
+        {
+          provider: "mock"
+        },
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("GEO content item not found");
+
+    const adminUpdated = await itemsService.update(
+      sameCompanyOtherUser.item.id,
+      {
+        title: "company admin can edit same company item"
+      },
+      contextFor(companyAdminA, companyA, MembershipRole.company_admin)
+    );
+    expect(adminUpdated.title).toBe("company admin can edit same company item");
   });
 
   it("returns quality check risks for unsupported protocols and positive GEO structure", async () => {

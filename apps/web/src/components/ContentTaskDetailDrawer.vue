@@ -52,6 +52,7 @@ const props = defineProps<{
     result: PublishFormatResult;
   } | null;
   publishFormatError?: string;
+  canManageActions?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -70,7 +71,10 @@ const emit = defineEmits<{
 const hasFailedItems = computed(
   () => props.detail?.items.some((item) => item.status === "failed") ?? false
 );
-const canRetry = computed(() => props.detail?.task.status === "failed" || hasFailedItems.value);
+const canManageActions = computed(() => props.canManageActions !== false);
+const canRetry = computed(
+  () => canManageActions.value && (props.detail?.task.status === "failed" || hasFailedItems.value)
+);
 const isRealAiTask = computed(() => props.detail?.task.provider === "openai_compatible");
 const failedItemReasons = computed(
   () =>
@@ -553,12 +557,13 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             <div>
               <p class="section-kicker">内容项操作</p>
               <h3>编辑、质检、优化和导出入口</h3>
-              <p>原有按钮保持不变：查看、编辑、质量检查、生成发布优化版、导出 Markdown。</p>
+              <p>查看入口始终可用；编辑、质检、优化和导出会按当前账号权限展示。</p>
             </div>
           </div>
           <ContentItemTable
             :items="detail.items"
             :prompts="detail.prompts"
+            :can-manage-actions="canManageActions"
             :exporting-ids="exportingIds"
             :deleting-ids="deletingIds"
             :quality-checking-ids="qualityCheckingIds"

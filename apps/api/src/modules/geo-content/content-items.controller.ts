@@ -1,5 +1,17 @@
 import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
+import {
+  buildResourceAccessContext,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
+import { CurrentCompany } from "../auth/current-company.decorator";
+import { CurrentMembership } from "../auth/current-membership.decorator";
+import { CurrentUser } from "../auth/current-user.decorator";
+import type {
+  AuthCompanyOption,
+  AuthUser,
+  CurrentMembershipContext
+} from "../auth/auth.types";
 import { ContentItemsService } from "./content-items.service";
 import { ContentQualityCheckDto } from "./dto/content-quality-check.dto";
 import { FormatContentItemForPublishDto } from "./dto/format-content-item-for-publish.dto";
@@ -14,50 +26,110 @@ export class ContentItemsController {
   ) {}
 
   @Get()
-  findMany(@Query(createValidationPipe(QueryContentItemsDto)) query: QueryContentItemsDto) {
-    return this.contentItemsService.findMany(query);
+  findMany(
+    @Query(createValidationPipe(QueryContentItemsDto)) query: QueryContentItemsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.contentItemsService.findMany(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Patch(":id")
   update(
     @Param("id") id: string,
-    @Body(createValidationPipe(UpdateContentItemDto)) body: UpdateContentItemDto
+    @Body(createValidationPipe(UpdateContentItemDto)) body: UpdateContentItemDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.contentItemsService.update(id, body);
+    return this.contentItemsService.update(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Delete(":id")
-  softDelete(@Param("id") id: string) {
-    return this.contentItemsService.softDelete(id);
+  softDelete(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.contentItemsService.softDelete(
+      id,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post(":id/quality-check")
   qualityCheck(
     @Param("id") id: string,
-    @Body(createValidationPipe(ContentQualityCheckDto)) body: ContentQualityCheckDto
+    @Body(createValidationPipe(ContentQualityCheckDto)) body: ContentQualityCheckDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.contentItemsService.qualityCheck(id, body);
+    return this.contentItemsService.qualityCheck(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post(":id/optimize-for-publish")
   optimizeForPublish(
     @Param("id") id: string,
     @Body(createValidationPipe(OptimizeContentItemForPublishDto))
-    body: OptimizeContentItemForPublishDto
+    body: OptimizeContentItemForPublishDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.contentItemsService.optimizeForPublish(id, body);
+    return this.contentItemsService.optimizeForPublish(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post(":id/format-for-publish")
   formatForPublish(
     @Param("id") id: string,
-    @Body(createValidationPipe(FormatContentItemForPublishDto)) body: FormatContentItemForPublishDto
+    @Body(createValidationPipe(FormatContentItemForPublishDto)) body: FormatContentItemForPublishDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.contentItemsService.formatForPublish(id, body);
+    return this.contentItemsService.formatForPublish(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Get(":id/export")
-  exportMarkdown(@Param("id") id: string) {
-    return this.contentItemsService.exportMarkdown(id);
+  exportMarkdown(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.contentItemsService.exportMarkdown(
+      id,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  private buildContext(
+    user?: AuthUser,
+    currentCompany?: AuthCompanyOption,
+    currentMembership?: CurrentMembershipContext
+  ): ResourceAccessContext | undefined {
+    return buildResourceAccessContext(user, currentCompany, currentMembership);
   }
 }

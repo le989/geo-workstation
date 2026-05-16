@@ -35,9 +35,18 @@ import {
   type FormattedPublishContent
 } from "./utils/publish-format.util";
 import { PrismaService } from "../../prisma/prisma.service";
+import {
+  getCurrentCompanyId,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
+import {
+  assertCanManageOwnerCompanyResource,
+  buildOwnerCompanyReadWhere
+} from "../auth/owner-company-policy";
 
 export type GeneratedContentItemResponse = {
   id: string;
+  companyId?: string;
   taskId: string;
   geoPromptId: string | null;
   title: string;
@@ -200,9 +209,12 @@ export class ContentItemsService {
     private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">
   ) {}
 
-  async findMany(query: QueryContentItemsDto): Promise<GeneratedContentItemListResponse> {
+  async findMany(
+    query: QueryContentItemsDto,
+    context?: ResourceAccessContext
+  ): Promise<GeneratedContentItemListResponse> {
     const normalized = normalizeQueryContentItems(query);
-    const where = this.buildWhere(normalized);
+    const where = this.buildWhere(normalized, context);
 
     const [items, total] = await Promise.all([
       this.prisma.contentItem.findMany({
@@ -226,8 +238,16 @@ export class ContentItemsService {
     };
   }
 
-  async update(id: string, input: UpdateContentItemDto): Promise<GeneratedContentItemResponse> {
-    const existing = await this.findExistingContentItem(id);
+  async update(
+    id: string,
+    input: UpdateContentItemDto,
+    context?: ResourceAccessContext
+  ): Promise<GeneratedContentItemResponse> {
+    const existing = await this.findExistingContentItem(id, context);
+
+    if (context) {
+      assertCanManageOwnerCompanyResource(context, existing.task, "无权编辑当前 GEO 内容项");
+    }
 
     if (existing.deletedAt) {
       throw new BadRequestException(`Deleted GEO content item cannot be updated: ${id}`);
@@ -262,8 +282,15 @@ export class ContentItemsService {
     return this.toResponse(updated);
   }
 
-  async softDelete(id: string): Promise<DeleteContentItemResponse> {
-    const existing = await this.findExistingContentItem(id);
+  async softDelete(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<DeleteContentItemResponse> {
+    const existing = await this.findExistingContentItem(id, context);
+
+    if (context) {
+      assertCanManageOwnerCompanyResource(context, existing.task, "无权删除当前 GEO 内容项");
+    }
 
     if (existing.deletedAt) {
       return {
@@ -291,14 +318,20 @@ export class ContentItemsService {
     };
   }
 
-  async exportMarkdown(id: string): Promise<string> {
+  async exportMarkdown(id: string, context?: ResourceAccessContext): Promise<string> {
     const item = await this.prisma.contentItem.findFirst({
       where: {
-        id,
-        deletedAt: null
+        AND: [
+          {
+            id,
+            deletedAt: null
+          },
+          ...(context ? [this.buildAccessWhere(context)] : [])
+        ]
       },
       include: {
-        geoPrompt: true
+        geoPrompt: true,
+        task: true
       }
     });
 
@@ -306,21 +339,26 @@ export class ContentItemsService {
       throw new NotFoundException(`GEO content item not found: ${id}`);
     }
 
+    if (context) {
+      assertCanManageOwnerCompanyResource(context, item.task, "无权导出当前 GEO 内容项");
+    }
+
     return buildContentItemMarkdown(item);
   }
 
   async formatForPublish(
     id: string,
-    input: FormatContentItemForPublishDto
+    input: FormatContentItemForPublishDto,
+    context?: ResourceAccessContext
   ): Promise<ContentPublishFormatResponse> {
-    const context = await this.loadQualityContext(id);
+    const qualityContext = await this.loadQualityContext(id, context);
     const sourceType = input.sourceType ?? "original";
     const formatStyle = input.formatStyle ?? "general";
     const title =
       sourceType === "optimized"
-        ? (input.optimizedTitle ?? context.item.title)
-        : context.item.title;
-    const body = sourceType === "optimized" ? input.optimizedBody : context.item.body;
+        ? (input.optimizedTitle ?? qualityContext.item.title)
+        : qualityContext.item.title;
+    const body = sourceType === "optimized" ? input.optimizedBody : qualityContext.item.body;
 
     if (!body?.trim()) {
       throw new BadRequestException(
@@ -341,30 +379,32 @@ export class ContentItemsService {
 
   async qualityCheck(
     id: string,
-    input: ContentQualityCheckDto
+    input: ContentQualityCheckDto,
+    context?: ResourceAccessContext
   ): Promise<ContentQualityCheckResponse> {
-    const context = await this.loadQualityContext(id);
-    const ruleResult = this.buildRuleQualityCheck(context);
+    const qualityContext = await this.loadQualityContext(id, context);
+    const ruleResult = this.buildRuleQualityCheck(qualityContext);
     const provider = normalizeAiProvider(input.provider);
 
     if (isMockAiProvider(provider)) {
       return ruleResult;
     }
 
-    const aiResult = await this.runAiQualityCheck(context, input, ruleResult);
+    const aiResult = await this.runAiQualityCheck(qualityContext, input, ruleResult);
     return aiResult ?? ruleResult;
   }
 
   async optimizeForPublish(
     id: string,
-    input: OptimizeContentItemForPublishDto
+    input: OptimizeContentItemForPublishDto,
+    context?: ResourceAccessContext
   ): Promise<ContentPublishOptimizationResponse> {
-    const context = await this.loadQualityContext(id);
+    const qualityContext = await this.loadQualityContext(id, context);
     const provider = normalizeAiProvider(input.provider);
-    const qualityResult = this.buildRuleQualityCheck(context);
+    const qualityResult = this.buildRuleQualityCheck(qualityContext);
 
     if (isMockAiProvider(provider)) {
-      return this.buildMockPublishOptimization(context, input, qualityResult);
+      return this.buildMockPublishOptimization(qualityContext, input, qualityResult);
     }
 
     const result = await this.requireAiProviderService().generateText({
@@ -377,17 +417,25 @@ export class ContentItemsService {
       maxTokens: 2600,
       systemPrompt:
         "你是 GEO 内容发布稿审校专家。请只基于原文、知识库事实和质量检查结果做稳妥改写，不要新增事实，只输出 JSON。",
-      userPrompt: this.buildPublishOptimizationPrompt(context, input, qualityResult)
+      userPrompt: this.buildPublishOptimizationPrompt(qualityContext, input, qualityResult)
     });
 
-    return this.parsePublishOptimizationResult(result, context, qualityResult);
+    return this.parsePublishOptimizationResult(result, qualityContext, qualityResult);
   }
 
-  private async loadQualityContext(id: string): Promise<ContentQualityContext> {
+  private async loadQualityContext(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<ContentQualityContext> {
     const item = await this.prisma.contentItem.findFirst({
       where: {
-        id,
-        deletedAt: null
+        AND: [
+          {
+            id,
+            deletedAt: null
+          },
+          ...(context ? [this.buildAccessWhere(context)] : [])
+        ]
       },
       include: {
         geoPrompt: true,
@@ -404,11 +452,20 @@ export class ContentItemsService {
       throw new NotFoundException(`GEO content item not found: ${id}`);
     }
 
+    if (context) {
+      assertCanManageOwnerCompanyResource(context, item.task, "无权操作当前 GEO 内容项");
+    }
+
     const knowledgeChunks = item.task.knowledgeBaseId
       ? await this.prisma.knowledgeChunk.findMany({
           where: {
             knowledgeBaseId: item.task.knowledgeBaseId,
-            deletedAt: null
+            deletedAt: null,
+            ...(context
+              ? {
+                  companyId: getCurrentCompanyId(context)
+                }
+              : {})
           },
           orderBy: {
             updatedAt: "desc"
@@ -1007,7 +1064,10 @@ export class ContentItemsService {
     return this.aiProviderService;
   }
 
-  private buildWhere(query: NormalizedQueryContentItems): Prisma.ContentItemWhereInput {
+  private buildWhere(
+    query: NormalizedQueryContentItems,
+    context?: ResourceAccessContext
+  ): Prisma.ContentItemWhereInput {
     const where: Prisma.ContentItemWhereInput = {
       deletedAt: null
     };
@@ -1045,13 +1105,56 @@ export class ContentItemsService {
       where.status = query.status;
     }
 
-    return where;
+    if (!context) {
+      return where;
+    }
+
+    return {
+      AND: [where, this.buildAccessWhere(context)]
+    };
   }
 
-  private async findExistingContentItem(id: string): Promise<ContentItem> {
-    const item = await this.prisma.contentItem.findUnique({
-      where: {
-        id
+  private buildAccessWhere(context: ResourceAccessContext): Prisma.ContentItemWhereInput {
+    const companyId = getCurrentCompanyId(context);
+
+    return {
+      AND: [
+        {
+          task: buildOwnerCompanyReadWhere(context) as Prisma.ContentTaskWhereInput
+        },
+        {
+          OR: [
+            {
+              companyId
+            },
+            {
+              companyId: null
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  private async findExistingContentItem(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<ContentItem & { task: ContentTask }> {
+    const item = await this.prisma.contentItem.findFirst({
+      where: context
+        ? {
+            AND: [
+              {
+                id
+              },
+              this.buildAccessWhere(context)
+            ]
+          }
+        : {
+            id
+          },
+      include: {
+        task: true
       }
     });
 
@@ -1065,6 +1168,7 @@ export class ContentItemsService {
   private toResponse(item: ContentItem): GeneratedContentItemResponse {
     return {
       id: item.id,
+      companyId: item.companyId ?? undefined,
       taskId: item.taskId,
       geoPromptId: item.geoPromptId,
       title: item.title,

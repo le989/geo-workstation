@@ -33,7 +33,9 @@ import ContentTaskFormDialog from "@/components/ContentTaskFormDialog.vue";
 import ContentTaskStatusTag from "@/components/ContentTaskStatusTag.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { formatProviderModel } from "@/config/label-maps";
+import { useAuthStore } from "@/stores/auth";
 
+const authStore = useAuthStore();
 const tasks = ref<ContentTask[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -88,6 +90,7 @@ const publishFormatError = ref("");
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
+const canManageContentActions = computed(() => authStore.currentUser?.role !== "viewer");
 
 const contentWorkflowSteps = [
   {
@@ -206,6 +209,11 @@ const handlePageSizeChange = (nextPageSize: number) => {
 };
 
 const openCreateDialog = () => {
+  if (!canManageContentActions.value) {
+    ElMessage.warning("当前账号仅可查看内容任务，不能创建内容。");
+    return;
+  }
+
   createError.value = "";
   createDialogVisible.value = true;
 };
@@ -272,6 +280,11 @@ const handleRetry = async (task?: ContentTask) => {
   const targetTaskId = task?.id ?? selectedTaskId.value;
 
   if (!targetTaskId) {
+    return;
+  }
+
+  if (!canManageContentActions.value) {
+    ElMessage.warning("当前账号仅可查看内容任务，不能重试生成。");
     return;
   }
 
@@ -494,7 +507,14 @@ onMounted(() => {
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" @click="loadTasks">刷新列表</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog"> 创建内容任务 </el-button>
+        <el-button
+          v-if="canManageContentActions"
+          type="primary"
+          :icon="Plus"
+          @click="openCreateDialog"
+        >
+          创建内容任务
+        </el-button>
       </div>
     </header>
 
@@ -601,7 +621,7 @@ onMounted(() => {
           <template #default="{ row }">
             <el-button text type="primary" @click="openDetailDrawer(row)">查看详情</el-button>
             <el-button
-              v-if="row.status === 'failed'"
+              v-if="row.status === 'failed' && canManageContentActions"
               text
               type="warning"
               :loading="retrying && selectedTaskId === row.id"
@@ -654,6 +674,7 @@ onMounted(() => {
       :publish-optimization-error="publishOptimizationError"
       :publish-format-result="publishFormatResult"
       :publish-format-error="publishFormatError"
+      :can-manage-actions="canManageContentActions"
       @refresh="loadDetail"
       @retry="handleRetry()"
       @view="openItemDialog($event, 'view')"

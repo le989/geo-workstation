@@ -14,6 +14,7 @@ export type PaginatedResponse<T> = {
 
 export type ContentTask = {
   id: string;
+  companyId?: string;
   name: string;
   productLine?: string;
   knowledgeBaseId?: string | null;
@@ -30,6 +31,7 @@ export type ContentTask = {
 
 export type ContentItem = {
   id: string;
+  companyId?: string;
   taskId: string;
   geoPromptId?: string | null;
   title: string;
@@ -110,7 +112,6 @@ export type CreateContentTaskPayload = {
   provider?: string;
   model?: string;
   geoPromptIds: string[];
-  createdBy?: string;
 };
 
 export type UpdateContentItemPayload = {
