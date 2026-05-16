@@ -17,6 +17,10 @@ const requiredFiles = [
 const dashboardRequiredText = [
   "getGeoOverview",
   "getOptimizationSuggestions",
+  "useAuthStore",
+  "dashboardScopeText",
+  "统计范围：当前公司",
+  "统计范围：我的数据",
   "复盘提示词、内容、知识库和模型覆盖",
   "后端未连接，可先启动 API 服务",
   "当前暂无明显待优化项",

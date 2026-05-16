@@ -1,14 +1,19 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import {
+  CompanyStatus,
+  CompanyType,
   ExpansionMode,
   GeoPromptType,
+  MembershipRole,
   TaskStatus,
   UserIntent,
   UserRole,
-  UserStatus
+  UserStatus,
+  Visibility
 } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { GeoExpansionService } from "../src/modules/geo-expansion/geo-expansion.service";
 import { generateExpansionCombinations } from "../src/modules/geo-expansion/utils/expansion-combination.util";
 import { MockAiExpansionProvider } from "../src/modules/geo-expansion/utils/mock-ai-expansion-provider";
@@ -23,6 +28,11 @@ describe("GeoExpansionService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let service: GeoExpansionService;
   let createdBy: string;
+  let companyA: { id: string; name: string; code: string };
+  let companyB: { id: string; name: string; code: string };
+  let companyAdminA: { id: string };
+  let operatorA: { id: string };
+  let operatorB: { id: string };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -42,6 +52,56 @@ describe("GeoExpansionService", () => {
       }
     });
     createdBy = user.id;
+
+    companyA = await prisma.company.create({
+      data: {
+        name: `Auth 4H Expansion Company A ${runId}`,
+        code: `auth4h-expansion-a-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyB = await prisma.company.create({
+      data: {
+        name: `Auth 4H Expansion Company B ${runId}`,
+        code: `auth4h-expansion-b-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyAdminA = await prisma.user.create({
+      data: {
+        email: `auth4h-expansion-admin-a-${runId}@example.com`,
+        name: "Auth 4H Expansion Company Admin A",
+        role: UserRole.company_admin,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    operatorA = await prisma.user.create({
+      data: {
+        email: `auth4h-expansion-operator-a-${runId}@example.com`,
+        name: "Auth 4H Expansion Operator A",
+        role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    operatorB = await prisma.user.create({
+      data: {
+        email: `auth4h-expansion-operator-b-${runId}@example.com`,
+        name: "Auth 4H Expansion Operator B",
+        role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
   });
 
   afterAll(async () => {
@@ -51,6 +111,35 @@ describe("GeoExpansionService", () => {
   function uniqueBase(label: string): string {
     return `激光测距传感器${label}${runId}`;
   }
+
+  const contextFor = (
+    user: { id: string },
+    company: { id: string; name: string; code: string },
+    role: MembershipRole
+  ): ResourceAccessContext => ({
+    user: {
+      id: user.id,
+      email: `${user.id}@auth4h.local`,
+      name: user.id,
+      role: role === MembershipRole.company_admin ? UserRole.company_admin : UserRole.operator,
+      status: UserStatus.active,
+      isPlatformAdmin: false
+    },
+    currentCompany: {
+      id: company.id,
+      name: company.name,
+      code: company.code,
+      role,
+      isDefault: true,
+      status: CompanyStatus.active
+    },
+    currentMembership: {
+      companyId: company.id,
+      role,
+      isDefault: true,
+      isPlatformAdmin: false
+    }
+  });
 
   it("generates all seven GEO rule-expansion combination categories", () => {
     const combinations = generateExpansionCombinations({
@@ -121,6 +210,70 @@ describe("GeoExpansionService", () => {
           candidate.duplicateReason === "duplicate_in_database"
       )
     ).toBe(true);
+  });
+
+  it("rule-generate writes current company and user, and operator cannot read another operator job", async () => {
+    const operatorAContext = contextFor(operatorA, companyA, MembershipRole.operator);
+    const operatorBContext = contextFor(operatorB, companyA, MembershipRole.operator);
+    const result = await service.ruleGenerate(
+      {
+        baseWord: uniqueBase("公司隔离规则"),
+        prefixes: ["国产"],
+        applicationSuffixes: ["怎么选"],
+        promptType: GeoPromptType.distilled,
+        createdBy: operatorB.id
+      },
+      operatorAContext
+    );
+
+    const storedJob = await prisma.expansionJob.findUniqueOrThrow({
+      where: {
+        id: result.job.id
+      }
+    });
+    expect(storedJob.companyId).toBe(companyA.id);
+    expect(storedJob.createdById).toBe(operatorA.id);
+    expect(storedJob.updatedById).toBe(operatorA.id);
+
+    await expect(service.getJob(result.job.id, operatorBContext)).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+  });
+
+  it("ai-generate writes job and AI call log to current company and user", async () => {
+    const context = contextFor(operatorA, companyA, MembershipRole.operator);
+    const result = await service.aiGenerate(
+      {
+        baseWord: uniqueBase("AI公司隔离"),
+        promptType: GeoPromptType.scene,
+        userIntent: UserIntent.application_solution,
+        productLine: "激光测距传感器",
+        scenario: "行车防撞",
+        count: 2,
+        createdBy: operatorB.id
+      },
+      context
+    );
+
+    const storedJob = await prisma.expansionJob.findUniqueOrThrow({
+      where: {
+        id: result.job.id
+      }
+    });
+    expect(storedJob.companyId).toBe(companyA.id);
+    expect(storedJob.createdById).toBe(operatorA.id);
+
+    const aiLog = await prisma.aiCallLog.findFirstOrThrow({
+      where: {
+        relatedType: "expansion_job",
+        relatedId: result.job.id
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    expect(aiLog.companyId).toBe(companyA.id);
+    expect(aiLog.createdById).toBe(operatorA.id);
   });
 
   it("ai-generate uses the Mock AI Provider, creates a job, candidates, and ai_call_logs", async () => {
@@ -601,5 +754,103 @@ describe("GeoExpansionService", () => {
     });
     expect(idempotent.savedCount).toBe(0);
     expect(idempotent.skippedItems[0]?.reason).toBe("already_saved");
+  });
+
+  it("save-candidates writes operator prompts to current company as PRIVATE and does not let other companies block duplicates", async () => {
+    const context = contextFor(operatorA, companyA, MembershipRole.operator);
+    const generated = await service.ruleGenerate(
+      {
+        baseWord: uniqueBase("保存公司隔离"),
+        prefixes: ["国产"],
+        applicationSuffixes: ["怎么选"],
+        promptType: GeoPromptType.distilled,
+        createdBy: operatorB.id
+      },
+      context
+    );
+    const candidate = generated.candidates[0];
+
+    if (!candidate) {
+      throw new Error("Expected expansion candidate.");
+    }
+
+    await prisma.geoPrompt.create({
+      data: {
+        type: GeoPromptType.distilled,
+        baseWord: generated.job.baseWord,
+        promptText: candidate.promptText,
+        userIntent: UserIntent.selection,
+        priority: 3,
+        targetModels: [],
+        source: "other_company_test",
+        trackEnabled: false,
+        visibility: Visibility.COMPANY,
+        company: {
+          connect: {
+            id: companyB.id
+          }
+        },
+        createdBy: {
+          connect: {
+            id: operatorB.id
+          }
+        }
+      }
+    });
+
+    const result = await service.saveCandidates(
+      generated.job.id,
+      {
+        candidateIds: [candidate.id],
+        defaultProductLine: "当前公司产品线",
+        createdBy: operatorB.id
+      },
+      context
+    );
+
+    expect(result.savedCount).toBe(1);
+    const savedPrompt = await prisma.geoPrompt.findUniqueOrThrow({
+      where: {
+        id: result.savedItems[0]?.geoPromptId
+      }
+    });
+    expect(savedPrompt.companyId).toBe(companyA.id);
+    expect(savedPrompt.createdById).toBe(operatorA.id);
+    expect(savedPrompt.updatedById).toBe(operatorA.id);
+    expect(savedPrompt.visibility).toBe(Visibility.PRIVATE);
+    expect(savedPrompt.productLine).toBe("当前公司产品线");
+  });
+
+  it("save-candidates writes company admin prompts as COMPANY visibility", async () => {
+    const context = contextFor(companyAdminA, companyA, MembershipRole.company_admin);
+    const generated = await service.ruleGenerate(
+      {
+        baseWord: uniqueBase("管理员保存"),
+        prefixes: ["国产"],
+        promptType: GeoPromptType.distilled
+      },
+      context
+    );
+    const candidate = generated.candidates[0];
+
+    if (!candidate) {
+      throw new Error("Expected expansion candidate.");
+    }
+
+    const result = await service.saveCandidates(
+      generated.job.id,
+      {
+        candidateIds: [candidate.id]
+      },
+      context
+    );
+    const savedPrompt = await prisma.geoPrompt.findUniqueOrThrow({
+      where: {
+        id: result.savedItems[0]?.geoPromptId
+      }
+    });
+    expect(savedPrompt.companyId).toBe(companyA.id);
+    expect(savedPrompt.createdById).toBe(companyAdminA.id);
+    expect(savedPrompt.visibility).toBe(Visibility.COMPANY);
   });
 });

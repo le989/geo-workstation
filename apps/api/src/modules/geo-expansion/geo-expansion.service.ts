@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 import {
   AiCallStatus,
   ExpansionMode,
@@ -8,9 +14,21 @@ import {
   UserIntent,
   UserRole,
   UserStatus,
+  Visibility,
   type ExpansionCandidate,
   type ExpansionJob
 } from "@prisma/client";
+import {
+  buildOwnerCompanyReadWhereById,
+  resolveOwnerCompanyCreateData,
+  assertCanManageOwnerCompanyResource
+} from "../auth/owner-company-policy";
+import {
+  getCurrentCompanyId,
+  getEffectiveRole,
+  resolveCreateVisibility,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 import type { AiGenerateExpansionDto } from "./dto/ai-generate-expansion.dto";
 import type { RuleGenerateExpansionDto } from "./dto/rule-generate-expansion.dto";
 import type { SaveExpansionCandidatesDto } from "./dto/save-expansion-candidates.dto";
@@ -71,6 +89,7 @@ const OVER_PROMISE_TERMS = [
 
 export type ExpansionJobResponse = {
   id: string;
+  companyId?: string;
   mode: ExpansionMode;
   promptType: GeoPromptType;
   provider?: string;
@@ -144,10 +163,14 @@ export class GeoExpansionService {
     private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">
   ) {}
 
-  async ruleGenerate(input: RuleGenerateExpansionDto): Promise<ExpansionJobDetailResponse> {
+  async ruleGenerate(
+    input: RuleGenerateExpansionDto,
+    context?: ResourceAccessContext
+  ): Promise<ExpansionJobDetailResponse> {
     const normalized = normalizeRuleExpansionInput(input);
     this.assertBaseWord(normalized.baseWord);
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    this.assertCanGenerate(context);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const inputPayload = compactJson({
       ...normalized,
       expansionKind: "rule"
@@ -159,11 +182,15 @@ export class GeoExpansionService {
         promptType: normalized.promptType,
         inputPayload: inputPayload as Prisma.InputJsonValue,
         status: TaskStatus.succeeded,
-        createdBy: {
-          connect: {
-            id: createdById
-          }
-        }
+        ...(context
+          ? resolveOwnerCompanyCreateData(context)
+          : {
+              createdBy: {
+                connect: {
+                  id: createdById
+                }
+              }
+            })
       }
     });
 
@@ -184,18 +211,22 @@ export class GeoExpansionService {
       });
     }
 
-    return this.getJob(job.id);
+    return this.getJob(job.id, context);
   }
 
-  async aiGenerate(input: AiGenerateExpansionDto): Promise<ExpansionJobDetailResponse> {
+  async aiGenerate(
+    input: AiGenerateExpansionDto,
+    context?: ResourceAccessContext
+  ): Promise<ExpansionJobDetailResponse> {
     const normalized = normalizeAiExpansionInput(input);
     this.assertBaseWord(normalized.baseWord);
+    this.assertCanGenerate(context);
 
     if (normalized.promptType === GeoPromptType.base) {
       throw new BadRequestException("AI expansion promptType cannot be base.");
     }
 
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const provider = normalizeAiProvider(normalized.provider);
     const usesMockProvider = isMockAiProvider(provider);
     const initialModel = usesMockProvider ? this.mockAiProvider.model : normalized.model;
@@ -213,11 +244,15 @@ export class GeoExpansionService {
         provider,
         model: initialModel,
         status: TaskStatus.running,
-        createdBy: {
-          connect: {
-            id: createdById
-          }
-        }
+        ...(context
+          ? resolveOwnerCompanyCreateData(context)
+          : {
+              createdBy: {
+                connect: {
+                  id: createdById
+                }
+              }
+            })
       }
     });
 
@@ -227,7 +262,7 @@ export class GeoExpansionService {
         : await this.generateRealExpansionCandidates(
             normalized,
             job.id,
-            await this.findProjectProfileContext()
+            await this.findProjectProfileContext(context)
           );
 
       for (const candidate of generation.candidates) {
@@ -244,7 +279,8 @@ export class GeoExpansionService {
           tokenInput: generation.tokenInput,
           tokenOutput: generation.tokenOutput,
           costEstimate: 0,
-          status: AiCallStatus.succeeded
+          status: AiCallStatus.succeeded,
+          ...this.toAiCallLogContextData(context)
         }
       });
 
@@ -255,7 +291,16 @@ export class GeoExpansionService {
         data: {
           provider: generation.provider,
           model: generation.model,
-          status: TaskStatus.succeeded
+          status: TaskStatus.succeeded,
+          ...(context
+            ? {
+                updatedBy: {
+                  connect: {
+                    id: context.user.id
+                  }
+                }
+              }
+            : {})
         }
       });
     } catch (error) {
@@ -266,7 +311,8 @@ export class GeoExpansionService {
           purpose: "geo_prompt_ai_expansion",
           relatedType: "expansion_job",
           relatedId: job.id,
-          status: AiCallStatus.failed
+          status: AiCallStatus.failed,
+          ...this.toAiCallLogContextData(context)
         }
       });
       await this.prisma.expansionJob.update({
@@ -274,20 +320,30 @@ export class GeoExpansionService {
           id: job.id
         },
         data: {
-          status: TaskStatus.failed
+          status: TaskStatus.failed,
+          ...(context
+            ? {
+                updatedBy: {
+                  connect: {
+                    id: context.user.id
+                  }
+                }
+              }
+            : {})
         }
       });
       throw error;
     }
 
-    return this.getJob(job.id);
+    return this.getJob(job.id, context);
   }
 
-  async getJob(id: string): Promise<ExpansionJobDetailResponse> {
-    const job = await this.prisma.expansionJob.findUnique({
-      where: {
-        id
-      },
+  async getJob(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<ExpansionJobDetailResponse> {
+    const job = await this.prisma.expansionJob.findFirst({
+      where: context ? buildOwnerCompanyReadWhereById(id, context) : { id },
       include: {
         candidates: {
           orderBy: {
@@ -301,25 +357,28 @@ export class GeoExpansionService {
       throw new NotFoundException(`Expansion job not found: ${id}`);
     }
 
-    return this.toJobDetailResponse(job, job.candidates);
+    return this.toJobDetailResponse(job, job.candidates, context);
   }
 
   async saveCandidates(
     jobId: string,
-    input: SaveExpansionCandidatesDto
+    input: SaveExpansionCandidatesDto,
+    context?: ResourceAccessContext
   ): Promise<SaveExpansionCandidatesResponse> {
     const normalized = normalizeSaveExpansionCandidatesInput(input);
-    const job = await this.prisma.expansionJob.findUnique({
-      where: {
-        id: jobId
-      }
+    const job = await this.prisma.expansionJob.findFirst({
+      where: context ? buildOwnerCompanyReadWhereById(jobId, context) : { id: jobId }
     });
 
     if (!job) {
       throw new NotFoundException(`Expansion job not found: ${jobId}`);
     }
 
-    const createdById = await this.resolveCreatedById(normalized.createdBy);
+    if (context) {
+      assertCanManageOwnerCompanyResource(context, job, "无权保存当前拓词任务候选词");
+    }
+
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const candidates = await this.prisma.expansionCandidate.findMany({
       where: {
         id: {
@@ -361,10 +420,7 @@ export class GeoExpansionService {
       }
 
       const duplicate = await this.prisma.geoPrompt.findFirst({
-        where: {
-          promptText: candidate.promptText,
-          deletedAt: null
-        },
+        where: this.buildPromptDuplicateWhere(candidate.promptText, context),
         select: {
           id: true
         }
@@ -381,7 +437,7 @@ export class GeoExpansionService {
 
       try {
         const geoPrompt = await this.prisma.geoPrompt.create({
-          data: this.toGeoPromptCreateInput(job, candidate, normalized, createdById)
+          data: this.toGeoPromptCreateInput(job, candidate, normalized, createdById, context)
         });
         await this.prisma.expansionCandidate.update({
           where: {
@@ -793,8 +849,10 @@ export class GeoExpansionService {
     return this.aiProviderService;
   }
 
-  private async findProjectProfileContext(): Promise<ProjectProfileResponse | null> {
-    return this.projectProfileService?.getPromptContext() ?? null;
+  private async findProjectProfileContext(
+    context?: ResourceAccessContext
+  ): Promise<ProjectProfileResponse | null> {
+    return this.projectProfileService?.getPromptContext(context) ?? null;
   }
 
   private async createCandidate(jobId: string, candidate: MockAiExpansionCandidate): Promise<void> {
@@ -818,7 +876,8 @@ export class GeoExpansionService {
     job: ExpansionJob,
     candidate: ExpansionCandidate,
     input: ReturnType<typeof normalizeSaveExpansionCandidatesInput>,
-    createdById: string
+    createdById: string,
+    context?: ResourceAccessContext
   ): Prisma.GeoPromptCreateInput {
     const payload = this.parseInputPayload(job.inputPayload);
     const productLine = input.defaultProductLine ?? this.optionalString(payload.productLine);
@@ -845,21 +904,44 @@ export class GeoExpansionService {
             ? "mock_ai_expansion"
             : "real_ai_expansion"),
       trackEnabled,
-      createdBy: {
-        connect: {
-          id: createdById
-        }
-      }
+      visibility: context ? resolveCreateVisibility(context) : Visibility.COMPANY,
+      ...(context
+        ? {
+            company: {
+              connect: {
+                id: getCurrentCompanyId(context)
+              }
+            },
+            createdBy: {
+              connect: {
+                id: context.user.id
+              }
+            },
+            updatedBy: {
+              connect: {
+                id: context.user.id
+              }
+            }
+          }
+        : {
+            createdBy: {
+              connect: {
+                id: createdById
+              }
+            }
+          })
     };
   }
 
   private async toJobDetailResponse(
     job: ExpansionJob,
-    candidates: ExpansionCandidate[]
+    candidates: ExpansionCandidate[],
+    context?: ResourceAccessContext
   ): Promise<ExpansionJobDetailResponse> {
     const duplicateCounts = this.countCandidatePromptTexts(candidates);
     const databaseDuplicates = await this.findExistingPromptTexts(
-      candidates.map((candidate) => candidate.promptText)
+      candidates.map((candidate) => candidate.promptText),
+      context
     );
 
     return {
@@ -875,6 +957,7 @@ export class GeoExpansionService {
 
     return {
       id: job.id,
+      companyId: job.companyId ?? undefined,
       mode: job.mode,
       promptType: job.promptType,
       provider: job.provider ?? undefined,
@@ -949,7 +1032,10 @@ export class GeoExpansionService {
     return counts;
   }
 
-  private async findExistingPromptTexts(promptTexts: string[]): Promise<Set<string>> {
+  private async findExistingPromptTexts(
+    promptTexts: string[],
+    context?: ResourceAccessContext
+  ): Promise<Set<string>> {
     if (promptTexts.length === 0) {
       return new Set();
     }
@@ -959,7 +1045,12 @@ export class GeoExpansionService {
         promptText: {
           in: promptTexts
         },
-        deletedAt: null
+        deletedAt: null,
+        ...(context
+          ? {
+              companyId: getCurrentCompanyId(context)
+            }
+          : {})
       },
       select: {
         promptText: true
@@ -996,6 +1087,50 @@ export class GeoExpansionService {
     if (baseWord.trim().length === 0) {
       throw new BadRequestException("baseWord is required for GEO expansion.");
     }
+  }
+
+  private assertCanGenerate(context?: ResourceAccessContext): void {
+    if (!context) {
+      return;
+    }
+
+    if (getEffectiveRole(context) === "viewer") {
+      throw new ForbiddenException("当前角色无权生成 AI 拓词候选");
+    }
+  }
+
+  private buildPromptDuplicateWhere(
+    promptText: string,
+    context?: ResourceAccessContext
+  ): Prisma.GeoPromptWhereInput {
+    return {
+      promptText,
+      deletedAt: null,
+      ...(context
+        ? {
+            companyId: getCurrentCompanyId(context)
+          }
+        : {})
+    };
+  }
+
+  private toAiCallLogContextData(
+    context?: ResourceAccessContext
+  ): Pick<Prisma.AiCallLogCreateInput, "company" | "createdBy"> {
+    return context
+      ? {
+          company: {
+            connect: {
+              id: getCurrentCompanyId(context)
+            }
+          },
+          createdBy: {
+            connect: {
+              id: context.user.id
+            }
+          }
+        }
+      : {};
   }
 
   private parseInputPayload(inputPayload: Prisma.JsonValue): Record<string, unknown> {

@@ -473,7 +473,7 @@ export class ContentItemsService {
           take: 20
         })
       : [];
-    const projectProfile = (await this.projectProfileService?.getPromptContext()) ?? null;
+    const projectProfile = (await this.projectProfileService?.getPromptContext(context)) ?? null;
 
     return {
       item,

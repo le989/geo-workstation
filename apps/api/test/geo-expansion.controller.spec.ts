@@ -1,6 +1,15 @@
 import "reflect-metadata";
 import type { INestApplication } from "@nestjs/common";
-import { GeoPromptType, UserIntent, UserRole, UserStatus } from "@prisma/client";
+import {
+  CompanyStatus,
+  CompanyType,
+  GeoPromptType,
+  MembershipRole,
+  UserIntent,
+  UserRole,
+  UserStatus,
+  Visibility
+} from "@prisma/client";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -16,27 +25,61 @@ const runId = `${Date.now()}-${crypto.randomUUID()}`;
 describe("GeoExpansionController", () => {
   let app: INestApplication;
   let prisma: ReturnType<typeof createPrismaClient>;
-  let createdBy: string;
+  let company: { id: string; name: string; code: string; status: CompanyStatus };
+  let user: { id: string; email: string; name: string; role: UserRole; status: UserStatus };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
+    process.env.BYPASS_AUTH_FOR_TESTS = "true";
     prisma = createPrismaClient();
     await prisma.$connect();
 
-    const user = await prisma.user.create({
+    company = await prisma.company.create({
+      data: {
+        name: `Expansion API Company ${runId}`,
+        code: `expansion-api-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    user = await prisma.user.create({
       data: {
         email: `geo-expansion-controller-${runId}@example.com`,
         name: "Phase 2C GEO Expansion API Operator",
-        role: UserRole.geo_operator,
+        role: UserRole.operator,
         status: UserStatus.active
       }
     });
-    createdBy = user.id;
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule]
     }).compile();
     app = moduleRef.createNestApplication();
+    app.use((request: Record<string, unknown>, _response: unknown, next: () => void) => {
+      request.user = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        isPlatformAdmin: false
+      };
+      request.currentCompany = {
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        role: MembershipRole.operator,
+        isDefault: true,
+        status: company.status
+      };
+      request.currentMembership = {
+        companyId: company.id,
+        role: MembershipRole.operator,
+        isDefault: true,
+        isPlatformAdmin: false
+      };
+      next();
+    });
     configureApiApp(app);
     await app.init();
   });
@@ -59,8 +102,7 @@ describe("GeoExpansionController", () => {
         serviceSuffixes: ["厂家推荐"],
         applicationSuffixes: ["怎么选"],
         promptType: GeoPromptType.distilled,
-        userIntent: UserIntent.selection,
-        createdBy
+        userIntent: UserIntent.selection
       })
       .expect(201);
 
@@ -81,8 +123,7 @@ describe("GeoExpansionController", () => {
         candidateIds: [ruleResponse.body.data.candidates[0].id],
         defaultProductLine: "HTTP拓词产品线",
         defaultPriority: "4",
-        defaultTrackEnabled: "true",
-        createdBy
+        defaultTrackEnabled: "true"
       })
       .expect(201);
 
@@ -109,8 +150,7 @@ describe("GeoExpansionController", () => {
         scenario: "行车防撞",
         count: "3",
         targetModels: ["deepseek-chat"],
-        constraints: "偏 GEO 问答",
-        createdBy
+        constraints: "偏 GEO 问答"
       })
       .expect(201);
 
@@ -127,6 +167,18 @@ describe("GeoExpansionController", () => {
       }
     });
     expect(aiLog?.status).toBe("succeeded");
+    expect(aiLog?.companyId).toBe(company.id);
+    expect(aiLog?.createdById).toBe(user.id);
+
+    const savedPrompt = await prisma.geoPrompt.findFirst({
+      where: {
+        productLine: "HTTP拓词产品线",
+        companyId: company.id,
+        createdById: user.id,
+        visibility: Visibility.PRIVATE
+      }
+    });
+    expect(savedPrompt).toBeTruthy();
   });
 
   it("keeps validation and exceptions in the unified ApiResponse shape", async () => {

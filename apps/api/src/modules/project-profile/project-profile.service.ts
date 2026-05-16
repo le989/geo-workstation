@@ -1,11 +1,23 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 import { Prisma, type ProjectProfile } from "@prisma/client";
+import {
+  getCurrentCompanyId,
+  getEffectiveRole,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 import type { CreateProjectProfileDto } from "./dto/create-project-profile.dto";
 import type { UpdateProjectProfileDto } from "./dto/update-project-profile.dto";
 import { PrismaService } from "../../prisma/prisma.service";
 
 export type ProjectProfileResponse = {
   id: string;
+  companyId?: string;
   projectName: string;
   companyName?: string;
   brandName?: string;
@@ -26,27 +38,40 @@ export type ProjectProfileResponse = {
 export class ProjectProfileService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async getCurrent(): Promise<ProjectProfileResponse | null> {
-    const profile = await this.findFirstProfile();
+  async getCurrent(context?: ResourceAccessContext): Promise<ProjectProfileResponse | null> {
+    if (!context) {
+      return null;
+    }
+
+    const profile = await this.findProfileByCompany(getCurrentCompanyId(context));
     return profile ? this.toResponse(profile) : null;
   }
 
-  async create(input: CreateProjectProfileDto): Promise<ProjectProfileResponse> {
-    const existing = await this.findFirstProfile();
+  async create(
+    input: CreateProjectProfileDto,
+    context?: ResourceAccessContext
+  ): Promise<ProjectProfileResponse> {
+    this.assertCanWriteProfile(context);
+    const companyId = getCurrentCompanyId(context);
+    const existing = await this.findProfileByCompany(companyId);
 
     if (existing) {
       throw new BadRequestException("当前工作站已配置项目档案，请使用编辑更新。");
     }
 
     const profile = await this.prisma.projectProfile.create({
-      data: this.toCreateData(input)
+      data: this.toCreateData(input, context)
     });
 
     return this.toResponse(profile);
   }
 
-  async update(input: UpdateProjectProfileDto): Promise<ProjectProfileResponse> {
-    const existing = await this.findFirstProfile();
+  async update(
+    input: UpdateProjectProfileDto,
+    context?: ResourceAccessContext
+  ): Promise<ProjectProfileResponse> {
+    this.assertCanWriteProfile(context);
+    const existing = await this.findProfileByCompany(getCurrentCompanyId(context));
 
     if (!existing) {
       throw new NotFoundException("尚未配置项目档案，请先创建。");
@@ -56,25 +81,43 @@ export class ProjectProfileService {
       where: {
         id: existing.id
       },
-      data: this.toUpdateData(input)
+      data: this.toUpdateData(input, context)
     });
 
     return this.toResponse(profile);
   }
 
-  async getPromptContext(): Promise<ProjectProfileResponse | null> {
-    return this.getCurrent();
+  async getPromptContext(context?: ResourceAccessContext): Promise<ProjectProfileResponse | null> {
+    return this.getCurrent(context);
   }
 
-  private findFirstProfile(): Promise<ProjectProfile | null> {
+  private findProfileByCompany(companyId: string): Promise<ProjectProfile | null> {
     return this.prisma.projectProfile.findFirst({
+      where: {
+        companyId
+      },
       orderBy: {
         createdAt: "asc"
       }
     });
   }
 
-  private toCreateData(input: CreateProjectProfileDto): Prisma.ProjectProfileCreateInput {
+  private assertCanWriteProfile(
+    context: ResourceAccessContext | undefined
+  ): asserts context is ResourceAccessContext {
+    if (!context) {
+      throw new ForbiddenException("缺少当前公司上下文，无法维护项目档案");
+    }
+
+    if (getEffectiveRole(context) !== "platform_admin") {
+      throw new ForbiddenException("当前角色无权维护项目档案");
+    }
+  }
+
+  private toCreateData(
+    input: CreateProjectProfileDto,
+    context: ResourceAccessContext
+  ): Prisma.ProjectProfileCreateInput {
     const projectName = input.projectName.trim();
 
     if (!projectName) {
@@ -93,12 +136,36 @@ export class ProjectProfileService {
       tone: input.tone,
       forbiddenClaims: this.toJsonArray(input.forbiddenClaims),
       targetModels: this.toJsonArray(input.targetModels),
-      notes: input.notes
+      notes: input.notes,
+      company: {
+        connect: {
+          id: getCurrentCompanyId(context)
+        }
+      },
+      createdBy: {
+        connect: {
+          id: context.user.id
+        }
+      },
+      updatedBy: {
+        connect: {
+          id: context.user.id
+        }
+      }
     };
   }
 
-  private toUpdateData(input: UpdateProjectProfileDto): Prisma.ProjectProfileUpdateInput {
-    const data: Prisma.ProjectProfileUpdateInput = {};
+  private toUpdateData(
+    input: UpdateProjectProfileDto,
+    context: ResourceAccessContext
+  ): Prisma.ProjectProfileUpdateInput {
+    const data: Prisma.ProjectProfileUpdateInput = {
+      updatedBy: {
+        connect: {
+          id: context.user.id
+        }
+      }
+    };
 
     if (input.projectName !== undefined) {
       const projectName = input.projectName.trim();
@@ -176,6 +243,7 @@ export class ProjectProfileService {
   private toResponse(profile: ProjectProfile): ProjectProfileResponse {
     return {
       id: profile.id,
+      companyId: profile.companyId ?? undefined,
       projectName: profile.projectName,
       companyName: profile.companyName ?? undefined,
       brandName: profile.brandName ?? undefined,

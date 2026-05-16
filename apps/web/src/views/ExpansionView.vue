@@ -40,7 +40,6 @@ const saveResult = ref<SaveExpansionCandidatesResult | null>(null);
 const lastLoadedAt = ref("");
 
 const saveDefaults = reactive({
-  createdBy: "",
   defaultPriority: 3,
   defaultProductLine: "",
   defaultTrackEnabled: false
@@ -187,7 +186,6 @@ const handleSaveCandidates = async () => {
   try {
     const result = await saveExpansionCandidates(currentJob.value.id, {
       candidateIds: selectedCandidateIds.value,
-      createdBy: trimOptional(saveDefaults.createdBy),
       defaultPriority: saveDefaults.defaultPriority,
       defaultProductLine: trimOptional(saveDefaults.defaultProductLine),
       defaultTrackEnabled: saveDefaults.defaultTrackEnabled
@@ -341,12 +339,6 @@ const goGeoPrompts = () => {
           <AppErrorState v-if="saveError" title="候选词保存失败" :message="saveError" />
 
           <el-form label-position="top" class="save-candidates-form">
-            <el-form-item label="创建人">
-              <el-input
-                v-model="saveDefaults.createdBy"
-                placeholder="可选，默认由后端使用系统 GEO 运营用户"
-              />
-            </el-form-item>
             <el-form-item label="默认产品线">
               <el-input
                 v-model="saveDefaults.defaultProductLine"

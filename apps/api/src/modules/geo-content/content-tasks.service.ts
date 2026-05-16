@@ -227,7 +227,7 @@ export class ContentTasksService {
     const knowledgeChunks = knowledgeBase
       ? await this.findKnowledgeChunks(knowledgeBase.id, context)
       : [];
-    const projectProfile = await this.findProjectProfileContext();
+    const projectProfile = await this.findProjectProfileContext(context);
     const companyId = context ? getCurrentCompanyId(context) : undefined;
 
     const task = await this.prisma.contentTask.create({
@@ -475,7 +475,7 @@ export class ContentTasksService {
     const instructionTemplate = task.instructionTemplateId
       ? await this.findOptionalInstructionTemplate(task.instructionTemplateId, context)
       : undefined;
-    const projectProfile = await this.findProjectProfileContext();
+    const projectProfile = await this.findProjectProfileContext(context);
     const provider = normalizeAiProvider(task.provider ?? "mock");
     const model = task.model ?? this.resolveFallbackModel(provider);
     const aiUsage: AiUsageSummary = {
@@ -768,8 +768,10 @@ export class ContentTasksService {
       .join("\n");
   }
 
-  private async findProjectProfileContext(): Promise<ProjectProfileResponse | null> {
-    return this.projectProfileService?.getPromptContext() ?? null;
+  private async findProjectProfileContext(
+    context?: ResourceAccessContext
+  ): Promise<ProjectProfileResponse | null> {
+    return this.projectProfileService?.getPromptContext(context) ?? null;
   }
 
   private parseRealContentResult(

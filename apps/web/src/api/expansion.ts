@@ -11,6 +11,7 @@ export type ExpansionCandidateSaveStatus =
 
 export type ExpansionJob = {
   id: string;
+  companyId?: string;
   mode: ExpansionMode;
   promptType: GeoPromptType;
   provider?: string;
@@ -58,7 +59,6 @@ export type RuleGenerateExpansionPayload = {
   targetModels?: string[];
   source?: string;
   trackEnabled?: boolean;
-  createdBy?: string;
 };
 
 export type AiGenerateExpansionPayload = {
@@ -73,12 +73,10 @@ export type AiGenerateExpansionPayload = {
   targetModels?: string[];
   provider?: "mock" | "openai_compatible";
   model?: string;
-  createdBy?: string;
 };
 
 export type SaveExpansionCandidatesPayload = {
   candidateIds: string[];
-  createdBy?: string;
   defaultProductLine?: string;
   defaultPriority?: number;
   defaultTrackEnabled?: boolean;

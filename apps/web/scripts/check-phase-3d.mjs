@@ -95,6 +95,8 @@ for (const field of candidateRequiredFields) {
 }
 
 assert(!pageSource.includes("API Key 输入"), "Expansion page must not expose API Key inputs");
+assert(!pageSource.includes("saveDefaults.createdBy"), "Expansion page must not submit createdBy");
+assert(!pageSource.includes("默认由后端使用系统 GEO 运营用户"), "Expansion page must not show creator fallback input");
 
 const routesSource = await readSource("src/router/routes.ts");
 assert(routesSource.includes("ExpansionView"), "Router must use ExpansionView for /expansion");

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, type Component } from "vue";
+import { computed, onMounted, ref, watch, type Component } from "vue";
 import {
   EditPen,
   Files,
@@ -16,7 +16,9 @@ import AppErrorState from "@/components/AppErrorState.vue";
 import DashboardSection from "@/components/DashboardSection.vue";
 import OptimizationSuggestionList from "@/components/OptimizationSuggestionList.vue";
 import QuickActionGrid from "@/components/QuickActionGrid.vue";
+import { useAuthStore } from "@/stores/auth";
 
+const authStore = useAuthStore();
 const overview = ref<GeoOverviewReport | null>(null);
 const suggestions = ref<OptimizationSuggestion[]>([]);
 const loading = ref(false);
@@ -54,6 +56,33 @@ const emptyOverview: GeoOverviewReport = {
 const report = computed(() => overview.value ?? emptyOverview);
 const hasOverviewError = computed(() => Boolean(overviewError.value));
 const isInitialLoading = computed(() => loading.value && !overview.value);
+const normalizedRole = computed(() => {
+  const role = String(authStore.currentRole ?? authStore.currentUser?.role ?? "");
+
+  if (role === "platform_admin" || role === "admin") {
+    return "platform_admin";
+  }
+  if (role === "company_admin") {
+    return "company_admin";
+  }
+  if (role === "operator" || role === "geo_operator" || role === "content_editor") {
+    return "operator";
+  }
+
+  return "viewer";
+});
+const dashboardScopeText = computed(() => {
+  const companyName = authStore.currentCompany?.name ?? "当前公司";
+
+  if (normalizedRole.value === "operator") {
+    return `统计范围：我的数据 · ${companyName}`;
+  }
+  if (normalizedRole.value === "viewer") {
+    return `统计范围：只读 · ${companyName}`;
+  }
+
+  return `统计范围：当前公司 · ${companyName}`;
+});
 
 const formatNumber = (value: number | undefined | null) => `${value ?? 0}`;
 
@@ -113,6 +142,17 @@ const loadDashboard = async () => {
 onMounted(() => {
   void loadDashboard();
 });
+
+watch(
+  () => authStore.currentCompany?.id,
+  (nextCompanyId, previousCompanyId) => {
+    if (!nextCompanyId || !previousCompanyId || nextCompanyId === previousCompanyId) {
+      return;
+    }
+
+    void loadDashboard();
+  }
+);
 
 const coreMetrics = computed(() => [
   {
@@ -357,6 +397,7 @@ const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
         </div>
       </div>
       <div class="dashboard-hero__actions">
+        <el-tag class="dashboard-scope-tag" effect="plain">{{ dashboardScopeText }}</el-tag>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadDashboard">
           手动刷新
