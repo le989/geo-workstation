@@ -97,14 +97,14 @@ const inclusionScopeLabel = computed(() => {
   const companyName = authStore.currentCompany?.name ?? "当前公司";
 
   if (isOperator.value) {
-    return `${companyName} / 我的记录`;
+    return `统计范围：我的数据 · ${companyName}`;
   }
 
   if (normalizedRole.value === "viewer") {
-    return `${companyName} / 只读范围`;
+    return `统计范围：只读 · ${companyName}`;
   }
 
-  return `${companyName} / 全部收录记录`;
+  return `统计范围：当前公司 · ${companyName}`;
 });
 const riskMetrics = computed(() => {
   const currentRecords = records.value;
