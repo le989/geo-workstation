@@ -2,7 +2,11 @@ import "reflect-metadata";
 import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import {
+  CompanyStatus,
+  CompanyType,
   GeoPromptType,
+  MembershipRole,
+  MembershipStatus,
   RecordMethod,
   TaskStatus,
   UserIntent,
@@ -25,18 +29,36 @@ describe("ReportsController", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let createdBy: string;
   let productLine: string;
+  let companyId: string;
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
     prisma = createPrismaClient();
     await prisma.$connect();
 
+    const company = await prisma.company.create({
+      data: {
+        name: `Reports API Company ${runId}`,
+        code: `reports-api-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    companyId = company.id;
     const user = await prisma.user.create({
       data: {
         email: `reports-controller-${runId}@example.com`,
         name: "Phase 2I GEO Reports API Operator",
         role: UserRole.geo_operator,
-        status: UserStatus.active
+        status: UserStatus.active,
+        memberships: {
+          create: {
+            companyId,
+            role: MembershipRole.operator,
+            status: MembershipStatus.active,
+            isDefault: true
+          }
+        }
       }
     });
     createdBy = user.id;
@@ -47,6 +69,31 @@ describe("ReportsController", () => {
       imports: [AppModule]
     }).compile();
     app = moduleRef.createNestApplication();
+    app.use((request: Record<string, unknown>, _response: unknown, next: () => void) => {
+      request.user = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        isPlatformAdmin: false
+      };
+      request.currentCompany = {
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        role: MembershipRole.operator,
+        isDefault: true,
+        status: company.status
+      };
+      request.currentMembership = {
+        companyId: company.id,
+        role: MembershipRole.operator,
+        isDefault: true,
+        isPlatformAdmin: false
+      };
+      next();
+    });
     configureApiApp(app);
     await app.init();
   });
@@ -68,6 +115,11 @@ describe("ReportsController", () => {
         priority: 5,
         trackEnabled: true,
         latestCoverageStatus: "recommended",
+        company: {
+          connect: {
+            id: companyId
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -90,6 +142,11 @@ describe("ReportsController", () => {
         answerSummary: "API 报表测试记录。",
         competitors: [],
         recordMethod: RecordMethod.manual,
+        company: {
+          connect: {
+            id: companyId
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -105,6 +162,11 @@ describe("ReportsController", () => {
         status: TaskStatus.succeeded,
         provider: "mock",
         model: "mock-content-v1",
+        company: {
+          connect: {
+            id: companyId
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -126,14 +188,23 @@ describe("ReportsController", () => {
         },
         title: "API 报表内容",
         body: "API 报表内容项",
-        status: "draft"
+        status: "draft",
+        company: {
+          connect: {
+            id: companyId
+          }
+        }
       }
     });
   }
 
   it("returns all GEO report endpoints through ApiResponse", async () => {
+    const authorizedGet = (path: string) =>
+      request(app.getHttpServer()).get(path).set("X-Company-Id", companyId);
+
     const overview = await request(app.getHttpServer())
       .get("/api/reports/geo-overview")
+      .set("X-Company-Id", companyId)
       .query({
         productLine,
         model: "deepseek-chat"
@@ -142,8 +213,7 @@ describe("ReportsController", () => {
     expect(overview.body.code).toBe(0);
     expect(overview.body.data.promptTotal).toBeGreaterThan(0);
 
-    const promptCoverage = await request(app.getHttpServer())
-      .get("/api/reports/prompt-coverage")
+    const promptCoverage = await authorizedGet("/api/reports/prompt-coverage")
       .query({
         productLine,
         model: "deepseek-chat",
@@ -152,8 +222,7 @@ describe("ReportsController", () => {
       .expect(200);
     expect(promptCoverage.body.data.coverageRate).toBeGreaterThanOrEqual(0);
 
-    const modelCoverage = await request(app.getHttpServer())
-      .get("/api/reports/model-coverage")
+    const modelCoverage = await authorizedGet("/api/reports/model-coverage")
       .query({
         productLine,
         model: "deepseek-chat"
@@ -161,8 +230,7 @@ describe("ReportsController", () => {
       .expect(200);
     expect(modelCoverage.body.data.modelDistribution["deepseek-chat"]).toBeGreaterThan(0);
 
-    const geoHitSummary = await request(app.getHttpServer())
-      .get("/api/reports/geo-hit-summary")
+    const geoHitSummary = await authorizedGet("/api/reports/geo-hit-summary")
       .query({
         productLine,
         latestOnly: "true"
@@ -172,24 +240,21 @@ describe("ReportsController", () => {
     expect(geoHitSummary.body.data.overview.recordCount).toBeGreaterThan(0);
     expect(Array.isArray(geoHitSummary.body.data.promptMatrix)).toBe(true);
 
-    const contentCoverage = await request(app.getHttpServer())
-      .get("/api/reports/content-coverage")
+    const contentCoverage = await authorizedGet("/api/reports/content-coverage")
       .query({
         productLine
       })
       .expect(200);
     expect(contentCoverage.body.data.contentItemCount).toBeGreaterThan(0);
 
-    const knowledgeCoverage = await request(app.getHttpServer())
-      .get("/api/reports/knowledge-coverage")
+    const knowledgeCoverage = await authorizedGet("/api/reports/knowledge-coverage")
       .query({
         productLine
       })
       .expect(200);
     expect(knowledgeCoverage.body.data.knowledgeBaseCount).toBeGreaterThanOrEqual(0);
 
-    const suggestions = await request(app.getHttpServer())
-      .get("/api/reports/optimization-suggestions")
+    const suggestions = await authorizedGet("/api/reports/optimization-suggestions")
       .query({
         productLine,
         limit: "10"
@@ -197,8 +262,7 @@ describe("ReportsController", () => {
       .expect(200);
     expect(Array.isArray(suggestions.body.data.items)).toBe(true);
 
-    const exported = await request(app.getHttpServer())
-      .get("/api/reports/export")
+    const exported = await authorizedGet("/api/reports/export")
       .query({
         reportType: "geo_overview",
         productLine
@@ -210,6 +274,7 @@ describe("ReportsController", () => {
   it("keeps report validation errors in ApiResponse shape", async () => {
     const invalid = await request(app.getHttpServer())
       .get("/api/reports/export")
+      .set("X-Company-Id", companyId)
       .query({
         reportType: "unknown_report"
       })

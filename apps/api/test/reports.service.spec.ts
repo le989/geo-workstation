@@ -1,14 +1,20 @@
 import {
+  CompanyStatus,
+  CompanyType,
   GeoPromptType,
+  MembershipRole,
+  MembershipStatus,
   RecordMethod,
   TaskStatus,
   UserIntent,
   UserRole,
-  UserStatus
+  UserStatus,
+  Visibility
 } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { ReportsService } from "../src/modules/geo-reports/reports.service";
+import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -20,6 +26,8 @@ describe("ReportsService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let service: ReportsService;
   let createdBy: string;
+  let otherCreatedBy: string;
+  let reportContext: ResourceAccessContext;
   let productLine: string;
   let promptWithContentId: string;
   let promptWithoutRecordId: string;
@@ -31,18 +39,84 @@ describe("ReportsService", () => {
     await prisma.$connect();
     service = new ReportsService(prisma as unknown as PrismaService);
 
+    const company = await prisma.company.create({
+      data: {
+        name: `Reports Company A ${runId}`,
+        code: `reports-a-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+    const otherCompany = await prisma.company.create({
+      data: {
+        name: `Reports Company B ${runId}`,
+        code: `reports-b-${runId}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
     const user = await prisma.user.create({
       data: {
         email: `reports-service-${runId}@example.com`,
         name: "Phase 2I GEO Reports Operator",
         role: UserRole.geo_operator,
-        status: UserStatus.active
+        status: UserStatus.active,
+        memberships: {
+          create: {
+            companyId: company.id,
+            role: MembershipRole.operator,
+            status: MembershipStatus.active,
+            isDefault: true
+          }
+        }
       }
     });
     createdBy = user.id;
+    const otherUser = await prisma.user.create({
+      data: {
+        email: `reports-service-other-${runId}@example.com`,
+        name: "Phase 4F Other Company Operator",
+        role: UserRole.operator,
+        status: UserStatus.active,
+        memberships: {
+          create: {
+            companyId: otherCompany.id,
+            role: MembershipRole.operator,
+            status: MembershipStatus.active,
+            isDefault: true
+          }
+        }
+      }
+    });
+    otherCreatedBy = otherUser.id;
+    reportContext = {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        isPlatformAdmin: false
+      },
+      currentCompany: {
+        id: company.id,
+        name: company.name,
+        code: company.code,
+        role: MembershipRole.operator,
+        isDefault: true,
+        status: company.status
+      },
+      currentMembership: {
+        companyId: company.id,
+        role: MembershipRole.operator,
+        isDefault: true,
+        isPlatformAdmin: false
+      }
+    };
     productLine = `Phase 2I 激光测距传感器 ${runId}`;
 
     await seedReportData();
+    await seedOtherCompanyNoise(otherCompany.id);
   });
 
   afterAll(async () => {
@@ -70,6 +144,12 @@ describe("ReportsService", () => {
         priority: data.priority,
         trackEnabled: data.trackEnabled,
         latestCoverageStatus: data.latestCoverageStatus,
+        visibility: Visibility.COMPANY,
+        company: {
+          connect: {
+            id: reportContext.currentCompany.id
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -115,6 +195,12 @@ describe("ReportsService", () => {
         name: `Phase 2I 知识库 ${runId}`,
         productLine,
         description: "报表测试知识库",
+        visibility: Visibility.COMPANY,
+        company: {
+          connect: {
+            id: reportContext.currentCompany.id
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -133,6 +219,11 @@ describe("ReportsService", () => {
         fileType: "md",
         fileSize: 128,
         parseStatus: "succeeded",
+        company: {
+          connect: {
+            id: reportContext.currentCompany.id
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -152,7 +243,12 @@ describe("ReportsService", () => {
         sourceType: "pasted_text",
         productLine,
         materialType: "solution",
-        tags: ["报表"]
+        tags: ["报表"],
+        company: {
+          connect: {
+            id: reportContext.currentCompany.id
+          }
+        }
       }
     });
 
@@ -165,6 +261,11 @@ describe("ReportsService", () => {
         status: TaskStatus.succeeded,
         provider: "mock",
         model: "mock-content-v1",
+        company: {
+          connect: {
+            id: reportContext.currentCompany.id
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -188,7 +289,12 @@ describe("ReportsService", () => {
         body: "围绕 GEO 提示词生成的选型指南内容。",
         geoOptimizationPoints: ["覆盖目标提示词"],
         suggestedPublishChannel: "官网知识库",
-        status: "draft"
+        status: "draft",
+        company: {
+          connect: {
+            id: reportContext.currentCompany.id
+          }
+        }
       }
     });
     await prisma.contentTask.create({
@@ -200,6 +306,11 @@ describe("ReportsService", () => {
         status: TaskStatus.failed,
         provider: "mock",
         model: "mock-content-v1",
+        company: {
+          connect: {
+            id: reportContext.currentCompany.id
+          }
+        },
         createdBy: {
           connect: {
             id: createdBy
@@ -228,6 +339,7 @@ describe("ReportsService", () => {
           answerSummary: "品牌被提及且推荐。",
           competitors: ["竞品A"],
           recordMethod: RecordMethod.manual,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         },
         {
@@ -247,6 +359,7 @@ describe("ReportsService", () => {
           answerSummary: "品牌未被提及。",
           competitors: ["竞品B"],
           recordMethod: RecordMethod.manual,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         },
         {
@@ -266,9 +379,105 @@ describe("ReportsService", () => {
           answerSummary: "旧记录用于日期筛选。",
           competitors: [],
           recordMethod: RecordMethod.import,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         }
       ]
+    });
+  }
+
+  async function seedOtherCompanyNoise(companyId: string) {
+    const prompt = await prisma.geoPrompt.create({
+      data: {
+        type: GeoPromptType.base,
+        baseWord: "激光测距传感器",
+        promptText: `Phase 4F 其他公司提示词 ${runId}`,
+        productLine,
+        scenario: "跨公司隔离噪声",
+        userIntent: UserIntent.selection,
+        priority: 5,
+        trackEnabled: true,
+        visibility: Visibility.COMPANY,
+        company: {
+          connect: {
+            id: companyId
+          }
+        },
+        createdBy: {
+          connect: {
+            id: otherCreatedBy
+          }
+        }
+      }
+    });
+
+    await prisma.modelInclusionRecord.create({
+      data: {
+        geoPromptId: prompt.id,
+        model: "deepseek-chat",
+        checkedAt: new Date("2026-05-13T04:00:00.000Z"),
+        brandMentioned: true,
+        brandRecommended: true,
+        rankingPosition: 1,
+        citedOfficialSite: true,
+        citedContentAsset: false,
+        competitorMentioned: false,
+        hitLevel: "recommended",
+        platform: "DeepSeek",
+        entryPoint: "api_model",
+        isWebSearchEnabled: false,
+        isLoggedIn: false,
+        answerSummary: "其他公司记录，不应进入当前公司报表。",
+        competitors: [],
+        recordMethod: RecordMethod.manual,
+        companyId,
+        createdById: otherCreatedBy
+      }
+    });
+
+    const task = await prisma.contentTask.create({
+      data: {
+        name: `Phase 4F 其他公司内容任务 ${runId}`,
+        productLine,
+        generationType: "faq",
+        targetModel: "deepseek-chat",
+        status: TaskStatus.failed,
+        provider: "mock",
+        model: "mock-content-v1",
+        company: {
+          connect: {
+            id: companyId
+          }
+        },
+        createdBy: {
+          connect: {
+            id: otherCreatedBy
+          }
+        }
+      }
+    });
+
+    await prisma.contentItem.create({
+      data: {
+        task: {
+          connect: {
+            id: task.id
+          }
+        },
+        geoPrompt: {
+          connect: {
+            id: prompt.id
+          }
+        },
+        title: "其他公司内容项",
+        body: "不应进入当前公司报表。",
+        status: "draft",
+        company: {
+          connect: {
+            id: companyId
+          }
+        }
+      }
     });
   }
 
@@ -278,7 +487,7 @@ describe("ReportsService", () => {
       model: "deepseek-chat",
       from: new Date("2026-05-13T00:00:00.000Z"),
       to: new Date("2026-05-13T23:59:59.999Z")
-    });
+    }, reportContext);
 
     expect(overview.promptTotal).toBe(4);
     expect(overview.basePromptCount).toBe(1);
@@ -308,7 +517,7 @@ describe("ReportsService", () => {
       productLine,
       model: "deepseek-chat",
       trackEnabled: true
-    });
+    }, reportContext);
 
     expect(report.totalPrompts).toBe(3);
     expect(report.trackedPrompts).toBe(3);
@@ -329,7 +538,7 @@ describe("ReportsService", () => {
       productLine,
       model: "deepseek-chat",
       from: new Date("2026-05-13T00:00:00.000Z")
-    });
+    }, reportContext);
 
     expect(report.totalRecords).toBe(2);
     expect(report.modelDistribution).toMatchObject({
@@ -407,6 +616,7 @@ describe("ReportsService", () => {
           answerSummary: "旧记录未命中。",
           competitors: [],
           recordMethod: RecordMethod.api,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         },
         {
@@ -426,6 +636,7 @@ describe("ReportsService", () => {
           answerSummary: "最新记录推荐品牌。",
           competitors: [],
           recordMethod: RecordMethod.api,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         },
         {
@@ -445,6 +656,7 @@ describe("ReportsService", () => {
           answerSummary: "火山未命中。",
           competitors: [],
           recordMethod: RecordMethod.api,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         },
         {
@@ -464,6 +676,7 @@ describe("ReportsService", () => {
           answerSummary: "Kimi 未命中。",
           competitors: [],
           recordMethod: RecordMethod.api,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         },
         {
@@ -483,6 +696,7 @@ describe("ReportsService", () => {
           answerSummary: "百炼未命中。",
           competitors: [],
           recordMethod: RecordMethod.api,
+          companyId: reportContext.currentCompany.id,
           createdById: createdBy
         }
       ]
@@ -492,7 +706,7 @@ describe("ReportsService", () => {
       productLine: summaryProductLine,
       latestOnly: true,
       trackEnabled: true
-    });
+    }, reportContext);
 
     expect(report.overview).toMatchObject({
       promptCount: 3,
@@ -528,7 +742,7 @@ describe("ReportsService", () => {
   it("returns content and knowledge coverage reports", async () => {
     const content = await service.getContentCoverage({
       productLine
-    });
+    }, reportContext);
     expect(content.contentTaskCount).toBe(2);
     expect(content.contentItemCount).toBe(1);
     expect(content.succeededTaskCount).toBe(1);
@@ -541,7 +755,7 @@ describe("ReportsService", () => {
     const knowledge = await service.getKnowledgeCoverage({
       productLine,
       materialType: "solution"
-    });
+    }, reportContext);
     expect(knowledge.knowledgeBaseCount).toBe(1);
     expect(knowledge.knowledgeFileCount).toBe(1);
     expect(knowledge.knowledgeChunkCount).toBe(1);
@@ -555,7 +769,7 @@ describe("ReportsService", () => {
       model: "deepseek-chat",
       priority: 4,
       limit: 20
-    });
+    }, reportContext);
 
     expect(suggestions.items.some((item) => item.type === "prompt_without_record")).toBe(true);
     expect(suggestions.items.some((item) => item.type === "prompt_not_mentioned")).toBe(true);
@@ -566,7 +780,7 @@ describe("ReportsService", () => {
       reportType: "prompt_coverage",
       productLine,
       model: "deepseek-chat"
-    });
+    }, reportContext);
     expect(csv).toContain("metric,value");
     expect(csv).toContain("coverageRate");
   });

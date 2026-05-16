@@ -17,7 +17,15 @@ import type { QueryModelCoverageReportDto } from "./dto/query-model-coverage-rep
 import type { QueryOptimizationSuggestionsDto } from "./dto/query-optimization-suggestions.dto";
 import type { QueryPromptCoverageReportDto } from "./dto/query-prompt-coverage-report.dto";
 import { PrismaService } from "../../prisma/prisma.service";
+import type { ResourceAccessContext } from "../auth/auth-policy";
 import { deriveHitLevel } from "../model-inclusion/utils/derive-hit-level.util";
+import {
+  assertCanExportReports,
+  buildReportKnowledgeWhere,
+  buildReportOwnerWhere,
+  buildReportPromptWhere,
+  mergeAndWhere
+} from "./reports-scope";
 import { groupCount } from "./utils/group-count.util";
 import {
   type OptimizationSuggestion,
@@ -278,16 +286,19 @@ export type OptimizationSuggestionsReport = {
 export class ReportsService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async getGeoOverview(query: QueryGeoOverviewReportDto): Promise<GeoOverviewReport> {
-    const promptWhere = this.buildPromptWhere(query);
-    const recordWhere = this.buildModelRecordWhere(query);
+  async getGeoOverview(
+    query: QueryGeoOverviewReportDto,
+    context: ResourceAccessContext
+  ): Promise<GeoOverviewReport> {
+    const promptWhere = this.buildPromptWhere(query, context);
+    const recordWhere = this.buildModelRecordWhere(query, context);
     const assetQuery = {
       productLine: query.productLine
     };
-    const contentTaskWhere = this.buildContentTaskWhere(assetQuery);
-    const contentItemWhere = this.buildContentItemWhere(assetQuery);
-    const knowledgeBaseWhere = this.buildKnowledgeBaseWhere(assetQuery);
-    const knowledgeChunkWhere = this.buildKnowledgeChunkWhere(assetQuery);
+    const contentTaskWhere = this.buildContentTaskWhere(assetQuery, context);
+    const contentItemWhere = this.buildContentItemWhere(assetQuery, context);
+    const knowledgeBaseWhere = this.buildKnowledgeBaseWhere(assetQuery, context);
+    const knowledgeChunkWhere = this.buildKnowledgeChunkWhere(assetQuery, context);
 
     const [
       prompts,
@@ -328,7 +339,7 @@ export class ReportsService {
           ...promptWhere,
           trackEnabled: true,
           inclusionRecords: {
-            none: this.buildNestedModelRecordWhere(query)
+            none: this.buildNestedModelRecordWhere(query, context)
           }
         }
       })
@@ -374,8 +385,11 @@ export class ReportsService {
     };
   }
 
-  async getPromptCoverage(query: QueryPromptCoverageReportDto): Promise<PromptCoverageReport> {
-    const promptWhere = this.buildPromptWhere(query);
+  async getPromptCoverage(
+    query: QueryPromptCoverageReportDto,
+    context: ResourceAccessContext
+  ): Promise<PromptCoverageReport> {
+    const promptWhere = this.buildPromptWhere(query, context);
     const prompts = await this.prisma.geoPrompt.findMany({
       where: promptWhere,
       orderBy: [
@@ -389,7 +403,7 @@ export class ReportsService {
     });
     const promptIds = new Set(prompts.map((prompt) => prompt.id));
     const records = await this.prisma.modelInclusionRecord.findMany({
-      where: this.buildModelRecordWhere(query),
+      where: this.buildModelRecordWhere(query, context),
       select: {
         geoPromptId: true
       }
@@ -423,9 +437,12 @@ export class ReportsService {
     };
   }
 
-  async getModelCoverage(query: QueryModelCoverageReportDto): Promise<ModelCoverageReport> {
+  async getModelCoverage(
+    query: QueryModelCoverageReportDto,
+    context: ResourceAccessContext
+  ): Promise<ModelCoverageReport> {
     const records = await this.prisma.modelInclusionRecord.findMany({
-      where: this.buildModelRecordWhere(query),
+      where: this.buildModelRecordWhere(query, context),
       include: {
         geoPrompt: true
       },
@@ -475,9 +492,12 @@ export class ReportsService {
     };
   }
 
-  async getGeoHitSummary(query: QueryGeoHitSummaryReportDto): Promise<GeoHitSummaryReport> {
-    const promptWhere = this.buildGeoHitSummaryPromptWhere(query);
-    const recordWhere = this.buildGeoHitSummaryRecordWhere(query);
+  async getGeoHitSummary(
+    query: QueryGeoHitSummaryReportDto,
+    context: ResourceAccessContext
+  ): Promise<GeoHitSummaryReport> {
+    const promptWhere = this.buildGeoHitSummaryPromptWhere(query, context);
+    const recordWhere = this.buildGeoHitSummaryRecordWhere(query, context);
     const latestOnly = query.latestOnly ?? true;
     const [prompts, records] = await Promise.all([
       this.prisma.geoPrompt.findMany({
@@ -556,12 +576,15 @@ export class ReportsService {
     };
   }
 
-  async getContentCoverage(query: QueryContentCoverageReportDto): Promise<ContentCoverageReport> {
+  async getContentCoverage(
+    query: QueryContentCoverageReportDto,
+    context: ResourceAccessContext
+  ): Promise<ContentCoverageReport> {
     const tasks = await this.prisma.contentTask.findMany({
-      where: this.buildContentTaskWhere(query)
+      where: this.buildContentTaskWhere(query, context)
     });
     const contentItems = await this.prisma.contentItem.findMany({
-      where: this.buildContentItemWhere(query),
+      where: this.buildContentItemWhere(query, context),
       include: {
         task: true,
         geoPrompt: true
@@ -570,7 +593,7 @@ export class ReportsService {
     const prompts = await this.prisma.geoPrompt.findMany({
       where: this.buildPromptWhere({
         productLine: query.productLine
-      }),
+      }, context),
       orderBy: [
         {
           priority: "desc"
@@ -617,20 +640,21 @@ export class ReportsService {
   }
 
   async getKnowledgeCoverage(
-    query: QueryKnowledgeCoverageReportDto
+    query: QueryKnowledgeCoverageReportDto,
+    context: ResourceAccessContext
   ): Promise<KnowledgeCoverageReport> {
     const [knowledgeBases, knowledgeFiles, knowledgeChunks, prompts] = await Promise.all([
       this.prisma.knowledgeBase.findMany({
-        where: this.buildKnowledgeBaseWhere(query)
+        where: this.buildKnowledgeBaseWhere(query, context)
       }),
       this.prisma.knowledgeFile.findMany({
-        where: this.buildKnowledgeFileWhere(query),
+        where: this.buildKnowledgeFileWhere(query, context),
         include: {
           knowledgeBase: true
         }
       }),
       this.prisma.knowledgeChunk.findMany({
-        where: this.buildKnowledgeChunkWhere(query),
+        where: this.buildKnowledgeChunkWhere(query, context),
         include: {
           knowledgeBase: true
         }
@@ -638,7 +662,7 @@ export class ReportsService {
       this.prisma.geoPrompt.findMany({
         where: this.buildPromptWhere({
           productLine: query.productLine
-        })
+        }, context)
       })
     ]);
 
@@ -662,7 +686,8 @@ export class ReportsService {
   }
 
   async getOptimizationSuggestions(
-    query: QueryOptimizationSuggestionsDto
+    query: QueryOptimizationSuggestionsDto,
+    context: ResourceAccessContext
   ): Promise<OptimizationSuggestionsReport> {
     const minPriority = query.priority ?? HIGH_PRIORITY_THRESHOLD;
     const limit = query.limit ?? DEFAULT_SUGGESTION_LIMIT;
@@ -671,7 +696,7 @@ export class ReportsService {
         where: {
           ...this.buildPromptWhere({
             productLine: query.productLine
-          }),
+          }, context),
           priority: {
             gte: minPriority
           }
@@ -686,7 +711,7 @@ export class ReportsService {
         ]
       }),
       this.prisma.modelInclusionRecord.findMany({
-        where: this.buildModelRecordWhere(query),
+        where: this.buildModelRecordWhere(query, context),
         include: {
           geoPrompt: true
         },
@@ -697,9 +722,7 @@ export class ReportsService {
       this.prisma.contentItem.findMany({
         where: {
           deletedAt: null,
-          task: {
-            ...(query.productLine ? { productLine: query.productLine } : {})
-          },
+          task: this.buildContentTaskWhere({ productLine: query.productLine }, context),
           geoPrompt: {
             deletedAt: null
           }
@@ -711,16 +734,19 @@ export class ReportsService {
       this.prisma.knowledgeBase.findMany({
         where: this.buildKnowledgeBaseWhere({
           productLine: query.productLine
-        }),
+        }, context),
         select: {
           productLine: true
         }
       }),
       this.prisma.contentTask.findMany({
-        where: {
-          ...(query.productLine ? { productLine: query.productLine } : {}),
-          status: TaskStatus.failed
-        },
+        where: this.buildContentTaskWhere(
+          {
+            productLine: query.productLine,
+            status: TaskStatus.failed
+          },
+          context
+        ),
         orderBy: {
           updatedAt: "desc"
         },
@@ -818,25 +844,30 @@ export class ReportsService {
     };
   }
 
-  async exportReport(query: ExportReportDto): Promise<string> {
+  async exportReport(query: ExportReportDto, context: ResourceAccessContext): Promise<string> {
+    assertCanExportReports(context);
+
     switch (query.reportType) {
       case "geo_overview":
-        return buildMetricCsv(await this.getGeoOverview(query));
+        return buildMetricCsv(await this.getGeoOverview(query, context));
       case "prompt_coverage":
-        return buildMetricCsv(await this.getPromptCoverage(query));
+        return buildMetricCsv(await this.getPromptCoverage(query, context));
       case "model_coverage":
-        return buildMetricCsv(await this.getModelCoverage(query));
+        return buildMetricCsv(await this.getModelCoverage(query, context));
       case "content_coverage":
-        return buildMetricCsv(await this.getContentCoverage(query));
+        return buildMetricCsv(await this.getContentCoverage(query, context));
       case "knowledge_coverage":
-        return buildMetricCsv(await this.getKnowledgeCoverage(query));
+        return buildMetricCsv(await this.getKnowledgeCoverage(query, context));
       case "optimization_suggestions":
-        return this.buildSuggestionsCsv(await this.getOptimizationSuggestions(query));
+        return this.buildSuggestionsCsv(await this.getOptimizationSuggestions(query, context));
     }
   }
 
-  private buildPromptWhere(query: PromptFilterQuery): Prisma.GeoPromptWhereInput {
-    return {
+  private buildPromptWhere(
+    query: PromptFilterQuery,
+    context: ResourceAccessContext
+  ): Prisma.GeoPromptWhereInput {
+    const baseWhere: Prisma.GeoPromptWhereInput = {
       deletedAt: null,
       ...(query.productLine ? { productLine: query.productLine } : {}),
       ...(query.promptType ? { type: query.promptType as GeoPromptType } : {}),
@@ -844,12 +875,17 @@ export class ReportsService {
       ...(query.trackEnabled !== undefined ? { trackEnabled: query.trackEnabled } : {}),
       ...(query.priority !== undefined ? { priority: query.priority } : {})
     };
+
+    return mergeAndWhere(baseWhere, buildReportPromptWhere(context));
   }
 
-  private buildModelRecordWhere(query: ModelFilterQuery): Prisma.ModelInclusionRecordWhereInput {
+  private buildModelRecordWhere(
+    query: ModelFilterQuery,
+    context: ResourceAccessContext
+  ): Prisma.ModelInclusionRecordWhereInput {
     const checkedAt = buildDateRangeFilter(query);
 
-    return {
+    const baseWhere: Prisma.ModelInclusionRecordWhereInput = {
       geoPrompt: {
         deletedAt: null,
         ...(query.productLine ? { productLine: query.productLine } : {}),
@@ -860,96 +896,134 @@ export class ReportsService {
       ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
       ...(checkedAt ? { checkedAt } : {})
     };
+
+    return mergeAndWhere(
+      baseWhere,
+      buildReportOwnerWhere<Prisma.ModelInclusionRecordWhereInput>(context)
+    );
   }
 
   private buildNestedModelRecordWhere(
-    query: ModelFilterQuery
+    query: ModelFilterQuery,
+    context: ResourceAccessContext
   ): Prisma.ModelInclusionRecordWhereInput {
     const checkedAt = buildDateRangeFilter(query);
 
-    return {
+    const baseWhere: Prisma.ModelInclusionRecordWhereInput = {
       ...(query.model ? { model: query.model } : {}),
       ...(query.platform ? { platform: query.platform } : {}),
       ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
       ...(checkedAt ? { checkedAt } : {})
     };
+
+    return mergeAndWhere(
+      baseWhere,
+      buildReportOwnerWhere<Prisma.ModelInclusionRecordWhereInput>(context)
+    );
   }
 
-  private buildContentTaskWhere(query: ContentFilterQuery): Prisma.ContentTaskWhereInput {
+  private buildContentTaskWhere(
+    query: ContentFilterQuery,
+    context: ResourceAccessContext
+  ): Prisma.ContentTaskWhereInput {
     const createdAt = buildDateRangeFilter(query);
 
-    return {
+    const baseWhere: Prisma.ContentTaskWhereInput = {
       ...(query.productLine ? { productLine: query.productLine } : {}),
       ...(query.generationType ? { generationType: query.generationType } : {}),
       ...(query.status ? { status: query.status as TaskStatus } : {}),
       ...(createdAt ? { createdAt } : {})
     };
+
+    return mergeAndWhere(
+      baseWhere,
+      buildReportOwnerWhere<Prisma.ContentTaskWhereInput>(context)
+    );
   }
 
-  private buildContentItemWhere(query: ContentFilterQuery): Prisma.ContentItemWhereInput {
+  private buildContentItemWhere(
+    query: ContentFilterQuery,
+    context: ResourceAccessContext
+  ): Prisma.ContentItemWhereInput {
     return {
       deletedAt: null,
-      task: this.buildContentTaskWhere(query)
+      task: this.buildContentTaskWhere(query, context)
     };
   }
 
-  private buildKnowledgeBaseWhere(query: ProductLineQuery & DateRangeQuery) {
+  private buildKnowledgeBaseWhere(
+    query: ProductLineQuery & DateRangeQuery,
+    context: ResourceAccessContext
+  ) {
     const createdAt = buildDateRangeFilter(query);
 
-    return {
+    const baseWhere: Prisma.KnowledgeBaseWhereInput = {
       deletedAt: null,
       ...(query.productLine ? { productLine: query.productLine } : {}),
       ...(createdAt ? { createdAt } : {})
     } satisfies Prisma.KnowledgeBaseWhereInput;
+
+    return mergeAndWhere(baseWhere, buildReportKnowledgeWhere(context));
   }
 
-  private buildKnowledgeFileWhere(query: ProductLineQuery & DateRangeQuery) {
+  private buildKnowledgeFileWhere(
+    query: ProductLineQuery & DateRangeQuery,
+    context: ResourceAccessContext
+  ) {
     const createdAt = buildDateRangeFilter(query);
 
     return {
       deletedAt: null,
-      knowledgeBase: {
-        deletedAt: null,
-        ...(query.productLine ? { productLine: query.productLine } : {})
-      },
+      knowledgeBase: this.buildKnowledgeBaseWhere({ productLine: query.productLine }, context),
       ...(createdAt ? { createdAt } : {})
     } satisfies Prisma.KnowledgeFileWhereInput;
   }
 
-  private buildKnowledgeChunkWhere(query: KnowledgeFilterQuery) {
+  private buildKnowledgeChunkWhere(
+    query: KnowledgeFilterQuery,
+    context: ResourceAccessContext
+  ) {
     const createdAt = buildDateRangeFilter(query);
 
     return {
       deletedAt: null,
-      knowledgeBase: {
-        deletedAt: null,
-        ...(query.productLine ? { productLine: query.productLine } : {})
-      },
+      knowledgeBase: this.buildKnowledgeBaseWhere({ productLine: query.productLine }, context),
       ...(query.materialType ? { materialType: query.materialType } : {}),
       ...(createdAt ? { createdAt } : {})
     } satisfies Prisma.KnowledgeChunkWhereInput;
   }
 
-  private buildGeoHitSummaryPromptWhere(query: GeoHitSummaryQuery): Prisma.GeoPromptWhereInput {
-    return {
+  private buildGeoHitSummaryPromptWhere(
+    query: GeoHitSummaryQuery,
+    context: ResourceAccessContext
+  ): Prisma.GeoPromptWhereInput {
+    const baseWhere: Prisma.GeoPromptWhereInput = {
       deletedAt: null,
       ...(query.productLine ? { productLine: query.productLine } : {}),
       ...(query.priority !== undefined ? { priority: query.priority } : {}),
       ...(query.trackEnabled !== undefined ? { trackEnabled: query.trackEnabled } : {})
     };
+
+    return mergeAndWhere(baseWhere, buildReportPromptWhere(context));
   }
 
   private buildGeoHitSummaryRecordWhere(
-    query: GeoHitSummaryQuery
+    query: GeoHitSummaryQuery,
+    context: ResourceAccessContext
   ): Prisma.ModelInclusionRecordWhereInput {
     const checkedAt = buildDateRangeFilter(query);
 
-    return {
-      geoPrompt: this.buildGeoHitSummaryPromptWhere(query),
+    const baseWhere: Prisma.ModelInclusionRecordWhereInput = {
+      geoPrompt: this.buildGeoHitSummaryPromptWhere(query, context),
       ...(query.platform ? { platform: query.platform } : {}),
       ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
       ...(checkedAt ? { checkedAt } : {})
     };
+
+    return mergeAndWhere(
+      baseWhere,
+      buildReportOwnerWhere<Prisma.ModelInclusionRecordWhereInput>(context)
+    );
   }
 
   private selectLatestGeoHitRecords(

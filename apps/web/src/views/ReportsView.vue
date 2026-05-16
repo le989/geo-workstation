@@ -37,6 +37,7 @@ import {
   reportExportTypeLabelMap,
   toReportPercent
 } from "@/config/report-options";
+import { useAuthStore } from "@/stores/auth";
 
 type ReportMetric = {
   label: string;
@@ -71,6 +72,7 @@ type ReportGroup = {
 };
 
 const activeTab = ref<ReportTabName>("geo_overview");
+const authStore = useAuthStore();
 const reportFilters = reactive<ReportQuery>({
   latestOnly: true
 });
@@ -116,6 +118,39 @@ const loadedTabs = reactive<Record<ReportTabName, boolean>>({
 });
 
 const exporting = ref<ReportExportType | "">("");
+
+const normalizedRole = computed(() => {
+  const role = String(authStore.currentRole ?? authStore.currentUser?.role ?? "");
+
+  if (role === "platform_admin" || role === "admin") {
+    return "platform_admin";
+  }
+  if (role === "company_admin") {
+    return "company_admin";
+  }
+  if (role === "operator" || role === "geo_operator" || role === "content_editor") {
+    return "operator";
+  }
+
+  return "viewer";
+});
+const isPersonalReportScope = computed(() => normalizedRole.value === "operator");
+const canExportReports = computed(() => normalizedRole.value !== "viewer");
+const reportScopeText = computed(() => {
+  const companyName = authStore.currentCompany?.name ?? "当前公司";
+
+  if (isPersonalReportScope.value) {
+    return `统计范围：我的数据 · ${companyName}`;
+  }
+  if (normalizedRole.value === "viewer") {
+    return `统计范围：只读 · ${companyName}`;
+  }
+
+  return `统计范围：当前公司 · ${companyName}`;
+});
+const exportScopeText = computed(() =>
+  isPersonalReportScope.value ? "导出当前范围：我的数据" : "导出当前公司范围"
+);
 
 const reportGroups: ReportGroup[] = [
   {
@@ -289,6 +324,11 @@ const downloadText = (content: string, fileName: string) => {
 };
 
 const handleExport = async (reportType: ReportExportType) => {
+  if (!canExportReports.value) {
+    ElMessage.warning("当前角色无权导出报表");
+    return;
+  }
+
   exporting.value = reportType;
   try {
     const csv = await exportReport({
@@ -486,6 +526,20 @@ watch(suggestionLimit, () => {
   }
 });
 
+watch(
+  () => authStore.currentCompany?.id,
+  (nextCompanyId, previousCompanyId) => {
+    if (!nextCompanyId || !previousCompanyId || nextCompanyId === previousCompanyId) {
+      return;
+    }
+
+    for (const tab of reportTabs) {
+      loadedTabs[tab.name] = false;
+    }
+    void loadReport(activeTab.value);
+  }
+);
+
 onMounted(() => {
   void loadReport("geo_overview");
 });
@@ -509,6 +563,7 @@ onMounted(() => {
         </div>
       </div>
       <div class="reports-hero__actions">
+        <el-tag class="reports-scope-tag" effect="plain">{{ reportScopeText }}</el-tag>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading[activeTab]" @click="refreshCurrentReport">
           刷新当前报表
@@ -561,13 +616,19 @@ onMounted(() => {
           <p class="section-kicker">报表导出</p>
           <h2>{{ activeTabMeta.label }}</h2>
         </div>
-        <ReportExportButton
-          v-if="isExportableReport(activeTab)"
-          :exporting="exporting === activeTab"
-          :report-type="activeTab"
-          @export="handleExport"
-        />
-        <el-tag v-else type="info">按最新结果口径统计</el-tag>
+        <div class="report-export-controls">
+          <ReportExportButton
+            v-if="isExportableReport(activeTab) && canExportReports"
+            :exporting="exporting === activeTab"
+            :report-type="activeTab"
+            @export="handleExport"
+          />
+          <el-tag v-else-if="isExportableReport(activeTab)" type="info">当前角色不可导出</el-tag>
+          <el-tag v-else type="info">按最新结果口径统计</el-tag>
+          <p v-if="isExportableReport(activeTab) && canExportReports" class="report-export-scope">
+            {{ exportScopeText }}
+          </p>
+        </div>
       </div>
 
       <AppErrorState v-if="errors[activeTab]" title="报表加载失败" :message="errors[activeTab]" />
