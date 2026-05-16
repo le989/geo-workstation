@@ -302,4 +302,30 @@ describe("Phase 1 Prisma GEO schema", () => {
     expect(prompt.productLineId).toBe(productLine.id);
     expect(prompt.visibility).toBe(Visibility.COMPANY);
   });
+
+  it("supports viewer as a company membership role", async () => {
+    const user = await createTestUser();
+    const company = await prisma.company.create({
+      data: {
+        name: `Auth 5C viewer 测试公司 ${runId}`,
+        code: `auth5c-viewer-${runId}-${crypto.randomUUID()}`,
+        type: CompanyType.customer,
+        status: CompanyStatus.active
+      }
+    });
+
+    const membership = await prisma.membership.create({
+      data: {
+        userId: user.id,
+        companyId: company.id,
+        role: MembershipRole.viewer,
+        status: MembershipStatus.active,
+        isDefault: true
+      }
+    });
+
+    expect(membership.role).toBe(MembershipRole.viewer);
+    expect(membership.companyId).toBe(company.id);
+    expect(membership.userId).toBe(user.id);
+  });
 });
