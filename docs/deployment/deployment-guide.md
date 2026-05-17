@@ -69,6 +69,7 @@ cp apps/web/.env.production.example apps/web/.env.production
 - `.env.production` 和 `apps/web/.env.production` 不要提交到 git。
 - 示例文件只能保留占位密码和占位域名。
 - 当前 API 代码读取 `API_PORT`，示例中同时保留 `PORT` 方便 PM2 或平台约定。
+- 生产环境必须显式设置 `DATABASE_URL`、`CORS_ORIGIN` 和 `JWT_SECRET`，缺失时 API 应停止启动。
 - `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL`、`DEFAULT_ADMIN_PASSWORD` 必须在共享部署前替换。
 - `AI_PROVIDER=mock` 可无 Key 运行；切换 `openai_compatible` 时只在后端私有 `.env` 配置 `AI_OPENAI_COMPATIBLE_API_KEY`。
 
@@ -83,11 +84,16 @@ docker compose up -d postgres
 确认数据库可连接后执行：
 
 ```bash
-pnpm prisma:migrate
-pnpm prisma:seed
+pnpm prisma:migrate:deploy
 ```
 
-`pnpm prisma:seed` 会创建或更新默认管理员，并把 `DEFAULT_ADMIN_PASSWORD` 以 hash 写入数据库。生产或共享部署前必须先修改私有环境变量中的默认管理员密码。
+首次初始化需要默认管理员和示例 GEO 数据时，再显式执行：
+
+```bash
+ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
+```
+
+`pnpm prisma:seed` 会创建或更新默认管理员，并把 `DEFAULT_ADMIN_PASSWORD` 以 hash 写入数据库。生产或共享部署前必须先修改私有环境变量中的默认管理员密码。已有真实业务数据后不要随意重跑 seed，避免覆盖默认管理员密码和默认公司信息。
 
 如果服务器使用独立 PostgreSQL，也可以只配置 `DATABASE_URL`，不启动本地 Docker PostgreSQL。
 
@@ -103,10 +109,16 @@ pnpm --filter @geo-workstation/api build
 PM2 示例配置：
 
 ```bash
+export DATABASE_URL="<private database url>"
+export JWT_SECRET="<private jwt secret>"
+export CORS_ORIGIN="http://your-domain.example.com"
+export LOCAL_STORAGE_ROOT="/var/www/geo-workstation/storage"
 pm2 start deploy/ecosystem.config.cjs --env production
 pm2 save
 pm2 status
 ```
+
+`deploy/ecosystem.config.cjs` 只从进程环境读取敏感变量，不在 Git 中保存真实值。
 
 查看日志：
 
@@ -185,6 +197,8 @@ VITE_API_BASE_URL=
 VITE_API_BASE_URL=http://your-domain.example.com
 ```
 
+局域网或生产构建不要使用 `localhost` 作为 `VITE_API_BASE_URL`。同源反代优先使用空值让请求走 `/api`；分离端口时必须设置为访问者浏览器可访问的后端 Origin。
+
 ## 方案 B：Docker Compose 一体化部署
 
 示例文件：
@@ -244,6 +258,7 @@ sudo systemctl reload nginx
 - 检查 `VITE_API_BASE_URL` 是否符合部署方式。
 - 同域反代时建议留空，让请求走 `/api`。
 - 跨域部署时检查 `CORS_ORIGIN`。
+- 生产环境缺少 `CORS_ORIGIN` 时 API 会拒绝启动，不会默认放开任意 Origin。
 
 ### 文件上传失败
 
@@ -255,7 +270,7 @@ sudo systemctl reload nginx
 
 - 检查 `DATABASE_URL`。
 - 检查 PostgreSQL 容器或数据库服务状态。
-- 确认已执行 `pnpm prisma:migrate`。
+- 确认生产发布已执行 `pnpm prisma:migrate:deploy`。
 
 ## 日志与重启
 

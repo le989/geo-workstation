@@ -12,6 +12,7 @@
     "prisma:validate": "prisma validate --config prisma.config.ts",
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate": "prisma migrate dev --config prisma.config.ts",
+    "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
     "prisma:seed": "prisma db seed --config prisma.config.ts",
     "test:api": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/api-infrastructure.spec.ts test/ai-provider.service.spec.ts test/project-profile.service.spec.ts test/project-profile.controller.spec.ts test/geo-prompts.service.spec.ts test/geo-prompts.controller.spec.ts test/geo-expansion.service.spec.ts test/geo-expansion.controller.spec.ts test/knowledge-bases.service.spec.ts test/knowledge.controller.spec.ts test/knowledge-file-parser.service.spec.ts test/knowledge-files.service.spec.ts test/knowledge-files.controller.spec.ts test/instruction-templates.service.spec.ts test/instruction-templates.controller.spec.ts test/content-tasks.service.spec.ts test/content-items.service.spec.ts test/content.controller.spec.ts test/model-inclusion-records.service.spec.ts test/model-inclusion-records.controller.spec.ts test/reports.service.spec.ts test/reports.controller.spec.ts test/geo-analysis-tasks.service.spec.ts test/geo-analysis-tasks.controller.spec.ts && JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=false vitest run test/auth.controller.spec.ts",
     "test:geo-prompts": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/geo-prompts.service.spec.ts test/geo-prompts.controller.spec.ts",
@@ -24,7 +25,7 @@
     "test:geo-reports": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/reports.service.spec.ts test/reports.controller.spec.ts",
     "test:geo-analysis": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/geo-analysis-tasks.service.spec.ts test/geo-analysis-tasks.controller.spec.ts",
     "test:ai-provider": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/ai-provider.service.spec.ts",
-    "test:prisma": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/prisma-schema.spec.ts",
+    "test:prisma": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/prisma-schema.spec.ts test/seed-safety.spec.ts",
     "test:users": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=false vitest run test/users.controller.spec.ts",
     "test:auth": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=false vitest run test/auth.controller.spec.ts"
   },

@@ -40,7 +40,7 @@ AI_MAX_TOKENS=3000
 AI_TEMPERATURE=0.7
 ```
 
-从项目根目录执行 `pnpm prisma:validate`、`pnpm prisma:generate`、`pnpm prisma:migrate`、`pnpm prisma:seed` 时，Prisma 配置会显式读取根目录 `.env`，不需要手动 `export DATABASE_URL`。
+从项目根目录执行 `pnpm prisma:validate`、`pnpm prisma:generate`、`pnpm prisma:migrate`、`pnpm prisma:seed` 时，Prisma 配置会显式读取根目录 `.env`，不需要手动 `export DATABASE_URL`。生产发布迁移使用 `pnpm prisma:migrate:deploy`，不要用开发迁移命令替代。
 
 ## 根目录 `.env.production`
 
@@ -58,6 +58,7 @@ JWT_EXPIRES_IN=12h
 DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
 DEFAULT_ADMIN_PASSWORD=change_me_admin_password
 BYPASS_AUTH_FOR_TESTS=false
+ALLOW_PRODUCTION_SEED=false
 AI_PROVIDER=mock
 AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
 AI_OPENAI_COMPATIBLE_API_KEY=change_me
@@ -92,12 +93,15 @@ BYPASS_AUTH_FOR_TESTS=false
 - `DEFAULT_ADMIN_EMAIL`：`pnpm prisma:seed` 创建或更新默认管理员时使用的邮箱。
 - `DEFAULT_ADMIN_PASSWORD`：`pnpm prisma:seed` 创建或更新默认管理员时使用的密码，会以 hash 写入数据库。
 - `BYPASS_AUTH_FOR_TESTS`：仅自动化测试可设为 `true`。生产环境必须保持 `false`。
+- `ALLOW_PRODUCTION_SEED`：生产环境防误执行开关。只有首次初始化且已确认备份/影响范围时，才临时设为 `true` 执行 seed。
 
-如果修改了默认管理员密码，需要重新执行：
+如果生产首次初始化确实需要执行 seed，需要显式确认：
 
 ```bash
-pnpm prisma:seed
+ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
 ```
+
+生产 seed 会创建或更新默认管理员、默认公司和示例 GEO 数据；不要在已有真实业务数据的生产库中随意重跑。
 
 不要把真实管理员密码、真实 JWT 密钥或 token 写入 README、部署文档、日志或 git。
 
@@ -130,6 +134,8 @@ postgresql://geo_user:change_me@localhost:5432/geo_workstation
 
 不要把真实连接串写入 README、文档或 git。
 
+生产环境必须显式设置 `DATABASE_URL`。缺失时 API 会启动失败，不会回退到本地默认数据库。
+
 ## `LOCAL_STORAGE_ROOT`
 
 用于企业知识库文件上传的本地存储目录。
@@ -156,7 +162,7 @@ LOCAL_STORAGE_ROOT=/var/www/geo-workstation/storage
 
 用于限制前端访问 API 的来源。
 
-同域反代时可以留空或设置为实际域名。
+生产环境必须显式设置 `CORS_ORIGIN`，不能留空。Nginx 同源反代时设置为用户访问前端的实际 Origin；跨域部署时设置为前端 Origin。
 
 跨域部署时设置为前端 Origin：
 
@@ -164,7 +170,7 @@ LOCAL_STORAGE_ROOT=/var/www/geo-workstation/storage
 CORS_ORIGIN=http://your-domain.example.com
 ```
 
-不要在生产环境使用随意放开的跨域策略。
+开发环境可以留空以便本地调试。不要在生产环境使用随意放开的跨域策略。
 
 ## `VITE_API_BASE_URL`
 
@@ -183,6 +189,8 @@ VITE_API_BASE_URL=
 ```env
 VITE_API_BASE_URL=http://your-domain.example.com
 ```
+
+不要在局域网或生产构建中使用 `localhost` 作为 `VITE_API_BASE_URL`，否则访问者浏览器会请求访问者自己的机器。未设置生产值时，前端默认走同源 `/api`。
 
 该值会被打进前端静态构建产物。修改后需要重新构建：
 

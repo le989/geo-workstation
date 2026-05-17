@@ -73,8 +73,13 @@ for (const label of requiredMenuLabels) {
 const httpSource = await readSource("src/api/http.ts");
 assert(httpSource.includes("VITE_API_BASE_URL"), "HTTP client must read VITE_API_BASE_URL");
 assert(
-  httpSource.includes("http://localhost:3000"),
-  "HTTP client must default to http://localhost:3000"
+  httpSource.includes("DEFAULT_DEV_API_BASE_URL") &&
+    httpSource.includes("DEFAULT_PRODUCTION_API_BASE_URL"),
+  "HTTP client must split development and production API defaults"
+);
+assert(
+  httpSource.includes("import.meta.env.DEV"),
+  "HTTP client must only use localhost as the development fallback"
 );
 
 const typesSource = await readSource("src/api/types.ts");

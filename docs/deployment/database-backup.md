@@ -67,8 +67,10 @@ docker volume ls | grep geo
 常规迁移：
 
 ```bash
-pnpm prisma:migrate
+pnpm prisma:migrate:deploy
 ```
+
+`pnpm prisma:migrate` 是开发迁移命令，生产发布使用 `pnpm prisma:migrate:deploy`。
 
 重新生成 Prisma Client：
 
@@ -79,10 +81,10 @@ pnpm prisma:generate
 写入示例数据：
 
 ```bash
-pnpm prisma:seed
+ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
 ```
 
-Seed 数据用于演示和本地开发，不等同于正式业务数据。
+Seed 数据用于演示和本地开发，不等同于正式业务数据。生产环境只有首次初始化且已确认备份/影响范围时才允许显式开启 `ALLOW_PRODUCTION_SEED=true`。
 
 ## 演示数据与正式数据
 

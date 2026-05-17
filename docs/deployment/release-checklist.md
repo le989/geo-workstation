@@ -32,7 +32,7 @@
 - [ ] `DATABASE_URL` 使用真实私有密码，不是 `change_me`。
 - [ ] `JWT_SECRET` 使用长随机值，不是示例占位值。
 - [ ] `DEFAULT_ADMIN_EMAIL` 已确认。
-- [ ] `DEFAULT_ADMIN_PASSWORD` 已替换为私有强密码，并已在替换后执行 `pnpm prisma:seed`。
+- [ ] `DEFAULT_ADMIN_PASSWORD` 已替换为私有强密码；首次初始化如需 seed，使用 `ALLOW_PRODUCTION_SEED=true pnpm prisma:seed`。
 - [ ] `BYPASS_AUTH_FOR_TESTS=false`。
 - [ ] `LOCAL_STORAGE_ROOT` 指向服务器持久化目录。
 - [ ] `CORS_ORIGIN` 与访问域名一致。
@@ -44,7 +44,7 @@
 
 - [ ] PostgreSQL 服务已启动。
 - [ ] 数据库用户、库名和密码已创建。
-- [ ] `pnpm prisma:migrate` 已执行。
+- [ ] `pnpm prisma:migrate:deploy` 已执行。
 - [ ] `pnpm prisma:seed` 已按需执行。
 - [ ] 发布前已执行 `pg_dump` 备份。
 - [ ] 已确认恢复命令和备份文件路径。

@@ -50,14 +50,22 @@ export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvi
   if (nodeEnv === "production" && bypassAuthForTests === "true") {
     throw new Error("BYPASS_AUTH_FOR_TESTS cannot be enabled in production.");
   }
+  const databaseUrl =
+    nodeEnv === "production"
+      ? getRequiredString(config.DATABASE_URL, "DATABASE_URL is required in production.")
+      : getString(config.DATABASE_URL, DEFAULT_LOCAL_DATABASE_URL);
+  const corsOrigin =
+    nodeEnv === "production"
+      ? getRequiredString(config.CORS_ORIGIN, "CORS_ORIGIN is required in production.")
+      : getOptionalString(config.CORS_ORIGIN);
 
   return {
     NODE_ENV: nodeEnv,
     API_PORT: getPort(config.API_PORT, 3000),
-    DATABASE_URL: getString(config.DATABASE_URL, DEFAULT_LOCAL_DATABASE_URL),
+    DATABASE_URL: databaseUrl,
     REDIS_URL: getOptionalString(config.REDIS_URL),
     LOCAL_STORAGE_ROOT: getString(config.LOCAL_STORAGE_ROOT, "./storage"),
-    CORS_ORIGIN: getOptionalString(config.CORS_ORIGIN),
+    CORS_ORIGIN: corsOrigin,
     JWT_SECRET: getJwtSecret(config.JWT_SECRET, nodeEnv),
     JWT_EXPIRES_IN: getString(config.JWT_EXPIRES_IN, "12h"),
     DEFAULT_ADMIN_EMAIL: getString(config.DEFAULT_ADMIN_EMAIL, "admin@geo-workstation.local"),
@@ -130,6 +138,14 @@ function getOptionalString(value: unknown): string | undefined {
   }
 
   return undefined;
+}
+
+function getRequiredString(value: unknown, message: string): string {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+
+  throw new Error(message);
 }
 
 function getPort(value: unknown, fallback: number): number {

@@ -14,6 +14,9 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 
+process.env.DATABASE_URL ??=
+  "postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public";
+
 const prisma = createPrismaClient();
 const runId = `${Date.now()}`;
 

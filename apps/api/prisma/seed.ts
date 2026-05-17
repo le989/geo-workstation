@@ -14,6 +14,7 @@ import {
 } from "@prisma/client";
 import { hashPassword } from "../src/modules/auth/utils/password-hash.util";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
+import { assertProductionSeedAllowed } from "./seed-safety";
 
 const prisma = createPrismaClient();
 const DEFAULT_COMPANY_ID = "company_default_kjt";
@@ -109,6 +110,7 @@ function assertSafeProductionPassword(password: string, hasExplicitPassword: boo
 }
 
 async function main() {
+  assertProductionSeedAllowed();
   const defaultAdminEmail = process.env.DEFAULT_ADMIN_EMAIL || "admin@geo-workstation.local";
   const hasExplicitDefaultAdminPassword = Boolean(process.env.DEFAULT_ADMIN_PASSWORD);
   const defaultAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD || "change_me_admin_password";

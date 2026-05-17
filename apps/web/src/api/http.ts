@@ -1,6 +1,7 @@
 import type { ApiResponse } from "./types";
 
-export const DEFAULT_API_BASE_URL = "http://localhost:3000";
+export const DEFAULT_DEV_API_BASE_URL = "http://localhost:3000";
+export const DEFAULT_PRODUCTION_API_BASE_URL = "";
 
 let authTokenGetter: (() => string | null) | undefined;
 let currentCompanyGetter: (() => string | null) | undefined;
@@ -34,7 +35,10 @@ export const setUnauthorizedHandler = (handler: () => void) => {
 
 export const getApiBaseUrl = () => {
   const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
-  const baseUrl = configuredBaseUrl === undefined ? DEFAULT_API_BASE_URL : configuredBaseUrl;
+  const defaultBaseUrl = import.meta.env.DEV
+    ? DEFAULT_DEV_API_BASE_URL
+    : DEFAULT_PRODUCTION_API_BASE_URL;
+  const baseUrl = configuredBaseUrl === undefined ? defaultBaseUrl : configuredBaseUrl;
 
   return baseUrl.replace(/\/+$/, "");
 };

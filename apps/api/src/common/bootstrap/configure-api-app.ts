@@ -4,14 +4,27 @@ import { GlobalExceptionFilter } from "../errors/global-exception.filter";
 import { ApiResponseInterceptor } from "../response/api-response.interceptor";
 import { createValidationPipe } from "../validation/create-validation-pipe";
 
-function resolveCorsOrigin(app: INestApplication): string | boolean {
+export function resolveCorsOrigin(app: INestApplication): string | boolean {
+  let nodeEnv = process.env.NODE_ENV ?? "development";
+  let configuredOrigin = process.env.CORS_ORIGIN;
+
   try {
     const configService = app.get(ConfigService, { strict: false });
-    const configuredOrigin = configService.get<string>("CORS_ORIGIN");
-    return configuredOrigin && configuredOrigin.trim().length > 0 ? configuredOrigin : true;
+    nodeEnv = configService.get<string>("NODE_ENV") ?? nodeEnv;
+    configuredOrigin = configService.get<string>("CORS_ORIGIN") ?? configuredOrigin;
   } catch {
-    return true;
+    // Non-AppModule tests may not register ConfigService. Fall back to process.env.
   }
+
+  if (configuredOrigin && configuredOrigin.trim().length > 0) {
+    return configuredOrigin;
+  }
+
+  if (nodeEnv === "production") {
+    throw new Error("CORS_ORIGIN is required in production.");
+  }
+
+  return true;
 }
 
 export function configureApiApp(app: INestApplication): INestApplication {

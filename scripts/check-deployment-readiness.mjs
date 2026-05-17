@@ -24,6 +24,7 @@ const requiredFiles = [
 const requiredPackageScripts = [
   "build",
   "prisma:migrate",
+  "prisma:migrate:deploy",
   "prisma:seed",
   "smoke:api",
   "test:web-mvp",
@@ -54,7 +55,13 @@ const requiredDocSnippets = new Map([
   ],
   [
     "docs/deployment/database-backup.md",
-    ["pg_dump", "恢复 PostgreSQL", "storage/uploads", "pnpm prisma:migrate", "pnpm prisma:seed"]
+    [
+      "pg_dump",
+      "恢复 PostgreSQL",
+      "storage/uploads",
+      "pnpm prisma:migrate:deploy",
+      "pnpm prisma:seed"
+    ]
   ],
   [
     "docs/deployment/release-checklist.md",
@@ -115,6 +122,7 @@ for (const required of [
   "DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local",
   "DEFAULT_ADMIN_PASSWORD=change_me_admin_password",
   "BYPASS_AUTH_FOR_TESTS=false",
+  "ALLOW_PRODUCTION_SEED=false",
   "AI_PROVIDER=mock",
   "AI_OPENAI_COMPATIBLE_API_KEY=change_me"
 ]) {
@@ -134,8 +142,11 @@ assert(
 assert(
   pm2Example.includes("geo-workstation-api") &&
     pm2Example.includes("dist/main.js") &&
-    !pm2Example.includes("DATABASE_URL"),
-  "PM2 example must name the API app, point to dist/main.js, and avoid DATABASE_URL"
+    pm2Example.includes("process.env.DATABASE_URL") &&
+    pm2Example.includes("process.env.JWT_SECRET") &&
+    pm2Example.includes("process.env.CORS_ORIGIN") &&
+    pm2Example.includes("LOCAL_STORAGE_ROOT"),
+  "PM2 example must name the API app, point to dist/main.js, and inject required production env vars"
 );
 assert(
   composeExample.includes("postgres") &&
