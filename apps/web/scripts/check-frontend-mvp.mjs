@@ -45,7 +45,8 @@ const routeChecks = [
   ["/geo-content", "GEO 内容生成"],
   ["/content-tasks", "GEO 内容生成"],
   ["/model-inclusion-records", "AI 收录记录"],
-  ["/reports", "数据报表"],
+  ["/geo-reports", "GEO 报表"],
+  ["/reports", "GEO 报表"],
   ["/settings", "系统设置"],
   ["/help", "使用教程"]
 ];
@@ -396,7 +397,7 @@ try {
     assert(text.trim().length > 120, `${route} rendered too little content`);
     if (route === "/geo-analysis") {
       assert(
-        text.includes("GEO 诊断") && text.includes("不等同于 Kimi"),
+        text.includes("GEO 诊断") && text.includes("诊断结果用于辅助判断品牌覆盖"),
         "/geo-analysis must render the real GEO analysis page"
       );
     }

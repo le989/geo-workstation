@@ -25,6 +25,7 @@ const requiredRoutes = [
   "/geo-content",
   "/content-tasks",
   "/model-inclusion-records",
+  "/geo-reports",
   "/reports",
   "/settings"
 ];
@@ -38,7 +39,7 @@ const requiredMenuLabels = [
   "指令模板",
   "内容生成",
   "AI 收录记录",
-  "数据报表",
+  "GEO 报表",
   "系统设置"
 ];
 
@@ -58,7 +59,8 @@ const routeSource = await readSource("src/router/routes.ts");
 for (const routePath of requiredRoutes) {
   const hasRoute =
     routeSource.includes(routePath) ||
-    (routePath === "/content-tasks" && routeSource.includes('path: "content-tasks"'));
+    (routePath === "/content-tasks" && routeSource.includes('path: "content-tasks"')) ||
+    (routePath === "/reports" && routeSource.includes('path: "reports"'));
 
   assert(hasRoute, `Missing route ${routePath}`);
 }

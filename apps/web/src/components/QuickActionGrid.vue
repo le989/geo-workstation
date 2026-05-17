@@ -25,7 +25,7 @@ const actions: QuickAction[] = [
   {
     title: "查看 GEO 报表",
     description: "复盘提示词、内容、知识库和模型覆盖。",
-    to: "/reports",
+    to: "/geo-reports",
     icon: PieChart
   },
   {

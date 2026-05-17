@@ -20,7 +20,16 @@ const route = useRoute();
 const appStore = useAppStore();
 const authStore = useAuthStore();
 
-const activeMenu = computed(() => (route.path === "/content-tasks" ? "/geo-content" : route.path));
+const activeMenu = computed(() => {
+  if (route.path === "/content-tasks") {
+    return "/geo-content";
+  }
+  if (route.path === "/reports") {
+    return "/geo-reports";
+  }
+
+  return route.path;
+});
 const isSidebarCollapsed = ref(
   window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true"
 );
@@ -86,8 +95,12 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "AI 模型覆盖记录",
     subtitle: "查看当前启用模型的覆盖结果"
   },
+  "/geo-reports": {
+    title: "GEO 报表",
+    subtitle: "查看覆盖、命中和优化建议"
+  },
   "/reports": {
-    title: "数据报表",
+    title: "GEO 报表",
     subtitle: "查看覆盖、命中和优化建议"
   },
   "/users": {
@@ -132,7 +145,7 @@ const navigationGroups = [
   {
     label: "复盘与配置",
     items: navigationItems.filter((item) =>
-      ["/model-inclusion-records", "/reports", "/users", "/settings"].includes(item.path)
+      ["/model-inclusion-records", "/geo-reports", "/users", "/settings"].includes(item.path)
     )
   },
   {

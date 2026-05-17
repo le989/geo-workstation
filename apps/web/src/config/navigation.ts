@@ -129,13 +129,13 @@ export const navigationItems: GeoPageMeta[] = [
     allowedRoles: allRoles
   },
   {
-    path: "/reports",
-    label: "数据报表",
-    title: "数据报表",
+    path: "/geo-reports",
+    label: "GEO 报表",
+    title: "GEO 报表",
     question: "下一步应该补哪些词、资料和内容？",
     description: "围绕提示词覆盖、模型表现、内容资产和知识库覆盖输出复盘指标。",
     phaseNote: "已支持总览、提示词覆盖、模型覆盖、内容覆盖、知识库覆盖、优化建议和 CSV 导出。",
-    nextSteps: ["复盘覆盖率和推荐率", "发现内容与知识库缺口", "导出 CSV 进行运营复盘"],
+    nextSteps: ["复盘覆盖率和推荐率", "发现内容与知识库缺口", "导出当前报表进行运营复盘"],
     apiFocus: "已联调 /api/reports",
     icon: PieChart,
     allowedRoles: allRoles

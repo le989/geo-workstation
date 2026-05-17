@@ -28,7 +28,7 @@ const dashboardRequiredText = [
   "/knowledge-bases",
   "/geo-content",
   "/model-inclusion-records",
-  "/reports"
+  "/geo-reports"
 ];
 
 const overviewFields = [

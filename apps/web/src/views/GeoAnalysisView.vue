@@ -84,7 +84,7 @@ const diagnosisRelationLinks = [
   { label: "去知识库", path: "/knowledge-bases" },
   { label: "去内容生成", path: "/geo-content" },
   { label: "去模型覆盖记录", path: "/model-inclusion-records" },
-  { label: "去 GEO 报表", path: "/reports" }
+  { label: "去 GEO 报表", path: "/geo-reports" }
 ];
 
 const hasTableError = computed(() => Boolean(tableError.value));

@@ -28,7 +28,7 @@ export const phase3aRoutePaths = [
   "/instruction-templates",
   "/geo-content",
   "/model-inclusion-records",
-  "/reports",
+  "/geo-reports",
   "/settings",
   "/help"
 ] as const;
@@ -65,7 +65,7 @@ export const routes: RouteRecordRaw[] = [
                         ? ContentTasksView
                         : item.path === "/model-inclusion-records"
                           ? ModelInclusionRecordsView
-                          : item.path === "/reports"
+                          : item.path === "/geo-reports"
                             ? ReportsView
                             : item.path === "/users"
                               ? UsersView
@@ -88,6 +88,16 @@ export const routes: RouteRecordRaw[] = [
           geoPage: pageMetaByPath["/geo-content"],
           requiresAuth: true,
           allowedRoles: pageMetaByPath["/geo-content"]?.allowedRoles
+        }
+      },
+      {
+        path: "reports",
+        name: "reports_legacy",
+        component: ReportsView,
+        meta: {
+          geoPage: pageMetaByPath["/geo-reports"],
+          requiresAuth: true,
+          allowedRoles: pageMetaByPath["/geo-reports"]?.allowedRoles
         }
       }
     ]

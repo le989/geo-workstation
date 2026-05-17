@@ -50,7 +50,6 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "GEO 报表",
-  "补词、补资料、补内容还是补检测",
   "ReportFilters",
   "PromptCoveragePanel",
   "ModelCoveragePanel",
@@ -73,18 +72,24 @@ const pageRequiredSnippets = [
   "内容覆盖",
   "知识库覆盖",
   "优化建议",
-  "导出 CSV",
-  "品牌提及率",
   "品牌推荐率",
+  "官网引用率",
+  "待优化问题",
+  "内容产出量",
+  "报表筛选",
+  "高级筛选",
+  "导出当前报表",
+  "资产覆盖详情",
   "提示词矩阵",
+  "统计口径与排查信息",
+  "查看完整提示词矩阵",
   "默认按每个提示词 + 平台 + 入口的最新检测结果统计",
-  "测试阶段提示",
   "本轮结论",
   "辅助指标，不作为主要 GEO 命中判断",
   "当前仅展示前 20 条"
 ];
 
-const pageForbiddenSnippets = ["默认排除测试提示词"];
+const pageForbiddenSnippets = ["默认排除测试提示词", "测试阶段提示", "Clean-Final", "调试参考"];
 
 const reportFields = [
   "promptTotal",
@@ -185,6 +190,8 @@ for (const field of reportFields) {
 }
 
 const routesSource = await readSource("src/router/routes.ts");
-assert(routesSource.includes("ReportsView"), "Router must use ReportsView for /reports");
+assert(routesSource.includes("/geo-reports"), "Router must expose /geo-reports");
+assert(routesSource.includes('path: "reports"'), "Router must keep /reports compatibility");
+assert(routesSource.includes("ReportsView"), "Router must use ReportsView for reports routes");
 
 process.stdout.write("Phase 3I GEO reports check passed\n");

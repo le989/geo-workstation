@@ -15,6 +15,7 @@ const emit = defineEmits<{
 
 <template>
   <el-button :icon="Download" :loading="exporting" @click="emit('export', reportType)">
-    导出 CSV：{{ reportExportTypeLabelMap[reportType] }}
+    导出当前报表
+    <span class="report-export-button__label">{{ reportExportTypeLabelMap[reportType] }}</span>
   </el-button>
 </template>

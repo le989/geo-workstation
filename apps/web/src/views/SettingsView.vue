@@ -463,7 +463,7 @@ onMounted(() => {
             </div>
             <div class="settings-link-row">
               <router-link to="/help">查看使用教程</router-link>
-              <router-link to="/reports">查看数据报表</router-link>
+              <router-link to="/geo-reports">查看 GEO 报表</router-link>
             </div>
           </div>
         </el-card>

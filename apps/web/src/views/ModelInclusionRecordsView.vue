@@ -492,7 +492,7 @@ onMounted(() => {
           <strong>
             当前页面用于维护模型覆盖明细；趋势复盘、平台对比和优化建议请到「GEO 报表」查看。
           </strong>
-          <RouterLink to="/reports">进入数据报表</RouterLink>
+          <RouterLink to="/geo-reports">进入 GEO 报表</RouterLink>
         </div>
       </div>
       <div class="model-inclusion-hero__actions">

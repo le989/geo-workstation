@@ -48,7 +48,7 @@ const capabilityCards = [
     active: false
   },
   {
-    title: "数据报表",
+    title: "GEO 报表",
     icon: PieChart,
     copy: "可视化效果复盘",
     active: true
@@ -79,7 +79,7 @@ const sidebarItems = [
   { title: "指令模板", icon: DocumentChecked, active: false },
   { title: "内容生成", icon: EditPen, active: false },
   { title: "AI 收录记录", icon: TrendCharts, active: false },
-  { title: "数据报表", icon: PieChart, active: false },
+  { title: "GEO 报表", icon: PieChart, active: false },
   { title: "系统设置", icon: Setting, active: false },
   { title: "使用教程", icon: Guide, active: false }
 ];

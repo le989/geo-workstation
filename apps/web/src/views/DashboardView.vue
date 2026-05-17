@@ -265,7 +265,7 @@ const operationQueue = computed(() => [
     title: "待看命中汇总",
     description: "看未命中、竞品占位和推荐不足。",
     status: `品牌推荐率 ${formatPercent(report.value.brandRecommendRate)}`,
-    to: "/reports",
+    to: "/geo-reports",
     buttonLabel: "打开 GEO 报表",
     tone: report.value.brandRecommendRate > 0 ? ("good" as const) : ("warning" as const)
   }

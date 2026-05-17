@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { ModelCoveragePromptSummary, ModelCoverageReport } from "@/api/reports";
-import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
 import ModelInclusionBooleanTag from "@/components/ModelInclusionBooleanTag.vue";
 import ReportDistributionTable from "@/components/ReportDistributionTable.vue";
 import ReportMetricCard from "@/components/ReportMetricCard.vue";
 import { formatDateTime, formatOptional, userIntentLabelMap } from "@/config/geo-prompt-options";
-import { entryPointLabelMap, hitLevelLabelMap } from "@/config/model-inclusion-options";
+import { hitLevelLabelMap } from "@/config/model-inclusion-options";
 import { formatReportNumber } from "@/config/report-options";
 
 const props = defineProps<{
   report: ModelCoverageReport | null;
   loading?: boolean;
 }>();
+
+const distributionSections = ref<string[]>([]);
 
 const metrics = computed(() => [
   {
@@ -28,8 +29,6 @@ const getUserIntentLabel = (row: ModelCoveragePromptSummary) =>
 const formatHitLevel = (value?: string) =>
   value ? (hitLevelLabelMap[value as keyof typeof hitLevelLabelMap] ?? value) : "--";
 
-const formatEntryPoint = (value?: string) =>
-  value ? (entryPointLabelMap[value as keyof typeof entryPointLabelMap] ?? value) : "--";
 </script>
 
 <template>
@@ -45,38 +44,42 @@ const formatEntryPoint = (value?: string) =>
       />
     </div>
 
-    <div class="report-distribution-grid report-distribution-grid--model">
-      <ReportDistributionTable title="模型记录分布" :distribution="report?.modelDistribution" />
-      <ReportDistributionTable title="品牌提及数" :distribution="report?.mentionedByModel" />
-      <ReportDistributionTable title="品牌推荐数" :distribution="report?.recommendedByModel" />
-      <ReportDistributionTable
-        title="官网引用数"
-        :distribution="report?.citedOfficialSiteByModel"
-      />
-      <ReportDistributionTable
-        title="内容资产引用数"
-        :distribution="report?.citedContentAssetByModel"
-      />
-      <ReportDistributionTable
-        title="竞品出现数"
-        :distribution="report?.competitorMentionedByModel"
-      />
-      <ReportDistributionTable title="命中等级分布" :distribution="report?.hitLevelDistribution" />
-      <ReportDistributionTable title="平台分布" :distribution="report?.platformDistribution" />
-      <ReportDistributionTable title="入口分布" :distribution="report?.entryPointDistribution" />
-      <ReportDistributionTable
-        title="品牌提及率"
-        :distribution="report?.brandMentionRateByModel"
-        value-label="比例"
-        value-type="rate"
-      />
-      <ReportDistributionTable
-        title="品牌推荐率"
-        :distribution="report?.brandRecommendRateByModel"
-        value-label="比例"
-        value-type="rate"
-      />
-    </div>
+    <el-collapse v-model="distributionSections" class="report-secondary-collapse">
+      <el-collapse-item name="model-distribution" title="模型分布详情">
+        <div class="report-distribution-grid report-distribution-grid--model">
+          <ReportDistributionTable title="模型记录分布" :distribution="report?.modelDistribution" />
+          <ReportDistributionTable title="品牌提及数" :distribution="report?.mentionedByModel" />
+          <ReportDistributionTable title="品牌推荐数" :distribution="report?.recommendedByModel" />
+          <ReportDistributionTable
+            title="官网引用数"
+            :distribution="report?.citedOfficialSiteByModel"
+          />
+          <ReportDistributionTable
+            title="内容资产引用数"
+            :distribution="report?.citedContentAssetByModel"
+          />
+          <ReportDistributionTable
+            title="竞品出现数"
+            :distribution="report?.competitorMentionedByModel"
+          />
+          <ReportDistributionTable title="命中等级分布" :distribution="report?.hitLevelDistribution" />
+          <ReportDistributionTable title="平台分布" :distribution="report?.platformDistribution" />
+          <ReportDistributionTable title="入口分布" :distribution="report?.entryPointDistribution" />
+          <ReportDistributionTable
+            title="品牌提及率"
+            :distribution="report?.brandMentionRateByModel"
+            value-label="比例"
+            value-type="rate"
+          />
+          <ReportDistributionTable
+            title="品牌推荐率"
+            :distribution="report?.brandRecommendRateByModel"
+            value-label="比例"
+            value-type="rate"
+          />
+        </div>
+      </el-collapse-item>
+    </el-collapse>
 
     <el-card class="report-table-card" shadow="never">
       <template #header>
@@ -98,25 +101,8 @@ const formatEntryPoint = (value?: string) =>
         <el-table-column label="平台" width="120">
           <template #default="{ row }">{{ formatOptional(row.platform) }}</template>
         </el-table-column>
-        <el-table-column label="入口" width="130">
-          <template #default="{ row }">{{ formatEntryPoint(row.entryPoint) }}</template>
-        </el-table-column>
-        <el-table-column label="命中等级" width="120">
+        <el-table-column label="覆盖结果" width="120">
           <template #default="{ row }">{{ formatHitLevel(row.hitLevel) }}</template>
-        </el-table-column>
-        <el-table-column label="类型" width="100">
-          <template #default="{ row }">
-            <GeoPromptTypeTag :type="row.type" />
-          </template>
-        </el-table-column>
-        <el-table-column label="产品线" width="150">
-          <template #default="{ row }">{{ formatOptional(row.productLine) }}</template>
-        </el-table-column>
-        <el-table-column label="用户意图" width="130">
-          <template #default="{ row }">{{ getUserIntentLabel(row) }}</template>
-        </el-table-column>
-        <el-table-column label="推荐位置" width="100">
-          <template #default="{ row }">{{ row.rankingPosition ?? "--" }}</template>
         </el-table-column>
         <el-table-column label="官网引用" width="120">
           <template #default="{ row }">
@@ -127,13 +113,9 @@ const formatEntryPoint = (value?: string) =>
             />
           </template>
         </el-table-column>
-        <el-table-column label="内容引用" width="120">
+        <el-table-column label="风险 / 待优化" min-width="170">
           <template #default="{ row }">
-            <ModelInclusionBooleanTag
-              :value="row.citedContentAsset"
-              true-label="已引用内容"
-              false-label="未引用内容"
-            />
+            {{ getUserIntentLabel(row) }} / {{ formatOptional(row.productLine) }}
           </template>
         </el-table-column>
         <el-table-column label="检测时间" width="180">
@@ -162,19 +144,8 @@ const formatEntryPoint = (value?: string) =>
         <el-table-column label="平台" width="120">
           <template #default="{ row }">{{ formatOptional(row.platform) }}</template>
         </el-table-column>
-        <el-table-column label="入口" width="130">
-          <template #default="{ row }">{{ formatEntryPoint(row.entryPoint) }}</template>
-        </el-table-column>
-        <el-table-column label="命中等级" width="120">
+        <el-table-column label="覆盖结果" width="120">
           <template #default="{ row }">{{ formatHitLevel(row.hitLevel) }}</template>
-        </el-table-column>
-        <el-table-column label="类型" width="100">
-          <template #default="{ row }">
-            <GeoPromptTypeTag :type="row.type" />
-          </template>
-        </el-table-column>
-        <el-table-column label="产品线" width="150">
-          <template #default="{ row }">{{ formatOptional(row.productLine) }}</template>
         </el-table-column>
         <el-table-column label="品牌提及" width="110">
           <template #default="{ row }">
@@ -183,6 +154,11 @@ const formatEntryPoint = (value?: string) =>
               true-label="已提及"
               false-label="未提及"
             />
+          </template>
+        </el-table-column>
+        <el-table-column label="风险 / 待优化" min-width="170">
+          <template #default="{ row }">
+            {{ getUserIntentLabel(row) }} / {{ formatOptional(row.productLine) }}
           </template>
         </el-table-column>
         <el-table-column label="检测时间" width="180">

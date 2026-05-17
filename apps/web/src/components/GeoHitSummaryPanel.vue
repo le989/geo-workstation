@@ -81,6 +81,8 @@ const suggestionTypeLabelMap: Record<string, string> = {
 const matrixFilter = ref<MatrixFilter>("all");
 const matrixPage = ref(1);
 const matrixPageSize = 20;
+const noteSections = ref<string[]>([]);
+const matrixSections = ref<string[]>([]);
 
 const matrixFilterOptions: Array<{ label: string; value: MatrixFilter }> = [
   { label: "全部", value: "all" },
@@ -189,7 +191,7 @@ const matrixColumns = computed<MatrixColumn[]>(() => {
 
 const conclusionItems = computed(() => {
   if (!props.report || props.report.overview.latestRecordCount === 0) {
-    return ["暂无可解读的最新检测结果。当前包含测试数据，仅供调试参考。"];
+    return ["暂无可解读的最新检测结果。可先补充模型覆盖记录，再回到本页复盘。"];
   }
 
   const items: string[] = [];
@@ -507,31 +509,22 @@ watch(
 
 <template>
   <section class="report-panel geo-hit-summary-panel">
-    <el-alert
-      class="geo-hit-summary-panel__stage"
-      show-icon
-      type="warning"
-      :closable="false"
-      title="测试阶段提示"
-    >
-      当前项目仍处于测试阶段，汇总数据可能包含测试提示词、测试检测记录和重复检测结果。正式使用前可通过
-      Clean-Final 统一清理测试数据，清理后再作为正式 GEO 效果报告使用。
-    </el-alert>
-
-    <el-alert class="geo-hit-summary-panel__notice" show-icon type="info" :closable="false">
-      <p>本汇总默认按每个提示词 + 平台 + 入口的最新检测结果统计，避免重复测试记录影响判断。</p>
-      <p>
-        本页面当前展示系统内检测记录。测试阶段可能包含调试数据，正式使用前建议统一清理测试数据。
-      </p>
-      <p>官网引用率是辅助指标，不作为主要 GEO 命中判断。核心指标是品牌推荐率和品牌提及率。</p>
-    </el-alert>
+    <el-collapse v-model="noteSections" class="geo-hit-summary-panel__diagnostic">
+      <el-collapse-item name="scope" title="统计口径与排查信息">
+        <div class="geo-hit-summary-panel__notice">
+          <p>本汇总默认按每个提示词 + 平台 + 入口的最新检测结果统计，避免重复记录影响判断。</p>
+          <p>官网引用率是辅助指标，不作为主要 GEO 命中判断。核心指标是品牌推荐率和品牌提及率。</p>
+          <p>如当前范围内数据较少，可先补充模型覆盖记录或缩小筛选条件后再复盘。</p>
+        </div>
+      </el-collapse-item>
+    </el-collapse>
 
     <el-card class="geo-hit-summary-panel__insight" shadow="never">
       <template #header>
         <div class="report-card-header">
           <div>
             <h3>本轮结论 / 自动解读</h3>
-            <span>基于当前接口返回结果的展示层解读；当前包含测试数据，仅供调试参考。</span>
+            <span>基于当前筛选范围内的最新模型覆盖结果进行展示层解读。</span>
           </div>
         </div>
       </template>
@@ -683,106 +676,110 @@ watch(
       </el-table>
     </el-card>
 
-    <el-card class="report-table-card" shadow="never">
-      <template #header>
-        <div class="report-card-header">
-          <div>
-            <h3>提示词矩阵</h3>
-            <span>
-              每行一个 GEO 提示词，每列展示一个平台入口的最新命中状态。
-              {{ matrixDisplayNotice }}
-            </span>
-          </div>
-        </div>
-      </template>
-      <div class="geo-hit-summary-panel__matrix-guide">
-        <strong>优先扫描：</strong>
-        <span>未命中、竞品占位、未推荐、未提及。已推荐和已提及会弱化展示，避免矩阵过度拥挤。</span>
-      </div>
-      <div class="geo-hit-summary-panel__matrix-toolbar">
-        <el-radio-group v-model="matrixFilter" size="small">
-          <el-radio-button
-            v-for="option in matrixFilterOptions"
-            :key="option.value"
-            :label="option.value"
-          >
-            {{ option.label }}
-          </el-radio-button>
-        </el-radio-group>
-        <span>
-          当前筛选 {{ filteredPromptMatrix.length }} 条，分页每页 {{ matrixPageSize }} 条。
-        </span>
-      </div>
-      <el-table
-        v-loading="loading"
-        :data="paginatedPromptMatrix"
-        border
-        class="geo-hit-summary-panel__matrix-table"
-        empty-text="暂无提示词矩阵"
-      >
-        <el-table-column label="提示词" min-width="300" fixed>
-          <template #default="{ row }">
-            <div class="geo-hit-summary-panel__prompt-cell">
-              <strong>{{ row.promptText }}</strong>
-              <span :class="getOverallStatusClass(row.overallStatus)">
-                {{ getOverallStatusHint(row) }}
-              </span>
+    <el-collapse v-model="matrixSections" class="report-secondary-collapse">
+      <el-collapse-item name="matrix" title="查看完整提示词矩阵">
+        <el-card class="report-table-card" shadow="never">
+          <template #header>
+            <div class="report-card-header">
+              <div>
+                <h3>提示词矩阵</h3>
+                <span>
+                  每行一个 GEO 提示词，每列展示一个平台入口的最新命中状态。
+                  {{ matrixDisplayNotice }}
+                </span>
+              </div>
             </div>
           </template>
-        </el-table-column>
-        <el-table-column label="产品线" width="150" prop="productLine" />
-        <el-table-column label="优先级" width="90" prop="priority" />
-        <el-table-column label="整体状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="overallStatusTypeMap[row.overallStatus]">
-              {{ overallStatusLabelMap[row.overallStatus] ?? row.overallStatus }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-for="column in matrixColumns"
-          :key="column.key"
-          :label="column.label"
-          min-width="180"
-        >
-          <template #default="{ row }">
-            <template v-if="getMatrixResult(row, column)">
-              <div
-                :class="[
-                  'geo-hit-summary-panel__matrix-cell',
-                  getMatrixResultClass(getMatrixResult(row, column))
-                ]"
+          <div class="geo-hit-summary-panel__matrix-guide">
+            <strong>优先扫描：</strong>
+            <span>未命中、竞品占位、未推荐、未提及。已推荐和已提及会弱化展示，避免矩阵过度拥挤。</span>
+          </div>
+          <div class="geo-hit-summary-panel__matrix-toolbar">
+            <el-radio-group v-model="matrixFilter" size="small">
+              <el-radio-button
+                v-for="option in matrixFilterOptions"
+                :key="option.value"
+                :label="option.value"
               >
-                <el-tag :type="getHitLevelType(getMatrixResult(row, column)?.hitLevel)">
-                  {{ formatHitLevel(getMatrixResult(row, column)?.hitLevel) }}
-                </el-tag>
-                <div class="geo-hit-summary-panel__signal-list">
-                  <span
-                    v-for="signal in getResultSignals(getMatrixResult(row, column))"
-                    :key="signal"
-                  >
-                    {{ signal }}
+                {{ option.label }}
+              </el-radio-button>
+            </el-radio-group>
+            <span>
+              当前筛选 {{ filteredPromptMatrix.length }} 条，分页每页 {{ matrixPageSize }} 条。
+            </span>
+          </div>
+          <el-table
+            v-loading="loading"
+            :data="paginatedPromptMatrix"
+            border
+            class="geo-hit-summary-panel__matrix-table"
+            empty-text="暂无提示词矩阵"
+          >
+            <el-table-column label="提示词" min-width="300" fixed>
+              <template #default="{ row }">
+                <div class="geo-hit-summary-panel__prompt-cell">
+                  <strong>{{ row.promptText }}</strong>
+                  <span :class="getOverallStatusClass(row.overallStatus)">
+                    {{ getOverallStatusHint(row) }}
                   </span>
                 </div>
-                <p class="geo-hit-summary-panel__checked-at">
-                  {{ formatDateTime(getMatrixResult(row, column)?.checkedAt) }}
-                </p>
-              </div>
-            </template>
-            <el-tag v-else type="info">未检测</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-pagination
-        v-if="filteredPromptMatrix.length > matrixPageSize"
-        v-model:current-page="matrixPage"
-        class="geo-hit-summary-panel__pagination"
-        background
-        layout="prev, pager, next, total"
-        :page-size="matrixPageSize"
-        :total="filteredPromptMatrix.length"
-      />
-    </el-card>
+              </template>
+            </el-table-column>
+            <el-table-column label="产品线" width="150" prop="productLine" />
+            <el-table-column label="优先级" width="90" prop="priority" />
+            <el-table-column label="整体状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="overallStatusTypeMap[row.overallStatus]">
+                  {{ overallStatusLabelMap[row.overallStatus] ?? row.overallStatus }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              v-for="column in matrixColumns"
+              :key="column.key"
+              :label="column.label"
+              min-width="180"
+            >
+              <template #default="{ row }">
+                <template v-if="getMatrixResult(row, column)">
+                  <div
+                    :class="[
+                      'geo-hit-summary-panel__matrix-cell',
+                      getMatrixResultClass(getMatrixResult(row, column))
+                    ]"
+                  >
+                    <el-tag :type="getHitLevelType(getMatrixResult(row, column)?.hitLevel)">
+                      {{ formatHitLevel(getMatrixResult(row, column)?.hitLevel) }}
+                    </el-tag>
+                    <div class="geo-hit-summary-panel__signal-list">
+                      <span
+                        v-for="signal in getResultSignals(getMatrixResult(row, column))"
+                        :key="signal"
+                      >
+                        {{ signal }}
+                      </span>
+                    </div>
+                    <p class="geo-hit-summary-panel__checked-at">
+                      {{ formatDateTime(getMatrixResult(row, column)?.checkedAt) }}
+                    </p>
+                  </div>
+                </template>
+                <el-tag v-else type="info">未检测</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-pagination
+            v-if="filteredPromptMatrix.length > matrixPageSize"
+            v-model:current-page="matrixPage"
+            class="geo-hit-summary-panel__pagination"
+            background
+            layout="prev, pager, next, total"
+            :page-size="matrixPageSize"
+            :total="filteredPromptMatrix.length"
+          />
+        </el-card>
+      </el-collapse-item>
+    </el-collapse>
 
     <el-card class="report-table-card" shadow="never">
       <template #header>

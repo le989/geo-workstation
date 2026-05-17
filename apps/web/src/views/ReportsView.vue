@@ -79,6 +79,7 @@ const reportFilters = reactive<ReportQuery>({
 });
 const suggestionLimit = ref(50);
 const lastLoadedAt = ref("");
+const overviewAssetSections = ref<string[]>([]);
 
 const overview = ref<GeoOverviewReport | null>(null);
 const promptCoverage = ref<PromptCoverageReport | null>(null);
@@ -139,8 +140,15 @@ const reportScopeText = computed(() => {
   return `统计范围：当前公司 · ${companyName}`;
 });
 const exportScopeText = computed(() =>
-  isPersonalReportScope.value ? "导出当前范围：我的数据" : "导出当前公司范围"
+  isPersonalReportScope.value ? "按当前筛选导出：我的数据" : "按当前筛选导出：当前公司"
 );
+const reportPeriodText = computed(() => {
+  if (reportFilters.from || reportFilters.to) {
+    return `时间范围：${reportFilters.from ?? "不限"} 至 ${reportFilters.to ?? "不限"}`;
+  }
+
+  return "时间范围：当前筛选";
+});
 
 const reportGroups: ReportGroup[] = [
   {
@@ -446,6 +454,41 @@ const overviewMetrics = computed<ReportMetric[]>(() => [
   }
 ]);
 
+const coreOverviewMetrics = computed<ReportMetric[]>(() => [
+  {
+    label: "品牌推荐率",
+    value: formatReportPercent(overview.value?.brandRecommendRate),
+    description: "AI 回答中明确推荐品牌的比例",
+    percent: toReportPercent(overview.value?.brandRecommendRate),
+    tone: "good"
+  },
+  {
+    label: "官网引用率",
+    value: formatReportPercent(overview.value?.citedOfficialSiteRate),
+    description: "回答引用官网或可信资料的比例",
+    percent: toReportPercent(overview.value?.citedOfficialSiteRate)
+  },
+  {
+    label: "待优化问题",
+    value: formatReportNumber(
+      (overview.value?.uncoveredTrackedPromptCount ?? 0) +
+        (overview.value?.failedContentTaskCount ?? 0)
+    ),
+    description: "未覆盖追踪词 + 失败内容任务",
+    tone:
+      (overview.value?.uncoveredTrackedPromptCount ?? 0) +
+        (overview.value?.failedContentTaskCount ?? 0) >
+      0
+        ? "warning"
+        : "default"
+  },
+  {
+    label: "内容产出量",
+    value: formatReportNumber(overview.value?.contentItemCount),
+    description: "当前范围内已沉淀的 GEO 内容资产"
+  }
+]);
+
 const overviewConclusionItems = computed<OverviewConclusionItem[]>(() => [
   {
     label: "未覆盖追踪词",
@@ -540,26 +583,46 @@ onMounted(() => {
     <header class="reports-hero">
       <div class="reports-hero__copy">
         <span class="reports-hero__eyebrow">GEO 复盘中心</span>
-        <h1>数据报表</h1>
+        <h1>GEO 报表</h1>
         <p>
-          从提示词资产、内容产出、知识库覆盖和模型覆盖记录中复盘 GEO
-          建设进度，判断下一步应该补词、补资料、补内容还是补检测。
+          汇总品牌推荐、官网引用、模型覆盖、内容产出与待优化问题，用于 GEO 运营复盘。
         </p>
         <div class="reports-hero__signals" aria-label="GEO 报表重点">
-          <span>提示词覆盖</span>
-          <span>内容资产</span>
-          <span>知识库缺口</span>
-          <span>模型结果</span>
+          <span>诊断发现问题</span>
+          <span>提示词定义追踪对象</span>
+          <span>模型覆盖记录检测结果</span>
+          <span>内容与知识库补齐缺口</span>
         </div>
       </div>
       <div class="reports-hero__actions">
         <el-tag class="reports-scope-tag" effect="plain">{{ reportScopeText }}</el-tag>
+        <el-tag class="reports-scope-tag" effect="plain">{{ reportPeriodText }}</el-tag>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="loading[activeTab]" @click="refreshCurrentReport">
-          刷新当前报表
+        <el-button text :icon="Refresh" :loading="loading[activeTab]" @click="refreshCurrentReport">
+          刷新报表
         </el-button>
       </div>
     </header>
+
+    <section class="report-core-summary" aria-label="GEO 报表核心指标">
+      <ReportMetricCard
+        v-for="metric in coreOverviewMetrics"
+        :key="metric.label"
+        :description="metric.description"
+        :label="metric.label"
+        :loading="loading.geo_overview"
+        :percent="metric.percent"
+        :tone="metric.tone"
+        :value="metric.value"
+      />
+    </section>
+
+    <div class="report-period-note">
+      <strong>本期复盘口径</strong>
+      <span>
+        当前报表以本期统计和维度分布为主；趋势分析可在后续接入更多周期数据后展示。
+      </span>
+    </div>
 
     <ReportFilters
       :model-value="reportFilters"
@@ -664,18 +727,22 @@ onMounted(() => {
           </article>
         </div>
 
-        <div class="report-metric-grid">
-          <ReportMetricCard
-            v-for="metric in overviewMetrics"
-            :key="metric.label"
-            :description="metric.description"
-            :label="metric.label"
-            :loading="loading.geo_overview"
-            :percent="metric.percent"
-            :tone="metric.tone"
-            :value="metric.value"
-          />
-        </div>
+        <el-collapse v-model="overviewAssetSections" class="report-secondary-collapse">
+          <el-collapse-item name="assets" title="资产覆盖详情">
+            <div class="report-metric-grid report-metric-grid--secondary">
+              <ReportMetricCard
+                v-for="metric in overviewMetrics"
+                :key="metric.label"
+                :description="metric.description"
+                :label="metric.label"
+                :loading="loading.geo_overview"
+                :percent="metric.percent"
+                :tone="metric.tone"
+                :value="metric.value"
+              />
+            </div>
+          </el-collapse-item>
+        </el-collapse>
       </section>
 
       <PromptCoveragePanel
