@@ -9,6 +9,7 @@ import {
   deviceTypeLabelMap,
   entryPointLabelMap,
   formatCompetitors,
+  formatDisplayLabel,
   hitLevelLabelMap,
   hitLevelTypeMap,
   truncateSummary
@@ -50,6 +51,18 @@ const formatJsonBlock = (value?: unknown) => {
   return JSON.stringify(value, null, 2);
 };
 
+const formatPromptDisplay = (value: string) => formatDisplayLabel(value, value);
+
+const formatBrandSignals = (record: ModelInclusionRecord) => {
+  const signals = [
+    record.brandMentioned ? "提及品牌" : "未提及品牌",
+    record.brandRecommended ? "推荐品牌" : "未推荐",
+    record.citedOfficialSite ? "引用官网" : "未引官网"
+  ];
+
+  return signals.join(" / ");
+};
+
 const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
   ["not_mentioned", "competitor_only", "unclear"].includes(String(row.hitLevel))
     ? "model-record-row--risk"
@@ -71,12 +84,54 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
         <div class="model-record-detail">
           <section>
             <div class="model-record-detail__header">
-              <p class="section-kicker">结果摘要</p>
-              <h3>{{ row.geoPrompt.promptText }}</h3>
+              <p class="section-kicker">核心结论</p>
+              <h3>{{ formatPromptDisplay(row.geoPrompt.promptText) }}</h3>
             </div>
             <div class="model-record-detail__grid">
               <span>平台 / 模型</span>
               <strong>{{ formatOptional(row.platform) }} / {{ row.model }}</strong>
+              <span>命中等级</span>
+              <strong>{{ formatHitLevel(row.hitLevel) }}</strong>
+              <span>品牌信号</span>
+              <strong>{{ formatBrandSignals(row) }}</strong>
+              <span>竞品提及</span>
+              <strong>{{ formatCompetitors(row.competitors) }}</strong>
+              <span>推荐位置</span>
+              <strong>{{ row.rankingPosition ?? "--" }}</strong>
+              <span>记录方式</span>
+              <strong>
+                <RecordMethodTag :method="row.recordMethod" />
+              </strong>
+            </div>
+          </section>
+
+          <section>
+            <div class="model-record-detail__header">
+              <p class="section-kicker">证据与回答</p>
+              <h3>摘要、原文与引用来源</h3>
+            </div>
+            <p class="model-record-answer">{{ row.answerSummary || "暂无回答摘要" }}</p>
+            <el-collapse v-if="row.rawAnswer">
+              <el-collapse-item title="展开原始回答" :name="`${row.id}-rawAnswer`">
+                <pre>{{ row.rawAnswer }}</pre>
+              </el-collapse-item>
+            </el-collapse>
+            <el-collapse v-if="row.citations || row.searchResults">
+              <el-collapse-item title="引用来源" :name="`${row.id}-citations`">
+                <pre>{{ formatJsonBlock(row.citations) }}</pre>
+              </el-collapse-item>
+              <el-collapse-item title="联网搜索结果" :name="`${row.id}-searchResults`">
+                <pre>{{ formatJsonBlock(row.searchResults) }}</pre>
+              </el-collapse-item>
+            </el-collapse>
+          </section>
+
+          <section>
+            <div class="model-record-detail__header">
+              <p class="section-kicker">检测上下文</p>
+              <h3>入口、方式与错误线索</h3>
+            </div>
+            <div class="model-record-detail__grid">
               <span>入口 / 方式</span>
               <strong>
                 {{ formatEntryPoint(row.entryPoint) }} /
@@ -89,44 +144,10 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
               </strong>
               <span>联网搜索</span>
               <strong>{{ row.isWebSearchEnabled ? "已启用" : "未启用" }}</strong>
-              <span>推荐位置</span>
-              <strong>{{ row.rankingPosition ?? "--" }}</strong>
-              <span>记录方式</span>
-              <strong>
-                <RecordMethodTag :method="row.recordMethod" />
-              </strong>
               <span>重试 / 错误分类</span>
               <strong>{{ row.retryCount ?? 0 }} / {{ row.errorCategory ?? "--" }}</strong>
-              <span>竞品提及</span>
-              <strong>{{ formatCompetitors(row.competitors) }}</strong>
             </div>
-          </section>
-
-          <section>
-            <div class="model-record-detail__header">
-              <p class="section-kicker">回答内容</p>
-              <h3>摘要与原始回答</h3>
-            </div>
-            <p class="model-record-answer">{{ row.answerSummary || "暂无回答摘要" }}</p>
-            <el-collapse v-if="row.rawAnswer">
-              <el-collapse-item title="展开原始回答" :name="`${row.id}-rawAnswer`">
-                <pre>{{ row.rawAnswer }}</pre>
-              </el-collapse-item>
-            </el-collapse>
-          </section>
-
-          <section>
-            <div class="model-record-detail__header">
-              <p class="section-kicker">证据 / 引用</p>
-              <h3>来源、搜索结果与错误信息</h3>
-            </div>
-            <el-collapse>
-              <el-collapse-item title="引用来源 citations" :name="`${row.id}-citations`">
-                <pre>{{ formatJsonBlock(row.citations) }}</pre>
-              </el-collapse-item>
-              <el-collapse-item title="搜索结果 searchResults" :name="`${row.id}-searchResults`">
-                <pre>{{ formatJsonBlock(row.searchResults) }}</pre>
-              </el-collapse-item>
+            <el-collapse v-if="row.screenshotPath || row.errorMessage">
               <el-collapse-item
                 v-if="row.screenshotPath"
                 title="截图路径"
@@ -146,12 +167,14 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
 
           <section class="model-record-detail__tech">
             <el-collapse>
-              <el-collapse-item title="技术信息" :name="`${row.id}-tech`">
+              <el-collapse-item title="排查信息" :name="`${row.id}-tech`">
                 <div class="model-record-tech-grid">
                   <span>记录 ID</span>
                   <strong>{{ row.id }}</strong>
                   <span>GEO 提示词 ID</span>
                   <strong>{{ row.geoPromptId }}</strong>
+                  <span>原始提示词</span>
+                  <strong>{{ row.geoPrompt.promptText }}</strong>
                   <span>创建人</span>
                   <strong>{{ row.createdBy }}</strong>
                   <span>创建时间</span>
@@ -168,15 +191,17 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
 
     <el-table-column label="GEO 提示词" min-width="300" fixed>
       <template #default="{ row }">
-        <strong class="model-record-prompt">{{ row.geoPrompt.promptText }}</strong>
+        <strong class="model-record-prompt">
+          {{ formatPromptDisplay(row.geoPrompt.promptText) }}
+        </strong>
         <p class="table-subtext">
-          {{ formatOptional(row.geoPrompt.productLine) }} / {{ getUserIntentLabel(row) }} /
+          {{ formatDisplayLabel(row.geoPrompt.productLine) }} / {{ getUserIntentLabel(row) }} /
           <GeoPromptTypeTag :type="row.geoPrompt.type" />
         </p>
       </template>
     </el-table-column>
 
-    <el-table-column label="模型 / 平台" min-width="180">
+    <el-table-column label="监测模型" min-width="190">
       <template #default="{ row }">
         <strong>{{ formatOptional(row.platform) }}</strong>
         <p class="table-subtext">{{ row.model }}</p>
@@ -184,17 +209,12 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
       </template>
     </el-table-column>
 
-    <el-table-column label="命中状态" width="130">
+    <el-table-column label="覆盖结论" min-width="260">
       <template #default="{ row }">
         <el-tag :type="getHitLevelType(row.hitLevel)" effect="plain">
           {{ formatHitLevel(row.hitLevel) }}
         </el-tag>
-      </template>
-    </el-table-column>
-
-    <el-table-column label="品牌判断" min-width="220">
-      <template #default="{ row }">
-        <div class="model-record-tag-stack">
+        <div class="model-record-tag-stack model-record-tag-stack--inline">
           <ModelInclusionBooleanTag
             :value="row.brandMentioned"
             true-label="已提及"
@@ -211,17 +231,10 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
             false-label="未引官网"
           />
         </div>
-      </template>
-    </el-table-column>
-
-    <el-table-column label="竞品占位" width="150">
-      <template #default="{ row }">
-        <ModelInclusionBooleanTag
-          :value="row.competitorMentioned"
-          true-label="出现竞品"
-          false-label="未出现"
-        />
-        <p class="table-subtext">{{ formatCompetitors(row.competitors) }}</p>
+        <p class="table-subtext">
+          {{ row.competitorMentioned ? "出现竞品：" : "竞品：" }}
+          {{ formatCompetitors(row.competitors) }}
+        </p>
       </template>
     </el-table-column>
 
@@ -231,8 +244,13 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
       </template>
     </el-table-column>
 
-    <el-table-column label="检测时间" width="170">
-      <template #default="{ row }">{{ formatDateTime(row.checkedAt) }}</template>
+    <el-table-column label="检测信息" width="190">
+      <template #default="{ row }">
+        <strong>{{ formatDateTime(row.checkedAt) }}</strong>
+        <p class="table-subtext">
+          <RecordMethodTag :method="row.recordMethod" />
+        </p>
+      </template>
     </el-table-column>
   </el-table>
 </template>

@@ -17,6 +17,43 @@ export const booleanFilterOptions = [
   { label: "否", value: false }
 ];
 
+export const enabledMonitoringModelOptions = [
+  {
+    label: "豆包",
+    value: "doubao-seed-1-6-250615",
+    platform: "豆包 / 火山方舟",
+    helper: "火山方舟 Web Search 监测入口",
+    keywords: ["doubao", "豆包", "火山", "volcengine", "ark"]
+  },
+  {
+    label: "通义千问",
+    value: "qwen3-max",
+    platform: "通义千问 / 阿里云百炼",
+    helper: "阿里云百炼 Web Search 监测入口",
+    keywords: ["qwen", "通义", "千问", "百炼", "aliyun", "dashscope"]
+  },
+  {
+    label: "Kimi",
+    value: "kimi-k2.6",
+    platform: "Kimi / Moonshot",
+    helper: "Kimi Web Search 监测入口",
+    keywords: ["kimi", "moonshot"]
+  }
+] as const;
+
+type MonitoringModelRecord = {
+  model?: string;
+  platform?: string;
+};
+
+export const isEnabledMonitoringRecord = (record: MonitoringModelRecord) => {
+  const text = `${record.model ?? ""} ${record.platform ?? ""}`.toLowerCase();
+
+  return enabledMonitoringModelOptions.some((option) =>
+    option.keywords.some((keyword) => text.includes(keyword.toLowerCase()))
+  );
+};
+
 export const entryPointOptions: Array<{ label: string; value: GeoHitEntryPoint }> = [
   { label: "模型 API", value: "api_model" },
   { label: "联网搜索 API", value: "web_search_api" },
@@ -92,6 +129,23 @@ export const formatRate = (value?: number) => {
 
 export const formatDistribution = (distribution?: Record<string, number>) =>
   Object.entries(distribution ?? {}).sort((a, b) => b[1] - a[1]);
+
+export const formatDisplayLabel = (value?: string, fallback = "未填写") => {
+  if (!value) {
+    return fallback;
+  }
+
+  const cleaned = value
+    .replace(/\b(?:Phase|Auth|UX|User)[\s-]*[0-9A-Za-z-]+[:：]?\s*/gi, "")
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "")
+    .replace(/\b\d{10,}\b/g, "")
+    .replace(/\b(?:batch|mock|test)[-_][A-Za-z0-9-]{6,}\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[：:·\-/\s]+|[：:·\-/\s]+$/g, "")
+    .trim();
+
+  return cleaned || fallback;
+};
 
 export const formatCompetitors = (competitors?: string[]) =>
   competitors && competitors.length > 0 ? competitors.join("、") : "--";

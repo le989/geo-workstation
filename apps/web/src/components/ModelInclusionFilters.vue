@@ -6,6 +6,7 @@ import {
   booleanFilterOptions,
   detectionMethodOptions,
   deviceTypeOptions,
+  enabledMonitoringModelOptions,
   entryPointOptions,
   hitLevelOptions,
   recordMethodOptions
@@ -59,13 +60,24 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
         />
       </el-form-item>
       <el-form-item label="AI 模型">
-        <el-input
+        <el-select
           :model-value="modelValue.model"
           clearable
-          placeholder="例如 kimi / qwen"
-          @keyup.enter="emit('search')"
+          placeholder="全部启用模型"
           @update:model-value="updateField('model', $event)"
-        />
+        >
+          <el-option
+            v-for="option in enabledMonitoringModelOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          >
+            <div class="model-select-option">
+              <strong>{{ option.label }}</strong>
+              <span>{{ option.platform }}</span>
+            </div>
+          </el-option>
+        </el-select>
       </el-form-item>
       <el-form-item label="平台">
         <el-input
@@ -113,7 +125,7 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
         <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
         <el-button @click="emit('reset')">重置</el-button>
         <el-button v-if="canExport !== false" :loading="exporting" @click="emit('export')">
-          导出 CSV
+          导出当前范围
         </el-button>
         <el-button text @click="showAdvancedFilters = !showAdvancedFilters">
           {{ showAdvancedFilters ? "收起筛选" : "更多筛选" }}

@@ -79,8 +79,8 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     subtitle: "生成、审校、优化和发布稿"
   },
   "/model-inclusion-records": {
-    title: "AI 收录记录",
-    subtitle: "查看 AI 检测结果和命中状态"
+    title: "AI 模型覆盖记录",
+    subtitle: "查看当前启用模型的覆盖结果"
   },
   "/reports": {
     title: "数据报表",

@@ -37,10 +37,25 @@ const apiRequiredSnippets = [
 ];
 
 const pageRequiredSnippets = [
+  "AI 模型覆盖记录",
+  "当前启用监测模型",
+  "enabledMonitoringModelOptions",
+  "isEnabledMonitoringRecord",
+  "覆盖概览",
+  "有效记录数",
+  "品牌覆盖率",
+  "官网引用率",
+  "待优化问题",
+  "当前匹配记录",
+  "formatPromptDisplay",
+  "展开分布统计",
+  "展开未覆盖提示词",
+  "核心结论",
+  "证据与回答",
+  "排查信息",
+  "导出当前范围",
   "模型覆盖记录",
-  "GEO 效果复盘",
-  "人工录入 / 导入覆盖记录",
-  "Kimi Web Search API 联网检测",
+  "趋势复盘",
   "豆包 / 火山方舟联网搜索",
   "火山方舟 Web Search API 检测",
   "不等同于豆包 App 端真实用户结果",
@@ -52,7 +67,6 @@ const pageRequiredSnippets = [
   "限制为短回答",
   "不适合生成长篇内容",
   "可能不返回结构化引用来源",
-  "PC、移动网页或 App 自动化",
   "ModelInclusionSummaryCards",
   "ModelInclusionFilters",
   "ModelInclusionRecordFormDialog",
@@ -151,7 +165,8 @@ const pageSource = [
   await readSource("src/components/ModelInclusionSummaryCards.vue"),
   await readSource("src/components/ModelInclusionWebSearchDialog.vue"),
   await readSource("src/components/RecordMethodTag.vue"),
-  await readSource("src/components/UncoveredPromptsTable.vue")
+  await readSource("src/components/UncoveredPromptsTable.vue"),
+  await readSource("src/config/model-inclusion-options.ts")
 ].join("\n");
 
 for (const snippet of pageRequiredSnippets) {

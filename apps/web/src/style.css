@@ -4304,6 +4304,7 @@ a {
 }
 
 .model-inclusion-hero,
+.enabled-models-card,
 .model-filter-card,
 .model-summary-card,
 .model-risk-card,
@@ -4371,6 +4372,7 @@ a {
 }
 
 .model-summary-card,
+.enabled-models-card,
 .model-filter-card,
 .model-risk-card,
 .model-record-table-card,
@@ -4382,6 +4384,72 @@ a {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+}
+
+.model-risk-overview {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.8fr);
+  gap: 14px;
+}
+
+.model-risk-metric-grid,
+.enabled-model-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.model-risk-metric-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.enabled-model-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.enabled-model-item {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
+  background: #fbfaff;
+}
+
+.enabled-model-item strong {
+  color: #111019;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.enabled-model-item span,
+.enabled-model-item small {
+  color: #516579;
+  line-height: 1.5;
+}
+
+.model-active-filter-alert {
+  margin-bottom: 12px;
+  border-radius: 12px;
+}
+
+.model-select-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.model-select-option strong,
+.model-select-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-select-option span {
+  color: var(--geo-muted);
+  font-size: 12px;
 }
 
 .model-risk-metric {
@@ -4412,6 +4480,11 @@ a {
   color: #172326;
   font-size: 28px;
   line-height: 1;
+}
+
+.model-risk-metric--scope strong {
+  font-size: 20px;
+  line-height: 1.25;
 }
 
 .model-summary-grid {
@@ -4570,6 +4643,10 @@ a {
   gap: 6px;
 }
 
+.model-record-tag-stack--inline {
+  margin-top: 8px;
+}
+
 .model-record-detail {
   display: grid;
   gap: 14px;
@@ -4648,6 +4725,7 @@ a {
 }
 
 .model-inclusion-hero,
+.enabled-models-card,
 .model-filter-card,
 .model-summary-card,
 .model-risk-card,
@@ -4739,6 +4817,44 @@ a {
   text-decoration: none;
 }
 
+.model-inclusion-hero__models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.model-inclusion-hero__models span,
+.model-inclusion-hero__models strong {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid #e5e0ef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #3f355f;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.model-inclusion-hero__models span {
+  background: #fbfaff;
+  color: #667586;
+  font-weight: 800;
+}
+
+.model-inclusion-hero__scope {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 10px !important;
+  padding: 8px 10px;
+  border-left: 3px solid var(--geo-lime);
+  background: rgb(186 255 41 / 14%);
+  color: #3f355f !important;
+  font-size: 13px !important;
+  font-weight: 850;
+}
+
 .model-inclusion-hero__actions .el-button--success {
   --el-button-bg-color: #f8ffe7;
   --el-button-border-color: #dff59c;
@@ -4790,6 +4906,7 @@ a {
 
 .model-risk-card,
 .model-summary-card,
+.enabled-models-card,
 .model-record-table-card,
 .uncovered-card,
 .model-filter-card {
@@ -4798,6 +4915,7 @@ a {
 
 .model-risk-card :where(.el-card__header),
 .model-summary-card :where(.el-card__header),
+.enabled-models-card :where(.el-card__header),
 .model-record-table-card :where(.el-card__header),
 .uncovered-card :where(.el-card__header) {
   border-bottom-color: #eee9f5;
@@ -4864,6 +4982,11 @@ a {
   font-weight: 950;
 }
 
+.model-risk-metric--scope strong {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
 .model-summary-metric {
   position: relative;
   overflow: hidden;
@@ -4896,6 +5019,24 @@ a {
 
 .model-summary-metric small {
   color: var(--geo-primary);
+}
+
+.model-summary-metric .el-progress {
+  width: 100%;
+}
+
+.model-distribution-collapse,
+.uncovered-collapse {
+  margin-top: 14px;
+  border-top: 1px solid #eee9f5;
+  border-bottom: 0;
+}
+
+.model-distribution-collapse :where(.el-collapse-item__header),
+.uncovered-collapse :where(.el-collapse-item__header) {
+  background: transparent;
+  color: var(--geo-primary);
+  font-weight: 850;
 }
 
 .model-summary-metric .el-progress-bar__inner {
@@ -6659,6 +6800,9 @@ a {
   .content-detail-grid,
   .knowledge-operation-grid,
   .model-risk-grid,
+  .model-risk-overview,
+  .model-risk-metric-grid,
+  .enabled-model-grid,
   .model-summary-grid,
   .model-distribution-grid,
   .model-record-detail__grid,
@@ -6741,6 +6885,7 @@ a {
   .content-table-card,
   .content-items-section,
   .model-inclusion-hero,
+  .enabled-models-card,
   .model-filter-card,
   .model-summary-card,
   .model-risk-card,

@@ -119,7 +119,7 @@ export const navigationItems: GeoPageMeta[] = [
   {
     path: "/model-inclusion-records",
     label: "AI 收录记录",
-    title: "AI 收录记录",
+    title: "AI 模型覆盖记录",
     question: "哪些提示词已经被 AI 提及或推荐？",
     description: "记录不同模型下品牌是否被提及、推荐、引用官网以及排名位置。",
     phaseNote: "已支持人工录入、批量导入、未覆盖提示词查询、基础统计和 CSV 导出。",

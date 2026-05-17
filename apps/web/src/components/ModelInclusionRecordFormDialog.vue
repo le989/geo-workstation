@@ -13,6 +13,7 @@ import { formatOptional, splitCommaValues, userIntentLabelMap } from "@/config/g
 import {
   detectionMethodOptions,
   deviceTypeOptions,
+  enabledMonitoringModelOptions,
   entryPointOptions,
   hitLevelOptions
 } from "@/config/model-inclusion-options";
@@ -185,6 +186,14 @@ const getPromptLabel = (prompt: GeoPrompt) =>
     userIntentLabelMap[prompt.userIntent] ?? prompt.userIntent
   }`;
 
+const applyMonitoringModel = (model?: string) => {
+  form.model = model ?? "";
+  const option = enabledMonitoringModelOptions.find((item) => item.value === model);
+  if (option && !form.platform.trim()) {
+    form.platform = option.platform;
+  }
+};
+
 const handleSubmit = () => {
   formError.value = "";
 
@@ -303,10 +312,27 @@ const handleSubmit = () => {
         </div>
       </el-form-item>
       <el-form-item label="AI 模型" required>
-        <el-input v-model="form.model" placeholder="例如 deepseek / kimi / doubao" />
+        <el-select
+          :model-value="form.model"
+          clearable
+          placeholder="选择当前启用监测模型"
+          @update:model-value="applyMonitoringModel"
+        >
+          <el-option
+            v-for="option in enabledMonitoringModelOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          >
+            <div class="model-select-option">
+              <strong>{{ option.label }}</strong>
+              <span>{{ option.platform }}</span>
+            </div>
+          </el-option>
+        </el-select>
       </el-form-item>
       <el-form-item label="平台">
-        <el-input v-model="form.platform" placeholder="例如 DeepSeek / Kimi / 豆包 / 通义" />
+        <el-input v-model="form.platform" placeholder="例如 Kimi / 豆包 / 通义千问" />
       </el-form-item>
       <el-form-item label="入口">
         <el-select v-model="form.entryPoint" clearable placeholder="选择检测入口">

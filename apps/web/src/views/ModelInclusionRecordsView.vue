@@ -6,7 +6,6 @@ import {
   createModelInclusionRecord,
   exportModelInclusionRecords,
   getModelInclusionRecords,
-  getModelInclusionSummary,
   getUncoveredPrompts,
   importModelInclusionRecords,
   runWebSearchCheck,
@@ -30,7 +29,11 @@ import ModelInclusionSummaryCards from "@/components/ModelInclusionSummaryCards.
 import ModelInclusionWebSearchDialog from "@/components/ModelInclusionWebSearchDialog.vue";
 import UncoveredPromptsTable from "@/components/UncoveredPromptsTable.vue";
 import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
-import { booleanFilterOptions, hitLevelTypeMap } from "@/config/model-inclusion-options";
+import {
+  booleanFilterOptions,
+  enabledMonitoringModelOptions,
+  isEnabledMonitoringRecord
+} from "@/config/model-inclusion-options";
 import { useAuthStore } from "@/stores/auth";
 import { canUseAction, normalizeRole } from "@/utils/permission";
 
@@ -43,10 +46,6 @@ const pageSize = ref(20);
 const recordsLoading = ref(false);
 const recordsError = ref("");
 const lastLoadedAt = ref("");
-
-const summary = ref<ModelInclusionSummary | null>(null);
-const summaryLoading = ref(false);
-const summaryError = ref("");
 
 const filters = reactive<ModelInclusionRecordQuery>({
   page: 1,
@@ -82,8 +81,12 @@ const uncoveredFilters = reactive<UncoveredPromptsQuery>({
   trackEnabled: true
 });
 
+const enabledRecords = computed(() => records.value.filter(isEnabledMonitoringRecord));
+const inactiveModelRecordCount = computed(() =>
+  Math.max(records.value.length - enabledRecords.value.length, 0)
+);
 const hasRecordsError = computed(() => Boolean(recordsError.value));
-const isRecordsEmpty = computed(() => !recordsLoading.value && records.value.length === 0);
+const isRecordsEmpty = computed(() => !recordsLoading.value && enabledRecords.value.length === 0);
 const normalizedRole = computed(() => {
   const role = String(authStore.currentRole ?? authStore.currentUser?.role ?? "");
   return normalizeRole(role);
@@ -106,72 +109,67 @@ const inclusionScopeLabel = computed(() => {
 
   return `统计范围：当前公司 · ${companyName}`;
 });
-const riskMetrics = computed(() => {
-  const currentRecords = records.value;
-  const countByHitLevel = (level: string) =>
-    currentRecords.filter((record) => record.hitLevel === level).length;
+const activePageSummary = computed<ModelInclusionSummary>(() => {
+  const createDistribution = () => ({} as Record<string, number>);
+  const summaryResult: ModelInclusionSummary = {
+    totalRecords: 0,
+    mentionedCount: 0,
+    notMentionedCount: 0,
+    recommendedCount: 0,
+    notRecommendedCount: 0,
+    citedOfficialSiteCount: 0,
+    citedContentAssetCount: 0,
+    competitorMentionedCount: 0,
+    webSearchEnabledCount: 0,
+    loggedInCount: 0,
+    brandMentionRate: 0,
+    brandRecommendRate: 0,
+    citedOfficialSiteRate: 0,
+    citedContentAssetRate: 0,
+    competitorMentionRate: 0,
+    modelDistribution: createDistribution(),
+    platformDistribution: createDistribution(),
+    entryPointDistribution: createDistribution(),
+    hitLevelDistribution: createDistribution(),
+    productLineDistribution: createDistribution()
+  };
 
-  return [
-    {
-      key: "not_mentioned",
-      label: "未命中",
-      count: countByHitLevel("not_mentioned"),
-      helper: "优先补内容和知识库",
-      type: hitLevelTypeMap.not_mentioned
-    },
-    {
-      key: "competitor_only",
-      label: "竞品占位",
-      count: currentRecords.filter(
-        (record) =>
-          record.hitLevel === "competitor_only" ||
-          (record.competitorMentioned && !record.brandMentioned)
-      ).length,
-      helper: "关注竞品命中与占位",
-      type: hitLevelTypeMap.competitor_only
-    },
-    {
-      key: "unclear",
-      label: "无法判断",
-      count: countByHitLevel("unclear"),
-      helper: "建议复测或人工复核",
-      type: hitLevelTypeMap.unclear
-    },
-    {
-      key: "recommended",
-      label: "推荐命中",
-      count: currentRecords.filter((record) => record.brandRecommended).length,
-      helper: "已形成推荐信号",
-      type: hitLevelTypeMap.recommended
-    },
-    {
-      key: "mentioned",
-      label: "提及命中",
-      count: currentRecords.filter((record) => record.brandMentioned).length,
-      helper: "已有品牌提及",
-      type: hitLevelTypeMap.mentioned
-    }
-  ];
-});
+  const increase = (distribution: Record<string, number>, key?: string | null) => {
+    const normalizedKey = key?.trim() || "未填写";
+    distribution[normalizedKey] = (distribution[normalizedKey] ?? 0) + 1;
+  };
 
-const riskSummaryText = computed(() => {
-  if (records.value.length === 0) {
-    return "当前列表暂无记录，可先发起联网检测或导入历史检测结果。";
+  for (const record of enabledRecords.value) {
+    summaryResult.totalRecords += 1;
+    summaryResult.mentionedCount += record.brandMentioned ? 1 : 0;
+    summaryResult.notMentionedCount += record.brandMentioned ? 0 : 1;
+    summaryResult.recommendedCount += record.brandRecommended ? 1 : 0;
+    summaryResult.notRecommendedCount += record.brandRecommended ? 0 : 1;
+    summaryResult.citedOfficialSiteCount += record.citedOfficialSite ? 1 : 0;
+    summaryResult.citedContentAssetCount += record.citedContentAsset ? 1 : 0;
+    summaryResult.competitorMentionedCount += record.competitorMentioned ? 1 : 0;
+    summaryResult.webSearchEnabledCount += record.isWebSearchEnabled ? 1 : 0;
+    summaryResult.loggedInCount += record.isLoggedIn ? 1 : 0;
+    increase(summaryResult.modelDistribution, record.model);
+    increase(summaryResult.platformDistribution, record.platform);
+    increase(summaryResult.entryPointDistribution, String(record.entryPoint ?? ""));
+    increase(summaryResult.hitLevelDistribution, String(record.hitLevel ?? ""));
+    increase(summaryResult.productLineDistribution, record.geoPrompt.productLine);
   }
 
-  const highRiskCount = riskMetrics.value
-    .filter((metric) => ["not_mentioned", "competitor_only", "unclear"].includes(metric.key))
-    .reduce((sum, metric) => sum + metric.count, 0);
-
-  if (highRiskCount > 0) {
-    return `当前页有 ${highRiskCount} 条记录需要优先复核，先看未命中、竞品占位和无法判断项。`;
+  if (summaryResult.totalRecords > 0) {
+    summaryResult.brandMentionRate = summaryResult.mentionedCount / summaryResult.totalRecords;
+    summaryResult.brandRecommendRate = summaryResult.recommendedCount / summaryResult.totalRecords;
+    summaryResult.citedOfficialSiteRate =
+      summaryResult.citedOfficialSiteCount / summaryResult.totalRecords;
+    summaryResult.citedContentAssetRate =
+      summaryResult.citedContentAssetCount / summaryResult.totalRecords;
+    summaryResult.competitorMentionRate =
+      summaryResult.competitorMentionedCount / summaryResult.totalRecords;
   }
 
-  return "当前页暂无明显高风险记录，可继续查看已推荐和已提及结果的证据质量。";
+  return summaryResult;
 });
-
-const getMetricTagType = (type?: string) =>
-  (type ?? "info") as "primary" | "success" | "warning" | "danger" | "info";
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -212,13 +210,6 @@ const buildRecordQuery = (): ModelInclusionRecordQuery => ({
   userIntent: filters.userIntent
 });
 
-const buildSummaryQuery = () => ({
-  checkedFrom: trimOptional(filters.checkedFrom),
-  checkedTo: trimOptional(filters.checkedTo),
-  model: trimOptional(filters.model),
-  productLine: trimOptional(filters.productLine)
-});
-
 const buildUncoveredQuery = (): UncoveredPromptsQuery => ({
   checkedFrom: trimOptional(uncoveredFilters.checkedFrom),
   checkedTo: trimOptional(uncoveredFilters.checkedTo),
@@ -251,20 +242,6 @@ const loadRecords = async () => {
   }
 };
 
-const loadSummary = async () => {
-  summaryLoading.value = true;
-  summaryError.value = "";
-
-  try {
-    summary.value = await getModelInclusionSummary(buildSummaryQuery());
-  } catch (error) {
-    summaryError.value = getErrorMessage(error);
-    summary.value = null;
-  } finally {
-    summaryLoading.value = false;
-  }
-};
-
 const loadUncoveredPrompts = async () => {
   uncoveredLoading.value = true;
   uncoveredError.value = "";
@@ -285,12 +262,12 @@ const loadUncoveredPrompts = async () => {
 };
 
 const refreshAll = async () => {
-  await Promise.all([loadRecords(), loadSummary(), loadUncoveredPrompts()]);
+  await Promise.all([loadRecords(), loadUncoveredPrompts()]);
 };
 
 const handleSearch = () => {
   page.value = 1;
-  void Promise.all([loadRecords(), loadSummary()]);
+  void loadRecords();
 };
 
 const handleReset = () => {
@@ -320,7 +297,7 @@ const handleReset = () => {
     userIntent: undefined
   });
   page.value = 1;
-  void Promise.all([loadRecords(), loadSummary()]);
+  void loadRecords();
 };
 
 const handlePageChange = (nextPage: number) => {
@@ -495,87 +472,41 @@ onMounted(() => {
     <header class="model-inclusion-hero">
       <div class="model-inclusion-hero__copy">
         <el-tag class="model-inclusion-hero__tag" type="warning" effect="plain">
-          原始检测台账
+          GEO 监测台账
         </el-tag>
-        <h1>AI 收录记录</h1>
-        <p>查看 Kimi、豆包、通义等模型检测的原始记录，优先定位未命中、竞品占位和无法判断结果。</p>
+        <h1>AI 模型覆盖记录</h1>
+        <p>
+          聚合豆包、通义千问、Kimi 的 GEO 监测结果，用于核对品牌提及、推荐、官网引用和竞品占位。
+        </p>
+        <div class="model-inclusion-hero__models" aria-label="当前启用监测模型">
+          <span>当前启用模型</span>
+          <strong
+            v-for="option in enabledMonitoringModelOptions"
+            :key="option.value"
+          >
+            {{ option.label }}
+          </strong>
+        </div>
+        <p class="model-inclusion-hero__scope">{{ inclusionScopeLabel }}</p>
         <div class="model-inclusion-hero__note">
           <strong>
-            这里记录人工录入 / 导入覆盖记录与 Kimi Web Search API 联网检测原始结果；GEO 效果复盘请到「GEO
-            报表」查看。
+            当前页面用于维护模型覆盖明细；趋势复盘、平台对比和优化建议请到「GEO 报表」查看。
           </strong>
           <RouterLink to="/reports">进入数据报表</RouterLink>
         </div>
       </div>
       <div class="model-inclusion-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="recordsLoading || summaryLoading" @click="refreshAll">
+        <el-button :icon="Refresh" :loading="recordsLoading || uncoveredLoading" @click="refreshAll">
           刷新
-        </el-button>
-        <el-button
-          v-if="canRunWebSearch"
-          type="success"
-          :icon="Connection"
-          @click="openWebSearchDialog"
-        >
-          联网检测
         </el-button>
         <el-button v-if="canCreateRecord" type="primary" :icon="Plus" @click="openCreateDialog">
           手动新增记录
         </el-button>
-        <el-button v-if="canImportRecords" :icon="Upload" @click="openImportDialog">
-          批量导入
-        </el-button>
       </div>
     </header>
 
-    <el-alert
-      title="这里是原始检测台账，不是最终汇总报表；支持模型 API、联网搜索 API、PC、移动网页或 App 抽查等入口字段，本页不执行 PC、移动网页或 App 自动化。汇总复盘、平台对比和趋势判断请到「GEO 报表」查看。"
-      type="warning"
-      :closable="false"
-      show-icon
-      class="model-boundary-alert"
-    />
-
-    <AppErrorState v-if="summaryError" title="汇总指标加载失败" :message="summaryError" />
-
-    <el-card class="model-risk-card" shadow="never">
-      <template #header>
-        <div class="table-card-header">
-          <div>
-            <p class="section-kicker">风险优先视图</p>
-            <h2>先看需要处理的检测结果</h2>
-            <span>{{ riskSummaryText }}</span>
-          </div>
-          <strong>当前页 {{ records.length }} / 共 {{ total }} 条</strong>
-        </div>
-      </template>
-      <div class="model-risk-grid">
-        <div class="model-risk-metric model-risk-metric--scope">
-          <div>
-            <el-tag type="info" effect="plain">统计范围</el-tag>
-            <span>列表、汇总、未覆盖提示词和导出均按当前权限范围计算。</span>
-          </div>
-          <strong>{{ inclusionScopeLabel }}</strong>
-        </div>
-        <div
-          v-for="metric in riskMetrics"
-          :key="metric.key"
-          class="model-risk-metric"
-          :class="`model-risk-metric--${metric.key}`"
-        >
-          <div>
-            <el-tag :type="getMetricTagType(metric.type)" effect="plain">
-              {{ metric.label }}
-            </el-tag>
-            <span>{{ metric.helper }}</span>
-          </div>
-          <strong>{{ metric.count }}</strong>
-        </div>
-      </div>
-    </el-card>
-
-    <ModelInclusionSummaryCards :summary="summary" :loading="summaryLoading" />
+    <ModelInclusionSummaryCards :summary="activePageSummary" :loading="recordsLoading" />
 
     <ModelInclusionFilters
       :model-value="filters"
@@ -595,28 +526,48 @@ onMounted(() => {
         <div class="table-card-header">
           <div>
             <p class="section-kicker">AI 收录记录</p>
-            <h2>覆盖记录列表</h2>
-            <span>查询品牌是否被提及、是否被推荐、推荐位置、官网引用和竞品出现情况。</span>
+            <h2>当前匹配记录</h2>
+            <span>默认列聚焦提示词、监测模型、覆盖结论、回答摘要和检测时间。</span>
           </div>
           <div class="model-table-actions">
-            <strong>{{ total }} 条记录</strong>
+            <strong>{{ enabledRecords.length }} 条启用模型记录</strong>
+            <el-button
+              v-if="canRunWebSearch"
+              :icon="Connection"
+              @click="openWebSearchDialog"
+            >
+              联网检测
+            </el-button>
+            <el-button v-if="canImportRecords" :icon="Upload" @click="openImportDialog">
+              批量导入
+            </el-button>
             <el-button
               v-if="canExportRecords"
               :icon="Download"
               :loading="exporting"
+              title="导出 CSV"
               @click="handleExport"
             >
-              导出 CSV
+              导出当前范围 CSV
             </el-button>
           </div>
         </div>
       </template>
 
-      <ModelInclusionRecordTable :records="records" :loading="recordsLoading" />
+      <el-alert
+        v-if="inactiveModelRecordCount > 0"
+        :title="`已隐藏当前页 ${inactiveModelRecordCount} 条非当前监测范围记录。`"
+        type="info"
+        :closable="false"
+        show-icon
+        class="model-active-filter-alert"
+      />
+
+      <ModelInclusionRecordTable :records="enabledRecords" :loading="recordsLoading" />
 
       <el-empty
         v-if="isRecordsEmpty && !hasRecordsError"
-        description="暂无覆盖记录，可先手动新增或批量导入。"
+        description="当前启用监测模型暂无覆盖记录，可先手动新增、导入或发起联网检测。"
       />
 
       <div class="table-pagination">
@@ -637,83 +588,93 @@ onMounted(() => {
         <div class="table-card-header">
           <div>
             <p class="section-kicker">未覆盖提示词</p>
-            <h2>未覆盖提示词</h2>
+            <h2>未覆盖提示词辅助排查</h2>
             <span>{{ uncoveredPromptHint }}</span>
           </div>
           <strong>{{ uncoveredTotal }} 个待检测提示词</strong>
         </div>
       </template>
 
-      <el-form class="uncovered-filters" label-position="top">
-        <el-form-item label="AI 模型">
-          <el-input
-            v-model="uncoveredFilters.model"
-            clearable
-            placeholder="例如 deepseek"
-            @keyup.enter="handleUncoveredSearch"
+      <el-collapse class="uncovered-collapse">
+        <el-collapse-item title="展开未覆盖提示词" name="uncovered-prompts">
+          <el-form class="uncovered-filters" label-position="top">
+            <el-form-item label="AI 模型">
+              <el-select v-model="uncoveredFilters.model" clearable placeholder="全部启用模型">
+                <el-option
+                  v-for="option in enabledMonitoringModelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="产品线">
+              <el-input
+                v-model="uncoveredFilters.productLine"
+                clearable
+                placeholder="产品线"
+                @keyup.enter="handleUncoveredSearch"
+              />
+            </el-form-item>
+            <el-form-item label="提示词类型">
+              <el-select v-model="uncoveredFilters.promptType" clearable placeholder="全部类型">
+                <el-option
+                  v-for="option in geoPromptTypeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="用户意图">
+              <el-select v-model="uncoveredFilters.userIntent" clearable placeholder="全部意图">
+                <el-option
+                  v-for="option in userIntentOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="是否追踪">
+              <el-select v-model="uncoveredFilters.trackEnabled" clearable placeholder="全部">
+                <el-option
+                  v-for="option in booleanFilterOptions"
+                  :key="String(option.value)"
+                  :label="option.value ? '只看追踪词' : '只看不追踪词'"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <div class="filter-actions">
+              <el-button type="primary" :loading="uncoveredLoading" @click="handleUncoveredSearch">
+                查询未覆盖
+              </el-button>
+              <el-button @click="handleUncoveredReset">重置</el-button>
+            </div>
+          </el-form>
+
+          <AppErrorState
+            v-if="uncoveredError"
+            title="未覆盖提示词加载失败"
+            :message="uncoveredError"
           />
-        </el-form-item>
-        <el-form-item label="产品线">
-          <el-input
-            v-model="uncoveredFilters.productLine"
-            clearable
-            placeholder="产品线"
-            @keyup.enter="handleUncoveredSearch"
-          />
-        </el-form-item>
-        <el-form-item label="提示词类型">
-          <el-select v-model="uncoveredFilters.promptType" clearable placeholder="全部类型">
-            <el-option
-              v-for="option in geoPromptTypeOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="用户意图">
-          <el-select v-model="uncoveredFilters.userIntent" clearable placeholder="全部意图">
-            <el-option
-              v-for="option in userIntentOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="是否追踪">
-          <el-select v-model="uncoveredFilters.trackEnabled" clearable placeholder="全部">
-            <el-option
-              v-for="option in booleanFilterOptions"
-              :key="String(option.value)"
-              :label="option.value ? '只看追踪词' : '只看不追踪词'"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
-        <div class="filter-actions">
-          <el-button type="primary" :loading="uncoveredLoading" @click="handleUncoveredSearch">
-            查询未覆盖
-          </el-button>
-          <el-button @click="handleUncoveredReset">重置</el-button>
-        </div>
-      </el-form>
 
-      <AppErrorState v-if="uncoveredError" title="未覆盖提示词加载失败" :message="uncoveredError" />
+          <UncoveredPromptsTable :prompts="uncoveredPrompts" :loading="uncoveredLoading" />
 
-      <UncoveredPromptsTable :prompts="uncoveredPrompts" :loading="uncoveredLoading" />
-
-      <div class="table-pagination">
-        <el-pagination
-          v-model:current-page="uncoveredPage"
-          v-model:page-size="uncoveredPageSize"
-          :total="uncoveredTotal"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next"
-          @current-change="handleUncoveredPageChange"
-          @size-change="handleUncoveredPageSizeChange"
-        />
-      </div>
+          <div class="table-pagination">
+            <el-pagination
+              v-model:current-page="uncoveredPage"
+              v-model:page-size="uncoveredPageSize"
+              :total="uncoveredTotal"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next"
+              @current-change="handleUncoveredPageChange"
+              @size-change="handleUncoveredPageSizeChange"
+            />
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </el-card>
 
     <ModelInclusionRecordFormDialog
