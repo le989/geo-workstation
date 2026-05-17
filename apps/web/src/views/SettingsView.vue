@@ -96,12 +96,12 @@ const providerStatusItems = [
 
 const dataMaintenanceItems = [
   {
-    title: "测试数据",
-    text: "当前项目仍处于测试阶段，测试提示词和检测记录暂时保留。"
+    title: "本地验收数据",
+    text: "本地验收产生的提示词和检测记录暂时保留，正式使用前可统一复核。"
   },
   {
-    title: "Clean-Final",
-    text: "正式使用前再统一清理测试数据，本页不提供清理按钮。"
+    title: "数据维护说明",
+    text: "正式使用前可统一复核测试数据，本页不提供清理按钮。"
   },
   {
     title: "备份 / 导出",
@@ -110,9 +110,9 @@ const dataMaintenanceItems = [
 ];
 
 const systemInfoItems = [
-  { label: "运行环境", value: "本地 / 模拟" },
+  { label: "运行环境", value: "本地 / 内部" },
   { label: "API 地址", value: getApiBaseUrl() || "同域 /api" },
-  { label: "当前阶段", value: "UI-4I 设置 / 帮助收尾适配" },
+  { label: "当前版本", value: "内部 MVP" },
   { label: "最近 UI 收口", value: "首页、登录、工作台、报表、内容、资产和策略页" }
 ];
 
@@ -474,7 +474,7 @@ onMounted(() => {
       <div class="settings-section__header">
         <div>
           <p class="section-kicker">数据维护 / 风险操作</p>
-          <h2>测试数据与后续清理</h2>
+          <h2>本地验收数据与后续清理</h2>
           <span>维护类说明放在底部，当前不提供删除、备份或清理按钮。</span>
         </div>
       </div>

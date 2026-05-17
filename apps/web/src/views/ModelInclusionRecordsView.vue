@@ -313,7 +313,7 @@ const handlePageSizeChange = (nextPageSize: number) => {
 
 const openCreateDialog = () => {
   if (!canCreateRecord.value) {
-    ElMessage.warning("当前角色无权新增 AI 收录记录。");
+    ElMessage.warning("当前角色无权新增 AI 模型覆盖记录。");
     return;
   }
 
@@ -339,7 +339,7 @@ const handleCreateRecord = async (payload: CreateModelInclusionRecordPayload) =>
 
 const openImportDialog = () => {
   if (!canImportRecords.value) {
-    ElMessage.warning("当前角色无权批量导入 AI 收录记录。");
+    ElMessage.warning("当前角色无权批量导入 AI 模型覆盖记录。");
     return;
   }
 
@@ -413,7 +413,7 @@ const downloadCsv = (csv: string) => {
 
 const handleExport = async () => {
   if (!canExportRecords.value) {
-    ElMessage.warning("当前角色无权导出 AI 收录记录。");
+    ElMessage.warning("当前角色无权导出 AI 模型覆盖记录。");
     return;
   }
 
@@ -519,13 +519,13 @@ onMounted(() => {
       @export="handleExport"
     />
 
-    <AppErrorState v-if="hasRecordsError" title="AI 收录记录加载失败" :message="recordsError" />
+    <AppErrorState v-if="hasRecordsError" title="AI 模型覆盖记录加载失败" :message="recordsError" />
 
     <el-card class="model-record-table-card" shadow="never">
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">AI 收录记录</p>
+            <p class="section-kicker">AI 模型覆盖记录</p>
             <h2>当前匹配记录</h2>
             <span>默认列聚焦提示词、监测模型、覆盖结论、回答摘要和检测时间。</span>
           </div>

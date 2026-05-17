@@ -1,11 +1,11 @@
 export const aiProviderOptions = [
-  { label: "模拟生成", value: "mock" },
-  { label: "真实 AI 接口", value: "openai_compatible" }
+  { label: "基础生成模式", value: "mock" },
+  { label: "外部 AI 配置", value: "openai_compatible" }
 ] as const;
 
 export const aiProviderLabelMap: Record<string, string> = {
-  mock: "模拟生成",
-  openai_compatible: "真实 AI 接口"
+  mock: "基础生成模式",
+  openai_compatible: "外部 AI 配置"
 };
 
 export const aiCallStatusLabelMap: Record<string, string> = {

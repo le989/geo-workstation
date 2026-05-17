@@ -94,8 +94,8 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/instruction-templates",
-    label: "指令模板",
-    title: "指令模板",
+    label: "指令库",
+    title: "指令库",
     question: "内容生产应该遵循什么 GEO 方法？",
     description: "沉淀需求决策、问答素材、场景方案、FAQ 等 GEO 内容生产指令。",
     phaseNote: "已支持指令模板查询、创建、编辑、详情查看、复制和软删除。",
@@ -118,7 +118,7 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/model-inclusion-records",
-    label: "AI 收录记录",
+    label: "AI 模型覆盖记录",
     title: "AI 模型覆盖记录",
     question: "哪些提示词已经被 AI 提及或推荐？",
     description: "记录不同模型下品牌是否被提及、推荐、引用官网以及排名位置。",

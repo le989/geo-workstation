@@ -80,7 +80,7 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     subtitle: "管理产品资料、FAQ 和知识片段"
   },
   "/instruction-templates": {
-    title: "指令模板",
+    title: "指令库",
     subtitle: "管理内容生成模板和规则"
   },
   "/geo-content": {

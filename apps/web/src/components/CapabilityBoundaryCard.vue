@@ -10,7 +10,7 @@ const realCapabilities = [
   "登录与路由保护"
 ];
 
-const mockCapabilities = ["GEO 诊断", "AI 拓词默认模拟生成", "内容生成默认模拟生成"];
+const internalReferenceCapabilities = ["GEO 诊断辅助分析", "AI 拓词候选生成", "内容草稿生成"];
 
 const pendingCapabilities = [
   "真实外部 AI 自动检测",
@@ -28,10 +28,10 @@ const pendingCapabilities = [
         <li v-for="item in realCapabilities" :key="item">{{ item }}</li>
       </ul>
     </article>
-    <article class="capability-column capability-column--mock">
-      <el-tag type="warning" effect="plain">模拟能力</el-tag>
+    <article class="capability-column capability-column--reference">
+      <el-tag type="warning" effect="plain">内部参考能力</el-tag>
       <ul>
-        <li v-for="item in mockCapabilities" :key="item">{{ item }}</li>
+        <li v-for="item in internalReferenceCapabilities" :key="item">{{ item }}</li>
       </ul>
     </article>
     <article class="capability-column capability-column--pending">

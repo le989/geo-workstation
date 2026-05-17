@@ -42,7 +42,7 @@ const capabilityCards = [
     active: false
   },
   {
-    title: "AI 收录记录",
+    title: "AI 模型覆盖记录",
     icon: TrendCharts,
     copy: "多模型覆盖追踪",
     active: false
@@ -76,9 +76,9 @@ const sidebarItems = [
   { title: "提示词库", icon: CollectionTag, active: false },
   { title: "AI 拓词", icon: MagicStick, active: false },
   { title: "知识库", icon: Files, active: false },
-  { title: "指令模板", icon: DocumentChecked, active: false },
+  { title: "指令库", icon: DocumentChecked, active: false },
   { title: "内容生成", icon: EditPen, active: false },
-  { title: "AI 收录记录", icon: TrendCharts, active: false },
+  { title: "AI 模型覆盖记录", icon: TrendCharts, active: false },
   { title: "GEO 报表", icon: PieChart, active: false },
   { title: "系统设置", icon: Setting, active: false },
   { title: "使用教程", icon: Guide, active: false }
@@ -111,7 +111,7 @@ const previewTodayActions = [
 const previewCoreMetrics = [
   { label: "GEO 提示词", value: "1044", description: "追踪词 426 / 高优先级 128" },
   { label: "知识库", value: "254", description: "171 条知识片段" },
-  { label: "内容任务 / 内容", value: "221 / 316", description: "25 个失败任务待处理" },
+  { label: "GEO 内容生成", value: "221 / 316", description: "25 个失败任务待处理" },
   { label: "GEO 检测记录", value: "659", description: "品牌推荐率 30.3%" }
 ];
 
@@ -125,7 +125,7 @@ const previewQueues = [
   {
     title: "待质检 / 优化内容",
     status: "25 个失败任务需处理",
-    action: "查看内容任务",
+    action: "查看 GEO 内容生成",
     tone: "danger"
   },
   {
@@ -175,12 +175,12 @@ const previewTopItems = [
   <main class="geo-preview-page">
     <section class="geo-preview-shell">
       <div class="geo-preview-alert">
-        这是 UI-4 视觉预览页，不影响正式系统页面。
+        这是内部界面风格预览页，不影响正式系统页面。
       </div>
 
       <header class="geo-preview-header">
         <div>
-          <p class="geo-preview-kicker">Phase UI-4 Preview</p>
+          <p class="geo-preview-kicker">内部设计预览</p>
           <h1>GEO 工作站视觉方向预览</h1>
           <span>仅用于确认后续首页、登录页和内页统一风格。</span>
         </div>
@@ -228,7 +228,7 @@ const previewTopItems = [
                   <button type="button" class="geo-preview-secondary-button">查看工作流程</button>
                 </div>
                 <div class="geo-preview-hero-checks" aria-label="预览提示">
-                  <span>本地 / 模拟环境</span>
+                  <span>本地 / 内部预览环境</span>
                   <span>事实人工确认</span>
                   <span>不展示密钥</span>
                 </div>
@@ -398,7 +398,7 @@ const previewTopItems = [
               </div>
               <button type="button" class="geo-preview-login-submit">登录</button>
               <div class="geo-preview-login-status">
-                <span><i aria-hidden="true" />本地 / 模拟环境</span>
+                <span><i aria-hidden="true" />本地 / 内部预览环境</span>
                 <span><i aria-hidden="true" />API 状态：正常</span>
               </div>
             </form>
@@ -434,7 +434,7 @@ const previewTopItems = [
                 <span class="geo-preview-user-dot" aria-hidden="true">G</span>
                 <div>
                   <strong>GEO Admin</strong>
-                  <small>管理员 · 本地 / 模拟</small>
+                  <small>管理员 · 本地 / 内部预览</small>
                 </div>
               </div>
             </aside>
@@ -446,7 +446,7 @@ const previewTopItems = [
                   <span>今日运营动作与待处理事项</span>
                 </div>
                 <div class="geo-preview-header-status">
-                  <span>本地 / 模拟</span>
+                  <span>本地 / 内部预览</span>
                   <span><i aria-hidden="true" />API 状态：正常</span>
                   <button type="button" aria-label="通知">!</button>
                   <span class="geo-preview-header-user">GEO Admin</span>
@@ -496,7 +496,7 @@ const previewTopItems = [
                     <div class="geo-preview-card-header">
                       <div>
                         <h3>运营趋势概览</h3>
-                        <span>GEO 闭环推进状态，静态 mock</span>
+                        <span>仅用于内部查看界面风格，不代表实时业务数据。</span>
                       </div>
                       <span class="geo-preview-range-pill">近 30 天</span>
                     </div>
@@ -631,7 +631,7 @@ const previewTopItems = [
                       </div>
                     </div>
                     <div class="geo-preview-system-list">
-                      <span><i aria-hidden="true" />本地 / 模拟环境</span>
+                      <span><i aria-hidden="true" />本地 / 内部预览环境</span>
                       <span><i aria-hidden="true" />API 状态：正常</span>
                       <span><i aria-hidden="true" />AI Provider：后端环境变量托管</span>
                     </div>

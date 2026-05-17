@@ -351,7 +351,7 @@ onMounted(() => {
     <header class="instruction-hero">
       <div class="instruction-hero__copy">
         <el-tag class="instruction-hero__tag" type="success" effect="plain">GEO 指令模板</el-tag>
-        <h1>指令模板</h1>
+        <h1>指令库</h1>
         <p>
           沉淀 GEO 内容生成的指令模板、品牌锚点和事实边界规则，让 GEO 内容生产更稳定。
         </p>

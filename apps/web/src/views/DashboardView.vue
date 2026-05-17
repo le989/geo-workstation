@@ -162,14 +162,14 @@ const coreMetrics = computed(() => [
     tone: report.value.knowledgeChunkCount > 0 ? ("good" as const) : ("warning" as const)
   },
   {
-    label: "内容任务 / 内容",
+    label: "GEO 内容生成",
     value: `${formatNumber(report.value.contentTaskCount)} / ${formatNumber(report.value.contentItemCount)}`,
     description:
       report.value.failedContentTaskCount > 0
         ? `${report.value.failedContentTaskCount} 个失败任务待处理`
         : "暂无失败任务",
     to: "/geo-content",
-    buttonLabel: "去看内容",
+    buttonLabel: "进入 GEO 内容生成",
     tone: report.value.failedContentTaskCount > 0 ? ("danger" as const) : ("good" as const)
   },
   {
@@ -250,7 +250,7 @@ const operationQueue = computed(() => [
         ? `${report.value.failedContentTaskCount} 个失败任务需处理`
         : `${report.value.contentItemCount} 篇内容可复盘`,
     to: "/geo-content",
-    buttonLabel: "查看内容任务",
+    buttonLabel: "查看 GEO 内容生成",
     tone: report.value.failedContentTaskCount > 0 ? ("danger" as const) : ("default" as const)
   },
   {
@@ -339,7 +339,7 @@ const getGroupedSuggestionAction = (item: OptimizationSuggestion) => {
     return "去生成内容";
   }
 
-  return item.suggestedAction || "去内容任务处理";
+  return item.suggestedAction || "去 GEO 内容生成处理";
 };
 
 const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
@@ -502,7 +502,7 @@ const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
         <RouterLink to="/geo-content">进入内容生成</RouterLink>
       </section>
       <div class="dashboard-boundary-note">
-        <span>当前为本地测试版本，关键发布和参数事实仍需人工确认。</span>
+        <span>当前为内部使用版本，关键发布和参数事实仍需人工确认。</span>
         <RouterLink to="/help">查看使用教程</RouterLink>
       </div>
     </DashboardSection>

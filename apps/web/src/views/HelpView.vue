@@ -61,7 +61,7 @@ const pageFeatureItems = [
 const capabilityBoundaryItems = [
   "联网 Provider 结果不等同于 App 端真实用户结果。",
   "发布内容和参数事实仍需人工确认。",
-  "测试数据后续 Clean-Final 阶段统一清理。",
+  "测试数据在正式使用前统一复核，本系统不提供前端清理入口。",
   "当前系统适合作为人工协同型 GEO 内容工作站。"
 ];
 const pageFeatureSummary =

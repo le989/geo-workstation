@@ -146,7 +146,7 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "创建内容任务",
-        description: "使用真实 AI 或模拟生成创建任务，明确生成目标和关联资料。"
+        description: "使用基础生成模式或真实 AI 配置创建任务，明确生成目标和关联资料。"
       },
       {
         title: "查看内容项",
@@ -198,7 +198,7 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "生成候选词",
-        description: "使用模拟生成或真实 AI 接口生成候选提示词。"
+        description: "使用基础生成模式或真实 AI 配置生成候选提示词。"
       },
       {
         title: "检查候选词是否像真实问题",
@@ -336,7 +336,7 @@ export const versionNotes: VersionNote[] = [
   },
   {
     name: "ai-provider-ready-v0.1",
-    capabilities: ["加入 OpenAI-compatible AI Provider 抽象，保留默认 Mock 能力。"],
+    capabilities: ["加入 OpenAI-compatible AI Provider 抽象，保留默认基础生成能力。"],
     usage: "适合按需接入 DeepSeek、硅基流动或其他兼容 Chat Completions 的服务。",
     notes: "API Key 只允许放在后端私有环境变量中，前端不输入、不保存、不展示。"
   },

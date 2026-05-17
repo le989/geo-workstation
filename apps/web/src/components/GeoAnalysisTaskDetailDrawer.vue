@@ -176,13 +176,13 @@ const formatSummaryValue = (key: string, value: unknown) => {
           <div>
             <p class="section-kicker">后续动作</p>
             <h3>把诊断结果转成可执行资产</h3>
-            <p>先将提示词建议沉淀为策略库资产，再基于提示词、知识库和指令模板创建内容任务。</p>
+            <p>先将提示词建议沉淀为策略库资产，再基于提示词、知识库和指令模板进入 GEO 内容生成。</p>
           </div>
           <div>
             <el-button type="primary" plain @click="emit('goToPrompts')">
               查看提示词策略库
             </el-button>
-            <el-button type="primary" @click="emit('goToContentTasks')"> 查看内容任务 </el-button>
+            <el-button type="primary" @click="emit('goToContentTasks')"> 查看 GEO 内容生成 </el-button>
           </div>
         </section>
 
@@ -239,7 +239,7 @@ const formatSummaryValue = (key: string, value: unknown) => {
                 <strong>{{ detail.task.id }}</strong>
                 <span>原始任务名称</span>
                 <strong>{{ detail.task.name }}</strong>
-                <span>创建人 ID</span>
+                <span>创建人</span>
                 <strong>{{ detail.task.createdBy }}</strong>
                 <span>更新时间</span>
                 <strong>{{ formatDateTime(detail.task.updatedAt) }}</strong>

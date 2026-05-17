@@ -414,7 +414,7 @@ onMounted(() => {
     </header>
 
     <el-alert
-      title="诊断结果用于辅助判断品牌覆盖、官网引用与竞品占位情况；模型覆盖复盘请到「AI 收录记录」和「GEO 报表」查看。"
+      title="诊断结果用于辅助判断品牌覆盖、官网引用与竞品占位情况；模型覆盖复盘请到「AI 模型覆盖记录」和「GEO 报表」查看。"
       type="info"
       :closable="false"
       show-icon
