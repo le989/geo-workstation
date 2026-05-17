@@ -32,6 +32,13 @@ export const targetPromptTypeOptions: Array<{ label: string; value: GeoPromptTyp
   { label: "场景词", value: "scene" }
 ];
 
+export const targetModelOptions = [
+  { label: "豆包", value: "doubao-seed-1-6-250615" },
+  { label: "通义千问", value: "qwen3-max" },
+  { label: "Kimi", value: "kimi-k2.6" },
+  { label: "DeepSeek", value: "deepseek-chat" }
+];
+
 export const instructionTypeLabelMap = Object.fromEntries(
   instructionTypeOptions.map((item) => [item.value, item.label])
 ) as Record<string, string>;
@@ -43,6 +50,32 @@ export const contentTypeLabelMap = Object.fromEntries(
 export const targetPromptTypeLabelMap = Object.fromEntries(
   targetPromptTypeOptions.map((item) => [item.value, item.label])
 ) as Record<GeoPromptType, string>;
+
+export const formatInstructionModelName = (value?: string | null) => {
+  if (!value) {
+    return "--";
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (normalized.includes("doubao") || normalized.includes("seed") || normalized.includes("豆包")) {
+    return "豆包";
+  }
+
+  if (normalized.includes("qwen") || normalized.includes("通义") || normalized.includes("千问")) {
+    return "通义千问";
+  }
+
+  if (normalized.includes("kimi") || normalized.includes("moonshot")) {
+    return "Kimi";
+  }
+
+  if (normalized.includes("deepseek")) {
+    return "DeepSeek";
+  }
+
+  return value;
+};
 
 export const formatInstructionText = (value?: string | null) => value || "--";
 

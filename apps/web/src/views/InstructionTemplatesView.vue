@@ -20,10 +20,11 @@ import InstructionTemplateDetailDrawer from "@/components/InstructionTemplateDet
 import InstructionTemplateDuplicateDialog from "@/components/InstructionTemplateDuplicateDialog.vue";
 import InstructionTemplateFilters from "@/components/InstructionTemplateFilters.vue";
 import InstructionTemplateFormDialog from "@/components/InstructionTemplateFormDialog.vue";
-import InstructionTemplateTypeTag from "@/components/InstructionTemplateTypeTag.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   contentTypeLabelMap,
+  formatInstructionModelName,
+  instructionTypeLabelMap,
   targetPromptTypeLabelMap
 } from "@/config/instruction-options";
 import { useAuthStore } from "@/stores/auth";
@@ -159,11 +160,21 @@ const hasFactBoundary = (template: InstructionTemplate) =>
   ]);
 
 const getTemplateScenario = (template: InstructionTemplate) => {
-  const contentType = contentTypeLabelMap[template.contentType] ?? template.contentType;
+  const instructionType = instructionTypeLabelMap[template.instructionType] ?? template.instructionType;
   const promptType = template.targetPromptType
     ? targetPromptTypeLabelMap[template.targetPromptType]
     : "全部提示词";
-  return `${contentType} / ${promptType}`;
+  return `${instructionType} / ${promptType}`;
+};
+
+const getTemplateSummary = (template: InstructionTemplate) => {
+  const summary = template.instruction?.trim();
+
+  if (!summary) {
+    return "未填写指令正文摘要";
+  }
+
+  return summary.length > 76 ? `${summary.slice(0, 76)}...` : summary;
 };
 
 const buildQuery = (): InstructionTemplateQuery => ({
@@ -356,7 +367,7 @@ onMounted(() => {
 
     <section class="instruction-position-note">
       <strong>提示词策略库管理用户会问什么；指令库管理内容应该怎么写。</strong>
-      <span>这里沉淀品牌锚点、事实边界、结构规则和平台适配方法。</span>
+      <span>知识库提供事实资料，指令模板定义生成规则，内容生成按模板执行。</span>
     </section>
 
     <section class="instruction-asset-overview" aria-label="指令库资产概览">
@@ -399,17 +410,57 @@ onMounted(() => {
         border
         empty-text="暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材、对比与替代或 FAQ 指令。"
       >
-        <el-table-column prop="name" label="指令名称" min-width="210" fixed="left">
+        <el-table-column type="expand" width="44">
           <template #default="{ row }: { row: InstructionTemplate }">
-            <strong class="instruction-main-text">{{ row.name }}</strong>
+            <div class="instruction-row-detail">
+              <section>
+                <p class="section-kicker">适用范围</p>
+                <dl>
+                  <div>
+                    <dt>适用模型</dt>
+                    <dd>{{ formatInstructionModelName(row.targetModel) }}</dd>
+                  </div>
+                  <div>
+                    <dt>适用提示词</dt>
+                    <dd>
+                      {{
+                        row.targetPromptType
+                          ? targetPromptTypeLabelMap[row.targetPromptType]
+                          : "全部提示词"
+                      }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>指令类型细分</dt>
+                    <dd>{{ instructionTypeLabelMap[row.instructionType] ?? row.instructionType }}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section>
+                <p class="section-kicker">排查信息</p>
+                <dl>
+                  <div>
+                    <dt>创建时间</dt>
+                    <dd>{{ formatDateTime(row.createdAt) }}</dd>
+                  </div>
+                  <div>
+                    <dt>创建人</dt>
+                    <dd>{{ formatOptional(row.createdBy) }}</dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="instructionType" label="指令类型" min-width="138">
+        <el-table-column prop="name" label="指令模板" min-width="260" fixed="left">
           <template #default="{ row }: { row: InstructionTemplate }">
-            <InstructionTemplateTypeTag :type="row.instructionType" />
+            <div class="instruction-name-cell">
+              <strong class="instruction-main-text">{{ row.name }}</strong>
+              <span>{{ getTemplateSummary(row) }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="适用场景" min-width="180">
+        <el-table-column label="使用场景" min-width="190">
           <template #default="{ row }: { row: InstructionTemplate }">
             <span class="instruction-scenario">{{ getTemplateScenario(row) }}</span>
           </template>
@@ -428,7 +479,7 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="规则清单" min-width="180">
+        <el-table-column label="规则状态" min-width="180">
           <template #default="{ row }: { row: InstructionTemplate }">
             <div class="instruction-rule-tags">
               <el-tag
@@ -448,24 +499,21 @@ onMounted(() => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="targetModel" label="适用模型" min-width="126">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            {{ formatOptional(row.targetModel) }}
-          </template>
-        </el-table-column>
         <el-table-column prop="updatedAt" label="更新时间" min-width="168">
           <template #default="{ row }: { row: InstructionTemplate }">
             {{ formatDateTime(row.updatedAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="184" fixed="right">
+        <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }: { row: InstructionTemplate }">
             <el-button link type="primary" @click="openDetailDrawer(row)">查看</el-button>
             <el-button v-if="canManageTemplate(row)" link type="primary" @click="openEditDialog(row)">
               编辑
             </el-button>
-            <el-button v-if="canCreateTemplate" link type="warning" @click="openDuplicateDialog(row)">复制</el-button>
-            <el-button v-if="canManageTemplate(row)" link type="danger" @click="handleDelete(row)">
+            <el-button v-if="canCreateTemplate" link class="instruction-secondary-action" @click="openDuplicateDialog(row)">
+              复制为我的
+            </el-button>
+            <el-button v-if="canManageTemplate(row)" link class="instruction-danger-action" @click="handleDelete(row)">
               删除
             </el-button>
           </template>

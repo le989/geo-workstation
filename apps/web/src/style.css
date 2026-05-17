@@ -3286,10 +3286,76 @@ a {
   line-height: 1.45;
 }
 
+.instruction-name-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.instruction-name-cell span,
+.instruction-template-preview,
+.instruction-readable-note {
+  color: #667586;
+  line-height: 1.65;
+}
+
+.instruction-name-cell span {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .instruction-rule-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.instruction-row-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 12px 18px;
+  color: #53606c;
+}
+
+.instruction-row-detail dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.instruction-row-detail dl > div {
+  display: grid;
+  grid-template-columns: 98px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.instruction-row-detail dt {
+  color: #7a8795;
+  font-weight: 800;
+}
+
+.instruction-row-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.instruction-secondary-action.el-button {
+  color: #647487;
+}
+
+.instruction-secondary-action.el-button:hover {
+  color: var(--geo-primary);
+}
+
+.instruction-danger-action.el-button {
+  color: #8a5a5a;
+}
+
+.instruction-danger-action.el-button:hover {
+  color: #c33b3b;
 }
 
 .instruction-pagination {
@@ -3412,6 +3478,42 @@ a {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   line-height: 1.7;
+}
+
+.instruction-template-form--grouped {
+  grid-template-columns: 1fr;
+}
+
+.instruction-form-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
+  background: #fbfaff;
+}
+
+.instruction-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.instruction-form-collapse {
+  overflow: hidden;
+  border: 1px dashed #dce5ed;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.instruction-form-collapse .el-collapse-item__header {
+  padding: 0 14px;
+  color: #111019;
+  font-weight: 850;
+}
+
+.instruction-form-collapse .el-collapse-item__content {
+  padding: 0 14px 14px;
 }
 
 .instruction-content-collapse {
@@ -7052,6 +7154,8 @@ a {
   .knowledge-detail-card-grid,
   .knowledge-add-source-grid,
   .instruction-summary-grid,
+  .instruction-row-detail,
+  .instruction-form-grid,
   .dashboard-quick-action-grid,
   .capability-boundary,
   .report-metric-grid,
@@ -7151,6 +7255,7 @@ a {
   .knowledge-file-upload-form,
   .instruction-filters,
   .instruction-template-form,
+  .instruction-form-grid,
   .content-filters,
   .content-task-form,
   .content-form-grid,

@@ -4,8 +4,10 @@ import type { InstructionTemplate } from "@/api/instructions";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   contentTypeLabelMap,
+  formatInstructionModelName,
   formatInstructionText,
   instructionTypeLabelMap,
+  truncateInstructionText,
   targetPromptTypeLabelMap
 } from "@/config/instruction-options";
 
@@ -85,10 +87,14 @@ const templateSummary = computed(() => {
     },
     {
       label: "适用模型",
-      value: formatOptional(props.template.targetModel)
+      value: formatInstructionModelName(props.template.targetModel)
     }
   ];
 });
+
+const instructionPreview = computed(() =>
+  truncateInstructionText(props.template?.instruction, 220)
+);
 </script>
 
 <template>
@@ -118,6 +124,7 @@ const templateSummary = computed(() => {
         <section class="instruction-readable-block instruction-readable-block--summary">
           <p class="section-kicker">模板摘要</p>
           <h3>{{ template.name }}</h3>
+          <p class="instruction-template-preview">{{ instructionPreview }}</p>
           <div class="instruction-summary-grid">
             <article v-for="item in templateSummary" :key="item.label">
               <span>{{ item.label }}</span>
@@ -133,6 +140,9 @@ const templateSummary = computed(() => {
         <section class="instruction-readable-block">
           <p class="section-kicker">规则清单</p>
           <h3>可扫描规则</h3>
+          <p class="instruction-readable-note">
+            知识库提供事实资料，指令模板定义生成规则，内容生成按模板执行。
+          </p>
           <div class="instruction-rule-checklist">
             <article
               v-for="rule in ruleChecklist"

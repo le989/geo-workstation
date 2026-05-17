@@ -5,6 +5,7 @@ import type { GeoPromptType } from "@/api/geo-prompts";
 import {
   contentTypeOptions,
   instructionTypeOptions,
+  targetModelOptions,
   targetPromptTypeOptions
 } from "@/config/instruction-options";
 
@@ -44,7 +45,7 @@ watch(
   <section class="instruction-filter-panel">
     <div class="instruction-filter-copy">
       <div>
-        <p class="section-kicker">Template Filter</p>
+        <p class="section-kicker">指令筛选</p>
         <h2>筛选指令模板</h2>
         <p>指令库管理内容怎么写；提示词策略库管理用户会问什么。</p>
       </div>
@@ -102,13 +103,26 @@ watch(
         </el-select>
       </el-form-item>
       <el-form-item v-if="showAdvancedFilters" label="适用模型">
-        <el-input v-model="localFilters.targetModel" clearable placeholder="例如 deepseek-chat" />
+        <el-select
+          v-model="localFilters.targetModel"
+          clearable
+          filterable
+          allow-create
+          placeholder="豆包 / 通义千问 / Kimi"
+        >
+          <el-option
+            v-for="option in targetModelOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item v-if="showAdvancedFilters" label="创建人">
-        <el-input v-model="localFilters.createdBy" clearable placeholder="创建人 ID" />
+        <el-input v-model="localFilters.createdBy" clearable placeholder="输入创建人标识" />
       </el-form-item>
       <div v-if="showAdvancedFilters" class="instruction-filter-note">
-        高级筛选仍使用现有查询参数，不新增指令库接口请求。
+        高级筛选仅用于缩小当前指令模板范围。
       </div>
     </el-form>
 
@@ -116,7 +130,7 @@ watch(
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
       <el-button text @click="showAdvancedFilters = !showAdvancedFilters">
-        {{ showAdvancedFilters ? "收起更多筛选" : "更多筛选" }}
+        {{ showAdvancedFilters ? "收起高级筛选" : "高级筛选" }}
       </el-button>
     </div>
   </section>

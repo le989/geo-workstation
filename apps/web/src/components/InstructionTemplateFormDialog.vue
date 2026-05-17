@@ -9,6 +9,7 @@ import type {
 import {
   contentTypeOptions,
   instructionTypeOptions,
+  targetModelOptions,
   targetPromptTypeOptions
 } from "@/config/instruction-options";
 
@@ -141,89 +142,130 @@ const handleSubmit = () => {
       class="dialog-alert"
     />
 
-    <el-form class="instruction-template-form" label-position="top">
-      <el-form-item label="指令名称" required>
-        <el-input v-model="form.name" placeholder="例如：需求决策内容生成指令" />
-      </el-form-item>
-      <el-form-item label="指令类型" required>
-        <el-select
-          v-model="form.instructionType"
-          filterable
-          allow-create
-          placeholder="选择或输入指令类型"
-        >
-          <el-option
-            v-for="option in instructionTypeOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="内容类型">
-        <el-select
-          v-model="form.contentType"
-          clearable
-          filterable
-          allow-create
-          placeholder="选择或输入内容类型"
-        >
-          <el-option
-            v-for="option in contentTypeOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="适用提示词类型">
-        <el-select v-model="form.targetPromptType" clearable placeholder="选择提示词类型">
-          <el-option
-            v-for="option in targetPromptTypeOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="适用模型">
-        <el-input v-model="form.targetModel" placeholder="例如 deepseek-chat / doubao" />
-      </el-form-item>
-      <el-form-item v-if="mode === 'create'" label="创建人">
-        <el-input v-model="form.createdBy" placeholder="可选：用户 ID" />
-      </el-form-item>
-      <el-form-item label="指令正文" required class="form-span-2">
-        <el-input
-          v-model="form.instruction"
-          type="textarea"
-          :rows="8"
-          placeholder="说明如何指导 GEO 内容生成，至少 20 个字符。"
-        />
-      </el-form-item>
-      <el-form-item label="输出格式" class="form-span-2">
-        <el-input
-          v-model="form.outputFormat"
-          type="textarea"
-          :rows="4"
-          placeholder="例如：标题、用户问题、选型逻辑、问答式总结。"
-        />
-      </el-form-item>
-      <el-form-item label="质量要求">
-        <el-input
-          v-model="form.qualityRules"
-          type="textarea"
-          :rows="4"
-          placeholder="例如：必须包含品牌实体、产品参数、可被 AI 摘取的小结。"
-        />
-      </el-form-item>
-      <el-form-item label="禁用规则">
-        <el-input
-          v-model="form.forbiddenRules"
-          type="textarea"
-          :rows="4"
-          placeholder="例如：不要虚构资质、不要写无法验证的绝对化承诺。"
-        />
-      </el-form-item>
+    <el-form class="instruction-template-form instruction-template-form--grouped" label-position="top">
+      <section class="instruction-form-section form-span-2">
+        <p class="section-kicker">基础信息</p>
+        <div class="instruction-form-grid">
+          <el-form-item label="指令名称" required>
+            <el-input v-model="form.name" placeholder="例如：需求决策内容生成指令" />
+          </el-form-item>
+          <el-form-item label="指令类型" required>
+            <el-select
+              v-model="form.instructionType"
+              filterable
+              allow-create
+              placeholder="选择或输入指令类型"
+            >
+              <el-option
+                v-for="option in instructionTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="内容类型">
+            <el-select
+              v-model="form.contentType"
+              clearable
+              filterable
+              allow-create
+              placeholder="选择或输入内容类型"
+            >
+              <el-option
+                v-for="option in contentTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="instruction-form-section form-span-2">
+        <p class="section-kicker">模板正文</p>
+        <div class="instruction-form-grid">
+          <el-form-item label="指令正文" required class="form-span-2">
+            <el-input
+              v-model="form.instruction"
+              type="textarea"
+              :rows="8"
+              placeholder="说明如何指导 GEO 内容生成，至少 20 个字符。"
+            />
+          </el-form-item>
+          <el-form-item label="输出格式" class="form-span-2">
+            <el-input
+              v-model="form.outputFormat"
+              type="textarea"
+              :rows="4"
+              placeholder="例如：标题、用户问题、选型逻辑、问答式总结。"
+            />
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="instruction-form-section form-span-2">
+        <p class="section-kicker">质量与边界</p>
+        <div class="instruction-form-grid">
+          <el-form-item label="质量要求">
+            <el-input
+              v-model="form.qualityRules"
+              type="textarea"
+              :rows="4"
+              placeholder="例如：必须包含品牌实体、产品参数、可被 AI 摘取的小结。"
+            />
+          </el-form-item>
+          <el-form-item label="禁用规则">
+            <el-input
+              v-model="form.forbiddenRules"
+              type="textarea"
+              :rows="4"
+              placeholder="例如：不要虚构资质、不要写无法验证的绝对化承诺。"
+            />
+          </el-form-item>
+          <el-form-item label="适用提示词类型">
+            <el-select v-model="form.targetPromptType" clearable placeholder="选择提示词类型">
+              <el-option
+                v-for="option in targetPromptTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="instruction-form-section form-span-2">
+        <p class="section-kicker">适用范围</p>
+        <div class="instruction-form-grid">
+          <el-form-item label="适用模型">
+            <el-select
+              v-model="form.targetModel"
+              clearable
+              filterable
+              allow-create
+              placeholder="豆包 / 通义千问 / Kimi"
+            >
+              <el-option
+                v-for="option in targetModelOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+        </div>
+      </section>
+
+      <el-collapse v-if="mode === 'create'" class="instruction-form-collapse form-span-2">
+        <el-collapse-item title="排查信息（默认折叠）" name="diagnostics">
+          <el-form-item label="创建人">
+            <el-input v-model="form.createdBy" placeholder="输入创建人标识" />
+          </el-form-item>
+        </el-collapse-item>
+      </el-collapse>
     </el-form>
 
     <template #footer>
