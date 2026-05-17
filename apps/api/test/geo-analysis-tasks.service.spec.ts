@@ -1,3 +1,4 @@
+import { ForbiddenException } from "@nestjs/common";
 import {
   CompanyStatus,
   CompanyType,
@@ -32,6 +33,7 @@ describe("GeoAnalysisTasksService", () => {
   let companyAdminA: { id: string };
   let operatorA: { id: string };
   let operatorB: { id: string };
+  let viewerA: { id: string };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -105,6 +107,17 @@ describe("GeoAnalysisTasksService", () => {
         email: `auth4c-operator-b-${runId}@example.com`,
         name: "Auth 4C Operator B",
         role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    viewerA = await prisma.user.create({
+      data: {
+        email: `auth4c-viewer-a-${runId}@example.com`,
+        name: "Auth 4C Viewer A",
+        role: UserRole.viewer,
         status: UserStatus.active
       },
       select: {
@@ -434,6 +447,33 @@ describe("GeoAnalysisTasksService", () => {
     const run = await service.run(runnable.id, contextFor(operatorA, companyA, MembershipRole.operator));
     expect(run.task.status).toBe(TaskStatus.succeeded);
     expect(run.modelResults).toHaveLength(1);
+  });
+
+  it("rejects viewer creation of GEO analysis tasks while allowing operators", async () => {
+    await expect(
+      service.create(
+        {
+          name: `Auth 4C viewer create denied ${runId}`,
+          brandName: "凯基特",
+          productLine: `Auth 4C 产品线 ${runId}`,
+          targetModels: ["deepseek-chat"]
+        },
+        contextFor(viewerA, companyA, MembershipRole.viewer)
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const created = await service.create(
+      {
+        name: `Auth 4C operator create allowed ${runId}`,
+        brandName: "凯基特",
+        productLine: `Auth 4C 产品线 ${runId}`,
+        targetModels: ["deepseek-chat"]
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+
+    expect(created.companyId).toBe(companyA.id);
+    expect(created.createdBy).toBe(operatorA.id);
   });
 
   it("converts prompts inside current company with current user and role visibility", async () => {

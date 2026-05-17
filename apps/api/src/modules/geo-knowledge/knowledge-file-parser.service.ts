@@ -4,6 +4,9 @@ import { parseCsvFileContent } from "./utils/parse-csv-file";
 import { parseMarkdownFileContent } from "./utils/parse-markdown-file";
 import { parseTextFileContent, type ParsedKnowledgeChunk } from "./utils/parse-text-file";
 
+export const KNOWLEDGE_FILE_MISSING_ERROR = "Stored GEO knowledge file does not exist.";
+export const KNOWLEDGE_FILE_READ_ERROR = "Stored GEO knowledge file cannot be read.";
+
 export type ParseKnowledgeFileInput = {
   fileName: string;
   fileType: string;
@@ -14,7 +17,7 @@ export type ParseKnowledgeFileInput = {
 export class KnowledgeFileParserService {
   async parse(input: ParseKnowledgeFileInput): Promise<ParsedKnowledgeChunk[]> {
     await this.assertFileExists(input.storagePath);
-    const content = await readFile(input.storagePath, "utf8");
+    const content = await this.readFileContent(input.storagePath);
     const chunks = this.parseContent(content, input);
 
     if (chunks.length === 0) {
@@ -41,7 +44,15 @@ export class KnowledgeFileParserService {
     try {
       await access(storagePath);
     } catch {
-      throw new Error(`Stored GEO knowledge file does not exist: ${storagePath}`);
+      throw new Error(KNOWLEDGE_FILE_MISSING_ERROR);
+    }
+  }
+
+  private async readFileContent(storagePath: string): Promise<string> {
+    try {
+      return await readFile(storagePath, "utf8");
+    } catch {
+      throw new Error(KNOWLEDGE_FILE_READ_ERROR);
     }
   }
 }

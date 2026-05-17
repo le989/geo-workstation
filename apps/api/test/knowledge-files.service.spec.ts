@@ -197,6 +197,7 @@ describe("KnowledgeFilesService", () => {
 
     expect(txt.parseStatus).toBe(ParseStatus.succeeded);
     expect(txt.createdChunksCount).toBeGreaterThan(0);
+    expect(txt.knowledgeFile).not.toHaveProperty("storagePath");
     expect(txt.knowledgeFile.fileType).toBe("txt");
     expect(txt.createdChunks[0]).toMatchObject({
       sourceType: "uploaded_file",
@@ -259,7 +260,9 @@ describe("KnowledgeFilesService", () => {
 
     expect(result.parseStatus).toBe(ParseStatus.failed);
     expect(result.createdChunksCount).toBe(0);
-    expect(result.errorMessage).toContain("CSV parse failed");
+    expect(result.errorMessage).toBe("资料解析失败，请检查文件内容后重试。");
+    expect(result.knowledgeFile).not.toHaveProperty("storagePath");
+    expect(result.knowledgeFile.errorMessage).toBe("资料解析失败，请检查文件内容后重试。");
 
     const stored = await prisma.knowledgeFile.findUnique({
       where: {
@@ -267,7 +270,7 @@ describe("KnowledgeFilesService", () => {
       }
     });
     expect(stored?.parseStatus).toBe(ParseStatus.failed);
-    expect(stored?.errorMessage).toContain("CSV parse failed");
+    expect(stored?.errorMessage).toBe("资料解析失败，请检查文件内容后重试。");
   });
 
   it("lists files, returns file details, reparses successfully, and records missing-file failures", async () => {
@@ -287,25 +290,43 @@ describe("KnowledgeFilesService", () => {
     });
     expect(list.total).toBe(1);
     expect(list.items[0]?.id).toBe(uploaded.knowledgeFile.id);
+    expect(list.items[0]).not.toHaveProperty("storagePath");
 
     const detail = await knowledgeFilesService.getDetail(uploaded.knowledgeFile.id);
     expect(detail.chunksCount).toBe(uploaded.createdChunksCount);
     expect(detail.latestChunks[0]?.fileId).toBe(uploaded.knowledgeFile.id);
+    expect(detail.knowledgeFile).not.toHaveProperty("storagePath");
 
     const reparsed = await knowledgeFilesService.reparse(uploaded.knowledgeFile.id, {
       materialType: "reparsed_file",
       tags: ["重试"]
     });
     expect(reparsed.parseStatus).toBe(ParseStatus.succeeded);
+    expect(reparsed.knowledgeFile).not.toHaveProperty("storagePath");
     expect(reparsed.createdChunks[0]?.materialType).toBe("reparsed_file");
     expect(reparsed.createdChunks[0]?.tags).toEqual(["重试"]);
 
-    await unlink(uploaded.knowledgeFile.storagePath ?? "");
+    const storedUploaded = await prisma.knowledgeFile.findUniqueOrThrow({
+      where: {
+        id: uploaded.knowledgeFile.id
+      }
+    });
+    await unlink(storedUploaded.storagePath ?? "");
     const missing = await knowledgeFilesService.reparse(uploaded.knowledgeFile.id, {
       materialType: "missing_file"
     });
     expect(missing.parseStatus).toBe(ParseStatus.failed);
-    expect(missing.errorMessage).toContain("Stored GEO knowledge file does not exist");
+    expect(missing.knowledgeFile).not.toHaveProperty("storagePath");
+    expect(missing.errorMessage).toBe("文件不存在或无法读取，请重新上传资料。");
+    expect(missing.errorMessage).not.toContain(storageRoot);
+    expect(missing.errorMessage).not.toContain("storagePath");
+
+    const storedMissing = await prisma.knowledgeFile.findUniqueOrThrow({
+      where: {
+        id: uploaded.knowledgeFile.id
+      }
+    });
+    expect(storedMissing.errorMessage).toBe("文件不存在或无法读取，请重新上传资料。");
   });
 
   it("soft deletes files and linked chunks, excluding them from lists", async () => {

@@ -72,20 +72,26 @@ export const resolveTaskCreateData = (
 ): Pick<
   Prisma.GeoAnalysisTaskCreateInput,
   "company" | "createdBy" | "updatedBy"
-> => ({
-  company: {
-    connect: {
-      id: getCurrentCompanyId(context)
-    }
-  },
-  createdBy: {
-    connect: {
-      id: context.user.id
-    }
-  },
-  updatedBy: {
-    connect: {
-      id: context.user.id
-    }
+> => {
+  if (getEffectiveRole(context) === "viewer") {
+    throw new ForbiddenException("当前角色无权创建 GEO 诊断任务");
   }
-});
+
+  return {
+    company: {
+      connect: {
+        id: getCurrentCompanyId(context)
+      }
+    },
+    createdBy: {
+      connect: {
+        id: context.user.id
+      }
+    },
+    updatedBy: {
+      connect: {
+        id: context.user.id
+      }
+    }
+  };
+};

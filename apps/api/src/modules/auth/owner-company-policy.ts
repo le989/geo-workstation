@@ -92,20 +92,26 @@ export const assertCanManageOwnerCompanyResource = (
 
 export const resolveOwnerCompanyCreateData = (
   context: ResourceAccessContext
-): OwnerCompanyCreateData => ({
-  company: {
-    connect: {
-      id: getCurrentCompanyId(context)
-    }
-  },
-  createdBy: {
-    connect: {
-      id: context.user.id
-    }
-  },
-  updatedBy: {
-    connect: {
-      id: context.user.id
-    }
+): OwnerCompanyCreateData => {
+  if (getEffectiveRole(context) === "viewer") {
+    throw new ForbiddenException("当前角色无权创建 GEO 内容任务");
   }
-});
+
+  return {
+    company: {
+      connect: {
+        id: getCurrentCompanyId(context)
+      }
+    },
+    createdBy: {
+      connect: {
+        id: context.user.id
+      }
+    },
+    updatedBy: {
+      connect: {
+        id: context.user.id
+      }
+    }
+  };
+};

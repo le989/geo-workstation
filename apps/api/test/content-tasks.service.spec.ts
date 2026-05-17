@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import {
   CompanyStatus,
   CompanyType,
@@ -31,6 +31,7 @@ describe("ContentTasksService", () => {
   let companyAdminA: { id: string };
   let operatorA: { id: string };
   let operatorB: { id: string };
+  let viewerA: { id: string };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -102,6 +103,17 @@ describe("ContentTasksService", () => {
         email: `auth4d-content-operator-b-${runId}@example.com`,
         name: "Auth 4D Content Operator B",
         role: UserRole.operator,
+        status: UserStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+    viewerA = await prisma.user.create({
+      data: {
+        email: `auth4d-content-viewer-a-${runId}@example.com`,
+        name: "Auth 4D Content Viewer A",
+        role: UserRole.viewer,
         status: UserStatus.active
       },
       select: {
@@ -426,6 +438,40 @@ describe("ContentTasksService", () => {
     });
     expect(aiCallLog?.companyId).toBe(companyA.id);
     expect(aiCallLog?.createdById).toBe(operatorA.id);
+  });
+
+  it("rejects viewer creation of content tasks while allowing operators", async () => {
+    const prompt = await createScopedPrompt(
+      "viewer-create-denied-prompt",
+      companyA,
+      operatorA,
+      Visibility.PLATFORM
+    );
+
+    await expect(
+      service.create(
+        {
+          name: unique("viewer create denied"),
+          generationType: "faq",
+          geoPromptIds: [prompt.id],
+          createdBy: viewerA.id
+        },
+        contextFor(viewerA, companyA, MembershipRole.viewer)
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const created = await service.create(
+      {
+        name: unique("operator create allowed"),
+        generationType: "faq",
+        geoPromptIds: [prompt.id],
+        createdBy: viewerA.id
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+
+    expect(created.task.companyId).toBe(companyA.id);
+    expect(created.task.createdBy).toBe(operatorA.id);
   });
 
   it("rejects unreadable associated resources when creating content tasks", async () => {

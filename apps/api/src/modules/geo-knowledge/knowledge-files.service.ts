@@ -12,7 +12,11 @@ import type { QueryKnowledgeFilesDto } from "./dto/query-knowledge-files.dto";
 import type { ReparseKnowledgeFileDto } from "./dto/reparse-knowledge-file.dto";
 import type { UploadKnowledgeFileDto } from "./dto/upload-knowledge-file.dto";
 import { toOptionalInt } from "./dto/knowledge-dto-transforms";
-import { KnowledgeFileParserService } from "./knowledge-file-parser.service";
+import {
+  KNOWLEDGE_FILE_MISSING_ERROR,
+  KNOWLEDGE_FILE_READ_ERROR,
+  KnowledgeFileParserService
+} from "./knowledge-file-parser.service";
 import { LocalFileStorageService, type UploadedKnowledgeFile } from "./local-file-storage.service";
 import { resolveKnowledgeFileType } from "./utils/file-type.util";
 import { trimOptional } from "./utils/normalize-knowledge-base";
@@ -30,6 +34,8 @@ const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_UPLOAD_FILE_SIZE = 10 * 1024 * 1024;
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
+const PUBLIC_FILE_READ_ERROR_MESSAGE = "文件不存在或无法读取，请重新上传资料。";
+const PUBLIC_FILE_PARSE_ERROR_MESSAGE = "资料解析失败，请检查文件内容后重试。";
 
 type ParseOptions = {
   materialType?: string;
@@ -47,7 +53,6 @@ export type KnowledgeFileResponse = {
   fileType: string;
   fileSize?: number;
   companyId?: string;
-  storagePath?: string;
   parseStatus: ParseStatus;
   errorMessage?: string;
   createdBy: string;
@@ -308,7 +313,7 @@ export class KnowledgeFilesService {
 
     try {
       if (!knowledgeFile.storagePath) {
-        throw new Error("Stored GEO knowledge file path is empty.");
+        throw new Error(KNOWLEDGE_FILE_READ_ERROR);
       }
 
       const parsedChunks = await this.parser.parse({
@@ -379,7 +384,7 @@ export class KnowledgeFilesService {
         createdChunks: createdChunks.map((chunk) => this.toChunkResponse(chunk))
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown GEO file parse error";
+      const errorMessage = this.toPublicParseErrorMessage(error);
       const updatedFile = await this.prisma.knowledgeFile.update({
         where: {
           id: knowledgeFile.id
@@ -569,7 +574,6 @@ export class KnowledgeFilesService {
       fileType: file.fileType,
       fileSize: file.fileSize ?? undefined,
       companyId: file.companyId ?? undefined,
-      storagePath: file.storagePath ?? undefined,
       parseStatus: file.parseStatus,
       errorMessage: file.errorMessage ?? undefined,
       createdBy: file.createdById,
@@ -592,6 +596,16 @@ export class KnowledgeFilesService {
       createdAt: chunk.createdAt,
       updatedAt: chunk.updatedAt
     };
+  }
+
+  private toPublicParseErrorMessage(error: unknown): string {
+    const message = error instanceof Error ? error.message : "";
+
+    if (message === KNOWLEDGE_FILE_MISSING_ERROR || message === KNOWLEDGE_FILE_READ_ERROR) {
+      return PUBLIC_FILE_READ_ERROR_MESSAGE;
+    }
+
+    return PUBLIC_FILE_PARSE_ERROR_MESSAGE;
   }
 
   private async resolveCreatedById(createdBy?: string): Promise<string> {

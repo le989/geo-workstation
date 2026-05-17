@@ -92,4 +92,22 @@ describe("KnowledgeFileParserService", () => {
       })
     ).rejects.toThrow("CSV parse failed");
   });
+
+  it("does not include storage paths in missing-file errors", async () => {
+    const missingPath = join(tempDir, "missing.txt");
+    let errorMessage = "";
+
+    try {
+      await parser.parse({
+        fileName: "missing.txt",
+        fileType: "txt",
+        storagePath: missingPath
+      });
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(errorMessage).toBe("Stored GEO knowledge file does not exist.");
+    expect(errorMessage).not.toContain(missingPath);
+  });
 });
