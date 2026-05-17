@@ -12,11 +12,15 @@ import CreateAnalysisContentTaskPanel from "@/components/CreateAnalysisContentTa
 import GeoAnalysisStatusTag from "@/components/GeoAnalysisStatusTag.vue";
 import GeoModelResultsTable from "@/components/GeoModelResultsTable.vue";
 import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
-import { analysisSummaryLabels } from "@/config/geo-analysis-options";
+import {
+  analysisSummaryLabels,
+  formatGeoAnalysisDisplayText,
+  formatGeoAnalysisTaskTitle,
+  formatTargetModelNames
+} from "@/config/geo-analysis-options";
 import {
   formatDateTime,
   formatOptional,
-  formatTargetModels,
   userIntentLabelMap
 } from "@/config/geo-prompt-options";
 
@@ -51,12 +55,42 @@ const canRun = computed(
     (props.detail?.task.status === "pending" || props.detail?.task.status === "failed")
 );
 const canManageActions = computed(() => props.canManageActions !== false);
+const displayTaskName = computed(() =>
+  props.detail?.task
+    ? formatGeoAnalysisTaskTitle(props.detail.task.name, props.detail.task.brandName)
+    : "GEO 诊断任务详情"
+);
+const presentationSummaryKeys = new Set([
+  "conclusion",
+  "brandName",
+  "productLine",
+  "websiteSignal",
+  "contentGapCount",
+  "knowledgeGapCount",
+  "promptSuggestionCount",
+  "modelCount",
+  "targetModels",
+  "websiteUrl"
+]);
 const summaryEntries = computed(() => {
   const summary = props.detail?.task.summary;
   if (!summary) {
     return [];
   }
-  return Object.entries(summary).filter(([, value]) => value !== undefined && value !== null);
+  return Object.entries(summary).filter(
+    ([key, value]) =>
+      value !== undefined && value !== null && presentationSummaryKeys.has(key)
+  );
+});
+const technicalSummaryEntries = computed(() => {
+  const summary = props.detail?.task.summary;
+  if (!summary) {
+    return [];
+  }
+  return Object.entries(summary).filter(
+    ([key, value]) =>
+      value !== undefined && value !== null && !presentationSummaryKeys.has(key)
+  );
 });
 const summaryJson = computed(() =>
   props.detail?.task.summary ? JSON.stringify(props.detail.task.summary, null, 2) : ""
@@ -74,9 +108,21 @@ const close = () => {
   emit("update:modelValue", false);
 };
 
-const formatSummaryValue = (value: unknown) => {
+const formatSummaryValue = (key: string, value: unknown) => {
+  if (key === "productLine" && typeof value === "string") {
+    return formatGeoAnalysisDisplayText(value);
+  }
+  if (key === "targetModels" && Array.isArray(value)) {
+    return formatTargetModelNames(value.map(String));
+  }
+  if (typeof value === "string") {
+    return formatGeoAnalysisDisplayText(value, value);
+  }
   if (Array.isArray(value)) {
-    return value.join("、") || "--";
+    return (
+      value.map((item) => formatGeoAnalysisDisplayText(String(item), String(item))).join("、") ||
+      "--"
+    );
   }
   if (typeof value === "boolean") {
     return value ? "是" : "否";
@@ -101,23 +147,23 @@ const formatSummaryValue = (value: unknown) => {
       <div class="analysis-detail-header">
         <div>
           <el-tag type="success" effect="plain">GEO 分析 / 诊断详情</el-tag>
-          <h2>{{ detail?.task.name ?? "GEO 诊断任务详情" }}</h2>
+          <h2>{{ displayTaskName }}</h2>
           <p>
-            从品牌、官网和产品线出发，复盘模拟诊断结果，并整理后续提示词、知识库和内容补齐方向。
+            从品牌、官网和产品线出发，复盘诊断结果，并整理后续提示词、知识库和内容补齐方向。
           </p>
         </div>
         <div class="analysis-detail-actions">
           <el-button :loading="loading" @click="emit('refresh')">刷新详情</el-button>
           <el-button v-if="canRun" type="primary" :loading="running" @click="emit('run')">
-            运行模拟分析
+            运行诊断
           </el-button>
           <el-button @click="close">关闭</el-button>
         </div>
       </div>
 
       <el-alert
-        title="当前阶段为模拟 GEO 分析，不调用真实外部 AI 平台，不访问真实网站，也不等同真实联网检测。"
-        type="warning"
+        title="诊断详情用于辅助判断品牌提及、官网引用、竞品占位和后续内容补齐方向。"
+        type="info"
         :closable="false"
         show-icon
         class="dialog-alert"
@@ -141,22 +187,22 @@ const formatSummaryValue = (value: unknown) => {
         </section>
 
         <el-descriptions :column="3" border class="analysis-detail-summary">
-          <el-descriptions-item label="任务名称">{{ detail.task.name }}</el-descriptions-item>
+          <el-descriptions-item label="任务名称">{{ displayTaskName }}</el-descriptions-item>
           <el-descriptions-item label="品牌名称">{{ detail.task.brandName }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <GeoAnalysisStatusTag :status="detail.task.status" />
           </el-descriptions-item>
-          <el-descriptions-item label="创建人">
-            {{ formatOptional(detail.task.createdBy) }}
+          <el-descriptions-item label="创建时间">
+            {{ formatDateTime(detail.task.createdAt) }}
           </el-descriptions-item>
           <el-descriptions-item label="官网">
             {{ formatOptional(detail.task.websiteUrl) }}
           </el-descriptions-item>
           <el-descriptions-item label="产品线">
-            {{ formatOptional(detail.task.productLine) }}
+            {{ formatGeoAnalysisDisplayText(detail.task.productLine) }}
           </el-descriptions-item>
           <el-descriptions-item label="目标模型">
-            {{ formatTargetModels(detail.task.targetModels) }}
+            {{ formatTargetModelNames(detail.task.targetModels) }}
           </el-descriptions-item>
           <el-descriptions-item label="提示词建议">
             {{ detail.task.promptSuggestions.length }}
@@ -182,13 +228,27 @@ const formatSummaryValue = (value: unknown) => {
           <div v-if="summaryEntries.length > 0" class="summary-grid">
             <div v-for="[key, value] in summaryEntries" :key="key" class="summary-item">
               <span>{{ analysisSummaryLabels[key] ?? key }}</span>
-              <strong>{{ formatSummaryValue(value) }}</strong>
+              <strong>{{ formatSummaryValue(key, value) }}</strong>
             </div>
           </div>
-          <el-empty v-else description="暂无摘要，运行模拟分析后会生成诊断摘要" />
-          <el-collapse v-if="summaryJson" class="summary-json">
-            <el-collapse-item title="查看原始摘要 JSON" name="summary-json">
-              <pre>{{ summaryJson }}</pre>
+          <el-empty v-else description="暂无摘要，运行诊断后会生成诊断摘要" />
+          <el-collapse class="analysis-tech-collapse">
+            <el-collapse-item title="排查信息" name="analysis-tech">
+              <div class="analysis-tech-grid">
+                <span>任务 ID</span>
+                <strong>{{ detail.task.id }}</strong>
+                <span>原始任务名称</span>
+                <strong>{{ detail.task.name }}</strong>
+                <span>创建人 ID</span>
+                <strong>{{ detail.task.createdBy }}</strong>
+                <span>更新时间</span>
+                <strong>{{ formatDateTime(detail.task.updatedAt) }}</strong>
+                <template v-for="[key, value] in technicalSummaryEntries" :key="key">
+                  <span>{{ analysisSummaryLabels[key] ?? key }}</span>
+                  <strong>{{ formatSummaryValue(key, value) }}</strong>
+                </template>
+              </div>
+              <pre v-if="summaryJson">{{ summaryJson }}</pre>
             </el-collapse-item>
           </el-collapse>
         </el-card>
@@ -197,14 +257,14 @@ const formatSummaryValue = (value: unknown) => {
           <AnalysisGapList
             title="内容补齐方向"
             description="需要补哪些文章、FAQ、需求决策指南、场景方案或对比内容资产。"
-            empty-text="暂无内容缺口，运行模拟分析后会给出建议。"
+            empty-text="暂无内容缺口，运行诊断后会给出建议。"
             :gaps="detail.task.contentGaps"
             type="content"
           />
           <AnalysisGapList
             title="知识库缺口"
             description="需要补哪些企业事实资料，让后续内容生成和 AI 引用更稳定。"
-            empty-text="暂无知识库缺口，运行模拟分析后会给出建议。"
+            empty-text="暂无知识库缺口，运行诊断后会给出建议。"
             :gaps="detail.task.knowledgeGaps"
             type="knowledge"
           />
@@ -238,7 +298,7 @@ const formatSummaryValue = (value: unknown) => {
               :key="prompt.id"
               class="related-prompt-item"
             >
-              <strong>{{ prompt.promptText }}</strong>
+              <strong>{{ formatGeoAnalysisDisplayText(prompt.promptText) }}</strong>
               <GeoPromptTypeTag :type="prompt.type" />
               <span>{{ userIntentLabelMap[prompt.userIntent] ?? prompt.userIntent }}</span>
               <span>优先级 {{ prompt.priority }}</span>
@@ -249,14 +309,17 @@ const formatSummaryValue = (value: unknown) => {
 
         <GeoModelResultsTable :results="detail.modelResults" />
 
-        <CreateAnalysisContentTaskPanel
-          v-if="canManageActions"
-          :task="detail.task"
-          :related-prompts="detail.relatedPrompts"
-          :submitting="contentTaskSubmitting"
-          :error-message="contentTaskError"
-          @submit="emit('createContentTask', $event)"
-        />
+        <el-collapse v-if="canManageActions" class="analysis-action-collapse">
+          <el-collapse-item title="创建内容任务" name="content-task">
+            <CreateAnalysisContentTaskPanel
+              :task="detail.task"
+              :related-prompts="detail.relatedPrompts"
+              :submitting="contentTaskSubmitting"
+              :error-message="contentTaskError"
+              @submit="emit('createContentTask', $event)"
+            />
+          </el-collapse-item>
+        </el-collapse>
 
         <div class="content-task-link">
           <el-button type="primary" plain @click="emit('goToContentTasks')">
@@ -393,11 +456,32 @@ const formatSummaryValue = (value: unknown) => {
   word-break: break-word;
 }
 
-.summary-json {
+.analysis-tech-collapse,
+.analysis-action-collapse {
   margin-top: 14px;
 }
 
-.summary-json pre {
+.analysis-tech-grid {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 10px 14px;
+  margin-bottom: 14px;
+}
+
+.analysis-tech-grid span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.analysis-tech-grid strong {
+  min-width: 0;
+  color: #334155;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.analysis-tech-collapse pre {
   max-height: 240px;
   margin: 0;
   overflow: auto;

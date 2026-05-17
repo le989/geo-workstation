@@ -5,14 +5,12 @@ import { geoAnalysisStatusOptions } from "@/config/geo-analysis-options";
 defineProps<{
   modelValue: GeoAnalysisTaskQuery;
   loading?: boolean;
-  canCreate?: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:modelValue": [value: GeoAnalysisTaskQuery];
   search: [];
   reset: [];
-  create: [];
 }>();
 
 const setField = <K extends keyof GeoAnalysisTaskQuery>(
@@ -37,6 +35,10 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
 
 <template>
   <section class="geo-analysis-filter-panel">
+    <div class="geo-analysis-filter-header">
+      <p class="section-kicker">筛选记录</p>
+      <h2>定位诊断任务</h2>
+    </div>
     <el-form class="geo-analysis-filters" label-position="top">
       <el-form-item label="搜索">
         <el-input
@@ -74,7 +76,7 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
         <el-input
           :model-value="modelValue.targetModel"
           clearable
-          placeholder="例如 deepseek-chat"
+          placeholder="例如 豆包 / 通义千问 / Kimi"
           @update:model-value="setField(modelValue, 'targetModel', $event)"
         />
       </el-form-item>
@@ -98,7 +100,18 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
     <div class="geo-analysis-filter-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button v-if="canCreate !== false" plain @click="emit('create')">新建诊断任务</el-button>
     </div>
   </section>
 </template>
+
+<style scoped>
+.geo-analysis-filter-header {
+  margin-bottom: 14px;
+}
+
+.geo-analysis-filter-header h2 {
+  margin: 4px 0 0;
+  color: #13243a;
+  font-size: 20px;
+}
+</style>

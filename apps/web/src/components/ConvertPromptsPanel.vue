@@ -7,7 +7,7 @@ import type {
 } from "@/api/geo-analysis";
 import type { GeoPromptType, UserIntent } from "@/api/geo-prompts";
 import AnalysisPromptSuggestions from "@/components/AnalysisPromptSuggestions.vue";
-import { convertPromptReasonLabelMap, defaultTargetModels } from "@/config/geo-analysis-options";
+import { convertPromptReasonLabelMap, formatTargetModelNames } from "@/config/geo-analysis-options";
 import {
   geoPromptTypeOptions,
   userIntentOptions,
@@ -143,7 +143,7 @@ const handleSubmit = () => {
     <div class="convert-actions">
       <p>
         已选择 {{ selectedCount }} 条建议。目标模型会继承分析任务，例如
-        {{ defaultTargetModels.join(" / ") }}。
+        {{ formatTargetModelNames(["doubao-seed-1-6-250615", "qwen3-max", "kimi-k2.6"]) }}。
       </p>
       <el-button type="primary" :loading="submitting" :disabled="!canSubmit" @click="handleSubmit">
         转入提示词库

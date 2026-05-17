@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatGeoAnalysisDisplayText } from "@/config/geo-analysis-options";
+
 defineProps<{
   title: string;
   description: string;
@@ -14,7 +16,7 @@ defineProps<{
       <div class="gap-card-header">
         <div>
           <p class="section-kicker">
-            {{ type === "knowledge" ? "Knowledge Gaps" : "Content Gaps" }}
+            {{ type === "knowledge" ? "知识库缺口" : "内容缺口" }}
           </p>
           <h3>{{ title }}</h3>
           <p>{{ description }}</p>
@@ -25,7 +27,7 @@ defineProps<{
     <div v-if="gaps.length > 0" class="gap-list">
       <div v-for="(gap, index) in gaps" :key="`${gap}-${index}`" class="gap-item">
         <span class="gap-index">{{ index + 1 }}</span>
-        <span>{{ gap }}</span>
+        <span>{{ formatGeoAnalysisDisplayText(gap, gap) }}</span>
       </div>
     </div>
     <el-empty v-else :description="emptyText" />

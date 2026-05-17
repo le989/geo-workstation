@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { GeoModelResult } from "@/api/geo-analysis";
-import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
+import {
+  formatGeoAnalysisDisplayText,
+  formatTargetModelName
+} from "@/config/geo-analysis-options";
+import { formatDateTime } from "@/config/geo-prompt-options";
 import ModelInclusionBooleanTag from "@/components/ModelInclusionBooleanTag.vue";
 
 defineProps<{
@@ -21,11 +25,15 @@ defineProps<{
     <el-table :data="results" border empty-text="暂无模型分析结果" class="model-results-table">
       <el-table-column label="GEO 提问" min-width="260">
         <template #default="{ row }">
-          <strong>{{ row.promptText }}</strong>
+          <strong>{{ formatGeoAnalysisDisplayText(row.promptText, "GEO 诊断问题") }}</strong>
           <p class="table-subtext">{{ formatDateTime(row.createdAt) }}</p>
         </template>
       </el-table-column>
-      <el-table-column prop="model" label="模型" width="150" />
+      <el-table-column label="模型" width="150">
+        <template #default="{ row }">
+          {{ formatTargetModelName(row.model) }}
+        </template>
+      </el-table-column>
       <el-table-column label="品牌提及" width="110">
         <template #default="{ row }">
           <ModelInclusionBooleanTag
@@ -60,7 +68,9 @@ defineProps<{
       </el-table-column>
       <el-table-column label="回答摘要" min-width="240">
         <template #default="{ row }">
-          <p class="analysis-text-preview">{{ formatOptional(row.answerSummary) }}</p>
+          <p class="analysis-text-preview">
+            {{ formatGeoAnalysisDisplayText(row.answerSummary, "暂无回答摘要") }}
+          </p>
         </template>
       </el-table-column>
       <el-table-column label="竞品出现" min-width="160">

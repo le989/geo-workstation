@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import type { AnalysisPromptSuggestion } from "@/api/geo-analysis";
-import { contentTypeLabelMap } from "@/config/expansion-options";
+import { generationTypeLabelMap } from "@/config/content-options";
+import { formatGeoAnalysisDisplayText } from "@/config/geo-analysis-options";
+import { contentTypeLabelMap as instructionContentTypeLabelMap } from "@/config/instruction-options";
+import { contentTypeLabelMap as expansionContentTypeLabelMap } from "@/config/expansion-options";
 import { userIntentLabelMap } from "@/config/geo-prompt-options";
 
 const props = defineProps<{
@@ -60,7 +63,10 @@ const getUserIntentLabel = (suggestion: AnalysisPromptSuggestion) =>
 
 const getContentTypeLabel = (suggestion: AnalysisPromptSuggestion) =>
   suggestion.recommendedContentType
-    ? (contentTypeLabelMap[suggestion.recommendedContentType] ?? suggestion.recommendedContentType)
+    ? (expansionContentTypeLabelMap[suggestion.recommendedContentType] ??
+      generationTypeLabelMap[suggestion.recommendedContentType] ??
+      instructionContentTypeLabelMap[suggestion.recommendedContentType] ??
+      suggestion.recommendedContentType)
     : "--";
 </script>
 
@@ -104,7 +110,7 @@ const getContentTypeLabel = (suggestion: AnalysisPromptSuggestion) =>
       </el-table-column>
       <el-table-column label="GEO 提示词建议" min-width="260">
         <template #default="{ row }">
-          <strong>{{ row.promptText }}</strong>
+          <strong>{{ formatGeoAnalysisDisplayText(row.promptText, "GEO 提示词建议") }}</strong>
           <p class="table-subtext">{{ row.reason || "用于补齐 AI 问答场景中的提示词资产。" }}</p>
         </template>
       </el-table-column>

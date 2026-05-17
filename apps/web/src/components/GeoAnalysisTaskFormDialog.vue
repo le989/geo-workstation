@@ -5,7 +5,11 @@ import type {
   GeoAnalysisTask,
   UpdateGeoAnalysisTaskPayload
 } from "@/api/geo-analysis";
-import { defaultTargetModels } from "@/config/geo-analysis-options";
+import {
+  defaultTargetModels,
+  formatTargetModelName,
+  targetModelOptions
+} from "@/config/geo-analysis-options";
 import { splitCommaValues } from "@/config/geo-prompt-options";
 
 type FormState = {
@@ -14,7 +18,7 @@ type FormState = {
   websiteUrl: string;
   productLine: string;
   baseWordsText: string;
-  targetModelsText: string;
+  targetModels: string[];
 };
 
 const props = defineProps<{
@@ -35,7 +39,7 @@ const form = reactive<FormState>({
   brandName: "",
   name: "",
   productLine: "",
-  targetModelsText: defaultTargetModels.join("，"),
+  targetModels: [...defaultTargetModels],
   websiteUrl: ""
 });
 
@@ -46,20 +50,28 @@ const localError = computed(() => {
   if (!form.brandName.trim()) {
     return "品牌名称不能为空。";
   }
-  if (splitCommaValues(form.targetModelsText).length === 0) {
-    return "至少填写 1 个目标模型。";
+  if (form.targetModels.length === 0) {
+    return "至少选择 1 个目标模型。";
   }
   return "";
 });
 
 const title = computed(() => (props.mode === "create" ? "新建 GEO 诊断任务" : "编辑 GEO 诊断任务"));
+const targetModelSelectOptions = computed(() => {
+  const knownValues = new Set(targetModelOptions.map((item) => item.value));
+  const extraOptions = form.targetModels
+    .filter((value) => !knownValues.has(value))
+    .map((value) => ({ label: formatTargetModelName(value), value }));
+
+  return [...targetModelOptions, ...extraOptions];
+});
 
 const resetForm = () => {
   form.baseWordsText = "";
   form.brandName = "";
   form.name = "";
   form.productLine = "";
-  form.targetModelsText = defaultTargetModels.join("，");
+  form.targetModels = [...defaultTargetModels];
   form.websiteUrl = "";
 };
 
@@ -68,7 +80,7 @@ const fillTask = (task: GeoAnalysisTask) => {
   form.brandName = task.brandName ?? "";
   form.name = task.name ?? "";
   form.productLine = task.productLine ?? "";
-  form.targetModelsText = task.targetModels.join("，");
+  form.targetModels = [...task.targetModels];
   form.websiteUrl = task.websiteUrl ?? "";
 };
 
@@ -100,7 +112,7 @@ const handleSubmit = () => {
     brandName: form.brandName.trim(),
     name: form.name.trim(),
     productLine: trimOptional(form.productLine),
-    targetModels: splitCommaValues(form.targetModelsText),
+    targetModels: form.targetModels,
     websiteUrl: trimOptional(form.websiteUrl)
   };
 
@@ -125,8 +137,8 @@ const close = () => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="当前阶段为模拟 GEO 诊断，不调用真实外部 AI 平台，也不访问真实网站。"
-      type="warning"
+      title="诊断结果用于辅助判断品牌覆盖、官网引用与竞品占位情况。"
+      type="info"
       :closable="false"
       show-icon
       class="dialog-alert"
@@ -173,7 +185,7 @@ const close = () => {
           <span>2</span>
           <div>
             <h3>分析输入</h3>
-            <p>核心训练词用于模拟用户问题簇，目标模型用于生成模型结果占位。</p>
+            <p>核心训练词用于组织用户问题簇，目标模型用于记录本次诊断关注的模型范围。</p>
           </div>
         </div>
         <div class="analysis-form-grid">
@@ -186,12 +198,20 @@ const close = () => {
             />
           </el-form-item>
           <el-form-item label="目标模型" required>
-            <el-input
-              v-model="form.targetModelsText"
-              type="textarea"
-              :rows="3"
-              placeholder="逗号或换行分隔，例如：deepseek-chat，doubao，kimi"
-            />
+            <el-select
+              v-model="form.targetModels"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="选择本次诊断关注的模型"
+            >
+              <el-option
+                v-for="option in targetModelSelectOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
           </el-form-item>
         </div>
       </section>

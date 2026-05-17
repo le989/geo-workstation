@@ -26,7 +26,12 @@ import GeoAnalysisStatusTag from "@/components/GeoAnalysisStatusTag.vue";
 import GeoAnalysisTaskDetailDrawer from "@/components/GeoAnalysisTaskDetailDrawer.vue";
 import GeoAnalysisTaskFilters from "@/components/GeoAnalysisTaskFilters.vue";
 import GeoAnalysisTaskFormDialog from "@/components/GeoAnalysisTaskFormDialog.vue";
-import { formatDateTime, formatOptional, formatTargetModels } from "@/config/geo-prompt-options";
+import {
+  formatGeoAnalysisDisplayText,
+  formatGeoAnalysisTaskTitle,
+  formatTargetModelNames
+} from "@/config/geo-analysis-options";
+import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { useAuthStore } from "@/stores/auth";
 import { canUseAction } from "@/utils/permission";
 
@@ -98,22 +103,22 @@ const analysisMetricCards = computed(() => {
 
   return [
     {
-      label: "诊断任务",
+      label: "诊断任务数",
       value: total.value,
       hint: "当前筛选下任务总量"
     },
     {
-      label: "提示词建议",
+      label: "可转入优化项",
       value: promptSuggestionCount,
-      hint: "当前页可转入策略库"
+      hint: "当前页提示词建议"
     },
     {
-      label: "已完成诊断",
+      label: "已完成任务",
       value: completedCount,
       hint: "可进入补词 / 补资料"
     },
     {
-      label: "待处理动作",
+      label: "待运行任务",
       value: actionCount,
       hint: "待运行、失败或进行中"
     }
@@ -243,7 +248,7 @@ const handleSubmitTask = async (
     }
 
     const created = await createGeoAnalysisTask(payload as CreateGeoAnalysisTaskPayload);
-    ElMessage.success("GEO 诊断任务已创建，可运行模拟诊断。");
+    ElMessage.success("GEO 诊断任务已创建，可继续运行诊断。");
     formVisible.value = false;
     await loadTasks();
     selectedTaskId.value = created.id;
@@ -295,8 +300,8 @@ const runTask = async (task?: GeoAnalysisTask) => {
 
   try {
     await ElMessageBox.confirm(
-      "当前为模拟诊断，不会调用真实外部 AI 平台，也不会访问真实网站。确认运行吗？",
-      "运行模拟 GEO 诊断",
+      "将基于当前品牌、官网、产品线和目标模型生成诊断结果。确认运行吗？",
+      "运行 GEO 诊断",
       {
         cancelButtonText: "取消",
         confirmButtonText: "运行诊断",
@@ -311,11 +316,11 @@ const runTask = async (task?: GeoAnalysisTask) => {
     detailVisible.value = true;
     convertResult.value = null;
     convertError.value = "";
-    ElMessage.success("模拟 GEO 诊断已完成。");
+    ElMessage.success("GEO 诊断已完成。");
     await loadTasks();
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error instanceof Error ? error.message : "运行模拟诊断失败。");
+      ElMessage.error(error instanceof Error ? error.message : "运行诊断失败。");
     }
   } finally {
     running.value = false;
@@ -363,7 +368,7 @@ const handleCreateContentTask = async (payload: CreateAnalysisContentTaskPayload
     await createAnalysisContentTask(selectedTaskId.value, payload);
     await loadDetail();
     await ElMessageBox.confirm(
-      "已基于诊断任务创建 GEO 内容任务，并复用模拟内容生成链路。是否前往内容生成页面查看？",
+      "已基于诊断任务创建 GEO 内容任务。是否前往内容生成页面查看？",
       "内容任务已创建",
       {
         cancelButtonText: "留在分析详情",
@@ -397,13 +402,20 @@ onMounted(() => {
       </div>
       <div class="geo-analysis-hero__actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadTasks">刷新</el-button>
-        <el-button v-if="canManageAnalysisActions" type="primary" :icon="Plus" @click="openCreateDialog">新建诊断任务</el-button>
+        <el-button
+          v-if="canManageAnalysisActions"
+          type="primary"
+          :icon="Plus"
+          @click="openCreateDialog"
+        >
+          新建诊断任务
+        </el-button>
       </div>
     </header>
 
     <el-alert
-      title="模拟 GEO 分析结果用于制定优化方向，不等同于 Kimi / 豆包 / 通义等真实联网检测结果。真实检测请到「模型覆盖记录」，汇总复盘请到「GEO 报表」查看。"
-      type="warning"
+      title="诊断结果用于辅助判断品牌覆盖、官网引用与竞品占位情况；模型覆盖复盘请到「AI 收录记录」和「GEO 报表」查看。"
+      type="info"
       :closable="false"
       show-icon
       class="geo-analysis-alert"
@@ -421,35 +433,38 @@ onMounted(() => {
       </article>
     </section>
 
-    <section class="analysis-relation-panel">
-      <div class="analysis-relation-panel__copy">
-        <p class="section-kicker">流程关系</p>
-        <h2>先诊断，再补资产，最后复盘命中</h2>
-        <p>GEO 诊断是前期策略入口；模型覆盖记录保存真实或模拟检测明细，GEO 报表负责汇总复盘。</p>
-      </div>
-      <div class="analysis-flow">
-        <span v-for="step in diagnosisFlowSteps" :key="step">{{ step }}</span>
-      </div>
-      <div class="analysis-relation-actions">
-        <el-button
-          v-for="link in diagnosisRelationLinks"
-          :key="link.path"
-          plain
-          @click="router.push(link.path)"
-        >
-          {{ link.label }}
-        </el-button>
-      </div>
-    </section>
+    <el-collapse class="analysis-relation-collapse">
+      <el-collapse-item title="查看 GEO 诊断闭环说明" name="geo-analysis-flow">
+        <section class="analysis-relation-panel">
+          <div class="analysis-relation-panel__copy">
+            <p class="section-kicker">流程关系</p>
+            <h2>先诊断，再补资产，最后复盘命中</h2>
+            <p>GEO 诊断是前期策略入口；覆盖记录保存检测明细，GEO 报表负责汇总复盘。</p>
+          </div>
+          <div class="analysis-flow">
+            <span v-for="step in diagnosisFlowSteps" :key="step">{{ step }}</span>
+          </div>
+          <div class="analysis-relation-actions">
+            <el-button
+              v-for="link in diagnosisRelationLinks"
+              :key="link.path"
+              text
+              type="primary"
+              @click="router.push(link.path)"
+            >
+              {{ link.label }}
+            </el-button>
+          </div>
+        </section>
+      </el-collapse-item>
+    </el-collapse>
 
     <GeoAnalysisTaskFilters
       :model-value="filters"
       :loading="loading"
-      :can-create="canManageAnalysisActions"
       @update:model-value="Object.assign(filters, $event)"
       @search="handleSearch"
       @reset="handleReset"
-      @create="openCreateDialog"
     />
 
     <AppErrorState v-if="hasTableError" title="GEO 诊断任务加载失败" :message="tableError" />
@@ -476,7 +491,9 @@ onMounted(() => {
       >
         <el-table-column label="任务名称" min-width="230" fixed>
           <template #default="{ row }">
-            <strong class="analysis-task-name">{{ row.name }}</strong>
+            <strong class="analysis-task-name">
+              {{ formatGeoAnalysisTaskTitle(row.name, row.brandName) }}
+            </strong>
             <p class="table-subtext">品牌：{{ row.brandName }}</p>
           </template>
         </el-table-column>
@@ -487,15 +504,18 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="产品线" min-width="170">
           <template #default="{ row }">
-            <span class="analysis-table-line" :title="formatOptional(row.productLine)">
-              {{ formatOptional(row.productLine) }}
+            <span
+              class="analysis-table-line"
+              :title="formatGeoAnalysisDisplayText(row.productLine)"
+            >
+              {{ formatGeoAnalysisDisplayText(row.productLine) }}
             </span>
           </template>
         </el-table-column>
         <el-table-column label="目标模型" min-width="180">
           <template #default="{ row }">
-            <span class="analysis-table-line" :title="formatTargetModels(row.targetModels)">
-              {{ formatTargetModels(row.targetModels) }}
+            <span class="analysis-table-line" :title="formatTargetModelNames(row.targetModels)">
+              {{ formatTargetModelNames(row.targetModels) }}
             </span>
           </template>
         </el-table-column>
@@ -512,9 +532,12 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="openDetailDrawer(row)">查看详情</el-button>
+            <el-button size="small" type="primary" plain @click="openDetailDrawer(row)">
+              查看详情
+            </el-button>
             <el-button
               v-if="canManageAnalysisActions"
+              text
               size="small"
               :disabled="row.status !== 'pending'"
               @click="openEditDialog(row)"
@@ -537,7 +560,7 @@ onMounted(() => {
       <AppEmptyState
         v-if="isEmpty && !hasTableError"
         title="暂无 GEO 诊断任务"
-        description="先创建一个品牌或产品线诊断任务，再运行模拟诊断识别提示词、知识库和内容缺口。"
+        description="先创建一个品牌或产品线诊断任务，再运行诊断识别提示词、知识库和内容缺口。"
       />
 
       <div class="pagination-row">
@@ -651,6 +674,23 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.analysis-relation-collapse {
+  overflow: hidden;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.analysis-relation-collapse :deep(.el-collapse-item__header) {
+  padding: 0 18px;
+  font-weight: 800;
+}
+
+.analysis-relation-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: 0;
+}
+
 .geo-analysis-metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -697,10 +737,8 @@ onMounted(() => {
   display: grid;
   gap: 16px;
   padding: 20px;
-  border: 1px solid var(--geo-border);
-  border-radius: 8px;
+  border-top: 1px solid var(--geo-border);
   background: linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 44%), #ffffff;
-  box-shadow: var(--geo-shadow-sm);
 }
 
 .analysis-relation-panel__copy h2 {

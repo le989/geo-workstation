@@ -9,6 +9,11 @@ import { getInstructionTemplates, type InstructionTemplate } from "@/api/instruc
 import { getKnowledgeBases, type KnowledgeBase } from "@/api/knowledge";
 import GeoPromptSelector from "@/components/GeoPromptSelector.vue";
 import { generationTypeOptions } from "@/config/content-options";
+import {
+  formatGeoAnalysisTaskTitle,
+  formatTargetModelName,
+  targetModelOptions
+} from "@/config/geo-analysis-options";
 import { formatOptional } from "@/config/geo-prompt-options";
 import { contentTypeLabelMap, instructionTypeLabelMap } from "@/config/instruction-options";
 
@@ -50,6 +55,19 @@ const selectedInstructionContentTypeLabel = computed(() =>
       selectedInstructionTemplate.value.contentType)
     : ""
 );
+const targetModelSelectOptions = computed(() => {
+  if (!form.targetModel || targetModelOptions.some((item) => item.value === form.targetModel)) {
+    return targetModelOptions;
+  }
+
+  return [
+    ...targetModelOptions,
+    {
+      label: formatTargetModelName(form.targetModel),
+      value: form.targetModel
+    }
+  ];
+});
 
 const loadOptions = async () => {
   loadingOptions.value = true;
@@ -77,7 +95,9 @@ const loadOptions = async () => {
 watch(
   () => props.task?.id,
   () => {
-    form.name = props.task ? `${props.task.name} 内容补齐任务` : "";
+    form.name = props.task
+      ? `${formatGeoAnalysisTaskTitle(props.task.name, props.task.brandName)} 内容补齐任务`
+      : "";
     form.targetModel = props.task?.targetModels[0] ?? "";
     form.geoPromptIds = [];
   },
@@ -122,9 +142,9 @@ const handleSubmit = () => {
         <div>
           <p class="section-kicker">创建内容任务</p>
           <h3>基于分析任务创建内容任务</h3>
-          <p>把提示词缺口转为 GEO 内容补齐动作，复用模拟内容生成链路，不接真实 AI。</p>
+          <p>把提示词缺口转为 GEO 内容补齐动作，便于进入内容生成页面继续处理。</p>
         </div>
-        <el-tag type="warning" effect="plain">模拟内容生成</el-tag>
+        <el-tag type="success" effect="plain">后续动作</el-tag>
       </div>
     </template>
 
@@ -159,7 +179,14 @@ const handleSubmit = () => {
         </el-select>
       </el-form-item>
       <el-form-item label="目标模型">
-        <el-input v-model="form.targetModel" placeholder="默认使用分析任务第一个目标模型" />
+        <el-select v-model="form.targetModel" clearable placeholder="默认使用分析任务第一个目标模型">
+          <el-option
+            v-for="option in targetModelSelectOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item label="知识库">
         <el-select

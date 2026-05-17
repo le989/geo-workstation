@@ -39,14 +39,14 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "GEO 分析",
-  "模拟 GEO 分析",
-  "不调用真实外部 AI 平台",
-  "不访问真实网站",
+  "诊断结果用于辅助判断",
+  "品牌覆盖",
+  "竞品占位",
   "GeoAnalysisTaskFilters",
   "GeoAnalysisTaskFormDialog",
   "GeoAnalysisTaskDetailDrawer",
   "GeoAnalysisStatusTag",
-  "运行模拟分析",
+  "运行诊断",
   "转入提示词库",
   "创建内容任务",
   "提示词缺口",
