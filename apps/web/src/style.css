@@ -2236,6 +2236,10 @@ a {
   grid-column: 1 / -1;
 }
 
+.form-span-4 {
+  grid-column: 1 / -1;
+}
+
 .geo-prompt-form-section {
   display: grid;
   gap: 14px;
@@ -2428,6 +2432,28 @@ a {
   background: rgb(186 255 41 / 12%);
 }
 
+.expansion-flow-collapse,
+.expansion-tech-collapse,
+.expansion-lookup-collapse,
+.expansion-advanced-config {
+  border-top: 1px solid var(--geo-border);
+}
+
+.expansion-flow-collapse .el-collapse-item__header,
+.expansion-tech-collapse .el-collapse-item__header,
+.expansion-lookup-collapse .el-collapse-item__header,
+.expansion-advanced-config .el-collapse-item__header {
+  color: #172326;
+  font-weight: 800;
+}
+
+.expansion-flow-collapse .el-collapse-item__content,
+.expansion-tech-collapse .el-collapse-item__content,
+.expansion-lookup-collapse .el-collapse-item__content,
+.expansion-advanced-config .el-collapse-item__content {
+  padding-bottom: 16px;
+}
+
 .expansion-mode-panel,
 .expansion-form-panel,
 .expansion-result-panel,
@@ -2484,6 +2510,23 @@ a {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+}
+
+.expansion-form-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #e3ebe8;
+  border-radius: 8px;
+  background: #fbfcfb;
+  color: #172326;
+}
+
+.expansion-form-subtitle span {
+  color: var(--geo-muted);
+  font-size: 13px;
 }
 
 .expansion-form-grid .el-form-item,
@@ -2569,6 +2612,70 @@ a {
   margin-top: 6px;
   color: #9a5a27;
   line-height: 1.45;
+}
+
+.candidate-intent-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.candidate-intent-cell span {
+  color: var(--geo-muted);
+  font-size: 12px;
+}
+
+.candidate-intent-cell strong {
+  color: #172326;
+  font-size: 13px;
+}
+
+.candidate-action-cell {
+  display: flex;
+  justify-content: center;
+}
+
+.muted-candidate-action {
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.expansion-candidate-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e5edf4;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.expansion-candidate-detail section {
+  display: grid;
+  gap: 10px;
+}
+
+.expansion-candidate-detail dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.expansion-candidate-detail dl div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.expansion-candidate-detail dt {
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.expansion-candidate-detail dd {
+  min-width: 0;
+  margin: 0;
+  color: #172326;
+  overflow-wrap: anywhere;
 }
 
 .save-candidates-form {
@@ -6912,6 +7019,7 @@ a {
   .geo-prompt-import-form,
   .expansion-form-grid,
   .expansion-result-stats,
+  .expansion-candidate-detail,
   .save-candidates-form,
   .knowledge-filters,
   .knowledge-inner-filters,

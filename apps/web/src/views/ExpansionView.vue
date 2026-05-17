@@ -81,6 +81,8 @@ const candidateStats = computed(() => [
   }
 ]);
 
+const canSaveSelectedCandidates = computed(() => selectedCount.value > 0);
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
     return `${error.message}。后端未连接时页面仍可访问，请先确认 API 服务是否启动。`;
@@ -214,27 +216,30 @@ const goGeoPrompts = () => {
         <h1>AI 拓词</h1>
         <p>基于产品、场景和规则组合扩展候选 GEO 词，筛选后沉淀到提示词策略库。</p>
         <strong>
-          候选词不会自动入库；通过手动组合规则、模拟生成或真实 AI 接口生成用户可能会向 AI
-          提出的问题候选，保存前会检查重复。
+          先生成候选词，再人工勾选可用结果并保存到提示词策略库，后续可用于 GEO 诊断、内容生产和模型覆盖复盘。
         </strong>
       </div>
       <div class="expansion-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="CollectionTag" type="primary" @click="goGeoPrompts">
+        <el-button :icon="CollectionTag" plain @click="goGeoPrompts">
           查看提示词策略库
         </el-button>
       </div>
     </header>
 
-    <section class="expansion-flow-strip" aria-label="AI 拓词流程">
-      <div>
-        <p class="section-kicker">策略生产流程</p>
-        <h2>从产品与场景扩展候选 GEO 词</h2>
-      </div>
-      <div class="expansion-flow-steps">
-        <span v-for="step in expansionFlowSteps" :key="step">{{ step }}</span>
-      </div>
-    </section>
+    <el-collapse class="expansion-flow-collapse">
+      <el-collapse-item title="查看拓词流程" name="flow">
+        <section class="expansion-flow-strip" aria-label="AI 拓词流程">
+          <div>
+            <p class="section-kicker">策略生产流程</p>
+            <h2>生成候选词后再人工筛选入库</h2>
+          </div>
+          <div class="expansion-flow-steps">
+            <span v-for="step in expansionFlowSteps" :key="step">{{ step }}</span>
+          </div>
+        </section>
+      </el-collapse-item>
+    </el-collapse>
 
     <ExpansionModeTabs v-model="activeMode" />
 
@@ -284,7 +289,6 @@ const goGeoPrompts = () => {
 
       <template v-else-if="currentJob">
         <el-descriptions :column="4" border class="expansion-job-summary">
-          <el-descriptions-item label="任务 ID">{{ currentJob.id }}</el-descriptions-item>
           <el-descriptions-item label="拓词方式">
             {{ expansionModeLabelMap[currentJob.mode] }}
           </el-descriptions-item>
@@ -294,19 +298,27 @@ const goGeoPrompts = () => {
           <el-descriptions-item label="输出词类型">
             {{ geoPromptTypeLabelMap[currentJob.promptType] ?? currentJob.promptType }}
           </el-descriptions-item>
-          <el-descriptions-item label="AI 生成方式">
-            {{ formatAiProvider(currentJob.provider) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="模型名称">
-            {{ formatOptional(currentJob.model) }}
-          </el-descriptions-item>
           <el-descriptions-item label="训练词">
             {{ formatOptional(currentJob.baseWord) }}
           </el-descriptions-item>
-          <el-descriptions-item label="创建时间">
-            {{ formatDateTime(currentJob.createdAt) }}
-          </el-descriptions-item>
         </el-descriptions>
+
+        <el-collapse class="expansion-tech-collapse">
+          <el-collapse-item title="排查信息" name="tech">
+            <el-descriptions :column="2" border class="expansion-job-summary">
+              <el-descriptions-item label="任务 ID">{{ currentJob.id }}</el-descriptions-item>
+              <el-descriptions-item label="生成方式">
+                {{ formatAiProvider(currentJob.provider) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="模型名称">
+                {{ formatOptional(currentJob.model) }}
+              </el-descriptions-item>
+              <el-descriptions-item label="创建时间">
+                {{ formatDateTime(currentJob.createdAt) }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-collapse-item>
+        </el-collapse>
 
         <ExpansionCandidateTable
           v-model="selectedCandidateIds"
@@ -314,7 +326,7 @@ const goGeoPrompts = () => {
           :loading="generationLoading || lookupLoading"
         />
 
-        <section class="save-candidates-panel">
+        <section v-if="candidates.length > 0" class="save-candidates-panel">
           <div class="save-candidates-panel__header">
             <div>
               <p class="section-kicker">保存候选词</p>
@@ -324,7 +336,12 @@ const goGeoPrompts = () => {
                 {{ nonDuplicateCount }} 条。保存前后端会再次检查库内重复。
               </p>
             </div>
-            <el-button type="primary" :loading="saveLoading" @click="handleSaveCandidates">
+            <el-button
+              :type="canSaveSelectedCandidates ? 'primary' : 'default'"
+              :disabled="!canSaveSelectedCandidates"
+              :loading="saveLoading"
+              @click="handleSaveCandidates"
+            >
               保存选中候选词到提示词策略库
             </el-button>
           </div>
@@ -360,8 +377,8 @@ const goGeoPrompts = () => {
           <SaveCandidatesResult :result="saveResult" />
 
           <div v-if="saveResult && saveResult.savedCount > 0" class="expansion-next-actions">
-            <el-button type="success" @click="goGeoPrompts">
-              前往 /geo-prompts 查看保存结果
+            <el-button type="success" plain @click="goGeoPrompts">
+              前往提示词策略库查看保存结果
             </el-button>
           </div>
         </section>
@@ -369,6 +386,10 @@ const goGeoPrompts = () => {
     </section>
 
     <AppErrorState v-if="lookupError" title="拓词任务查询失败" :message="lookupError" />
-    <ExpansionJobLookup :loading="lookupLoading" @lookup="handleLookupJob" />
+    <el-collapse class="expansion-lookup-collapse">
+      <el-collapse-item title="查询历史任务" name="lookup">
+        <ExpansionJobLookup :loading="lookupLoading" @lookup="handleLookupJob" />
+      </el-collapse-item>
+    </el-collapse>
   </section>
 </template>

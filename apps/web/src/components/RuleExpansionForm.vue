@@ -113,6 +113,11 @@ const handleSubmit = () => {
     />
 
     <el-form label-position="top" class="expansion-form-grid">
+      <div class="expansion-form-subtitle form-span-4">
+        <strong>基础配置</strong>
+        <span>先填写训练词、输出方向和场景信息，即可生成候选词。</span>
+      </div>
+
       <el-form-item label="训练词" required>
         <el-input
           v-model="form.baseWord"
@@ -142,30 +147,6 @@ const handleSubmit = () => {
       <el-form-item label="优先级">
         <el-input-number v-model="form.priority" :min="1" :max="5" />
       </el-form-item>
-      <el-form-item label="前缀" class="form-span-2">
-        <el-input
-          v-model="form.prefixesText"
-          type="textarea"
-          :rows="4"
-          placeholder="多行或逗号分隔，例如：怎么选、适合谁、怎么比较"
-        />
-      </el-form-item>
-      <el-form-item label="品牌/服务后缀" class="form-span-2">
-        <el-input
-          v-model="form.serviceSuffixesText"
-          type="textarea"
-          :rows="4"
-          placeholder="多行或逗号分隔，例如：品牌、服务方、替代方案"
-        />
-      </el-form-item>
-      <el-form-item label="应用后缀" class="form-span-2">
-        <el-input
-          v-model="form.applicationSuffixesText"
-          type="textarea"
-          :rows="4"
-          placeholder="多行或逗号分隔，例如：用于行车防撞、应用在仓储测距"
-        />
-      </el-form-item>
       <el-form-item label="产品线">
         <el-input
           v-model="form.productLine"
@@ -175,15 +156,46 @@ const handleSubmit = () => {
       <el-form-item label="应用场景">
         <el-input v-model="form.scenario" placeholder="可选，例如：行车防撞" />
       </el-form-item>
-      <el-form-item label="目标模型" class="form-span-2">
-        <el-input v-model="form.targetModelsText" placeholder="多个模型用逗号分隔" />
-      </el-form-item>
-      <el-form-item label="来源">
-        <el-input v-model="form.source" placeholder="例如：规则拓词" />
-      </el-form-item>
       <el-form-item label="是否追踪">
         <el-switch v-model="form.trackEnabled" active-text="追踪" inactive-text="不追踪" />
       </el-form-item>
+
+      <el-collapse class="expansion-advanced-config form-span-4">
+        <el-collapse-item title="高级配置" name="advanced">
+          <div class="expansion-form-grid">
+            <el-form-item label="前缀" class="form-span-2">
+              <el-input
+                v-model="form.prefixesText"
+                type="textarea"
+                :rows="4"
+                placeholder="多行或逗号分隔，例如：怎么选、适合谁、怎么比较"
+              />
+            </el-form-item>
+            <el-form-item label="品牌 / 服务后缀" class="form-span-2">
+              <el-input
+                v-model="form.serviceSuffixesText"
+                type="textarea"
+                :rows="4"
+                placeholder="多行或逗号分隔，例如：品牌、服务方、替代方案"
+              />
+            </el-form-item>
+            <el-form-item label="应用后缀" class="form-span-2">
+              <el-input
+                v-model="form.applicationSuffixesText"
+                type="textarea"
+                :rows="4"
+                placeholder="多行或逗号分隔，例如：用于行车防撞、应用在仓储测距"
+              />
+            </el-form-item>
+            <el-form-item label="目标模型" class="form-span-2">
+              <el-input v-model="form.targetModelsText" placeholder="多个模型用逗号分隔" />
+            </el-form-item>
+            <el-form-item label="来源">
+              <el-input v-model="form.source" placeholder="例如：规则拓词" />
+            </el-form-item>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </el-form>
 
     <div class="expansion-form-actions">

@@ -75,6 +75,33 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
 
   return "--";
 };
+
+const resolveDuplicateStatus = (candidate: ExpansionCandidate) => {
+  if (candidate.duplicateInDatabase) {
+    return { label: "库内重复", type: "danger" as const };
+  }
+
+  if (candidate.duplicateInBatch) {
+    return { label: "本批重复", type: "warning" as const };
+  }
+
+  return { label: "可保存", type: "success" as const };
+};
+
+const resolveSaveStatus = (candidate: ExpansionCandidate) => {
+  if (candidate.selected || candidate.savedPromptId || candidate.saveStatus === "saved") {
+    return { label: "已保存", type: "success" as const };
+  }
+
+  if (candidate.saveStatus === "pending") {
+    return { label: "待保存", type: "info" as const };
+  }
+
+  return {
+    label: saveStatusLabelMap[candidate.saveStatus] ?? candidate.saveStatus,
+    type: "warning" as const
+  };
+};
 </script>
 
 <template>
@@ -102,30 +129,68 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
       border
       empty-text="暂无候选词，请调整输入或补充场景约束后重试。"
     >
-      <el-table-column label="勾选" width="72" fixed="left" align="center">
+      <el-table-column type="expand" width="44">
         <template #default="{ row }: { row: ExpansionCandidate }">
-          <el-checkbox
-            :model-value="selectedIds.has(row.id)"
-            :disabled="!isCandidateSelectable(row)"
-            @change="handleCheckboxChange(row, $event)"
-          />
+          <div class="expansion-candidate-detail">
+            <section>
+              <p class="section-kicker">策略信息</p>
+              <dl>
+                <div>
+                  <dt>训练词</dt>
+                  <dd>{{ formatOptional(row.baseWord) }}</dd>
+                </div>
+                <div>
+                  <dt>推荐内容方向</dt>
+                  <dd>
+                    {{
+                      row.recommendedContentType
+                        ? (contentTypeLabelMap[row.recommendedContentType] ??
+                          row.recommendedContentType)
+                        : "--"
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>创建时间</dt>
+                  <dd>{{ formatDateTime(row.createdAt) }}</dd>
+                </div>
+              </dl>
+            </section>
+            <section>
+              <p class="section-kicker">排查信息</p>
+              <dl>
+                <div>
+                  <dt>重复原因</dt>
+                  <dd>
+                    {{
+                      row.duplicateReason
+                        ? duplicateReasonLabelMap[row.duplicateReason]
+                        : resolveDuplicateText(row)
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>已保存提示词 ID</dt>
+                  <dd>{{ row.savedPromptId ?? "--" }}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
         </template>
       </el-table-column>
-      <el-table-column prop="promptText" label="GEO 候选提示词" min-width="270" fixed="left">
+      <el-table-column prop="promptText" label="候选提示词" min-width="320" fixed="left">
         <template #default="{ row }: { row: ExpansionCandidate }">
           <strong class="prompt-text-cell">{{ row.promptText }}</strong>
           <small v-if="row.duplicateInDatabase" class="candidate-hint">库内重复，不建议保存</small>
           <small v-else-if="row.duplicateInBatch" class="candidate-hint">本批重复</small>
         </template>
       </el-table-column>
-      <el-table-column prop="baseWord" label="训练词" min-width="150">
+      <el-table-column prop="userIntent" label="类型 / 意图" width="156">
         <template #default="{ row }: { row: ExpansionCandidate }">
-          {{ formatOptional(row.baseWord) }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="userIntent" label="用户意图" width="126">
-        <template #default="{ row }: { row: ExpansionCandidate }">
-          {{ row.userIntent ? userIntentLabelMap[row.userIntent] : "--" }}
+          <div class="candidate-intent-cell">
+            <span>用户问题</span>
+            <strong>{{ row.userIntent ? userIntentLabelMap[row.userIntent] : "--" }}</strong>
+          </div>
         </template>
       </el-table-column>
       <el-table-column prop="priority" label="优先级" width="104" align="center">
@@ -138,7 +203,14 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="recommendedContentType" label="推荐内容方向" min-width="190">
+      <el-table-column label="重复状态" width="128" align="center">
+        <template #default="{ row }: { row: ExpansionCandidate }">
+          <el-tag :type="resolveDuplicateStatus(row).type" effect="plain">
+            {{ resolveDuplicateStatus(row).label }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="recommendedContentType" label="建议动作" min-width="170">
         <template #default="{ row }: { row: ExpansionCandidate }">
           {{
             row.recommendedContentType
@@ -147,60 +219,25 @@ const resolveDuplicateText = (candidate: ExpansionCandidate) => {
           }}
         </template>
       </el-table-column>
-      <el-table-column prop="duplicateInBatch" label="本批重复" width="152" align="center">
+      <el-table-column prop="saveStatus" label="保存状态" width="122" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
-          <el-tag v-if="row.duplicateInBatch" type="warning" effect="plain">本批重复</el-tag>
-          <span v-else>--</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="duplicateInDatabase" label="库内重复" width="168" align="center">
-        <template #default="{ row }: { row: ExpansionCandidate }">
-          <el-tag v-if="row.duplicateInDatabase" type="danger" effect="plain">
-            库内重复，不建议保存
-          </el-tag>
-          <span v-else>--</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="duplicateReason" label="重复原因" min-width="178">
-        <template #default="{ row }: { row: ExpansionCandidate }">
-          {{
-            row.duplicateReason
-              ? duplicateReasonLabelMap[row.duplicateReason]
-              : resolveDuplicateText(row)
-          }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="selected" label="保存结果" width="104" align="center">
-        <template #default="{ row }: { row: ExpansionCandidate }">
-          <el-tag :type="row.selected ? 'success' : 'info'" effect="plain">
-            {{ row.selected ? "已保存" : "未保存" }}
+          <el-tag :type="resolveSaveStatus(row).type" effect="plain">
+            {{ resolveSaveStatus(row).label }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="savedPromptId" label="已保存提示词 ID" min-width="190">
+      <el-table-column label="操作" width="108" fixed="right" align="center">
         <template #default="{ row }: { row: ExpansionCandidate }">
-          {{ row.savedPromptId ?? "--" }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="saveStatus" label="保存状态" width="132" align="center">
-        <template #default="{ row }: { row: ExpansionCandidate }">
-          <el-tag
-            :type="
-              row.saveStatus === 'saved'
-                ? 'success'
-                : row.saveStatus === 'pending'
-                  ? 'info'
-                  : 'warning'
-            "
-            effect="plain"
-          >
-            {{ saveStatusLabelMap[row.saveStatus] ?? row.saveStatus }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="createdAt" label="创建时间" min-width="176">
-        <template #default="{ row }: { row: ExpansionCandidate }">
-          {{ formatDateTime(row.createdAt) }}
+          <div class="candidate-action-cell">
+            <el-checkbox
+              v-if="isCandidateSelectable(row)"
+              :model-value="selectedIds.has(row.id)"
+              @change="handleCheckboxChange(row, $event)"
+            >
+              选择
+            </el-checkbox>
+            <span v-else class="muted-candidate-action">不可保存</span>
+          </div>
         </template>
       </el-table-column>
     </el-table>

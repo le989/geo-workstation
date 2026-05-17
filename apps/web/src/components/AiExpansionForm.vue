@@ -3,7 +3,6 @@ import { reactive, ref, watch } from "vue";
 import type { AiGenerateExpansionPayload } from "@/api/expansion";
 import type { UserIntent } from "@/api/geo-prompts";
 import { splitCommaValues, userIntentOptions } from "@/config/geo-prompt-options";
-import { aiProviderOptions } from "@/config/label-maps";
 
 const props = defineProps<{
   loading?: boolean;
@@ -28,6 +27,10 @@ const form = reactive({
 });
 
 const localError = ref("");
+const expansionProviderOptions = [
+  { label: "内部候选生成", value: "mock" },
+  { label: "AI 接口生成", value: "openai_compatible" }
+] as const;
 
 const trimOptional = (value: string) => {
   const trimmed = value.trim();
@@ -86,8 +89,8 @@ const handleSubmit = () => {
     </div>
 
     <el-alert
-      title="默认使用模拟生成；选择真实 AI 接口会消耗接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。建议输入具体产品、服务、课程、门店或个人品牌方向，结果太泛时可补充目标客户、场景或限制条件。"
-      type="warning"
+      title="拓词结果用于辅助筛选候选提示词，保存后可进入提示词策略库。建议输入具体产品、服务或场景，结果太泛时可补充限制条件。"
+      type="info"
       :closable="false"
       show-icon
       class="dialog-alert"
@@ -102,6 +105,11 @@ const handleSubmit = () => {
     />
 
     <el-form label-position="top" class="expansion-form-grid">
+      <div class="expansion-form-subtitle form-span-4">
+        <strong>基础配置</strong>
+        <span>填写训练词、输出方向和生成数量后即可生成候选词。</span>
+      </div>
+
       <el-form-item label="训练词" required>
         <el-input
           v-model="form.baseWord"
@@ -128,22 +136,6 @@ const handleSubmit = () => {
       <el-form-item label="生成数量">
         <el-input-number v-model="form.count" :min="1" :max="50" />
       </el-form-item>
-      <el-form-item label="AI 生成方式">
-        <el-select v-model="form.provider">
-          <el-option
-            v-for="option in aiProviderOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="模型名称">
-        <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
-      </el-form-item>
-      <el-form-item label="知识库 ID">
-        <el-input v-model="form.knowledgeBaseId" placeholder="可选，第一版可手动输入" />
-      </el-form-item>
       <el-form-item label="产品线 / 服务线">
         <el-input
           v-model="form.productLine"
@@ -156,17 +148,40 @@ const handleSubmit = () => {
           placeholder="可选，例如：典型使用场景、咨询场景或到店场景"
         />
       </el-form-item>
-      <el-form-item label="目标模型">
-        <el-input v-model="form.targetModelsText" placeholder="多个模型用逗号分隔" />
-      </el-form-item>
-      <el-form-item label="约束条件" class="form-span-2">
-        <el-input
-          v-model="form.constraints"
-          type="textarea"
-          :rows="4"
-          placeholder="例如：不要生成价格词；优先生成家长会问的问题；围绕选型、对比、顾虑和场景展开。"
-        />
-      </el-form-item>
+
+      <el-collapse class="expansion-advanced-config form-span-4">
+        <el-collapse-item title="高级配置" name="advanced">
+          <div class="expansion-form-grid">
+            <el-form-item label="生成方式">
+              <el-select v-model="form.provider">
+                <el-option
+                  v-for="option in expansionProviderOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="模型名称">
+              <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
+            </el-form-item>
+            <el-form-item label="知识库 ID">
+              <el-input v-model="form.knowledgeBaseId" placeholder="可选，第一版可手动输入" />
+            </el-form-item>
+            <el-form-item label="目标模型">
+              <el-input v-model="form.targetModelsText" placeholder="多个模型用逗号分隔" />
+            </el-form-item>
+            <el-form-item label="约束条件" class="form-span-2">
+              <el-input
+                v-model="form.constraints"
+                type="textarea"
+                :rows="4"
+                placeholder="例如：不要生成价格词；优先围绕选型、对比、顾虑和场景展开。"
+              />
+            </el-form-item>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </el-form>
 
     <div class="expansion-form-actions">

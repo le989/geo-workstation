@@ -32,12 +32,15 @@ const pageRequiredSnippets = [
   "AI 拓词",
   "provider",
   "openai_compatible",
-  "API Key 由后端",
+  "拓词结果用于辅助筛选候选提示词",
   "候选词不会自动入库",
   "用户可能会向 AI 提出的问题候选",
   "推荐内容方向",
   "生成候选词",
   "保存选中候选词到提示词策略库",
+  "高级配置",
+  "排查信息",
+  "查询历史任务",
   "ExpansionCandidateTable",
   "RuleExpansionForm",
   "AiExpansionForm",
@@ -95,6 +98,8 @@ for (const field of candidateRequiredFields) {
 }
 
 assert(!pageSource.includes("API Key 输入"), "Expansion page must not expose API Key inputs");
+assert(!pageSource.includes("API Key 由后端"), "Expansion page must not foreground API Key setup copy");
+assert(!pageSource.includes(".env"), "Expansion page must not foreground environment variable copy");
 assert(!pageSource.includes("saveDefaults.createdBy"), "Expansion page must not submit createdBy");
 assert(!pageSource.includes("默认由后端使用系统 GEO 运营用户"), "Expansion page must not show creator fallback input");
 

@@ -28,9 +28,9 @@ const handleLookup = () => {
 <template>
   <section class="expansion-lookup-panel">
     <div>
-      <p class="section-kicker">任务查询</p>
-      <h2>查询拓词任务详情</h2>
-      <p>输入拓词任务 ID 可查看历史拓词候选、重复标记和保存状态。</p>
+      <p class="section-kicker">任务排查</p>
+      <h2>查询历史拓词任务</h2>
+      <p>用于排查或继续查看已有拓词任务；日常拓词通常无需手动填写。</p>
     </div>
     <el-alert
       v-if="localError"

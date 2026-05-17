@@ -22,8 +22,8 @@ const handleTabChange = (name: string | number) => {
       <p>先生成用户可能会向 AI 提出的问题候选，再由运营人工判断是否保存到提示词策略库。</p>
     </div>
     <el-alert
-      title="AI 模式默认使用模拟生成，也可选择真实 AI 接口；候选词不会自动入库，真实 AI 会消耗接口额度。"
-      type="warning"
+      title="拓词结果用于内部分析与内容优化参考，候选词需人工确认后才会保存到提示词策略库。"
+      type="info"
       :closable="false"
       show-icon
     />
