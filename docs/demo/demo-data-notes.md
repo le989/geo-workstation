@@ -28,7 +28,7 @@ pnpm prisma:seed
 - 示例知识库（仅作为测试数据）：
   - 激光测距传感器知识库
 
-seed 只提供少量起步数据，不会塞大量假数据。
+seed 只提供少量起步数据，不会塞大量假数据。生产或共享环境只建议首次初始化执行 seed；已有真实业务数据后不要常规重跑，避免覆盖默认管理员密码或默认公司信息。
 
 ## smoke:api 会创建哪些数据
 
@@ -79,9 +79,9 @@ SMOKE_AUTH_EMAIL=admin@example.com SMOKE_AUTH_PASSWORD=replace_me pnpm smoke:api
 2. 将分析任务的 promptSuggestions 转入提示词库。
 3. 在 `/knowledge-bases` 创建“激光测距传感器知识库”，文本导入产品参数、场景、FAQ。
 4. 在 `/instruction-templates` 创建“需求决策指南”或“AI 问答素材”指令。
-5. 在 `/content-tasks` 创建内容任务，选择刚刚转入的提示词、知识库和指令模板。
+5. 在 `/geo-content` 创建内容任务，选择刚刚转入的提示词、知识库和指令模板；`/content-tasks` 是历史兼容入口。
 6. 在 `/model-inclusion-records` 手动录入一条模型覆盖记录。
-7. 在 `/reports` 查看提示词覆盖、模型覆盖、内容覆盖、知识库覆盖和优化建议。
+7. 在 `/geo-reports` 查看提示词覆盖、模型覆盖、内容覆盖、知识库覆盖和优化建议；`/reports` 是历史兼容入口。
 
 ## 哪些数据无法物理删除
 
@@ -105,7 +105,7 @@ pnpm prisma:migrate
 pnpm prisma:seed
 ```
 
-如果要修改默认管理员密码，先更新私有 `.env` 中的 `DEFAULT_ADMIN_PASSWORD`，再执行 `pnpm prisma:seed`。
+如果要修改默认管理员密码，先更新私有 `.env` 中的 `DEFAULT_ADMIN_PASSWORD`，再执行 `pnpm prisma:seed`。该流程只适合本地开发；生产环境不要用重跑 seed 作为改密方式。
 
 如果希望清空本地数据库并重新开始，可以删除本地 PostgreSQL volume 后重建。执行前请确认没有需要保留的数据：
 
@@ -136,6 +136,8 @@ pnpm prisma:generate
 pnpm prisma:migrate
 pnpm prisma:seed
 ```
+
+生产发布迁移使用 `pnpm prisma:migrate:deploy`。生产首次初始化如果确实需要 seed，必须显式开启生产 seed 确认变量，并先确认备份和默认管理员策略。
 
 校验 Prisma：
 

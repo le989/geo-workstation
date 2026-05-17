@@ -92,11 +92,11 @@
 - [ ] 勾选保存后能在 `/geo-prompts` 查询到。
 - [ ] `/knowledge-bases` 有真实知识片段。
 - [ ] `/instruction-templates` 有至少 4 个真实指令模板。
-- [ ] `/content-tasks` 使用 `openai_compatible` 生成内容。
+- [ ] `/geo-content` 使用 `openai_compatible` 生成内容；`/content-tasks` 兼容入口可访问同一页面。
 - [ ] 内容项可编辑并导出 Markdown。
 - [ ] 失败时错误提示可读。
 - [ ] `/model-inclusion-records` 可人工录入真实查询结果。
-- [ ] `/reports` 能看到数据变化。
+- [ ] `/geo-reports` 能看到数据变化；`/reports` 兼容入口可访问同一页面。
 
 ## 后续优化建议
 

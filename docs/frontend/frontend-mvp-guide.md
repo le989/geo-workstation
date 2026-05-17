@@ -1,6 +1,6 @@
 # 前端 MVP 使用指南
 
-本文档用于 Phase 3J 前端整体联调和内部演示交接。当前前端已经可以作为 GEO 营销运营系统的内部工作台使用，核心仍然围绕：
+本文档用于当前前端整体联调和内部演示交接。当前前端已经可以作为 GEO 营销运营系统的内部工作台使用，核心仍然围绕：
 
 `GEO 诊断 -> 提示词策略 -> 企业知识库 -> GEO 内容生成 -> 效果记录 -> 优化建议`
 
@@ -17,9 +17,11 @@
 | `/expansion`               | AI 拓词         | 使用手动组合、默认 Mock 或 `openai_compatible` 按用户决策场景生成候选问题，人工勾选后保存。                                                                  |
 | `/knowledge-bases`         | 企业 GEO 知识库 | 创建知识库，文本导入知识片段，上传 txt/md/csv 并查看解析状态、片段和 reparse。                                                                               |
 | `/instruction-templates`   | 指令库          | 管理 GEO 内容生成指令模板，支持创建、编辑、查看详情、复制和软删除。                                                                                          |
-| `/content-tasks`           | GEO 内容生成    | 选择提示词、知识库和指令模板创建内容任务，编辑、质量检查、发布优化、富文本排版和导出。                                                                       |
+| `/geo-content`             | GEO 内容生成    | 正式入口。选择提示词、知识库和指令模板创建内容任务，编辑、质量检查、发布优化、富文本排版和导出。                                                             |
+| `/content-tasks`           | GEO 内容生成    | 历史兼容入口，指向同一页面。                                                                                                                                 |
 | `/model-inclusion-records` | 模型覆盖记录    | 手动录入、批量导入或使用 Kimi、豆包 / 火山方舟、通义千问 / 阿里云百炼联网搜索检测提示词在 AI 模型、多入口检测中的提及、推荐、官网/内容引用、竞品和命中等级。 |
-| `/reports`                 | GEO 报表        | 查看总览、提示词覆盖、模型覆盖、GEO 命中汇总、内容覆盖、知识库覆盖和优化建议，并导出 CSV。                                                                   |
+| `/geo-reports`             | GEO 报表        | 正式入口。查看总览、提示词覆盖、模型覆盖、GEO 命中汇总、内容覆盖、知识库覆盖和优化建议，并导出 CSV。                                                         |
+| `/reports`                 | GEO 报表        | 历史兼容入口，指向同一页面。                                                                                                                                 |
 | `/settings`                | 系统设置        | 维护单项目档案、品牌上下文、内容语气、禁止表达和 AI 接口配置边界说明。                                                                                       |
 
 ## 完整 GEO MVP 使用流程
@@ -33,11 +35,11 @@
 7. 进入 `/expansion`，用手动组合、默认 Mock 或 `openai_compatible` 生成用户可能会向 AI 提出的候选问题。候选词不会自动入库，必须人工勾选保存。
 8. 进入 `/knowledge-bases`，创建企业 GEO 知识库，通过文本导入或 txt/md/csv 上传沉淀知识片段。
 9. 进入 `/instruction-templates`，创建按用户决策场景设计的 GEO 内容生成指令。
-10. 进入 `/content-tasks`，选择 GEO 提示词、知识库和指令模板创建内容任务。默认使用 Mock 生成器；自用真实流程可选择 `openai_compatible`，生成结果真实入库并可编辑、删除和导出 Markdown。
+10. 进入 `/geo-content`，选择 GEO 提示词、知识库和指令模板创建内容任务。默认使用 Mock 生成器；自用真实流程可选择 `openai_compatible`，生成结果真实入库并可编辑、删除和导出 Markdown。`/content-tasks` 仅作为历史兼容入口保留。
     内容详情支持“质量检查”和“生成发布优化版”，用于识别知识库外参数、协议、认证、品牌表达和 GEO 结构风险；优化稿只返回给人工复核，不会自动覆盖原内容项。
     发布前还可以在“发布稿排版”中选择通用发布稿、官网文章、知乎 / 百家号或公众号草稿风格，生成富文本预览，并复制富文本、Markdown、纯文本或下载 HTML / Markdown。
 11. 进入 `/model-inclusion-records`，人工录入、导入 GEO 命中记录，或点击“联网检测”选择少量高优先级提示词做 Kimi Web Search API 检测、豆包 / 火山方舟联网搜索检测或通义千问 / 阿里云百炼联网搜索检测。页面会记录平台、入口、检测方式、设备、联网/登录状态、品牌是否被提及或推荐、是否引用官网/内容资产、是否出现竞品、命中等级、原始回答和引用来源。Kimi 检测不等同于 Kimi App 端真实用户结果；豆包 / 火山方舟检测是火山方舟 Web Search API 检测，不等同于豆包 App 端真实用户结果，且可能不返回结构化引用来源；通义 / 百炼检测不等同于通义千问 App 或网页端真实用户结果，当前可能不返回结构化引用来源，官网引用主要从回答正文中判断。火山 Provider 可能耗时较长，当前检测会限制为短回答，适合判断品牌提及和官网引用，不适合生成长篇内容。每次检测会消耗后端 API 额度；如果出现 timeout、fetch failed、连接重置或输出不完整，页面会展示失败原因分类、是否已重试，以及“网络或联网搜索超时，可稍后重试。”等提示。
-12. 进入 `/reports`，在“GEO 命中汇总”Tab 复盘联网检测效果。该 Tab 默认按每个提示词 + 平台 + 入口的最新检测结果统计，避免历史测试和重复检测影响判断；核心关注品牌提及率、品牌推荐率、未命中率、竞品占位率和提示词矩阵，官网引用率只作为辅助指标。也可以继续查看提示词覆盖、模型表现、内容覆盖、知识库覆盖和优化建议。
+12. 进入 `/geo-reports`，在“GEO 命中汇总”Tab 复盘联网检测效果。该 Tab 默认按每个提示词 + 平台 + 入口的最新检测结果统计，避免历史测试和重复检测影响判断；核心关注品牌提及率、品牌推荐率、未命中率、竞品占位率和提示词矩阵，官网引用率只作为辅助指标。也可以继续查看提示词覆盖、模型表现、内容覆盖、知识库覆盖和优化建议。`/reports` 仅作为历史兼容入口保留。
 13. 回到 `/dashboard`，刷新总览，观察提示词、知识库、内容、覆盖记录和优化建议变化。演示结束可以从顶部栏退出登录。
 
 ## 真实入库能力
@@ -75,7 +77,7 @@
 
 - GEO 分析：`/geo-analysis` 使用 Mock 分析器，不调用真实外部 AI 平台，也不访问真实网站。
 - AI 拓词生成：`/expansion` 默认使用 Mock Provider，也可选择 `openai_compatible`；真实 AI 会消耗接口额度。
-- GEO 内容生成：`/content-tasks` 默认使用 Mock 内容生成器，也可选择 `openai_compatible` 生成真实 AI 内容。
+- GEO 内容生成：`/geo-content` 默认使用 Mock 内容生成器，也可选择 `openai_compatible` 生成真实 AI 内容；`/content-tasks` 是历史兼容入口。
 - API Key 管理：真实 AI Key 只在后端 `.env` / `.env.production` 配置，前端不会读取、输入、保存或展示。
 
 ## 未实现能力
@@ -105,7 +107,7 @@ pnpm prisma:migrate
 pnpm prisma:seed
 ```
 
-`pnpm prisma:seed` 会创建默认管理员并写入密码 hash。开发环境可使用 `.env.example` 的占位账号密码；共享部署前必须修改 `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL` 和 `DEFAULT_ADMIN_PASSWORD`。
+`pnpm prisma:migrate` 和 `pnpm prisma:seed` 只用于本地开发初始化。生产发布迁移使用 `pnpm prisma:migrate:deploy`；生产 seed 只建议首次初始化执行，且需要显式确认变量。开发环境可使用 `.env.example` 的占位账号密码；共享部署前必须修改 `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL` 和 `DEFAULT_ADMIN_PASSWORD`。
 
 启动后端：
 
@@ -125,7 +127,7 @@ pnpm dev:web
 - 登录页：`http://localhost:5173/login`
 - 后端：`http://localhost:3000`
 
-前端默认使用 `VITE_API_BASE_URL`，未设置时指向 `http://localhost:3000`。
+前端本地开发使用 `VITE_API_BASE_URL=http://localhost:3000`。生产或局域网部署推荐 Nginx 同源反代，此时 `VITE_API_BASE_URL` 留空并走 `/api`；如果前后端分离端口，必须设置为访问者浏览器可访问的后端 API Origin，不要使用 `localhost`。
 
 ## 前端检查与 MVP 验收
 
@@ -188,14 +190,14 @@ curl http://localhost:3000/health
 
 ### 登录失败或登录态过期
 
-先确认已经执行 migration 和 seed：
+本地开发先确认已经执行 migration 和 seed：
 
 ```bash
 pnpm prisma:migrate
 pnpm prisma:seed
 ```
 
-如果是共享部署，确认私有环境变量中的 `DEFAULT_ADMIN_PASSWORD` 已在 seed 前设置，并且 `JWT_SECRET` 没有在 API 重启后被意外改动。登录态过期或 API 返回 401 时，前端会清理本地 token 并跳转 `/login`。
+如果是共享部署，确认私有环境变量中的 `DEFAULT_ADMIN_PASSWORD` 已在首次 seed 前设置，并且 `JWT_SECRET` 没有在 API 重启后被意外改动。生产环境不要常规重跑 seed。登录态过期或 API 返回 401 时，前端会清理本地 token 并跳转 `/login`。
 
 ### CSV 导出
 

@@ -53,7 +53,7 @@ const requiredReadmeSnippets = [
   "pnpm test:web-auth",
   "GEO 分析",
   "登录和简单权限",
-  "真实外部 AI 检测",
+  "不做全自动外部 AI 检测",
   "openai_compatible"
 ];
 
@@ -62,6 +62,10 @@ const requiredDemoSnippets = [
   "Mock 能力",
   "真实入库能力",
   "暂未实现",
+  "/geo-content",
+  "/content-tasks",
+  "/geo-reports",
+  "/reports",
   "后端未启动",
   "页面没有数据",
   "当前已知限制",

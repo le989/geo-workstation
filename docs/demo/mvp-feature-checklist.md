@@ -13,9 +13,11 @@
 | AI 拓词         | `/expansion`               | 已完成     |
 | 企业 GEO 知识库 | `/knowledge-bases`         | 已完成     |
 | 指令库          | `/instruction-templates`   | 已完成     |
-| GEO 内容生成    | `/content-tasks`           | 已完成     |
+| GEO 内容生成    | `/geo-content`             | 已完成     |
+| GEO 内容生成    | `/content-tasks`           | 兼容入口   |
 | 模型覆盖记录    | `/model-inclusion-records` | 已完成     |
-| GEO 报表        | `/reports`                 | 已完成     |
+| GEO 报表        | `/geo-reports`             | 已完成     |
+| GEO 报表        | `/reports`                 | 兼容入口   |
 | 系统设置        | `/settings`                | 占位说明页 |
 
 ## 已完成后端 API 清单
@@ -60,7 +62,7 @@
 - 开放注册、忘记密码、短信/邮箱验证码、OAuth、多租户和复杂菜单级权限。
 - 多用户协作、审批流和操作审计页面。
 - 自动发布到官网、公众号、B2B 页面或外部媒体。
-- 真实服务器部署执行和生产环境安全加固。
+- 真实服务器部署执行、恢复演练和生产访问控制。
 - PDF/Word/Excel 报告导出。
 - URL 抓取、整站采集、RAG、向量数据库。
 - 复杂图表大屏和月报自动生成。
@@ -83,7 +85,7 @@
 pnpm lint
 pnpm typecheck
 pnpm build
-DATABASE_URL=postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public pnpm test:api
+pnpm test:api
 pnpm test:auth
 pnpm test:web-auth
 pnpm smoke:api
@@ -93,15 +95,15 @@ pnpm format:check
 git diff --check
 ```
 
-`pnpm smoke:api` 需要后端已启动。
+`pnpm test:api` 需要私有环境变量中的数据库连接已配置；不要把真实连接串写入文档或命令记录。`pnpm smoke:api` 需要后端已启动。
 
 ## 下一阶段建议
 
-1. Phase 4F：外部 AI 检测自动化
+1. 外部 AI 检测自动化
 
    在真实内容生成链路稳定后，再做多模型自动检测、定时任务和更复杂的模型覆盖分析。
 
-2. Phase 4G：正式部署执行
+2. 正式部署执行
 
    在部署准备文档和示例配置稳定后，再连接真实服务器、配置真实域名、真实数据库密码和生产访问控制。
 

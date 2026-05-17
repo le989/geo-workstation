@@ -29,6 +29,15 @@ GEO 工作站的核心流程是：
 10. 记录或查看 GEO 效果。
     人工记录模型覆盖情况，在 GEO 报表中查看内容覆盖、知识库覆盖和模型覆盖。
 
+## 入口与权限
+
+- GEO 内容生成正式入口是 `/geo-content`，`/content-tasks` 只作为历史兼容入口。
+- GEO 报表正式入口是 `/geo-reports`，`/reports` 只作为历史兼容入口。
+- 当前角色包括 `platform_admin`、`company_admin`、`operator`、`viewer`。
+- `viewer` 是只读角色，不能创建 GEO 诊断任务，也不能创建 GEO 内容任务。
+- 公司上下文会影响业务数据范围；切换公司后，提示词、知识库、内容、模型覆盖和报表都应按当前公司查看。
+- 用户管理当前主要由 `platform_admin` 管理。
+
 ## 页面怎么用
 
 ### GEO 工作台

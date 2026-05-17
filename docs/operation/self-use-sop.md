@@ -69,7 +69,7 @@ AI_TEMPERATURE=0.7
 在页面创建任务时：
 
 - `/expansion` 的 AI 拓词表单中查看 `provider` 字段。
-- `/content-tasks` 的创建任务弹窗中查看 `provider` 字段。
+- `/geo-content` 的创建任务弹窗中查看 `provider` 字段；`/content-tasks` 是历史兼容入口。
 - `mock` 表示走本地 Mock。
 - `openai_compatible` 表示调用后端 `.env` 中配置的真实 AI Provider。
 
@@ -185,7 +185,7 @@ AI_TEMPERATURE=0.7
 
 ## 9. 使用真实 AI 生成 GEO 内容
 
-1. 进入 `/content-tasks`。
+1. 进入 `/geo-content`。
 2. 点击创建内容任务。
 3. 选择：
    - `provider = openai_compatible`
@@ -214,7 +214,7 @@ AI_TEMPERATURE=0.7
 
 页面侧：
 
-- `/content-tasks` 详情抽屉中查看任务状态、内容项错误信息和最近 AI 调用日志。
+- `/geo-content` 详情抽屉中查看任务状态、内容项错误信息和最近 AI 调用日志；`/content-tasks` 是历史兼容入口。
 - `/expansion` 生成失败时会显示后端返回的可读错误。
 
 后端侧：
@@ -240,7 +240,7 @@ AI_TEMPERATURE=0.7
 
 ## 12. 查看 GEO 报表
 
-进入 `/reports`，重点查看：
+进入 `/geo-reports`，重点查看；`/reports` 是历史兼容入口：
 
 - Overview：整体资产量和提及率。
 - Prompt Coverage：哪些追踪提示词还没覆盖。

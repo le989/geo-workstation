@@ -329,6 +329,8 @@ try {
     client,
     (bodyText) =>
       bodyText.includes("帮助页验收用户") &&
+      bodyText.includes("使用教程") &&
+      bodyText.includes("查看 GEO 工作站的快速开始") &&
       requiredPageSnippets.every((snippet) => bodyText.includes(snippet))
   );
 

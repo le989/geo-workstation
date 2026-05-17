@@ -41,7 +41,7 @@ const requiredDocSnippets = new Map([
     [
       "AI_PROVIDER=openai_compatible",
       "openai_compatible",
-      "激光测距传感器",
+      "项目档案",
       "候选词不会自动入库",
       "AI Provider API Key 未配置",
       "不提交真实 API Key"
@@ -49,7 +49,7 @@ const requiredDocSnippets = new Map([
   ],
   [
     "docs/operation/real-ai-test-plan.md",
-    ["测试目标", "测试产品线", "测试提示词", "结果记录表格", "问题记录表格", "后续优化建议"]
+    ["测试目标", "测试项目档案", "测试提示词", "结果记录表格", "问题记录表格", "后续优化建议"]
   ],
   [
     "docs/operation/quality-notes.md",
@@ -102,7 +102,7 @@ const webExpansionForm = readProjectFile("apps/web/src/components/AiExpansionFor
 const contentTaskForm = readProjectFile("apps/web/src/components/ContentTaskFormDialog.vue");
 
 for (const required of [
-  "AI_PROVIDER=mock",
+  'AI_PROVIDER="mock"',
   "AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1",
   "AI_OPENAI_COMPATIBLE_API_KEY=change_me",
   "AI_OPENAI_COMPATIBLE_MODEL=deepseek-chat"

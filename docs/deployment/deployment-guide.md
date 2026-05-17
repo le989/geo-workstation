@@ -73,6 +73,21 @@ cp apps/web/.env.production.example apps/web/.env.production
 - `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL`、`DEFAULT_ADMIN_PASSWORD` 必须在共享部署前替换。
 - `AI_PROVIDER=mock` 可无 Key 运行；切换 `openai_compatible` 时只在后端私有 `.env` 配置 `AI_OPENAI_COMPATIBLE_API_KEY`。
 
+## 推荐部署顺序
+
+建议按以下顺序执行，避免把开发迁移、示例 seed 或错误 API 地址带到生产环境：
+
+1. 安装依赖：`pnpm install`。
+2. 配置私有环境变量：根目录 `.env.production` 和 `apps/web/.env.production`。
+3. 生成 Prisma Client：`pnpm prisma:generate`。
+4. 执行生产迁移：`pnpm prisma:migrate:deploy`。
+5. 仅首次初始化时执行 seed，并临时设置生产确认变量。
+6. 构建前端：`pnpm --filter @geo-workstation/web build`。
+7. 构建后端：`pnpm --filter @geo-workstation/api build`。
+8. 使用 PM2 启动后端。
+9. 使用 Nginx 托管前端静态资源，并反代 `/api` 和 `/health`。
+10. 运行 smoke 验收，覆盖登录、`/api/auth/me`、核心页面、上传小文件和导出小样本。
+
 ## 数据库准备
 
 方案 A 推荐只用 Docker Compose 启动 PostgreSQL：
@@ -93,7 +108,7 @@ pnpm prisma:migrate:deploy
 ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
 ```
 
-`pnpm prisma:seed` 会创建或更新默认管理员，并把 `DEFAULT_ADMIN_PASSWORD` 以 hash 写入数据库。生产或共享部署前必须先修改私有环境变量中的默认管理员密码。已有真实业务数据后不要随意重跑 seed，避免覆盖默认管理员密码和默认公司信息。
+`pnpm prisma:seed` 会创建或更新默认管理员，并把 `DEFAULT_ADMIN_PASSWORD` 以 hash 写入数据库。生产或共享部署前必须先修改私有环境变量中的默认管理员密码。已有真实业务数据后不要随意重跑 seed，避免覆盖默认管理员密码和默认公司信息。生产发布不要使用 `prisma migrate dev` 或开发迁移脚本替代 `pnpm prisma:migrate:deploy`。
 
 如果服务器使用独立 PostgreSQL，也可以只配置 `DATABASE_URL`，不启动本地 Docker PostgreSQL。
 

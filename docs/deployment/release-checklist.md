@@ -6,7 +6,7 @@
 
 - [ ] 本次只是内部演示版或内部试用部署。
 - [ ] 已确认已启用最小登录保护，但仍需要内网、VPN 或服务器访问控制配合。
-- [ ] 已确认 GEO 分析、AI 拓词生成、GEO 内容生成仍是 Mock。
+- [ ] 已确认 mock Provider 只用于演示、测试或无 Key 环境，不作为正式外部 AI 效果承诺。
 - [ ] 未承诺真实外部 AI 检测结果。
 
 ## 构建检查
@@ -45,9 +45,10 @@
 - [ ] PostgreSQL 服务已启动。
 - [ ] 数据库用户、库名和密码已创建。
 - [ ] `pnpm prisma:migrate:deploy` 已执行。
-- [ ] `pnpm prisma:seed` 已按需执行。
+- [ ] `pnpm prisma:seed` 仅在首次初始化时按需执行，并已临时设置生产 seed 确认变量。
 - [ ] 发布前已执行 `pg_dump` 备份。
-- [ ] 已确认恢复命令和备份文件路径。
+- [ ] 已备份 `LOCAL_STORAGE_ROOT`，并确认数据库和上传目录属于同一批次。
+- [ ] 已确认恢复命令、备份文件路径和恢复演练步骤。
 
 ## PM2 检查
 
@@ -71,7 +72,11 @@
 
 ## Smoke Test 检查
 
+- [ ] smoke 账号通过 `SMOKE_AUTH_EMAIL` / `SMOKE_AUTH_PASSWORD` 注入。
+- [ ] smoke 数据使用小样本，不使用真实敏感资料。
+- [ ] smoke 日志不输出 token、密码或 API Key。
 - [ ] 后端健康检查通过。
+- [ ] `/api/auth/me` 返回当前用户和公司上下文。
 - [ ] `pnpm smoke:api` 跑通完整 MVP API 链路。
 - [ ] 浏览器访问 `/login` 正常。
 - [ ] 默认管理员可以登录。
@@ -79,8 +84,26 @@
 - [ ] 前端 `/dashboard` 可访问。
 - [ ] `/geo-analysis` 可创建并运行 Mock 分析任务。
 - [ ] `/geo-prompts` 可查询提示词。
+- [ ] `/expansion` 可生成候选提示词并保存小样本。
 - [ ] `/knowledge-bases` 可查看知识库。
-- [ ] `/reports` 可加载总览和优化建议。
+- [ ] 上传一个小 txt/md/csv 文件，文件列表和片段状态正常。
+- [ ] `/instruction-templates` 可查看或创建指令模板。
+- [ ] `/geo-content` 可创建小样本内容任务。
+- [ ] `/content-tasks` 兼容入口可访问同一内容页面。
+- [ ] `/model-inclusion-records` 可录入或查看小样本模型覆盖记录。
+- [ ] `/geo-reports` 可加载总览、GEO 命中汇总和优化建议。
+- [ ] `/reports` 兼容入口可访问同一报表页面。
+- [ ] 用户管理页面只对有权限角色开放。
+- [ ] `/settings` 可查看或维护项目档案。
+- [ ] 提示词、模型覆盖记录或 GEO 报表导出小样本成功。
+
+## 权限与公司上下文检查
+
+- [ ] 已确认当前角色矩阵：`platform_admin`、`company_admin`、`operator`、`viewer`。
+- [ ] `viewer` 只能查看，不能创建 GEO 诊断任务。
+- [ ] `viewer` 只能查看，不能创建 GEO 内容任务。
+- [ ] 用户管理当前主要由 `platform_admin` 管理。
+- [ ] 切换公司上下文后，业务列表、详情、导入、导出和报表只使用当前公司范围。
 
 ## 回滚检查
 

@@ -22,6 +22,7 @@ pg_dump "$DATABASE_URL" > backups/geo_workstation_$(date +%Y%m%d_%H%M%S).sql
 - 发布前备份一次。
 - 演示前备份一次稳定数据。
 - 正式试用后按天或按周备份。
+- 数据库备份需要和 `LOCAL_STORAGE_ROOT` 上传目录使用同一批次时间点。
 - 备份文件不要提交到 git。
 
 ## 恢复 PostgreSQL
@@ -42,6 +43,8 @@ psql "$DATABASE_URL" < backups/geo_workstation_20260513_120000.sql
 
 - 先确认目标库是否需要清空。
 - 先在测试环境恢复验证。
+- 同批次恢复 `LOCAL_STORAGE_ROOT`。
+- 恢复完成后检查知识库文件、chunk 状态和内容导出。
 - 恢复完成后运行 `pnpm smoke:api` 做业务链路确认。
 
 ## 本地开发数据库重置
@@ -78,13 +81,13 @@ pnpm prisma:migrate:deploy
 pnpm prisma:generate
 ```
 
-写入示例数据：
+首次初始化写入示例数据：
 
 ```bash
 ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
 ```
 
-Seed 数据用于演示和本地开发，不等同于正式业务数据。生产环境只有首次初始化且已确认备份/影响范围时才允许显式开启 `ALLOW_PRODUCTION_SEED=true`。
+Seed 数据用于演示和本地开发，不等同于正式业务数据。生产环境只有首次初始化且已确认备份、默认管理员策略和影响范围时才允许显式开启 `ALLOW_PRODUCTION_SEED=true`。已有真实数据后不要常规重跑 seed，避免覆盖默认管理员密码或默认公司信息。
 
 ## 演示数据与正式数据
 
@@ -99,7 +102,8 @@ Seed 数据用于演示和本地开发，不等同于正式业务数据。生产
 
 - 应由实际运营人员录入、导入或确认。
 - 不应混入无法解释的测试数据。
-- 建议上线前使用干净数据库重新 seed，再导入真实资料。
+- 首次上线可以在干净数据库中执行 seed 完成初始化，再导入真实资料。
+- 一旦已有真实资料，不要把 seed 当作常规修复或补数据命令。
 
 ## `storage/uploads` 与数据库备份的关系
 
@@ -108,7 +112,7 @@ Seed 数据用于演示和本地开发，不等同于正式业务数据。生产
 - 数据库记录：`knowledge_files`、`knowledge_chunks`。
 - 本地文件：`LOCAL_STORAGE_ROOT` 下的上传文件。
 
-只备份数据库不等于完整备份知识库资料。必须同时备份：
+只备份数据库不等于完整备份知识库资料；只备份文件也无法恢复知识片段、任务和权限关系。必须同时备份：
 
 - PostgreSQL 数据库。
 - `LOCAL_STORAGE_ROOT` 目录。
@@ -131,3 +135,4 @@ tar -xzf backups/geo_storage_20260513_120000.tar.gz -C /var/www/geo-workstation
 - 上传资料可能包含企业内部信息，不要放入公开仓库。
 - 如果使用对象存储或 MinIO，需要额外备份 bucket 或配置生命周期策略。
 - 文件记录和数据库记录要保持一致，避免只有文件无记录或只有记录无文件。
+- 建议定期做恢复演练，至少验证登录、知识库文件列表、文件详情、chunk 查询、重新解析和小样本导出。

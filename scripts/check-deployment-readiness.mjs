@@ -10,6 +10,8 @@ const requiredFiles = [
   "docs/deployment/env-guide.md",
   "docs/deployment/database-backup.md",
   "docs/deployment/release-checklist.md",
+  "docs/deployment/roles-and-company-context.md",
+  "docs/deployment/pre-deploy-p1-checklist.md",
   ".env.production.example",
   "apps/web/.env.production.example",
   "deploy/nginx.geo-workstation.example.conf",
@@ -35,7 +37,18 @@ const requiredPackageScripts = [
 const requiredDocSnippets = new Map([
   [
     "docs/deployment/deployment-guide.md",
-    ["方案 A", "PM2", "Nginx", "Docker Compose", "回滚", "查看日志", "重启"]
+    [
+      "方案 A",
+      "PM2",
+      "Nginx",
+      "Docker Compose",
+      "pnpm prisma:migrate:deploy",
+      "ALLOW_PRODUCTION_SEED=true",
+      "运行 smoke 验收",
+      "回滚",
+      "查看日志",
+      "重启"
+    ]
   ],
   [
     "docs/deployment/env-guide.md",
@@ -47,6 +60,9 @@ const requiredDocSnippets = new Map([
       "JWT_SECRET",
       "DEFAULT_ADMIN_EMAIL",
       "DEFAULT_ADMIN_PASSWORD",
+      "BYPASS_AUTH_FOR_TESTS",
+      "ALLOW_PRODUCTION_SEED",
+      "CORS_ORIGIN",
       "VITE_API_BASE_URL",
       "AI_PROVIDER",
       "AI_OPENAI_COMPATIBLE_API_KEY",
@@ -59,13 +75,36 @@ const requiredDocSnippets = new Map([
       "pg_dump",
       "恢复 PostgreSQL",
       "storage/uploads",
+      "LOCAL_STORAGE_ROOT",
       "pnpm prisma:migrate:deploy",
       "pnpm prisma:seed"
     ]
   ],
   [
     "docs/deployment/release-checklist.md",
-    ["上线前检查", "环境变量检查", "PM2 检查", "Nginx 检查", "Smoke Test 检查", "安全边界检查"]
+    [
+      "上线前检查",
+      "环境变量检查",
+      "PM2 检查",
+      "Nginx 检查",
+      "Smoke Test 检查",
+      "/geo-content",
+      "/content-tasks",
+      "/geo-reports",
+      "/reports",
+      "上传一个小",
+      "导出小样本",
+      "SMOKE_AUTH_EMAIL",
+      "安全边界检查"
+    ]
+  ],
+  [
+    "docs/deployment/roles-and-company-context.md",
+    ["platform_admin", "company_admin", "operator", "viewer", "公司上下文", "后端权限"]
+  ],
+  [
+    "docs/deployment/pre-deploy-p1-checklist.md",
+    ["P1-01", "P1-14", "部署时人工确认项", "Nginx 同源反代", "LOCAL_STORAGE_ROOT"]
   ]
 ]);
 
@@ -161,7 +200,8 @@ for (const required of [
   "docs/deployment/deployment-guide.md",
   ".env.production.example",
   "pnpm check:deployment",
-  "未实际上线",
+  "Nginx",
+  "PM2",
   "不提交真实 AI Provider Key"
 ]) {
   assert(readme.includes(required), `README.md missing deployment note: ${required}`);

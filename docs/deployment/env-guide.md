@@ -74,9 +74,9 @@ AI_TEMPERATURE=0.7
 - `API_PORT`：当前 NestJS API 实际读取的端口变量。
 - 当前阶段建议两者保持一致。
 
-## 登录与 JWT
+## 登录、JWT 与 seed
 
-Phase 4D 使用 JWT Bearer 作为内部 MVP 登录态。
+当前系统使用 JWT Bearer 作为内部 MVP 登录态。
 
 ```env
 JWT_SECRET=change_me_to_a_long_random_secret
@@ -200,7 +200,7 @@ pnpm --filter @geo-workstation/web build
 
 ## AI Provider
 
-Phase 4E 已接入统一 AI Provider 抽象。默认使用 `mock`，不需要真实 Key；自用真实流程可以切换为 OpenAI-compatible Provider。
+当前已接入统一 AI Provider 抽象。默认使用 `mock`，不需要真实 Key；自用真实流程可以切换为 OpenAI-compatible Provider。
 
 ```env
 AI_PROVIDER=mock
