@@ -56,5 +56,51 @@ export const formatDateTime = (value?: string) => {
 
 export const formatOptional = (value?: string | null) => value || "--";
 
+const technicalTracePattern =
+  /\b(?:Phase|Auth|UX|User)[\s-]*[0-9A-Za-z-]+|GEOAuth[0-9A-Za-z-]*|smoke|mock|debug|test|batch|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\b[0-9a-f]{8,}\b|\b\d{10,}\b/gi;
+
+export const formatGeoPromptDisplayText = (value?: string | null, fallback = "GEO 提示词") => {
+  if (!value) {
+    return fallback;
+  }
+
+  const cleaned = value
+    .replace(technicalTracePattern, "")
+    .replace(/\b(?:UUID|ID|PLATFORM|COMPANY|PRIVATE)\b/gi, "")
+    .replace(/(?:隔离列表|已编辑|已更新)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[：:·\-/\s]+|[：:·\-/\s]+$/g, "")
+    .trim();
+
+  return cleaned && cleaned.length > 2 ? cleaned : fallback;
+};
+
+export const formatTargetModelName = (value?: string | null) => {
+  if (!value) {
+    return "--";
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized.includes("doubao") || normalized.includes("豆包") || normalized.includes("seed")) {
+    return "豆包";
+  }
+  if (
+    normalized.includes("qwen") ||
+    normalized.includes("通义") ||
+    normalized.includes("千问") ||
+    normalized.includes("dashscope")
+  ) {
+    return "通义千问";
+  }
+  if (normalized.includes("kimi") || normalized.includes("moonshot")) {
+    return "Kimi";
+  }
+  if (normalized.includes("deepseek")) {
+    return "DeepSeek";
+  }
+
+  return formatGeoPromptDisplayText(value, value);
+};
+
 export const formatTargetModels = (targetModels?: string[]) =>
-  targetModels && targetModels.length > 0 ? targetModels.join("、") : "--";
+  targetModels && targetModels.length > 0 ? targetModels.map(formatTargetModelName).join("、") : "--";

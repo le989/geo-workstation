@@ -11,20 +11,12 @@ const props = defineProps<{
   modelValue: GeoPromptQuery;
   activeType?: GeoPromptType;
   loading?: boolean;
-  canCreate?: boolean;
-  canImport?: boolean;
-  canExport?: boolean;
-  canExpansion?: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:modelValue": [value: GeoPromptQuery];
   search: [];
   reset: [];
-  create: [];
-  import: [];
-  export: [];
-  expansion: [];
   "type-change": [value?: GeoPromptType];
 }>();
 
@@ -67,37 +59,14 @@ const handleTabChange = (name: string | number) => {
       />
     </el-tabs>
 
-    <el-form class="geo-prompts-filters" label-position="top">
+    <el-form class="geo-prompts-filters geo-prompts-filters--basic" label-position="top">
       <el-form-item label="搜索">
         <el-input
           v-model="localFilters.search"
           clearable
-          placeholder="搜索提示词、训练词、应用场景或来源"
+          placeholder="搜索提示词、训练词或应用场景"
           @keyup.enter="emit('search')"
         />
-      </el-form-item>
-      <el-form-item label="产品线">
-        <el-input v-model="localFilters.productLine" clearable placeholder="输入产品线" />
-      </el-form-item>
-      <el-form-item label="用户意图">
-        <el-select v-model="localFilters.userIntent" clearable placeholder="全部意图">
-          <el-option
-            v-for="option in userIntentOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="优先级">
-        <el-select v-model="localFilters.priority" clearable placeholder="全部优先级">
-          <el-option
-            v-for="priority in [1, 2, 3, 4, 5]"
-            :key="priority"
-            :label="`P${priority}`"
-            :value="priority"
-          />
-        </el-select>
       </el-form-item>
       <el-form-item label="是否追踪">
         <el-select v-model="localFilters.trackEnabled" clearable placeholder="全部">
@@ -117,15 +86,42 @@ const handleTabChange = (name: string | number) => {
       </el-form-item>
     </el-form>
 
+    <el-collapse class="geo-prompts-advanced-filter">
+      <el-collapse-item title="高级筛选" name="advanced">
+        <el-form class="geo-prompts-filters geo-prompts-filters--advanced" label-position="top">
+          <el-form-item label="产品线">
+            <el-input v-model="localFilters.productLine" clearable placeholder="输入产品线" />
+          </el-form-item>
+          <el-form-item label="用户意图">
+            <el-select v-model="localFilters.userIntent" clearable placeholder="全部意图">
+              <el-option
+                v-for="option in userIntentOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="优先级">
+            <el-select v-model="localFilters.priority" clearable placeholder="全部优先级">
+              <el-option
+                v-for="priority in [1, 2, 3, 4, 5]"
+                :key="priority"
+                :label="`P${priority}`"
+                :value="priority"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <p class="geo-prompts-filter-note">
+          来源、目标模型和创建时间保留在提示词详情中查看；如需定位，可先使用搜索框按关键词查询。
+        </p>
+      </el-collapse-item>
+    </el-collapse>
+
     <div class="geo-prompts-actions">
       <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
       <el-button @click="emit('reset')">重置</el-button>
-      <el-button v-if="canCreate !== false" plain @click="emit('create')">新增提示词</el-button>
-      <el-button v-if="canImport !== false" @click="emit('import')">批量导入</el-button>
-      <el-button v-if="canExport !== false" @click="emit('export')">导出 CSV</el-button>
-      <el-button v-if="canExpansion !== false" type="primary" plain @click="emit('expansion')">
-        AI 拓词
-      </el-button>
     </div>
   </section>
 </template>

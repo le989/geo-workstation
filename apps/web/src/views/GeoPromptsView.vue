@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Download, MagicStick, Plus, Refresh } from "@element-plus/icons-vue";
+import { Download, MagicStick, Plus, Refresh, Upload } from "@element-plus/icons-vue";
 import {
   bulkImportGeoPrompts,
   createGeoPrompt,
@@ -26,7 +26,7 @@ import GeoPromptStatusTag from "@/components/GeoPromptStatusTag.vue";
 import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
 import {
   formatDateTime,
-  formatOptional,
+  formatGeoPromptDisplayText,
   formatTargetModels,
   userIntentLabelMap
 } from "@/config/geo-prompt-options";
@@ -95,11 +95,17 @@ const visibilityLabelMap = {
   PRIVATE: "我的"
 } as const;
 
-const visibilityTagTypeMap = {
-  COMPANY: "success",
-  PLATFORM: "warning",
-  PRIVATE: "info"
-} as const;
+const formatPromptTitle = (prompt: GeoPrompt) =>
+  formatGeoPromptDisplayText(prompt.promptText, "GEO 提示词");
+
+const formatPromptContext = (prompt: GeoPrompt) => {
+  const parts = [
+    formatGeoPromptDisplayText(prompt.scenario, ""),
+    userIntentLabelMap[prompt.userIntent] ?? prompt.userIntent
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" / ") : "--";
+};
 
 const isOperatorRole = () =>
   ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
@@ -354,8 +360,34 @@ onMounted(() => {
       </div>
       <div class="geo-prompts-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="loading" @click="loadPrompts"> 刷新列表 </el-button>
-        <el-button v-if="canCreatePromptAction" :icon="Plus" type="primary" @click="openCreateDialog">新增提示词</el-button>
+        <div class="geo-prompts-hero__action-row">
+          <el-button :icon="Refresh" link :loading="loading" @click="loadPrompts">
+            刷新列表
+          </el-button>
+          <el-button v-if="canImportPrompts" :icon="Upload" plain @click="openImportDialog">
+            批量导入
+          </el-button>
+          <el-button v-if="canOpenExpansion" :icon="MagicStick" plain @click="goExpansion">
+            AI 拓词
+          </el-button>
+          <el-button
+            v-if="canExportPrompts"
+            :icon="Download"
+            link
+            :loading="exporting"
+            @click="handleExport"
+          >
+            导出 CSV
+          </el-button>
+          <el-button
+            v-if="canCreatePromptAction"
+            :icon="Plus"
+            type="primary"
+            @click="openCreateDialog"
+          >
+            新增提示词
+          </el-button>
+        </div>
       </div>
     </header>
 
@@ -371,17 +403,9 @@ onMounted(() => {
       :model-value="filters"
       :active-type="activeType"
       :loading="loading"
-      :can-create="canCreatePromptAction"
-      :can-import="canImportPrompts"
-      :can-export="canExportPrompts"
-      :can-expansion="canOpenExpansion"
       @update:model-value="Object.assign(filters, $event)"
       @search="handleSearch"
       @reset="handleReset"
-      @create="openCreateDialog"
-      @import="openImportDialog"
-      @export="handleExport"
-      @expansion="goExpansion"
       @type-change="handleTypeChange"
     />
 
@@ -394,13 +418,6 @@ onMounted(() => {
           <h2>GEO 提示词列表</h2>
           <p>从策略词、追踪状态和覆盖结果判断下一步应该补词、补内容还是补检测。</p>
         </div>
-        <div class="geo-prompts-table-tools">
-          <el-button v-if="canOpenExpansion" :icon="MagicStick" @click="goExpansion">AI 拓词</el-button>
-          <el-button v-if="canCreatePromptAction" :icon="Plus" type="primary" @click="openCreateDialog">新增提示词</el-button>
-          <el-button v-if="canExportPrompts" :icon="Download" :loading="exporting" @click="handleExport">
-            导出 CSV
-          </el-button>
-        </div>
       </div>
 
       <el-table
@@ -411,41 +428,68 @@ onMounted(() => {
         border
         empty-text="暂无 GEO 提示词，可先新增、批量导入，或前往 AI 拓词生成候选。"
       >
-        <el-table-column prop="promptText" label="GEO 提示词" min-width="260" fixed="left">
+        <el-table-column type="expand" width="42">
           <template #default="{ row }: { row: GeoPrompt }">
-            <strong class="prompt-text-cell">{{ row.promptText }}</strong>
+            <div class="geo-prompt-row-detail">
+              <section>
+                <p class="section-kicker">GEO 策略信息</p>
+                <dl>
+                  <div>
+                    <dt>训练词</dt>
+                    <dd>{{ formatGeoPromptDisplayText(row.baseWord, "--") }}</dd>
+                  </div>
+                  <div>
+                    <dt>产品线</dt>
+                    <dd>{{ formatGeoPromptDisplayText(row.productLine, "--") }}</dd>
+                  </div>
+                  <div>
+                    <dt>应用场景</dt>
+                    <dd>{{ formatGeoPromptDisplayText(row.scenario, "--") }}</dd>
+                  </div>
+                  <div>
+                    <dt>适用模型</dt>
+                    <dd>{{ formatTargetModels(row.targetModels) }}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section>
+                <p class="section-kicker">排查信息</p>
+                <dl>
+                  <div>
+                    <dt>来源</dt>
+                    <dd>{{ formatGeoPromptDisplayText(row.source, "--") }}</dd>
+                  </div>
+                  <div>
+                    <dt>创建时间</dt>
+                    <dd>{{ formatDateTime(row.createdAt) }}</dd>
+                  </div>
+                  <div>
+                    <dt>原始提示词</dt>
+                    <dd>{{ row.promptText }}</dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="type" label="词类型" width="104">
+        <el-table-column prop="promptText" label="提示词 / 问题" min-width="280" fixed="left">
+          <template #default="{ row }: { row: GeoPrompt }">
+            <div class="prompt-main-cell">
+              <strong class="prompt-text-cell" :title="row.promptText">
+                {{ formatPromptTitle(row) }}
+              </strong>
+              <span>{{ visibilityLabelMap[row.visibility] }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="type" label="类型" width="104">
           <template #default="{ row }: { row: GeoPrompt }">
             <GeoPromptTypeTag :type="row.type" />
           </template>
         </el-table-column>
-        <el-table-column prop="visibility" label="可见性" width="104">
+        <el-table-column prop="userIntent" label="场景 / 意图" min-width="160">
           <template #default="{ row }: { row: GeoPrompt }">
-            <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
-              {{ visibilityLabelMap[row.visibility] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="baseWord" label="训练词" min-width="150">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatOptional(row.baseWord) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="productLine" label="产品线" min-width="140">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatOptional(row.productLine) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="scenario" label="应用场景" min-width="150">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatOptional(row.scenario) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="userIntent" label="用户意图" width="122">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ userIntentLabelMap[row.userIntent] ?? row.userIntent }}
+            {{ formatPromptContext(row) }}
           </template>
         </el-table-column>
         <el-table-column prop="priority" label="优先级" width="96" align="center">
@@ -455,7 +499,7 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="trackEnabled" label="是否追踪" width="104" align="center">
+        <el-table-column prop="trackEnabled" label="追踪状态" width="104" align="center">
           <template #default="{ row }: { row: GeoPrompt }">
             <el-tag :type="row.trackEnabled ? 'success' : 'info'" effect="plain">
               {{ row.trackEnabled ? "追踪" : "不追踪" }}
@@ -472,26 +516,16 @@ onMounted(() => {
             <GeoPromptStatusTag :status="row.latestCoverageStatus" />
           </template>
         </el-table-column>
-        <el-table-column prop="source" label="来源" min-width="130">
+        <el-table-column prop="updatedAt" label="更新时间" min-width="176">
           <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatOptional(row.source) }}
+            {{ formatDateTime(row.updatedAt) }}
           </template>
         </el-table-column>
-        <el-table-column prop="targetModels" label="目标模型" min-width="170">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatTargetModels(row.targetModels) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" min-width="176">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatDateTime(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="138" fixed="right">
+        <el-table-column label="操作" width="128" fixed="right">
           <template #default="{ row }: { row: GeoPrompt }">
             <template v-if="canManagePrompt(row)">
               <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
-              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+              <el-button link class="danger-action-link" @click="handleDelete(row)">删除</el-button>
             </template>
             <span v-else class="muted-table-action">只读</span>
           </template>

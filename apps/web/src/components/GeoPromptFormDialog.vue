@@ -138,71 +138,99 @@ const handleSubmit = () => {
     />
 
     <el-form label-position="top" class="geo-prompt-form">
-      <el-form-item label="词类型" required>
-        <el-select v-model="form.type">
-          <el-option
-            v-for="option in geoPromptTypeOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="用户意图" required>
-        <el-select v-model="form.userIntent">
-          <el-option
-            v-for="option in userIntentOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="优先级" required>
-        <el-input-number v-model="form.priority" :min="1" :max="5" />
-      </el-form-item>
-      <el-form-item label="是否追踪">
-        <el-switch v-model="form.trackEnabled" active-text="追踪" inactive-text="不追踪" />
-      </el-form-item>
-      <el-form-item label="GEO 提示词" required class="form-span-2">
-        <el-input
-          v-model="form.promptText"
-          type="textarea"
-          :rows="3"
-          placeholder="例如：某产品怎么选、某服务适合什么人、某门店适合什么场景"
-        />
-      </el-form-item>
-      <el-form-item label="训练词">
-        <el-input
-          v-model="form.baseWord"
-          placeholder="例如：核心产品词、服务词、课程词或门店场景"
-        />
-      </el-form-item>
-      <el-form-item label="产品线">
-        <el-input v-model="form.productLine" placeholder="例如：核心产品、服务、课程或门店项目" />
-      </el-form-item>
-      <el-form-item label="应用场景">
-        <el-input v-model="form.scenario" placeholder="例如：行车防撞" />
-      </el-form-item>
-      <el-form-item label="来源">
-        <el-input v-model="form.source" placeholder="例如：人工录入 / 批量导入 / GEO 诊断" />
-      </el-form-item>
-      <el-form-item label="目标模型" class="form-span-2">
-        <el-input
-          v-model="form.targetModelsText"
-          placeholder="多个模型用逗号分隔，例如 deepseek-chat, doubao"
-        />
-      </el-form-item>
-      <el-form-item label="最新覆盖状态">
-        <el-select v-model="form.latestCoverageStatus" clearable placeholder="未知">
-          <el-option
-            v-for="option in coverageStatusOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
+      <section class="geo-prompt-form-section form-span-2">
+        <div class="form-section-heading">
+          <p class="section-kicker">基础信息</p>
+          <h3>提示词与场景</h3>
+          <span>GEO 提示词用于模拟用户向 AI 提问的问题，场景和意图用于后续监测与内容生产。</span>
+        </div>
+        <div class="geo-prompt-form-grid">
+          <el-form-item label="GEO 提示词" required class="form-span-2">
+            <el-input
+              v-model="form.promptText"
+              type="textarea"
+              :rows="3"
+              placeholder="例如：某产品怎么选、某服务适合什么人、某场景适合什么方案"
+            />
+          </el-form-item>
+          <el-form-item label="词类型" required>
+            <el-select v-model="form.type">
+              <el-option
+                v-for="option in geoPromptTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="应用场景">
+            <el-input v-model="form.scenario" placeholder="例如：行车防撞、国产替代、选型咨询" />
+          </el-form-item>
+          <el-form-item label="用户意图" required>
+            <el-select v-model="form.userIntent">
+              <el-option
+                v-for="option in userIntentOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="优先级" required>
+            <el-input-number v-model="form.priority" :min="1" :max="5" />
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="geo-prompt-form-section form-span-2">
+        <div class="form-section-heading">
+          <p class="section-kicker">GEO 策略</p>
+          <h3>训练词与追踪</h3>
+          <span>训练词是内容生产或知识库补齐的核心词，追踪状态用于判断是否进入模型覆盖复盘。</span>
+        </div>
+        <div class="geo-prompt-form-grid">
+          <el-form-item label="训练词">
+            <el-input
+              v-model="form.baseWord"
+              placeholder="例如：核心产品词、服务词、课程词或门店场景"
+            />
+          </el-form-item>
+          <el-form-item label="产品线">
+            <el-input v-model="form.productLine" placeholder="例如：核心产品、服务、课程或门店项目" />
+          </el-form-item>
+          <el-form-item label="是否追踪">
+            <el-switch v-model="form.trackEnabled" active-text="追踪" inactive-text="不追踪" />
+          </el-form-item>
+        </div>
+      </section>
+
+      <el-collapse class="geo-prompt-form-collapse form-span-2">
+        <el-collapse-item title="覆盖与模型" name="coverage">
+          <div class="geo-prompt-form-grid">
+            <el-form-item label="目标模型" class="form-span-2">
+              <el-input
+                v-model="form.targetModelsText"
+                placeholder="多个模型用逗号分隔，例如 豆包, 通义千问, Kimi"
+              />
+            </el-form-item>
+            <el-form-item label="最新覆盖状态">
+              <el-select v-model="form.latestCoverageStatus" clearable placeholder="未知">
+                <el-option
+                  v-for="option in coverageStatusOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+          </div>
+        </el-collapse-item>
+        <el-collapse-item title="排查信息" name="debug">
+          <el-form-item label="来源">
+            <el-input v-model="form.source" placeholder="例如：人工录入 / 批量导入 / GEO 诊断" />
+          </el-form-item>
+        </el-collapse-item>
+      </el-collapse>
     </el-form>
 
     <template #footer>
