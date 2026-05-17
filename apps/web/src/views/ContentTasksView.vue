@@ -31,8 +31,8 @@ import ContentTaskDetailDrawer from "@/components/ContentTaskDetailDrawer.vue";
 import ContentTaskFilters from "@/components/ContentTaskFilters.vue";
 import ContentTaskFormDialog from "@/components/ContentTaskFormDialog.vue";
 import ContentTaskStatusTag from "@/components/ContentTaskStatusTag.vue";
+import { generationTypeLabelMap } from "@/config/content-options";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
-import { formatProviderModel } from "@/config/label-maps";
 import { useAuthStore } from "@/stores/auth";
 import { canUseAction } from "@/utils/permission";
 
@@ -93,6 +93,20 @@ const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
 const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
 const canManageContentActions = computed(() => canUseAction("create", currentRole.value));
+const contentOverviewStats = computed(() => {
+  const activeCount = tasks.value.filter((task) =>
+    ["pending", "running"].includes(task.status)
+  ).length;
+  const succeededCount = tasks.value.filter((task) => task.status === "succeeded").length;
+  const failedCount = tasks.value.filter((task) => task.status === "failed").length;
+
+  return [
+    { label: "当前列表任务", value: total.value, hint: "按当前筛选范围统计" },
+    { label: "生成中 / 待执行", value: activeCount, hint: "需要继续关注进度" },
+    { label: "已完成任务", value: succeededCount, hint: "可进入详情审校草稿" },
+    { label: "待处理失败", value: failedCount, hint: "可查看原因后重试" }
+  ];
+});
 
 const contentWorkflowSteps = [
   {
@@ -149,6 +163,12 @@ const trimOptional = (value?: string) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 };
+
+const isTechnicalTaskName = (value: string) =>
+  /\b(phase|smoke|mock|debug|test|batch)\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(value);
+
+const getDisplayTaskName = (task: ContentTask) =>
+  task.name && !isTechnicalTaskName(task.name) ? task.name : "GEO 内容生成任务";
 
 const buildQuery = (): ContentTaskQuery => ({
   generationType: trimOptional(filters.generationType),
@@ -412,7 +432,7 @@ const handleQualityCheck = async (item: ContentItem) => {
     ElMessage.success("内容质量检查完成。");
   } catch (error) {
     qualityCheckError.value =
-      error instanceof Error ? error.message : "内容质量检查失败，请稍后重试或切换为模拟生成。";
+      error instanceof Error ? error.message : "内容质量检查失败，请稍后重试或调整生成方式。";
     ElMessage.error(qualityCheckError.value);
   }
 };
@@ -437,7 +457,7 @@ const handleOptimizeForPublish = async (item: ContentItem) => {
     ElMessage.success("发布优化版已生成，原内容项未被覆盖。");
   } catch (error) {
     publishOptimizationError.value =
-      error instanceof Error ? error.message : "生成发布优化版失败，请稍后重试或切换为模拟生成。";
+      error instanceof Error ? error.message : "生成发布优化版失败，请稍后重试或调整生成方式。";
     ElMessage.error(publishOptimizationError.value);
   }
 };
@@ -496,19 +516,19 @@ onMounted(() => {
     <header class="content-hero">
       <div class="content-hero__copy">
         <el-tag class="content-hero__tag" type="success" effect="plain">GEO 内容生产</el-tag>
-        <h1>内容生成</h1>
+        <h1>GEO 内容生成</h1>
         <p>
-          从未命中词创建内容任务，完成生成、质检、发布优化和富文本发布稿。
+          提示词决定用户会问什么，知识库提供事实资料，指令模板定义写法，内容任务生成可审校和导出的 GEO 草稿。
         </p>
         <div class="content-hero__signals">
-          <span>内容任务已经真实入库</span>
-          <span>真实 AI 接口会消耗接口额度</span>
-          <span>发布前仍需人工确认</span>
+          <span>提示词 / 知识库 / 指令模板</span>
+          <span>创建内容任务</span>
+          <span>生成草稿并人工审校</span>
         </div>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="loading" @click="loadTasks">刷新列表</el-button>
+        <el-button text :icon="Refresh" :loading="loading" @click="loadTasks">刷新列表</el-button>
         <el-button
           v-if="canManageContentActions"
           type="primary"
@@ -521,32 +541,44 @@ onMounted(() => {
     </header>
 
     <el-alert
-      title="内容任务和内容项真实入库；API Key 由后端 .env 管理，前端不展示或保存密钥；不做 Word 导出、自动发布或外部媒体发布。"
-      type="warning"
+      title="内容任务会结合提示词、知识库和指令模板生成可审校草稿；正式发布前仍需人工确认事实、语气和样式。"
+      type="info"
       :closable="false"
       show-icon
       class="content-boundary-alert"
     />
 
-    <section class="content-workflow-panel" aria-label="内容生产流程概览">
-      <div class="content-workflow-panel__header">
-        <div>
-          <p class="section-kicker">Production Flow</p>
-          <h2>内容生产流程概览</h2>
-        </div>
-        <span>只做流程提示，不改变任务状态和按钮行为。</span>
-      </div>
-      <div class="content-workflow-strip">
-        <article
-          v-for="(step, index) in contentWorkflowSteps"
-          :key="step.title"
-          class="content-workflow-card"
-        >
-          <span>{{ String(index + 1).padStart(2, "0") }}</span>
-          <strong>{{ step.title }}</strong>
-          <small>{{ step.description }}</small>
-        </article>
-      </div>
+    <el-collapse class="content-workflow-collapse">
+      <el-collapse-item title="查看内容生产流程" name="workflow">
+        <section class="content-workflow-panel" aria-label="内容生产流程概览">
+          <div class="content-workflow-panel__header">
+            <div>
+              <p class="section-kicker">内容生产流程</p>
+              <h2>提示词 / 知识库 / 指令模板 → 创建内容任务 → 生成草稿 → 导出或归档</h2>
+            </div>
+            <span>流程提示默认收起，避免遮挡任务列表。</span>
+          </div>
+          <div class="content-workflow-strip">
+            <article
+              v-for="(step, index) in contentWorkflowSteps"
+              :key="step.title"
+              class="content-workflow-card"
+            >
+              <span>{{ String(index + 1).padStart(2, "0") }}</span>
+              <strong>{{ step.title }}</strong>
+              <small>{{ step.description }}</small>
+            </article>
+          </div>
+        </section>
+      </el-collapse-item>
+    </el-collapse>
+
+    <section class="content-overview-strip" aria-label="当前列表概览">
+      <article v-for="item in contentOverviewStats" :key="item.label">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small>{{ item.hint }}</small>
+      </article>
     </section>
 
     <ContentTaskFilters
@@ -578,22 +610,15 @@ onMounted(() => {
         row-key="id"
         empty-text="暂无 GEO 内容任务"
       >
-        <el-table-column label="任务 / GEO 线索" min-width="270" fixed>
+        <el-table-column label="内容任务" min-width="280" fixed>
           <template #default="{ row }">
-            <strong class="content-task-title">{{ row.name }}</strong>
+            <strong class="content-task-title">{{ getDisplayTaskName(row) }}</strong>
             <p class="table-subtext">产品线：{{ formatOptional(row.productLine) }}</p>
           </template>
         </el-table-column>
-        <el-table-column label="生成类型" width="140">
+        <el-table-column label="内容类型" width="150">
           <template #default="{ row }">
             <ContentGenerationTypeTag :type="row.generationType" />
-          </template>
-        </el-table-column>
-        <el-table-column label="目标模型" min-width="170">
-          <template #default="{ row }">
-            <span class="content-provider-model" :title="formatOptional(row.targetModel)">
-              {{ formatOptional(row.targetModel) }}
-            </span>
           </template>
         </el-table-column>
         <el-table-column label="任务状态" width="110">
@@ -601,23 +626,19 @@ onMounted(() => {
             <ContentTaskStatusTag :status="row.status" />
           </template>
         </el-table-column>
-        <el-table-column label="AI 生成方式 / 模型" min-width="230">
-          <template #default="{ row }">
-            <span class="content-provider-model" :title="formatProviderModel(row.provider, row.model)">
-              {{ formatProviderModel(row.provider, row.model) }}
-            </span>
-          </template>
+        <el-table-column label="草稿 / 内容数量" min-width="150">
+          <span class="content-provider-model">进入详情查看</span>
         </el-table-column>
-        <el-table-column label="内容数量 / 下一步" min-width="210">
+        <el-table-column label="下一步" min-width="210">
           <template #default="{ row }">
             <div class="content-next-action">
-              <span>内容数量在详情中查看</span>
+              <span>{{ generationTypeLabelMap[row.generationType] ?? row.generationType }}</span>
               <strong>{{ getTaskNextAction(row) }}</strong>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="180">
-          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+        <el-table-column label="更新时间" width="180">
+          <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">

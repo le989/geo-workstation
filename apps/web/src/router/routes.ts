@@ -26,7 +26,7 @@ export const phase3aRoutePaths = [
   "/expansion",
   "/knowledge-bases",
   "/instruction-templates",
-  "/content-tasks",
+  "/geo-content",
   "/model-inclusion-records",
   "/reports",
   "/settings",
@@ -61,7 +61,7 @@ export const routes: RouteRecordRaw[] = [
                     ? KnowledgeBasesView
                     : item.path === "/instruction-templates"
                       ? InstructionTemplatesView
-                      : item.path === "/content-tasks"
+                      : item.path === "/geo-content"
                         ? ContentTasksView
                         : item.path === "/model-inclusion-records"
                           ? ModelInclusionRecordsView
@@ -79,7 +79,17 @@ export const routes: RouteRecordRaw[] = [
           requiresAuth: true,
           allowedRoles: item.allowedRoles
         }
-      }))
+      })),
+      {
+        path: "content-tasks",
+        name: "content_tasks_legacy",
+        component: ContentTasksView,
+        meta: {
+          geoPage: pageMetaByPath["/geo-content"],
+          requiresAuth: true,
+          allowedRoles: pageMetaByPath["/geo-content"]?.allowedRoles
+        }
+      }
     ]
   },
   {

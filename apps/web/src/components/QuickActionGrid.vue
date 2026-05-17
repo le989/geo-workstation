@@ -19,7 +19,7 @@ const actions: QuickAction[] = [
   {
     title: "生成 GEO 内容",
     description: "围绕提示词和知识库补齐内容资产。",
-    to: "/content-tasks",
+    to: "/geo-content",
     icon: EditPen
   },
   {

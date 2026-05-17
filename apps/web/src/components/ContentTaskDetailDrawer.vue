@@ -95,7 +95,7 @@ const failureAlertDescription = computed(() => {
   }
 
   return isRealAiTask.value
-    ? "请检查后端 .env 中的 AI Provider 配置、API Key、baseURL、模型名称或网络连通性，也可以切换为模拟生成。"
+    ? "请检查生成配置、模型服务和网络连通性，必要时调整生成方式后重试。"
     : "请查看内容项状态后重试失败任务。";
 });
 
@@ -123,6 +123,15 @@ const getContentPreview = (body: string, maxLength = 360) => {
   const normalized = body.replace(/\s+/g, " ").trim();
 
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+};
+
+const isTechnicalTaskName = (value: string) =>
+  /\b(phase|smoke|mock|debug|test|batch)\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(value);
+
+const getDisplayTaskName = () => {
+  const name = props.detail?.task.name;
+
+  return name && !isTechnicalTaskName(name) ? name : "GEO 内容生成任务详情";
 };
 
 const isContentExpanded = (id: string) => expandedContentItemIds.value.includes(id);
@@ -403,7 +412,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           <el-tag class="content-detail-header__tag" type="success" effect="plain">
             GEO 内容任务
           </el-tag>
-          <h2>{{ detail?.task.name ?? "GEO 内容任务详情" }}</h2>
+          <h2>{{ getDisplayTaskName() }}</h2>
           <p>
             查看提示词、企业知识库和指令模板如何共同生成内容资产，判断这些内容是否能支撑 AI
             回答中的品牌提及、推荐和引用。
@@ -439,34 +448,6 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           class="dialog-alert"
         />
 
-        <el-card class="content-flow-card" shadow="never">
-          <template #header>
-            <div class="quality-card-header">
-              <div>
-                <span>内容发布准备流程</span>
-                <strong>生成内容 → 质量检查 → 发布优化 → 富文本稿 → 人工发布</strong>
-              </div>
-            </div>
-          </template>
-
-          <el-steps class="content-flow-steps" align-center>
-            <el-step
-              v-for="(step, index) in workflowSteps"
-              :key="step.title"
-              :description="step.label"
-              :status="getWorkflowStepStatus(index)"
-              :title="step.title"
-            />
-          </el-steps>
-
-          <div class="content-flow-notes">
-            <div v-for="step in workflowSteps" :key="`${step.title}-note`">
-              <strong>{{ step.title }}</strong>
-              <span>{{ step.description }}</span>
-            </div>
-          </div>
-        </el-card>
-
         <el-alert
           :title="currentAction.title"
           :description="currentAction.description"
@@ -493,8 +474,10 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               }}</strong>
             </div>
             <div>
-              <span>Provider</span>
-              <strong>{{ formatProviderModel(detail.task.provider, detail.task.model) }}</strong>
+              <span>内容类型</span>
+              <strong>{{
+                generationTypeLabelMap[detail.task.generationType] ?? detail.task.generationType
+              }}</strong>
             </div>
             <div>
               <span>任务状态</span>
@@ -514,6 +497,41 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             </div>
           </div>
         </el-card>
+
+        <el-collapse class="content-flow-collapse">
+          <el-collapse-item name="workflow">
+            <template #title>
+              <span class="technical-collapse-title">内容发布准备流程（默认折叠）</span>
+            </template>
+            <el-card class="content-flow-card" shadow="never">
+              <template #header>
+                <div class="quality-card-header">
+                  <div>
+                    <span>内容发布准备流程</span>
+                    <strong>生成内容 → 质量检查 → 发布优化 → 富文本稿 → 人工发布</strong>
+                  </div>
+                </div>
+              </template>
+
+              <el-steps class="content-flow-steps" align-center>
+                <el-step
+                  v-for="(step, index) in workflowSteps"
+                  :key="step.title"
+                  :description="step.label"
+                  :status="getWorkflowStepStatus(index)"
+                  :title="step.title"
+                />
+              </el-steps>
+
+              <div class="content-flow-notes">
+                <div v-for="step in workflowSteps" :key="`${step.title}-note`">
+                  <strong>{{ step.title }}</strong>
+                  <span>{{ step.description }}</span>
+                </div>
+              </div>
+            </el-card>
+          </el-collapse-item>
+        </el-collapse>
 
         <section class="content-preview-section">
           <div class="section-heading">
@@ -682,8 +700,8 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           </div>
 
           <el-alert
-            title="选择真实 AI 接口做质量检查或发布优化会消耗接口额度；API Key 只在后端 .env 管理，前端不会展示或保存。"
-            type="warning"
+            title="质量检查和发布优化用于辅助人工审校，生成结果不会自动覆盖原文。"
+            type="info"
             :closable="false"
             show-icon
             class="dialog-alert"
@@ -865,6 +883,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .content-flow-card,
 .content-overview-card,
 .content-preview-section,
+.content-flow-collapse,
 .content-technical-collapse {
   margin-top: 16px;
 }
@@ -1002,6 +1021,23 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   border-radius: 8px;
   background: #ffffff;
   overflow: hidden;
+}
+
+.content-flow-collapse {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.content-flow-collapse :deep(.el-collapse-item__header) {
+  color: var(--geo-ink);
+  font-weight: 700;
+  padding: 0 16px;
+}
+
+.content-flow-collapse :deep(.el-collapse-item__content) {
+  padding: 0 16px 16px;
 }
 
 .content-technical-collapse :deep(.el-collapse-item__header) {

@@ -168,7 +168,7 @@ const coreMetrics = computed(() => [
       report.value.failedContentTaskCount > 0
         ? `${report.value.failedContentTaskCount} 个失败任务待处理`
         : "暂无失败任务",
-    to: "/content-tasks",
+    to: "/geo-content",
     buttonLabel: "去看内容",
     tone: report.value.failedContentTaskCount > 0 ? ("danger" as const) : ("good" as const)
   },
@@ -212,7 +212,7 @@ const todayActions = computed<DashboardAction[]>(() => [
     description: "围绕未命中词生成素材。",
     signal: `${report.value.contentTaskCount} 个任务 / ${report.value.contentItemCount} 篇内容`,
     buttonLabel: "去生成内容",
-    to: "/content-tasks",
+    to: "/geo-content",
     tone: report.value.failedContentTaskCount > 0 ? "danger" : "default",
     icon: EditPen
   },
@@ -249,7 +249,7 @@ const operationQueue = computed(() => [
       report.value.failedContentTaskCount > 0
         ? `${report.value.failedContentTaskCount} 个失败任务需处理`
         : `${report.value.contentItemCount} 篇内容可复盘`,
-    to: "/content-tasks",
+    to: "/geo-content",
     buttonLabel: "查看内容任务",
     tone: report.value.failedContentTaskCount > 0 ? ("danger" as const) : ("default" as const)
   },
@@ -499,7 +499,7 @@ const groupedSuggestionPreview = computed<OptimizationSuggestion[]>(() => {
             <dd>{{ formatNumber(report.knowledgeChunkCount) }}</dd>
           </div>
         </dl>
-        <RouterLink to="/content-tasks">进入内容生成</RouterLink>
+        <RouterLink to="/geo-content">进入内容生成</RouterLink>
       </section>
       <div class="dashboard-boundary-note">
         <span>当前为本地测试版本，关键发布和参数事实仍需人工确认。</span>

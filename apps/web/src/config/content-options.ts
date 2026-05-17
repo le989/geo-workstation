@@ -20,6 +20,13 @@ export const generationTypeOptions = [
   { label: "销售问答", value: "sales_qa" }
 ];
 
+export const contentModelOptions = [
+  { label: "豆包", value: "doubao-seed-1-6-250615" },
+  { label: "通义千问", value: "qwen3-max" },
+  { label: "Kimi", value: "kimi-k2.6" },
+  { label: "DeepSeek", value: "deepseek-chat" }
+];
+
 export const contentItemStatusOptions = [
   { label: "草稿", value: "draft" },
   { label: "待复核", value: "reviewing" },
@@ -35,6 +42,36 @@ export const contentTaskStatusLabelMap = Object.fromEntries(
 export const generationTypeLabelMap = Object.fromEntries(
   generationTypeOptions.map((item) => [item.value, item.label])
 ) as Record<string, string>;
+
+export const formatContentModelName = (value?: string | null) => {
+  if (!value) {
+    return "--";
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (normalized.includes("doubao") || value.includes("豆包")) {
+    return "豆包";
+  }
+
+  if (normalized.includes("qwen") || value.includes("通义") || value.includes("千问")) {
+    return "通义千问";
+  }
+
+  if (normalized.includes("kimi") || normalized.includes("moonshot")) {
+    return "Kimi";
+  }
+
+  if (normalized.includes("deepseek")) {
+    return "DeepSeek";
+  }
+
+  if (normalized.includes("mock")) {
+    return "基础生成模式";
+  }
+
+  return value;
+};
 
 export const contentItemStatusLabelMap = Object.fromEntries(
   contentItemStatusOptions.map((item) => [item.value, item.label])

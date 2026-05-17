@@ -4543,6 +4543,25 @@ a {
   line-height: 1.6;
 }
 
+.content-workflow-collapse,
+.content-overview-strip {
+  border: 1px solid #e5e0ef;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
+  overflow: hidden;
+}
+
+.content-workflow-collapse :where(.el-collapse-item__header) {
+  padding: 0 18px;
+  color: #111019;
+  font-weight: 900;
+}
+
+.content-workflow-collapse :where(.el-collapse-item__content) {
+  padding: 0 18px 18px;
+}
+
 .content-workflow-panel {
   display: grid;
   gap: 14px;
@@ -4617,6 +4636,37 @@ a {
   font-weight: 900;
 }
 
+.content-overview-strip {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 16px;
+}
+
+.content-overview-strip article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #eee9f5;
+  border-radius: 14px;
+  background: #fbfaff;
+}
+
+.content-overview-strip span,
+.content-overview-strip small {
+  color: #667586;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.content-overview-strip strong {
+  color: #111019;
+  font-size: 24px;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
 .content-filter-card {
   display: grid;
   gap: 14px;
@@ -4652,6 +4702,23 @@ a {
   color: #667586;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.content-form-collapse {
+  border: 1px solid #eee9f5;
+  border-radius: 14px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.content-form-collapse :where(.el-collapse-item__header) {
+  padding: 0 14px;
+  color: #111019;
+  font-weight: 850;
+}
+
+.content-form-collapse :where(.el-collapse-item__content) {
+  padding: 0 14px 14px;
 }
 
 .content-table-card {
@@ -7259,6 +7326,7 @@ a {
   .content-filters,
   .content-task-form,
   .content-form-grid,
+  .content-overview-strip,
   .content-item-form,
   .geo-prompt-selector__toolbar,
   .content-workflow-strip,

@@ -484,7 +484,7 @@ const overviewActionItems = computed<OverviewActionItem[]>(() => [
     description: `${formatReportNumber(overview.value?.contentTaskCount)} 个任务 / ${formatReportNumber(
       overview.value?.contentItemCount
     )} 篇内容资产`,
-    to: "/content-tasks"
+    to: "/geo-content"
   },
   {
     label: "补检测",

@@ -43,11 +43,13 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "GEO 内容生成",
-  "provider",
-  "真实 AI 接口",
-  "真实 AI 接口会消耗接口额度",
-  "API Key 由后端",
-  "内容任务已创建，但真实 AI 生成失败",
+  "提示词 / 知识库 / 指令模板",
+  "内容任务筛选",
+  "高级筛选",
+  "基础生成模式",
+  "AI 生成模式",
+  "生成方式与模型参数",
+  "内容任务已创建，但",
   "失败原因",
   "质量检查",
   "生成发布优化版",
@@ -136,8 +138,8 @@ assert(!pageSource.includes("API Key 输入"), "Content tasks page must not expo
 
 const routesSource = await readSource("src/router/routes.ts");
 assert(
-  routesSource.includes("ContentTasksView"),
-  "Router must use ContentTasksView for /content-tasks"
+  routesSource.includes('path: "content-tasks"') && routesSource.includes('"/geo-content"'),
+  "Router must expose /geo-content and keep /content-tasks compatibility"
 );
 
 process.stdout.write("Phase 3G content tasks check passed\n");

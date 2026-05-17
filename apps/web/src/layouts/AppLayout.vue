@@ -20,7 +20,7 @@ const route = useRoute();
 const appStore = useAppStore();
 const authStore = useAuthStore();
 
-const activeMenu = computed(() => route.path);
+const activeMenu = computed(() => (route.path === "/content-tasks" ? "/geo-content" : route.path));
 const isSidebarCollapsed = ref(
   window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true"
 );
@@ -74,8 +74,12 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "指令模板",
     subtitle: "管理内容生成模板和规则"
   },
+  "/geo-content": {
+    title: "GEO 内容生成",
+    subtitle: "生成、审校、优化和发布稿"
+  },
   "/content-tasks": {
-    title: "内容生成",
+    title: "GEO 内容生成",
     subtitle: "生成、审校、优化和发布稿"
   },
   "/model-inclusion-records": {
@@ -122,7 +126,7 @@ const navigationGroups = [
   {
     label: "知识与内容资产",
     items: navigationItems.filter((item) =>
-      ["/knowledge-bases", "/instruction-templates", "/content-tasks"].includes(item.path)
+      ["/knowledge-bases", "/instruction-templates", "/geo-content"].includes(item.path)
     )
   },
   {

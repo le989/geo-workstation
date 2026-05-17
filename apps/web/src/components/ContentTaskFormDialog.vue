@@ -4,10 +4,13 @@ import type { CreateContentTaskPayload } from "@/api/content";
 import { getInstructionTemplates, type InstructionTemplate } from "@/api/instructions";
 import { getKnowledgeBases, type KnowledgeBase } from "@/api/knowledge";
 import GeoPromptSelector from "@/components/GeoPromptSelector.vue";
-import { generationTypeOptions } from "@/config/content-options";
+import {
+  contentModelOptions,
+  formatContentModelName,
+  generationTypeOptions
+} from "@/config/content-options";
 import { contentTypeLabelMap, instructionTypeLabelMap } from "@/config/instruction-options";
 import { formatOptional } from "@/config/geo-prompt-options";
-import { aiProviderOptions } from "@/config/label-maps";
 
 type ContentTaskFormState = {
   name: string;
@@ -45,10 +48,15 @@ const form = reactive<ContentTaskFormState>({
 });
 
 const formError = ref("");
+const advancedSections = ref<string[]>([]);
 const selectError = ref("");
 const loadingOptions = ref(false);
 const knowledgeBases = ref<KnowledgeBase[]>([]);
 const instructionTemplates = ref<InstructionTemplate[]>([]);
+const contentGenerationModeOptions = [
+  { label: "基础生成模式", value: "mock" },
+  { label: "AI 生成模式", value: "openai_compatible" }
+];
 
 const selectedKnowledgeBase = computed(() =>
   knowledgeBases.value.find((item) => item.id === form.knowledgeBaseId)
@@ -85,6 +93,7 @@ const getInstructionContentTypeLabel = (template: InstructionTemplate) =>
   contentTypeLabelMap[template.contentType] ?? template.contentType;
 
 const resetForm = () => {
+  advancedSections.value = [];
   form.generationType = "article";
   form.geoPromptIds = [];
   form.instructionTemplateId = "";
@@ -192,8 +201,8 @@ const handleSubmit = () => {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="默认使用模拟生成；选择真实 AI 接口会消耗接口额度，API Key 由后端 .env 管理，前端不提供密钥配置框。"
-      type="warning"
+      title="内容任务会结合提示词、知识库和指令模板生成可审校的 GEO 草稿，生成后仍需人工确认事实边界。"
+      type="info"
       :closable="false"
       show-icon
       class="dialog-alert"
@@ -262,9 +271,6 @@ const handleSubmit = () => {
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="目标模型">
-            <el-input v-model="form.targetModel" placeholder="例如 deepseek-chat / doubao" />
-          </el-form-item>
         </div>
       </section>
 
@@ -322,25 +328,63 @@ const handleSubmit = () => {
         <div class="content-form-section__header">
           <span>04</span>
           <div>
-            <h3>选择生成方式</h3>
-            <p>默认使用模拟生成；真实 AI 接口由后端环境变量管理，会消耗接口额度。</p>
+            <h3>高级配置</h3>
+            <p>低频生成参数默认收起；如无特殊要求，按当前默认配置创建任务即可。</p>
           </div>
         </div>
-        <div class="content-form-grid">
-          <el-form-item label="AI 生成方式">
-            <el-select v-model="form.provider">
-              <el-option
-                v-for="option in aiProviderOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="模型名称">
-            <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />
-          </el-form-item>
-        </div>
+        <el-collapse v-model="advancedSections" class="content-form-collapse">
+          <el-collapse-item title="生成方式与模型参数" name="generation">
+            <div class="content-form-grid">
+              <el-form-item label="目标模型">
+                <el-select
+                  v-model="form.targetModel"
+                  clearable
+                  filterable
+                  allow-create
+                  placeholder="豆包 / 通义千问 / Kimi"
+                >
+                  <el-option
+                    v-for="option in contentModelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <p v-if="form.targetModel" class="form-help">
+                  当前显示：{{ formatContentModelName(form.targetModel) }}
+                </p>
+              </el-form-item>
+              <el-form-item label="生成方式">
+                <el-select v-model="form.provider">
+                  <el-option
+                    v-for="option in contentGenerationModeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="模型名称">
+                <el-select
+                  v-model="form.model"
+                  filterable
+                  allow-create
+                  placeholder="豆包 / 通义千问 / Kimi"
+                >
+                  <el-option
+                    v-for="option in contentModelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <p v-if="form.model" class="form-help">
+                  当前显示：{{ formatContentModelName(form.model) }}
+                </p>
+              </el-form-item>
+            </div>
+          </el-collapse-item>
+        </el-collapse>
       </section>
     </el-form>
 

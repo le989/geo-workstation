@@ -26,7 +26,7 @@ const dashboardRequiredText = [
   "当前暂无明显待优化项",
   "/geo-prompts",
   "/knowledge-bases",
-  "/content-tasks",
+  "/geo-content",
   "/model-inclusion-records",
   "/reports"
 ];

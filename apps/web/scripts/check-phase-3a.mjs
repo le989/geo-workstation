@@ -22,6 +22,7 @@ const requiredRoutes = [
   "/expansion",
   "/knowledge-bases",
   "/instruction-templates",
+  "/geo-content",
   "/content-tasks",
   "/model-inclusion-records",
   "/reports",
@@ -55,7 +56,11 @@ for (const file of requiredFiles) {
 
 const routeSource = await readSource("src/router/routes.ts");
 for (const routePath of requiredRoutes) {
-  assert(routeSource.includes(routePath), `Missing route ${routePath}`);
+  const hasRoute =
+    routeSource.includes(routePath) ||
+    (routePath === "/content-tasks" && routeSource.includes('path: "content-tasks"'));
+
+  assert(hasRoute, `Missing route ${routePath}`);
 }
 
 const navigationSource = await readSource("src/config/navigation.ts");

@@ -82,7 +82,7 @@ const diagnosisFlowSteps = [
 const diagnosisRelationLinks = [
   { label: "去提示词策略库", path: "/geo-prompts" },
   { label: "去知识库", path: "/knowledge-bases" },
-  { label: "去内容生成", path: "/content-tasks" },
+  { label: "去内容生成", path: "/geo-content" },
   { label: "去模型覆盖记录", path: "/model-inclusion-records" },
   { label: "去 GEO 报表", path: "/reports" }
 ];
@@ -376,7 +376,7 @@ const handleCreateContentTask = async (payload: CreateAnalysisContentTaskPayload
         type: "success"
       }
     );
-    void router.push("/content-tasks");
+    void router.push("/geo-content");
   } catch (error) {
     if (error !== "cancel") {
       contentTaskError.value =
@@ -602,7 +602,7 @@ onMounted(() => {
       @convert-prompts="handleConvertPrompts"
       @create-content-task="handleCreateContentTask"
       @go-to-prompts="router.push('/geo-prompts')"
-      @go-to-content-tasks="router.push('/content-tasks')"
+      @go-to-content-tasks="router.push('/geo-content')"
     />
   </section>
 </template>
