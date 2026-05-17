@@ -39,7 +39,7 @@ watch(
   <section class="knowledge-filter-panel">
     <div class="knowledge-filter-copy">
       <div>
-        <p class="section-kicker">Asset Filter</p>
+        <p class="section-kicker">资料筛选</p>
         <h2>筛选知识库</h2>
         <p>按关键词、产品线和状态快速定位企业事实资料。</p>
       </div>
@@ -68,10 +68,10 @@ watch(
         </el-select>
       </el-form-item>
       <el-form-item v-if="showAdvancedFilters" label="创建人">
-        <el-input v-model="localFilters.createdBy" clearable placeholder="创建人 ID" />
+        <el-input v-model="localFilters.createdBy" clearable placeholder="输入创建人标识" />
       </el-form-item>
       <div v-if="showAdvancedFilters" class="knowledge-filter-note">
-        当前仅使用已有查询条件，不新增知识库接口请求。
+        更多筛选仅用于缩小当前列表范围，不改变知识库数据。
       </div>
     </el-form>
 

@@ -28,19 +28,47 @@ const emit = defineEmits<{
     border
     empty-text="暂无文件资料，可上传 txt/md/csv 解析为 GEO 知识片段。"
   >
-    <el-table-column prop="fileName" label="文件名" min-width="220" fixed="left">
+    <el-table-column type="expand" width="44">
+      <template #default="{ row }: { row: KnowledgeFile }">
+        <div class="knowledge-file-detail">
+          <section>
+            <p class="section-kicker">资料信息</p>
+            <dl>
+              <div>
+                <dt>文件大小</dt>
+                <dd>{{ formatFileSize(row.fileSize) }}</dd>
+              </div>
+              <div>
+                <dt>上传时间</dt>
+                <dd>{{ formatDateTime(row.createdAt) }}</dd>
+              </div>
+            </dl>
+          </section>
+          <section>
+            <p class="section-kicker">排查信息</p>
+            <dl>
+              <div>
+                <dt>错误信息</dt>
+                <dd>
+                  <span :class="{ 'knowledge-error-text': row.errorMessage }">
+                    {{ formatOptional(row.errorMessage) }}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+      </template>
+    </el-table-column>
+    <el-table-column prop="fileName" label="资料标题" min-width="240" fixed="left">
       <template #default="{ row }: { row: KnowledgeFile }">
         <strong class="knowledge-main-text">{{ row.fileName }}</strong>
+        <small v-if="row.errorMessage" class="knowledge-file-warning">解析异常，展开查看原因</small>
       </template>
     </el-table-column>
-    <el-table-column prop="fileType" label="类型" width="92">
+    <el-table-column prop="fileType" label="来源类型" width="112">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ row.fileType }}
-      </template>
-    </el-table-column>
-    <el-table-column prop="fileSize" label="大小" width="104">
-      <template #default="{ row }: { row: KnowledgeFile }">
-        {{ formatFileSize(row.fileSize) }}
       </template>
     </el-table-column>
     <el-table-column prop="parseStatus" label="解析状态" width="116">
@@ -48,16 +76,9 @@ const emit = defineEmits<{
         <KnowledgeParseStatusTag :status="row.parseStatus" />
       </template>
     </el-table-column>
-    <el-table-column prop="errorMessage" label="错误信息" min-width="220">
+    <el-table-column prop="updatedAt" label="更新时间" min-width="168">
       <template #default="{ row }: { row: KnowledgeFile }">
-        <span :class="{ 'knowledge-error-text': row.errorMessage }">
-          {{ formatOptional(row.errorMessage) }}
-        </span>
-      </template>
-    </el-table-column>
-    <el-table-column prop="createdAt" label="上传时间" min-width="168">
-      <template #default="{ row }: { row: KnowledgeFile }">
-        {{ formatDateTime(row.createdAt) }}
+        {{ formatDateTime(row.updatedAt) }}
       </template>
     </el-table-column>
     <el-table-column label="操作" width="190" fixed="right">
@@ -66,7 +87,7 @@ const emit = defineEmits<{
         <template v-if="canManage">
           <el-button
             link
-            type="warning"
+            class="knowledge-secondary-action"
             :loading="reparsingIds?.includes(row.id)"
             @click="emit('reparse', row)"
           >
@@ -74,7 +95,7 @@ const emit = defineEmits<{
           </el-button>
           <el-button
             link
-            type="danger"
+            class="knowledge-danger-action"
             :loading="deletingIds?.includes(row.id)"
             @click="emit('delete', row)"
           >

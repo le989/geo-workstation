@@ -43,7 +43,7 @@ const handleSubmit = () => {
   }
 
   if (!isSupportedKnowledgeFileName(selectedFile.value.name)) {
-    formError.value = "当前阶段只支持 txt、md、csv 文件，不支持 PDF/Word/Excel。";
+    formError.value = "当前支持 txt、md、csv 文件，其他格式请先转为文本资料后再上传。";
     return;
   }
 
@@ -63,9 +63,9 @@ const handleSubmit = () => {
       <div>
         <p class="section-kicker">文件导入</p>
         <h3>上传可解析资料</h3>
-        <p>第一版只支持 txt/md/csv，不支持 PDF/Word/Excel；上传后会解析为知识片段。</p>
+        <p>支持上传 txt / md / csv 资料，上传后会解析为知识片段。</p>
       </div>
-      <el-tag type="info" effect="plain">本地存储 + 同步解析</el-tag>
+      <el-tag type="info" effect="plain">自动解析为知识片段</el-tag>
     </div>
 
     <el-alert

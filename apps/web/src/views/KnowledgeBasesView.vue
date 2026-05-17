@@ -112,17 +112,17 @@ const knowledgeAssetMetrics = computed(() => {
 
   return [
     {
-      label: "知识库数量",
+      label: "当前列表知识库",
       value: total.value,
       note: "当前筛选结果"
     },
     {
-      label: "当前页启用",
+      label: "当前列表启用",
       value: activeCount,
-      note: "可作为内容生成事实底座"
+      note: "本页可引用资料库"
     },
     {
-      label: "待补资料",
+      label: "待补说明",
       value: missingDescriptionCount,
       note: "缺少说明或事实摘要"
     },
@@ -187,18 +187,6 @@ const formatKnowledgeDescription = (value?: string) => {
   }
 
   return description.length > 72 ? `${description.slice(0, 72)}...` : description;
-};
-
-const getKnowledgeNextAction = (knowledgeBase: KnowledgeBase) => {
-  if (!knowledgeBase.description?.trim()) {
-    return "补说明";
-  }
-
-  if (knowledgeBase.status !== "active" && knowledgeBase.status !== "enabled") {
-    return "检查状态";
-  }
-
-  return "维护片段";
 };
 
 const buildKnowledgeBaseQuery = (): KnowledgeBaseQuery => ({
@@ -499,7 +487,7 @@ const handleFileDetail = async (file: KnowledgeFile) => {
       parseStatusLabelMap[fileDetail.knowledgeFile.parseStatus] ??
       fileDetail.knowledgeFile.parseStatus;
     await ElMessageBox.alert(
-      `文件：${fileDetail.knowledgeFile.fileName}\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n最近片段：\n${latestChunks}`,
+      `文件资料：${fileDetail.knowledgeFile.fileName}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"
@@ -669,13 +657,22 @@ onMounted(() => {
         </el-tag>
         <h1>知识库</h1>
         <p>管理产品资料、FAQ 和知识片段，为内容生成、事实边界和 GEO 复测提供可信依据。</p>
+        <div class="knowledge-flow-cue" aria-label="知识库建设流程">
+          <span>新建知识库</span>
+          <span>上传 / 粘贴资料</span>
+          <span>解析为知识片段</span>
+          <span>用于内容生成</span>
+        </div>
+        <strong>知识库资料用于补齐 GEO 诊断中的事实缺口，并为内容生成提供可引用素材。</strong>
       </div>
       <div class="knowledge-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" @click="loadKnowledgeBases">
           刷新列表
         </el-button>
-        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">新建知识库</el-button>
+        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">
+          新建知识库
+        </el-button>
       </div>
     </header>
 
@@ -683,7 +680,7 @@ onMounted(() => {
       <article
         v-for="metric in knowledgeAssetMetrics"
         :key="metric.label"
-        :class="{ 'is-warning': metric.label === '待补资料' }"
+        :class="{ 'is-warning': metric.label === '待补说明' }"
       >
         <span>{{ metric.label }}</span>
         <strong>{{ metric.value }}</strong>
@@ -724,11 +721,6 @@ onMounted(() => {
             <strong class="knowledge-main-text">{{ row.name }}</strong>
           </template>
         </el-table-column>
-        <el-table-column prop="productLine" label="产品线" min-width="150">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            {{ formatOptional(row.productLine) }}
-          </template>
-        </el-table-column>
         <el-table-column prop="description" label="说明摘要" min-width="260">
           <template #default="{ row }: { row: KnowledgeBase }">
             <span class="knowledge-description-line">
@@ -736,12 +728,7 @@ onMounted(() => {
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="文件 / 片段" min-width="150">
-          <template #default>
-            <span class="knowledge-table-hint">详情中查看真实数量</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="92">
+        <el-table-column prop="status" label="状态" width="104">
           <template #default="{ row }: { row: KnowledgeBase }">
             <el-tag
               class="knowledge-status-tag"
@@ -752,16 +739,16 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="productLine" label="产品线 / 场景" min-width="150">
+          <template #default="{ row }: { row: KnowledgeBase }">
+            {{ formatOptional(row.productLine) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="visibility" label="可见性" width="104">
           <template #default="{ row }: { row: KnowledgeBase }">
             <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
               {{ visibilityLabelMap[row.visibility] }}
             </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="下一步" width="104">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            <el-tag class="knowledge-action-tag" effect="plain">{{ getKnowledgeNextAction(row) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="updatedAt" label="更新时间" min-width="168">
@@ -778,7 +765,7 @@ onMounted(() => {
             <el-button
               v-if="canManageKnowledgeBase(row)"
               link
-              type="danger"
+              class="knowledge-danger-action"
               @click="handleDeleteKnowledgeBase(row)"
             >
               删除

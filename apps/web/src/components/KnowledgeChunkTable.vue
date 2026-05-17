@@ -87,7 +87,7 @@ const getWordCount = (value?: string) => (value ? value.length : 0);
           <el-button link type="primary" @click="emit('edit', row)">编辑</el-button>
           <el-button
             link
-            type="danger"
+            class="knowledge-danger-action"
             :loading="deletingIds?.includes(row.id)"
             @click="emit('delete', row)"
           >

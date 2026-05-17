@@ -78,7 +78,7 @@ const handleSubmit = () => {
       <div>
         <p class="section-kicker">文本导入</p>
         <h3>粘贴企业事实资料</h3>
-        <p>把产品参数、FAQ、应用方案或资质说明沉淀为可被 GEO 内容生成引用的知识片段。</p>
+        <p>粘贴文本后将生成可被内容生成引用的知识片段。</p>
       </div>
       <el-button @click="reset">清空</el-button>
     </div>

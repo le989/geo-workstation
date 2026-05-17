@@ -3809,6 +3809,42 @@ a {
   box-shadow: none;
 }
 
+.knowledge-flow-cue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.knowledge-flow-cue span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid #dff59c;
+  border-radius: 999px;
+  background: #f8ffe7;
+  color: #304f00;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.knowledge-flow-cue span:not(:last-child)::after {
+  margin-left: 8px;
+  color: #7a8e5a;
+  content: "→";
+}
+
+.knowledge-hero__copy > strong {
+  display: block;
+  max-width: 760px;
+  margin-top: 12px;
+  color: #2a3a23;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
 .knowledge-operation-card:hover {
   border-color: #cfc1ff;
   box-shadow: 0 14px 34px rgb(24 20 36 / 7%);
@@ -3833,6 +3869,92 @@ a {
 .knowledge-technical-collapse,
 .instruction-content-collapse {
   border-radius: 14px;
+}
+
+.knowledge-detail-flow-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dff59c;
+  border-radius: 14px;
+  background: linear-gradient(100deg, rgb(186 255 41 / 14%), transparent 55%), #ffffff;
+  color: #53606c;
+  line-height: 1.7;
+}
+
+.knowledge-detail-flow-note strong {
+  color: #253a00;
+  font-weight: 900;
+}
+
+.knowledge-inner-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.knowledge-inner-filters--advanced {
+  padding: 12px;
+  border: 1px dashed #dce5ed;
+  border-radius: 14px;
+  background: #fbfdff;
+}
+
+.knowledge-file-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 12px 18px;
+  color: #53606c;
+}
+
+.knowledge-file-detail dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.knowledge-file-detail dl > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.knowledge-file-detail dt {
+  color: #7a8795;
+  font-weight: 800;
+}
+
+.knowledge-file-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.knowledge-file-warning {
+  display: block;
+  margin-top: 4px;
+  color: #9a6a12;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.knowledge-secondary-action.el-button {
+  color: #647487;
+}
+
+.knowledge-secondary-action.el-button:hover {
+  color: var(--geo-primary);
+}
+
+.knowledge-danger-action.el-button {
+  color: #8a5a5a;
+}
+
+.knowledge-danger-action.el-button:hover {
+  color: #c33b3b;
 }
 
 .knowledge-add-source-grid .knowledge-text-import-form,

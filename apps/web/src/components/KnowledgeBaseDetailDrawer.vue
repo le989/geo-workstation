@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch } from "vue";
+import { reactive, ref, watch } from "vue";
 import type {
   KnowledgeBaseDetail,
   KnowledgeChunk,
@@ -74,6 +74,8 @@ const chunkFilters = reactive({
   tagsText: ""
 });
 
+const showChunkAdvancedFilters = ref(false);
+
 const fileFilters = reactive({
   fileType: "",
   parseStatus: "" as ParseStatus | "",
@@ -88,6 +90,7 @@ watch(
     chunkFilters.search = "";
     chunkFilters.sourceType = "";
     chunkFilters.tagsText = "";
+    showChunkAdvancedFilters.value = false;
     fileFilters.fileType = "";
     fileFilters.parseStatus = "";
     fileFilters.search = "";
@@ -114,6 +117,7 @@ const handleChunkReset = () => {
   chunkFilters.search = "";
   chunkFilters.sourceType = "";
   chunkFilters.tagsText = "";
+  showChunkAdvancedFilters.value = false;
   emit("reset-chunks");
 };
 
@@ -215,7 +219,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
           >
             <span>知识片段</span>
             <strong>{{ detail.chunksCount }} 条可引用资料</strong>
-            <small>查看、筛选和编辑企业事实资料，支撑后续 GEO 内容生成。</small>
+            <small>文件和文本会解析为知识片段，可被内容生成引用。</small>
           </button>
           <button
             class="knowledge-operation-card"
@@ -224,7 +228,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
           >
             <span>文件资料</span>
             <strong>{{ detail.filesCount }} 个解析文件</strong>
-            <small>跟踪 txt / md / csv 的解析状态，失败后可重新解析。</small>
+            <small>跟踪 txt / md / csv 资料的解析状态和来源信息。</small>
           </button>
           <button
             v-if="canManage"
@@ -234,8 +238,13 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
           >
             <span>新增资料</span>
             <strong>上传或粘贴资料</strong>
-            <small>新增资料入口包含上传文件和粘贴文本。</small>
+            <small>补充产品能力、应用场景、FAQ 和选型规则。</small>
           </button>
+        </section>
+
+        <section class="knowledge-detail-flow-note">
+          <strong>资料层级</strong>
+          <span>上传的文件或粘贴的文本会解析为知识片段，知识片段可被内容生成引用。</span>
         </section>
 
         <el-tabs
@@ -275,6 +284,22 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                 <el-form-item label="产品线">
                   <el-input v-model="chunkFilters.productLine" clearable placeholder="产品线" />
                 </el-form-item>
+                <div class="knowledge-inner-filter-actions">
+                  <el-button type="primary" :loading="chunksLoading" @click="handleChunkSearch">
+                    查询片段
+                  </el-button>
+                  <el-button @click="handleChunkReset">重置</el-button>
+                  <el-button text @click="showChunkAdvancedFilters = !showChunkAdvancedFilters">
+                    {{ showChunkAdvancedFilters ? "收起高级筛选" : "高级筛选" }}
+                  </el-button>
+                </div>
+              </el-form>
+
+              <el-form
+                v-if="showChunkAdvancedFilters"
+                class="knowledge-inner-filters knowledge-inner-filters--advanced"
+                label-position="top"
+              >
                 <el-form-item label="资料类型">
                   <el-select v-model="chunkFilters.materialType" clearable placeholder="全部资料">
                     <el-option
@@ -288,14 +313,8 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                 <el-form-item label="标签">
                   <el-input v-model="chunkFilters.tagsText" clearable placeholder="标签关键词" />
                 </el-form-item>
+                <div class="knowledge-filter-note">低频筛选仅用于缩小当前知识片段范围。</div>
               </el-form>
-
-              <div class="knowledge-actions">
-                <el-button type="primary" :loading="chunksLoading" @click="handleChunkSearch">
-                  查询片段
-                </el-button>
-                <el-button @click="handleChunkReset">重置</el-button>
-              </div>
 
               <KnowledgeChunkTable
                 :chunks="chunks"
