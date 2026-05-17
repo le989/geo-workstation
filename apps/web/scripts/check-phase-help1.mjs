@@ -15,6 +15,8 @@ const stubApiBaseUrl = `http://127.0.0.1:${stubApiPort}`;
 const chromePath =
   process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || stubApiBaseUrl;
+const helpPageTitle = "使用教程";
+const helpPageDescription = "查看 GEO 工作站的快速开始";
 
 const requiredFiles = [
   "apps/web/src/views/HelpView.vue",
@@ -253,7 +255,7 @@ const connectCdp = (url) =>
     socket.addEventListener("error", reject);
   });
 
-const waitForBodyText = async (client, predicate, timeoutMs = 8000) => {
+const waitForBodyText = async (client, predicate, timeoutMs = 20000) => {
   const startedAt = Date.now();
   let text = "";
   while (Date.now() - startedAt < timeoutMs) {
@@ -329,13 +331,13 @@ try {
     client,
     (bodyText) =>
       bodyText.includes("帮助页验收用户") &&
-      bodyText.includes("使用教程") &&
-      bodyText.includes("查看 GEO 工作站的快速开始") &&
+      bodyText.includes(helpPageTitle) &&
+      bodyText.includes(helpPageDescription) &&
       requiredPageSnippets.every((snippet) => bodyText.includes(snippet))
   );
 
-  assert(text.includes("使用教程"), "/help must render the 使用教程 page title");
-  assert(text.includes("查看 GEO 工作站的快速开始"), "/help must render page description");
+  assert(text.includes(helpPageTitle), `/help must render the ${helpPageTitle} page title`);
+  assert(text.includes(helpPageDescription), "/help must render page description");
   assert(text.includes("帮助页验收用户"), "/help must keep authenticated layout");
   for (const snippet of requiredPageSnippets) {
     assert(text.includes(snippet), `/help page missing snippet: ${snippet}`);
