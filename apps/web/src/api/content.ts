@@ -234,6 +234,11 @@ export const retryContentTask = (id: string) =>
     method: "POST"
   });
 
+export const archiveContentTask = (id: string) =>
+  apiRequest<ContentTask>(`/api/content-tasks/${id}/archive`, {
+    method: "POST"
+  });
+
 export const getContentItems = (params: ContentItemQuery = {}) =>
   apiRequest<PaginatedResponse<ContentItem>>(`/api/content-items${toQueryString(params)}`);
 

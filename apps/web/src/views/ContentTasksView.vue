@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";
 import {
+  archiveContentTask,
   createContentTask,
   deleteContentItem,
   exportContentItem,
@@ -59,6 +60,7 @@ const detailLoading = ref(false);
 const selectedTaskId = ref("");
 const detail = ref<ContentTaskDetail | null>(null);
 const retrying = ref(false);
+const archivingIds = ref<string[]>([]);
 
 const itemDialogVisible = ref(false);
 const itemDialogMode = ref<"view" | "edit">("view");
@@ -93,6 +95,7 @@ const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
 const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
 const canManageContentActions = computed(() => canUseAction("create", currentRole.value));
+const selectedTaskArchiving = computed(() => archivingIds.value.includes(selectedTaskId.value));
 const contentOverviewStats = computed(() => {
   const activeCount = tasks.value.filter((task) =>
     ["pending", "running"].includes(task.status)
@@ -150,6 +153,15 @@ const getTaskNextAction = (task: ContentTask) => {
 
   return "进入详情做质检 / 发布优化";
 };
+
+const canArchiveContentTask = (task?: ContentTask | null) =>
+  Boolean(
+    task &&
+      canManageContentActions.value &&
+      task.status !== "running" &&
+      task.status !== "cancelled"
+  );
+const isArchiving = (id: string) => archivingIds.value.includes(id);
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -506,6 +518,55 @@ const handleDeleteItem = async (item: ContentItem) => {
   }
 };
 
+const handleArchiveTask = async (task?: ContentTask) => {
+  const targetTask = task ?? detail.value?.task ?? null;
+  const targetTaskId = targetTask?.id ?? selectedTaskId.value;
+
+  if (!targetTaskId) {
+    return;
+  }
+
+  if (!canManageContentActions.value) {
+    ElMessage.warning("当前账号仅可查看内容任务，不能归档任务。");
+    return;
+  }
+
+  if (targetTask?.status === "running") {
+    ElMessage.warning("生成中的 GEO 内容任务暂不能归档。");
+    return;
+  }
+
+  if (targetTask?.status === "cancelled") {
+    ElMessage.info("该 GEO 内容任务已归档。");
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      "归档后，该 GEO 内容任务将从默认列表隐藏，已生成的内容项和导出能力仍会保留。",
+      "归档 GEO 内容任务",
+      {
+        cancelButtonText: "暂不归档",
+        confirmButtonText: "归档任务",
+        type: "warning"
+      }
+    );
+
+    await withIdFlag(archivingIds, targetTaskId, async () => {
+      await archiveContentTask(targetTaskId);
+    });
+    ElMessage.success("GEO 内容任务已归档。");
+    await loadTasks();
+    if (selectedTaskId.value === targetTaskId) {
+      await loadDetail();
+    }
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error(error instanceof Error ? error.message : "归档 GEO 内容任务失败。");
+    }
+  }
+};
+
 onMounted(() => {
   void loadTasks();
 });
@@ -640,7 +701,7 @@ onMounted(() => {
         <el-table-column label="更新时间" width="180">
           <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <el-button text type="primary" @click="openDetailDrawer(row)">查看详情</el-button>
             <el-button
@@ -651,6 +712,14 @@ onMounted(() => {
               @click="handleRetry(row)"
             >
               重试
+            </el-button>
+            <el-button
+              v-if="canArchiveContentTask(row)"
+              text
+              :loading="isArchiving(row.id)"
+              @click="handleArchiveTask(row)"
+            >
+              归档
             </el-button>
           </template>
         </el-table-column>
@@ -686,6 +755,7 @@ onMounted(() => {
       :detail="detail"
       :loading="detailLoading"
       :retrying="retrying"
+      :archiving="selectedTaskArchiving"
       :exporting-ids="exportingIds"
       :deleting-ids="deletingIds"
       :quality-checking-ids="qualityCheckingIds"
@@ -700,6 +770,7 @@ onMounted(() => {
       :can-manage-actions="canManageContentActions"
       @refresh="loadDetail"
       @retry="handleRetry()"
+      @archive="handleArchiveTask()"
       @view="openItemDialog($event, 'view')"
       @edit="openItemDialog($event, 'edit')"
       @export="handleExportMarkdown"

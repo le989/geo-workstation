@@ -29,6 +29,7 @@ const props = defineProps<{
   detail?: GeoAnalysisTaskDetail | null;
   loading?: boolean;
   running?: boolean;
+  archiving?: boolean;
   convertSubmitting?: boolean;
   contentTaskSubmitting?: boolean;
   convertResult?: ConvertAnalysisPromptsResult | null;
@@ -41,6 +42,7 @@ const emit = defineEmits<{
   "update:modelValue": [value: boolean];
   refresh: [];
   run: [];
+  archive: [];
   convertPrompts: [payload: ConvertAnalysisPromptsPayload];
   createContentTask: [payload: CreateAnalysisContentTaskPayload];
   goToPrompts: [];
@@ -55,6 +57,13 @@ const canRun = computed(
     (props.detail?.task.status === "pending" || props.detail?.task.status === "failed")
 );
 const canManageActions = computed(() => props.canManageActions !== false);
+const canArchive = computed(
+  () =>
+    canManageActions.value &&
+    Boolean(props.detail?.task) &&
+    props.detail?.task.status !== "running" &&
+    props.detail?.task.status !== "cancelled"
+);
 const displayTaskName = computed(() =>
   props.detail?.task
     ? formatGeoAnalysisTaskTitle(props.detail.task.name, props.detail.task.brandName)
@@ -156,6 +165,9 @@ const formatSummaryValue = (key: string, value: unknown) => {
           <el-button :loading="loading" @click="emit('refresh')">刷新详情</el-button>
           <el-button v-if="canRun" type="primary" :loading="running" @click="emit('run')">
             运行诊断
+          </el-button>
+          <el-button v-if="canArchive" plain :loading="archiving" @click="emit('archive')">
+            归档任务
           </el-button>
           <el-button @click="close">关闭</el-button>
         </div>

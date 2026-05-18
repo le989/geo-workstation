@@ -5,7 +5,7 @@ export const geoAnalysisStatusOptions: Array<{ label: string; value: TaskStatus 
   { label: "分析中", value: "running" },
   { label: "已完成", value: "succeeded" },
   { label: "失败", value: "failed" },
-  { label: "已取消", value: "cancelled" }
+  { label: "已归档", value: "cancelled" }
 ];
 
 export const geoAnalysisStatusLabelMap = Object.fromEntries(

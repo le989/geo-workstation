@@ -61,6 +61,19 @@ export class ContentTasksController {
     );
   }
 
+  @Post(":id/archive")
+  archive(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.contentTasksService.archive(
+      id,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
   @Post(":id/retry")
   retry(
     @Param("id") id: string,

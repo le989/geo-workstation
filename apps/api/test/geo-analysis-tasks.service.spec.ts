@@ -476,6 +476,75 @@ describe("GeoAnalysisTasksService", () => {
     expect(created.createdBy).toBe(operatorA.id);
   });
 
+  it("archives GEO analysis tasks as cancelled and hides them from default lists", async () => {
+    const archived = await createScopedTask("archive-hidden", companyA, operatorA);
+
+    const result = await service.archive(
+      archived.id,
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(result.status).toBe(TaskStatus.cancelled);
+
+    const defaultList = await service.findMany(
+      {
+        page: 1,
+        pageSize: 20,
+        productLine: archived.productLine ?? undefined
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(defaultList.items.map((item) => item.id)).not.toContain(archived.id);
+
+    const archivedList = await service.findMany(
+      {
+        page: 1,
+        pageSize: 20,
+        productLine: archived.productLine ?? undefined,
+        status: TaskStatus.cancelled
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(archivedList.items.map((item) => item.id)).toContain(archived.id);
+
+    const detail = await service.getDetail(
+      archived.id,
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(detail.task.status).toBe(TaskStatus.cancelled);
+  });
+
+  it("enforces GEO analysis archive permissions and blocks archived task operations", async () => {
+    const ownTask = await createScopedTask("archive-own", companyA, operatorA);
+    const otherUserTask = await createScopedTask("archive-other-user", companyA, operatorB);
+
+    await expect(
+      service.archive(ownTask.id, contextFor(viewerA, companyA, MembershipRole.viewer))
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.archive(otherUserTask.id, contextFor(operatorA, companyA, MembershipRole.operator))
+    ).rejects.toThrow("GEO analysis task not found");
+
+    await service.archive(ownTask.id, contextFor(operatorA, companyA, MembershipRole.operator));
+
+    await expect(
+      service.run(ownTask.id, contextFor(operatorA, companyA, MembershipRole.operator))
+    ).rejects.toThrow("archived GEO analysis task cannot be run");
+    await expect(
+      service.convertPrompts(
+        ownTask.id,
+        {},
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("archived GEO analysis task cannot be converted to prompts");
+    await expect(
+      service.createContentTask(
+        ownTask.id,
+        {},
+        contextFor(operatorA, companyA, MembershipRole.operator)
+      )
+    ).rejects.toThrow("archived GEO analysis task cannot create content tasks");
+  });
+
   it("converts prompts inside current company with current user and role visibility", async () => {
     const operatorTask = await createScopedTask("operator-private-prompt", companyA, operatorA);
     const converted = await service.convertPrompts(

@@ -153,6 +153,11 @@ export const updateGeoAnalysisTask = (id: string, payload: UpdateGeoAnalysisTask
     body: JSON.stringify(payload)
   });
 
+export const archiveGeoAnalysisTask = (id: string) =>
+  apiRequest<GeoAnalysisTask>(`/api/geo-analysis-tasks/${id}/archive`, {
+    method: "POST"
+  });
+
 export const runGeoAnalysisTask = (id: string) =>
   apiRequest<GeoAnalysisTaskDetail>(`/api/geo-analysis-tasks/${id}/run`, {
     method: "POST"

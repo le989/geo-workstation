@@ -474,6 +474,73 @@ describe("ContentTasksService", () => {
     expect(created.task.createdBy).toBe(operatorA.id);
   });
 
+  it("archives content tasks as cancelled, hides them by default, and keeps content items", async () => {
+    const archived = await createScopedContentTask("archive-hidden-task", companyA, operatorA);
+
+    const result = await service.archive(
+      archived.task.id,
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(result.status).toBe(TaskStatus.cancelled);
+
+    const defaultList = await service.findMany(
+      {
+        page: 1,
+        pageSize: 50,
+        productLine: archived.task.productLine ?? undefined
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(defaultList.items.map((item) => item.id)).not.toContain(archived.task.id);
+
+    const archivedList = await service.findMany(
+      {
+        page: 1,
+        pageSize: 50,
+        productLine: archived.task.productLine ?? undefined,
+        status: TaskStatus.cancelled
+      },
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(archivedList.items.map((item) => item.id)).toContain(archived.task.id);
+
+    const detail = await service.getDetail(
+      archived.task.id,
+      contextFor(operatorA, companyA, MembershipRole.operator)
+    );
+    expect(detail.task.status).toBe(TaskStatus.cancelled);
+    expect(detail.items.map((item) => item.id)).toContain(archived.item.id);
+
+    const storedItem = await prisma.contentItem.findUniqueOrThrow({
+      where: {
+        id: archived.item.id
+      }
+    });
+    expect(storedItem.deletedAt).toBeNull();
+  });
+
+  it("enforces content task archive permissions by role and owner", async () => {
+    const ownTask = await createScopedContentTask("archive-own-task", companyA, operatorA);
+    const otherUserTask = await createScopedContentTask(
+      "archive-other-user-task",
+      companyA,
+      operatorB
+    );
+
+    await expect(
+      service.archive(ownTask.task.id, contextFor(viewerA, companyA, MembershipRole.viewer))
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.archive(otherUserTask.task.id, contextFor(operatorA, companyA, MembershipRole.operator))
+    ).rejects.toThrow("GEO content task not found");
+
+    const adminArchived = await service.archive(
+      otherUserTask.task.id,
+      contextFor(companyAdminA, companyA, MembershipRole.company_admin)
+    );
+    expect(adminArchived.status).toBe(TaskStatus.cancelled);
+  });
+
   it("rejects unreadable associated resources when creating content tasks", async () => {
     const otherCompanyPrompt = await createScopedPrompt(
       "other-company-create-prompt",

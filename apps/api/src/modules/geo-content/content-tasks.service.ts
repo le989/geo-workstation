@@ -436,9 +436,47 @@ export class ContentTasksService {
     };
   }
 
+  async archive(id: string, context?: ResourceAccessContext): Promise<ContentTaskResponse> {
+    const task = await this.findExistingTask(id, context);
+
+    if (task.status === TaskStatus.running) {
+      throw new BadRequestException("running GEO content task cannot be archived");
+    }
+    if (context) {
+      assertCanManageOwnerCompanyResource(context, task, "无权归档当前 GEO 内容任务");
+    }
+
+    if (task.status === TaskStatus.cancelled) {
+      return this.toTaskResponse(task);
+    }
+
+    const archived = await this.prisma.contentTask.update({
+      where: {
+        id
+      },
+      data: {
+        status: TaskStatus.cancelled,
+        ...(context
+          ? {
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
+      }
+    });
+
+    return this.toTaskResponse(archived);
+  }
+
   async retry(id: string, context?: ResourceAccessContext): Promise<ContentTaskDetailResponse> {
     const task = await this.findExistingTask(id, context);
 
+    if (task.status === TaskStatus.cancelled) {
+      throw new BadRequestException("archived GEO content task cannot be retried");
+    }
     if (context) {
       assertCanManageOwnerCompanyResource(context, task, "无权重试当前 GEO 内容任务");
     }
@@ -851,6 +889,10 @@ export class ContentTasksService {
     }
     if (query.status) {
       where.status = query.status;
+    } else {
+      where.status = {
+        not: TaskStatus.cancelled
+      };
     }
     if (query.generationType) {
       where.generationType = query.generationType;

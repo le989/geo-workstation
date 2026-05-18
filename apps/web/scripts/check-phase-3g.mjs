@@ -25,6 +25,7 @@ const apiRequiredSnippets = [
   "createContentTask",
   "getContentTask",
   "retryContentTask",
+  "archiveContentTask",
   "getContentItems",
   "updateContentItem",
   "deleteContentItem",
@@ -34,6 +35,7 @@ const apiRequiredSnippets = [
   "formatContentItemForPublish",
   "/api/content-tasks",
   "/api/content-items",
+  "/archive",
   "/quality-check",
   "/optimize-for-publish",
   "/format-for-publish",
@@ -74,6 +76,7 @@ const pageRequiredSnippets = [
   "ContentItemFormDialog",
   "GeoPromptSelector",
   "导出 Markdown",
+  "归档任务",
   "重试不会重复生成已成功内容项",
   "移除该内容项"
 ];

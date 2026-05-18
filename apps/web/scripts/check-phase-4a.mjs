@@ -25,6 +25,7 @@ const apiRequiredSnippets = [
   "createGeoAnalysisTask",
   "getGeoAnalysisTask",
   "updateGeoAnalysisTask",
+  "archiveGeoAnalysisTask",
   "runGeoAnalysisTask",
   "convertAnalysisPrompts",
   "createAnalysisContentTask",
@@ -32,6 +33,7 @@ const apiRequiredSnippets = [
   "GeoModelResult",
   "ConvertAnalysisPromptsResult",
   "/api/geo-analysis-tasks",
+  "/archive",
   "/run",
   "/convert-prompts",
   "/create-content-task"
@@ -47,6 +49,7 @@ const pageRequiredSnippets = [
   "GeoAnalysisTaskDetailDrawer",
   "GeoAnalysisStatusTag",
   "运行诊断",
+  "归档任务",
   "转入提示词库",
   "创建内容任务",
   "提示词缺口",

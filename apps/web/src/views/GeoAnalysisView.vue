@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";
 import {
+  archiveGeoAnalysisTask,
   convertAnalysisPrompts,
   createAnalysisContentTask,
   createGeoAnalysisTask,
@@ -62,6 +63,7 @@ const detailLoading = ref(false);
 const selectedTaskId = ref("");
 const detail = ref<GeoAnalysisTaskDetail | null>(null);
 const running = ref(false);
+const archivingIds = ref<string[]>([]);
 
 const convertSubmitting = ref(false);
 const convertResult = ref<ConvertAnalysisPromptsResult | null>(null);
@@ -91,6 +93,7 @@ const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
 const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
 const canManageAnalysisActions = computed(() => canUseAction("run", currentRole.value));
+const selectedTaskArchiving = computed(() => archivingIds.value.includes(selectedTaskId.value));
 const analysisMetricCards = computed(() => {
   const promptSuggestionCount = tasks.value.reduce(
     (sum, task) => sum + task.promptSuggestions.length,
@@ -229,6 +232,24 @@ const openEditDialog = (task: GeoAnalysisTask) => {
   formVisible.value = true;
 };
 
+const canArchiveAnalysisTask = (task?: GeoAnalysisTask | null) =>
+  Boolean(
+    task &&
+      canManageAnalysisActions.value &&
+      task.status !== "running" &&
+      task.status !== "cancelled"
+  );
+const isArchiving = (id: string) => archivingIds.value.includes(id);
+
+const withArchiveFlag = async (id: string, action: () => Promise<void>) => {
+  archivingIds.value = [...archivingIds.value, id];
+  try {
+    await action();
+  } finally {
+    archivingIds.value = archivingIds.value.filter((itemId) => itemId !== id);
+  }
+};
+
 const handleSubmitTask = async (
   payload: CreateGeoAnalysisTaskPayload | UpdateGeoAnalysisTaskPayload
 ) => {
@@ -324,6 +345,55 @@ const runTask = async (task?: GeoAnalysisTask) => {
     }
   } finally {
     running.value = false;
+  }
+};
+
+const handleArchiveTask = async (task?: GeoAnalysisTask) => {
+  const targetTask = task ?? detail.value?.task ?? null;
+  const targetId = targetTask?.id ?? selectedTaskId.value;
+
+  if (!targetId) {
+    return;
+  }
+
+  if (!canManageAnalysisActions.value) {
+    ElMessage.warning("当前账号无权归档 GEO 诊断任务。");
+    return;
+  }
+
+  if (targetTask?.status === "running") {
+    ElMessage.warning("分析中的 GEO 诊断任务暂不能归档。");
+    return;
+  }
+
+  if (targetTask?.status === "cancelled") {
+    ElMessage.info("该 GEO 诊断任务已归档。");
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      "归档后，该 GEO 诊断任务将从默认列表隐藏，但详情和历史结果仍会保留。",
+      "归档 GEO 诊断任务",
+      {
+        cancelButtonText: "暂不归档",
+        confirmButtonText: "归档任务",
+        type: "warning"
+      }
+    );
+
+    await withArchiveFlag(targetId, async () => {
+      await archiveGeoAnalysisTask(targetId);
+    });
+    ElMessage.success("GEO 诊断任务已归档。");
+    await loadTasks();
+    if (selectedTaskId.value === targetId) {
+      await loadDetail();
+    }
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error(error instanceof Error ? error.message : "归档 GEO 诊断任务失败。");
+    }
   }
 };
 
@@ -530,7 +600,7 @@ onMounted(() => {
         <el-table-column label="创建时间" width="180">
           <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" plain @click="openDetailDrawer(row)">
               查看详情
@@ -552,6 +622,15 @@ onMounted(() => {
               @click="runTask(row)"
             >
               运行诊断
+            </el-button>
+            <el-button
+              v-if="canArchiveAnalysisTask(row)"
+              size="small"
+              plain
+              :loading="isArchiving(row.id)"
+              @click="handleArchiveTask(row)"
+            >
+              归档
             </el-button>
           </template>
         </el-table-column>
@@ -591,6 +670,7 @@ onMounted(() => {
       :detail="detail"
       :loading="detailLoading"
       :running="running"
+      :archiving="selectedTaskArchiving"
       :convert-submitting="convertSubmitting"
       :content-task-submitting="contentTaskSubmitting"
       :convert-result="convertResult"
@@ -599,6 +679,7 @@ onMounted(() => {
       :can-manage-actions="canManageAnalysisActions"
       @refresh="loadDetail"
       @run="runTask"
+      @archive="handleArchiveTask()"
       @convert-prompts="handleConvertPrompts"
       @create-content-task="handleCreateContentTask"
       @go-to-prompts="router.push('/geo-prompts')"

@@ -274,11 +274,52 @@ export class GeoAnalysisTasksService {
     return this.toTaskResponse(updated);
   }
 
+  async archive(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeoAnalysisTaskResponse> {
+    const task = await this.findTask(id, context);
+
+    if (task.status === TaskStatus.running) {
+      throw new BadRequestException("running GEO analysis task cannot be archived");
+    }
+    if (context) {
+      assertCanManageCompanyTask(context, task);
+    }
+
+    if (task.status === TaskStatus.cancelled) {
+      return this.toTaskResponse(task);
+    }
+
+    const archived = await this.prisma.geoAnalysisTask.update({
+      where: {
+        id
+      },
+      data: {
+        status: TaskStatus.cancelled,
+        ...(context
+          ? {
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
+      }
+    });
+
+    return this.toTaskResponse(archived);
+  }
+
   async run(id: string, context?: ResourceAccessContext): Promise<GeoAnalysisTaskDetailResponse> {
     const task = await this.findTask(id, context);
 
     if (task.status === TaskStatus.running) {
       throw new BadRequestException("running GEO analysis task cannot be executed again");
+    }
+    if (task.status === TaskStatus.cancelled) {
+      throw new BadRequestException("archived GEO analysis task cannot be run");
     }
     if (context) {
       assertCanManageCompanyTask(context, task);
@@ -358,6 +399,9 @@ export class GeoAnalysisTasksService {
     context?: ResourceAccessContext
   ): Promise<ConvertAnalysisPromptsResponse> {
     const task = await this.findTask(id, context);
+    if (task.status === TaskStatus.cancelled) {
+      throw new BadRequestException("archived GEO analysis task cannot be converted to prompts");
+    }
     if (context) {
       assertCanManageCompanyTask(context, task);
     }
@@ -467,6 +511,9 @@ export class GeoAnalysisTasksService {
     context?: ResourceAccessContext
   ): Promise<ContentTaskDetailResponse> {
     const task = await this.findTask(id, context);
+    if (task.status === TaskStatus.cancelled) {
+      throw new BadRequestException("archived GEO analysis task cannot create content tasks");
+    }
     if (context) {
       assertCanManageCompanyTask(context, task);
     }
@@ -526,6 +573,10 @@ export class GeoAnalysisTasksService {
     }
     if (query.status) {
       filterWhere.status = query.status;
+    } else {
+      filterWhere.status = {
+        not: TaskStatus.cancelled
+      };
     }
     if (query.productLine) {
       filterWhere.productLine = query.productLine;

@@ -29,6 +29,7 @@ const props = defineProps<{
   detail?: ContentTaskDetail | null;
   loading?: boolean;
   retrying?: boolean;
+  archiving?: boolean;
   exportingIds?: string[];
   deletingIds?: string[];
   qualityCheckingIds?: string[];
@@ -59,6 +60,7 @@ const emit = defineEmits<{
   "update:modelValue": [value: boolean];
   refresh: [];
   retry: [];
+  archive: [];
   view: [item: ContentItem];
   edit: [item: ContentItem];
   export: [item: ContentItem];
@@ -73,7 +75,17 @@ const hasFailedItems = computed(
 );
 const canManageActions = computed(() => props.canManageActions !== false);
 const canRetry = computed(
-  () => canManageActions.value && (props.detail?.task.status === "failed" || hasFailedItems.value)
+  () =>
+    canManageActions.value &&
+    props.detail?.task.status !== "cancelled" &&
+    (props.detail?.task.status === "failed" || hasFailedItems.value)
+);
+const canArchive = computed(
+  () =>
+    canManageActions.value &&
+    Boolean(props.detail?.task) &&
+    props.detail?.task.status !== "running" &&
+    props.detail?.task.status !== "cancelled"
 );
 const isRealAiTask = computed(() => props.detail?.task.provider === "openai_compatible");
 const failedItemReasons = computed(
@@ -359,7 +371,7 @@ const contentItemStatusLabelMap: Record<string, string> = {
   draft: "草稿（待审校）",
   succeeded: "生成成功",
   failed: "生成失败",
-  cancelled: "已取消"
+  cancelled: "已归档"
 };
 
 const contentItemStatusTypeMap: Record<string, "success" | "warning" | "danger" | "info"> = {
@@ -422,6 +434,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           <el-button :loading="loading" @click="emit('refresh')">刷新详情</el-button>
           <el-button v-if="canRetry" type="warning" :loading="retrying" @click="emit('retry')">
             重试失败任务
+          </el-button>
+          <el-button v-if="canArchive" plain :loading="archiving" @click="emit('archive')">
+            归档任务
           </el-button>
           <el-button @click="close">关闭</el-button>
         </div>
