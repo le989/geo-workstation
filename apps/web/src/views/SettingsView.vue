@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { Setting } from "@element-plus/icons-vue";
 import {
   createProjectProfile,
@@ -9,13 +9,30 @@ import {
   type ProjectProfile,
   type ProjectProfilePayload
 } from "@/api/project-profile";
+import {
+  createCompany,
+  createProductLine,
+  listCompanies,
+  listProductLines,
+  updateCompany,
+  updateCompanyStatus,
+  updateProductLine,
+  updateProductLineStatus,
+  type CompanyPayload,
+  type CompanyStatus,
+  type CompanyType,
+  type ManagedCompany,
+  type ManagedProductLine,
+  type ProductLinePayload,
+  type ProductLineStatus
+} from "@/api/settings-management";
 import AppEmptyState from "@/components/AppEmptyState.vue";
 import AppErrorState from "@/components/AppErrorState.vue";
 import AppLoadingState from "@/components/AppLoadingState.vue";
 import { formatDateTime, formatOptional, splitCommaValues } from "@/config/geo-prompt-options";
 import { getApiBaseUrl } from "@/api/http";
 import { useAuthStore } from "@/stores/auth";
-import { getRoleLabel } from "@/utils/permission";
+import { getRoleLabel, normalizeRole } from "@/utils/permission";
 
 type ProjectProfileFormState = {
   projectName: string;
@@ -32,12 +49,37 @@ type ProjectProfileFormState = {
   notes: string;
 };
 
+type CompanyFormState = {
+  name: string;
+  code: string;
+  type: CompanyType;
+};
+
+type ProductLineFormState = {
+  name: string;
+  code: string;
+};
+
 const profile = ref<ProjectProfile | null>(null);
+const companies = ref<ManagedCompany[]>([]);
+const productLines = ref<ManagedProductLine[]>([]);
 const loading = ref(false);
+const companiesLoading = ref(false);
+const productLinesLoading = ref(false);
 const submitting = ref(false);
+const companySubmitting = ref(false);
+const productLineSubmitting = ref(false);
 const errorMessage = ref("");
+const companyErrorMessage = ref("");
+const productLineErrorMessage = ref("");
 const dialogVisible = ref(false);
+const companyDialogVisible = ref(false);
+const productLineDialogVisible = ref(false);
 const formError = ref("");
+const companyFormError = ref("");
+const productLineFormError = ref("");
+const editingCompany = ref<ManagedCompany | null>(null);
+const editingProductLine = ref<ManagedProductLine | null>(null);
 const authStore = useAuthStore();
 
 const form = reactive<ProjectProfileFormState>({
@@ -55,6 +97,17 @@ const form = reactive<ProjectProfileFormState>({
   websiteUrl: ""
 });
 
+const companyForm = reactive<CompanyFormState>({
+  name: "",
+  code: "",
+  type: "internal"
+});
+
+const productLineForm = reactive<ProductLineFormState>({
+  name: "",
+  code: ""
+});
+
 const trimOptional = (value: string) => {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
@@ -62,6 +115,33 @@ const trimOptional = (value: string) => {
 
 const joinValues = (values: string[]) => values.join("\n");
 const currentUser = computed(() => authStore.currentUser);
+const currentRole = computed(() =>
+  normalizeRole(authStore.currentRole ?? currentUser.value?.role)
+);
+const canManageProjectProfile = computed(() => currentRole.value === "platform_admin");
+const canManageCompanies = computed(() => currentRole.value === "platform_admin");
+const canManageProductLines = computed(
+  () => currentRole.value === "platform_admin" || currentRole.value === "company_admin"
+);
+
+const companyTypeOptions: Array<{ label: string; value: CompanyType }> = [
+  { label: "内部自用", value: "internal" },
+  { label: "客户 / 项目", value: "customer" }
+];
+
+const formatCompanyType = (type?: CompanyType) => {
+  if (type === "customer") {
+    return "客户 / 项目";
+  }
+
+  return "内部自用";
+};
+
+const statusTagType = (status: CompanyStatus | ProductLineStatus) =>
+  status === "active" ? "success" : "info";
+
+const formatStatus = (status: CompanyStatus | ProductLineStatus) =>
+  status === "active" ? "启用" : "停用";
 
 const providerStatusItems = [
   {
@@ -118,6 +198,16 @@ const systemInfoItems = [
 
 const settingsOverviewItems = computed(() => [
   {
+    label: "公司",
+    value: `${companies.value.length} 个`,
+    hint: authStore.currentCompany?.name ?? "当前公司上下文"
+  },
+  {
+    label: "产品线",
+    value: `${productLines.value.length} 条`,
+    hint: "归属于当前公司"
+  },
+  {
     label: "项目档案",
     value: profile.value ? "已配置" : "待配置",
     hint: "品牌与项目上下文"
@@ -131,11 +221,6 @@ const settingsOverviewItems = computed(() => [
     label: "当前身份",
     value: getRoleLabel(authStore.currentRole ?? currentUser.value?.role),
     hint: currentUser.value?.name ?? "未读取当前用户"
-  },
-  {
-    label: "数据维护",
-    value: "说明模式",
-    hint: "不提供清理 / 备份 / 导出按钮"
   }
 ]);
 
@@ -171,9 +256,80 @@ const loadProfile = async () => {
   }
 };
 
+const loadCompanies = async () => {
+  companiesLoading.value = true;
+  companyErrorMessage.value = "";
+
+  try {
+    const result = await listCompanies();
+    companies.value = result.items;
+  } catch (error) {
+    companyErrorMessage.value =
+      error instanceof Error ? error.message : "公司列表加载失败。";
+  } finally {
+    companiesLoading.value = false;
+  }
+};
+
+const loadProductLines = async () => {
+  productLinesLoading.value = true;
+  productLineErrorMessage.value = "";
+
+  try {
+    const result = await listProductLines();
+    productLines.value = result.items;
+  } catch (error) {
+    productLineErrorMessage.value =
+      error instanceof Error ? error.message : "产品线列表加载失败。";
+  } finally {
+    productLinesLoading.value = false;
+  }
+};
+
+const loadSettingsData = async () => {
+  await Promise.all([loadProfile(), loadCompanies(), loadProductLines()]);
+};
+
 const openEditor = () => {
   resetForm();
   dialogVisible.value = true;
+};
+
+const resetCompanyForm = (company?: ManagedCompany) => {
+  companyForm.name = company?.name ?? "";
+  companyForm.code = company?.code ?? "";
+  companyForm.type = company?.type ?? "internal";
+  companyFormError.value = "";
+};
+
+const openCreateCompany = () => {
+  editingCompany.value = null;
+  resetCompanyForm();
+  companyDialogVisible.value = true;
+};
+
+const openEditCompany = (company: ManagedCompany) => {
+  editingCompany.value = company;
+  resetCompanyForm(company);
+  companyDialogVisible.value = true;
+};
+
+const resetProductLineForm = (productLine?: ManagedProductLine) => {
+  productLineForm.name = productLine?.name ?? "";
+  productLineForm.code = productLine?.code ?? "";
+  productLineFormError.value = "";
+};
+
+const openCreateProductLine = () => {
+  editingProductLine.value = null;
+  resetProductLineForm();
+  productLineDialogVisible.value = true;
+};
+
+const openEditProductLine = (productLine: ManagedProductLine) => {
+  editingProductLine.value = productLine;
+  resetProductLineForm(productLine);
+  productLineDialogVisible.value = true;
 };
 
 const buildPayload = (): ProjectProfilePayload => ({
@@ -193,6 +349,11 @@ const buildPayload = (): ProjectProfilePayload => ({
 
 const submitProfile = async () => {
   formError.value = "";
+
+  if (!canManageProjectProfile.value) {
+    formError.value = "当前角色无权维护项目档案。";
+    return;
+  }
 
   if (!form.projectName.trim()) {
     formError.value = "项目名称不能为空。";
@@ -214,9 +375,151 @@ const submitProfile = async () => {
   }
 };
 
-onMounted(() => {
-  void loadProfile();
+const buildCompanyPayload = (): CompanyPayload => ({
+  name: companyForm.name.trim(),
+  code: companyForm.code.trim(),
+  type: companyForm.type
 });
+
+const submitCompany = async () => {
+  companyFormError.value = "";
+
+  if (!companyForm.name.trim()) {
+    companyFormError.value = "公司名称不能为空。";
+    return;
+  }
+
+  if (!companyForm.code.trim()) {
+    companyFormError.value = "公司编码不能为空。";
+    return;
+  }
+
+  companySubmitting.value = true;
+
+  try {
+    if (editingCompany.value) {
+      await updateCompany(editingCompany.value.id, buildCompanyPayload());
+      ElMessage.success("公司已更新");
+    } else {
+      await createCompany(buildCompanyPayload());
+      ElMessage.success("公司已创建");
+    }
+
+    companyDialogVisible.value = false;
+    await loadCompanies();
+    await authStore.refreshCurrentUser();
+  } catch (error) {
+    companyFormError.value = error instanceof Error ? error.message : "公司保存失败。";
+  } finally {
+    companySubmitting.value = false;
+  }
+};
+
+const changeCompanyStatus = async (company: ManagedCompany) => {
+  const nextStatus: CompanyStatus = company.status === "active" ? "disabled" : "active";
+  const actionLabel = nextStatus === "active" ? "启用" : "停用";
+
+  if (nextStatus === "disabled" && company.id === authStore.currentCompany?.id) {
+    ElMessage.warning("请先切换到其他启用公司，再停用当前公司。");
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `${actionLabel}公司不会删除历史数据。确认${actionLabel}“${company.name}”？`,
+      `${actionLabel}公司`,
+      {
+        confirmButtonText: actionLabel,
+        cancelButtonText: "取消",
+        type: nextStatus === "active" ? "success" : "warning"
+      }
+    );
+    await updateCompanyStatus(company.id, nextStatus);
+    ElMessage.success(`公司已${actionLabel}`);
+    await loadCompanies();
+    await authStore.refreshCurrentUser();
+  } catch (error) {
+    if (error instanceof Error) {
+      ElMessage.error(error.message);
+    }
+  }
+};
+
+const buildProductLinePayload = (): ProductLinePayload => ({
+  name: productLineForm.name.trim(),
+  code: productLineForm.code.trim()
+});
+
+const submitProductLine = async () => {
+  productLineFormError.value = "";
+
+  if (!productLineForm.name.trim()) {
+    productLineFormError.value = "产品线名称不能为空。";
+    return;
+  }
+
+  if (!productLineForm.code.trim()) {
+    productLineFormError.value = "产品线编码不能为空。";
+    return;
+  }
+
+  productLineSubmitting.value = true;
+
+  try {
+    if (editingProductLine.value) {
+      await updateProductLine(editingProductLine.value.id, buildProductLinePayload());
+      ElMessage.success("产品线已更新");
+    } else {
+      await createProductLine(buildProductLinePayload());
+      ElMessage.success("产品线已创建");
+    }
+
+    productLineDialogVisible.value = false;
+    await loadProductLines();
+  } catch (error) {
+    productLineFormError.value =
+      error instanceof Error ? error.message : "产品线保存失败。";
+  } finally {
+    productLineSubmitting.value = false;
+  }
+};
+
+const changeProductLineStatus = async (productLine: ManagedProductLine) => {
+  const nextStatus: ProductLineStatus = productLine.status === "active" ? "disabled" : "active";
+  const actionLabel = nextStatus === "active" ? "启用" : "停用";
+
+  try {
+    await ElMessageBox.confirm(
+      `${actionLabel}产品线不会删除历史数据。确认${actionLabel}“${productLine.name}”？`,
+      `${actionLabel}产品线`,
+      {
+        confirmButtonText: actionLabel,
+        cancelButtonText: "取消",
+        type: nextStatus === "active" ? "success" : "warning"
+      }
+    );
+    await updateProductLineStatus(productLine.id, nextStatus);
+    ElMessage.success(`产品线已${actionLabel}`);
+    await loadProductLines();
+  } catch (error) {
+    if (error instanceof Error) {
+      ElMessage.error(error.message);
+    }
+  }
+};
+
+onMounted(() => {
+  void loadSettingsData();
+});
+
+watch(
+  () => authStore.currentCompany?.id,
+  (nextCompanyId, previousCompanyId) => {
+    if (nextCompanyId && nextCompanyId !== previousCompanyId) {
+      void loadSettingsData();
+    }
+  }
+);
 </script>
 
 <template>
@@ -233,8 +536,13 @@ onMounted(() => {
         </div>
       </div>
       <div class="settings-hero__actions">
-        <el-button :loading="loading" @click="loadProfile">刷新</el-button>
-        <el-button type="primary" @click="openEditor">
+        <el-button
+          :loading="loading || companiesLoading || productLinesLoading"
+          @click="loadSettingsData"
+        >
+          刷新
+        </el-button>
+        <el-button v-if="canManageProjectProfile" type="primary" @click="openEditor">
           {{ profile ? "编辑项目档案" : "创建项目档案" }}
         </el-button>
       </div>
@@ -253,6 +561,149 @@ onMounted(() => {
         <strong>{{ item.value }}</strong>
         <p>{{ item.hint }}</p>
       </article>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section__header">
+        <div>
+          <p class="section-kicker">组织基础</p>
+          <h2>公司管理</h2>
+          <span>公司用于隔离 GEO 诊断、提示词、知识库、内容任务和报表数据；停用不会删除历史数据。</span>
+        </div>
+        <el-button v-if="canManageCompanies" type="primary" @click="openCreateCompany">
+          新增公司
+        </el-button>
+      </div>
+
+      <el-card shadow="never" class="settings-panel settings-panel--wide">
+        <template #header>
+          <div class="settings-card-header">
+            <div>
+              <p class="section-kicker">Company</p>
+              <h2>公司列表</h2>
+              <span>平台管理员可维护全部公司；其他角色仅查看当前公司。</span>
+            </div>
+          </div>
+        </template>
+
+        <AppErrorState v-if="companyErrorMessage" :message="companyErrorMessage" />
+        <AppEmptyState
+          v-else-if="!companiesLoading && companies.length === 0"
+          title="暂无公司"
+          description="平台管理员可以新增公司，作为正式业务数据的隔离边界。"
+        />
+        <el-table
+          v-else
+          v-loading="companiesLoading"
+          :data="companies"
+          class="settings-management-table"
+        >
+          <el-table-column prop="name" label="公司名称" min-width="180" />
+          <el-table-column prop="code" label="公司编码" min-width="160" />
+          <el-table-column label="公司类型" width="130">
+            <template #default="{ row }">
+              {{ formatCompanyType(row.type) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">
+              <el-tag :type="statusTagType(row.status)" effect="plain">
+                {{ formatStatus(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" min-width="170">
+            <template #default="{ row }">
+              {{ formatDateTime(row.createdAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <div v-if="canManageCompanies" class="settings-table-actions">
+                <el-button size="small" @click="openEditCompany(row)">编辑</el-button>
+                <el-button
+                  size="small"
+                  :type="row.status === 'active' ? 'warning' : 'success'"
+                  plain
+                  @click="changeCompanyStatus(row)"
+                >
+                  {{ row.status === "active" ? "停用" : "启用" }}
+                </el-button>
+              </div>
+              <el-tag v-else type="info" effect="plain">只读</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section__header">
+        <div>
+          <p class="section-kicker">业务基础</p>
+          <h2>产品线管理</h2>
+          <span>产品线归属于当前公司，用于提示词、知识库、内容任务和模型覆盖记录的业务分组。</span>
+        </div>
+        <el-button v-if="canManageProductLines" type="primary" @click="openCreateProductLine">
+          新增产品线
+        </el-button>
+      </div>
+
+      <el-card shadow="never" class="settings-panel settings-panel--wide">
+        <template #header>
+          <div class="settings-card-header">
+            <div>
+              <p class="section-kicker">Product Line</p>
+              <h2>当前公司产品线</h2>
+              <span>本轮不改数据库 schema；产品线说明字段后续如需使用，可单独扩展数据库模型。</span>
+            </div>
+          </div>
+        </template>
+
+        <AppErrorState v-if="productLineErrorMessage" :message="productLineErrorMessage" />
+        <AppEmptyState
+          v-else-if="!productLinesLoading && productLines.length === 0"
+          title="当前公司暂无产品线"
+          description="公司管理员或平台管理员可以新增产品线，作为后续 GEO 资产的业务分组。"
+        />
+        <el-table
+          v-else
+          v-loading="productLinesLoading"
+          :data="productLines"
+          class="settings-management-table"
+        >
+          <el-table-column prop="name" label="产品线名称" min-width="200" />
+          <el-table-column prop="code" label="产品线编码" min-width="180" />
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">
+              <el-tag :type="statusTagType(row.status)" effect="plain">
+                {{ formatStatus(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" min-width="170">
+            <template #default="{ row }">
+              {{ formatDateTime(row.updatedAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <div v-if="canManageProductLines" class="settings-table-actions">
+                <el-button size="small" @click="openEditProductLine(row)">编辑</el-button>
+                <el-button
+                  size="small"
+                  :type="row.status === 'active' ? 'warning' : 'success'"
+                  plain
+                  @click="changeProductLineStatus(row)"
+                >
+                  {{ row.status === "active" ? "停用" : "启用" }}
+                </el-button>
+              </div>
+              <el-tag v-else type="info" effect="plain">只读</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </section>
 
     <section class="settings-section">
@@ -574,6 +1025,80 @@ onMounted(() => {
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="submitProfile">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="companyDialogVisible"
+      :title="editingCompany ? '编辑公司' : '新增公司'"
+      width="520px"
+    >
+      <el-alert
+        v-if="companyFormError"
+        :title="companyFormError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="dialog-alert"
+      />
+      <el-form class="settings-management-form" label-position="top">
+        <el-form-item label="公司名称" required>
+          <el-input v-model="companyForm.name" placeholder="例如：正式运营主体名称" />
+        </el-form-item>
+        <el-form-item label="公司编码" required>
+          <el-input v-model="companyForm.code" placeholder="例如：official-company" />
+        </el-form-item>
+        <el-form-item label="公司类型" required>
+          <el-select v-model="companyForm.type" class="settings-form-control">
+            <el-option
+              v-for="option in companyTypeOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="companyDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="companySubmitting" @click="submitCompany">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="productLineDialogVisible"
+      :title="editingProductLine ? '编辑产品线' : '新增产品线'"
+      width="520px"
+    >
+      <el-alert
+        v-if="productLineFormError"
+        :title="productLineFormError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="dialog-alert"
+      />
+      <el-form class="settings-management-form" label-position="top">
+        <el-form-item label="产品线名称" required>
+          <el-input v-model="productLineForm.name" placeholder="例如：核心产品线" />
+        </el-form-item>
+        <el-form-item label="产品线编码" required>
+          <el-input v-model="productLineForm.code" placeholder="例如：core-product-line" />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="productLineDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="productLineSubmitting"
+          @click="submitProductLine"
+        >
+          保存
+        </el-button>
       </template>
     </el-dialog>
   </main>

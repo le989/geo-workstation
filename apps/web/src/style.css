@@ -6724,6 +6724,34 @@ a {
   background: #fffaf2;
 }
 
+.settings-management-table {
+  width: 100%;
+}
+
+.settings-management-table .el-table__empty-text {
+  color: var(--geo-muted);
+}
+
+.settings-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-management-form {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-management-form .el-form-item {
+  margin-bottom: 0;
+}
+
+.settings-form-control {
+  width: 100%;
+}
+
 .settings-profile-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7416,6 +7444,7 @@ a {
   .report-filters--advanced,
   .settings-info-grid,
   .settings-provider-row,
+  .settings-management-form,
   .settings-profile-form,
   .help-layout,
   .help-reminder-grid,

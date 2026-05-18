@@ -156,15 +156,15 @@ export const navigationItems: GeoPageMeta[] = [
     path: "/settings",
     label: "系统设置",
     title: "系统设置",
-    question: "当前 GEO 工作站代表哪个项目？",
+    question: "当前 GEO 工作站代表哪个公司和项目？",
     description:
-      "维护项目档案、品牌上下文、目标客户、内容语气和表达边界，让内容生成与拓词不绑定固定行业。",
+      "维护公司、产品线、项目档案、品牌上下文和表达边界，让 clean 库能从 0 搭建正式基础数据。",
     phaseNote:
-      "项目档案适用于企业品牌、产品、服务、课程、门店、本地生活、个人品牌或其他项目；具体事实仍以知识库为准。",
-    nextSteps: ["配置项目档案", "确认 AI 接口配置边界", "维护禁止表达和内容语气"],
-    apiFocus: "已联调 /api/project-profile；AI_PROVIDER 由后端环境变量控制",
+      "公司和产品线复用现有 Company / ProductLine 模型，不提供物理删除；产品线说明字段后续如需使用，可单独扩展数据库模型。",
+    nextSteps: ["维护公司和产品线", "配置项目档案", "确认 AI 接口配置边界"],
+    apiFocus: "已联调 /api/companies、/api/product-lines 和 /api/project-profile",
     icon: Setting,
-    allowedRoles: ["platform_admin"]
+    allowedRoles: allRoles
   },
   {
     path: "/help",

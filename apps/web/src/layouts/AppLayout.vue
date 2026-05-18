@@ -109,7 +109,7 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
   },
   "/settings": {
     title: "系统设置",
-    subtitle: "管理项目档案和品牌上下文"
+    subtitle: "管理公司、产品线和项目档案"
   },
   "/help": {
     title: "使用教程",

@@ -15,6 +15,7 @@ const readSource = (relativePath) => readFile(path.join(webRoot, relativePath), 
 
 await access(path.join(webRoot, "src/views/SettingsView.vue"));
 await access(path.join(webRoot, "src/api/project-profile.ts"));
+await access(path.join(webRoot, "src/api/settings-management.ts"));
 
 const routeSource = await readSource("src/router/routes.ts");
 assert(routeSource.includes("SettingsView"), "Settings route must use SettingsView");
@@ -29,8 +30,33 @@ assert(apiSource.includes("getProjectProfile"), "Missing getProjectProfile clien
 assert(apiSource.includes("createProjectProfile"), "Missing createProjectProfile client");
 assert(apiSource.includes("updateProjectProfile"), "Missing updateProjectProfile client");
 
+const settingsManagementApiSource = await readSource("src/api/settings-management.ts");
+for (const snippet of [
+  "/api/companies",
+  "/api/product-lines",
+  "listCompanies",
+  "createCompany",
+  "updateCompany",
+  "updateCompanyStatus",
+  "listProductLines",
+  "createProductLine",
+  "updateProductLine",
+  "updateProductLineStatus"
+]) {
+  assert(
+    settingsManagementApiSource.includes(snippet),
+    `Settings management API missing ${snippet}`
+  );
+}
+
 const settingsSource = await readSource("src/views/SettingsView.vue");
 for (const snippet of [
+  "公司管理",
+  "新增公司",
+  "公司类型",
+  "产品线管理",
+  "新增产品线",
+  "产品线说明字段后续如需使用，可单独扩展数据库模型",
   "项目档案",
   "不绑定某个固定行业",
   "产品、服务、课程、门店、本地生活、个人品牌",
@@ -48,4 +74,4 @@ for (const hardBinding of ["凯基特", "激光测距", "工业品专用", "传�
   );
 }
 
-process.stdout.write("Phase General-1 settings project profile check passed\n");
+process.stdout.write("Phase General-1 settings management check passed\n");
