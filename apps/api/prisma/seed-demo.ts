@@ -1,10 +1,14 @@
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
-import { seedBaseData } from "./seed-data";
+import { seedBaseData, seedDemoData } from "./seed-data";
+import { assertDemoSeedAllowed, assertProductionSeedAllowed } from "./seed-safety";
 
 const prisma = createPrismaClient();
 
 async function main() {
-  await seedBaseData(prisma);
+  assertProductionSeedAllowed();
+  assertDemoSeedAllowed();
+  const baseSeed = await seedBaseData(prisma);
+  await seedDemoData(prisma, baseSeed);
 }
 
 main()

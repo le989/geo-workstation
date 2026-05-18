@@ -75,13 +75,13 @@ cp apps/web/.env.production.example apps/web/.env.production
 
 ## 推荐部署顺序
 
-建议按以下顺序执行，避免把开发迁移、示例 seed 或错误 API 地址带到生产环境：
+建议按以下顺序执行，避免把开发迁移、演示 seed 或错误 API 地址带到生产环境：
 
 1. 安装依赖：`pnpm install`。
 2. 配置私有环境变量：根目录 `.env.production` 和 `apps/web/.env.production`。
 3. 生成 Prisma Client：`pnpm prisma:generate`。
 4. 执行生产迁移：`pnpm prisma:migrate:deploy`。
-5. 仅首次初始化时执行 seed，并临时设置生产确认变量。
+5. 仅首次初始化时执行基础 seed，并临时设置生产确认变量。
 6. 构建前端：`pnpm --filter @geo-workstation/web build`。
 7. 构建后端：`pnpm --filter @geo-workstation/api build`。
 8. 使用 PM2 启动后端。
@@ -102,13 +102,21 @@ docker compose up -d postgres
 pnpm prisma:migrate:deploy
 ```
 
-首次初始化需要默认管理员和示例 GEO 数据时，再显式执行：
+首次初始化干净库只需要默认管理员、默认公司、管理员 Membership 和基础产品线时，执行基础 seed：
 
 ```bash
 ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
 ```
 
-`pnpm prisma:seed` 会创建或更新默认管理员，并把 `DEFAULT_ADMIN_PASSWORD` 以 hash 写入数据库。生产或共享部署前必须先修改私有环境变量中的默认管理员密码。已有真实业务数据后不要随意重跑 seed，避免覆盖默认管理员密码和默认公司信息。生产发布不要使用 `prisma migrate dev` 或开发迁移脚本替代 `pnpm prisma:migrate:deploy`。
+`pnpm prisma:seed` 等同于 `pnpm prisma:seed:base`，默认只执行基础 seed，不生成演示提示词、演示知识库、演示指令模板、演示内容任务、演示模型覆盖记录或演示 AI 调用日志。该命令会创建或更新默认管理员，并把 `DEFAULT_ADMIN_PASSWORD` 以 hash 写入数据库。生产或共享部署前必须先修改私有环境变量中的默认管理员密码。已有真实业务数据后不要随意重跑 seed，避免覆盖默认管理员密码和默认公司信息。生产发布不要使用 `prisma migrate dev` 或开发迁移脚本替代 `pnpm prisma:migrate:deploy`。
+
+只有演示环境需要样例 GEO 数据时，才显式执行演示 seed：
+
+```bash
+INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo
+```
+
+生产环境如果确实要执行演示 seed，仍需同时满足生产 seed 保护和演示 seed 保护。正式库、干净库和已有真实业务数据的数据库不要执行演示 seed。
 
 如果服务器使用独立 PostgreSQL，也可以只配置 `DATABASE_URL`，不启动本地 Docker PostgreSQL。
 

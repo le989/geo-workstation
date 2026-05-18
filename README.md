@@ -97,7 +97,7 @@ pnpm dev:api
 pnpm dev:web
 ```
 
-默认管理员由 seed 创建。开发环境可使用 `.env.example` 中的占位账号和密码；共享部署或生产环境必须先在私有 `.env` / `.env.production` 中修改 `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL` 和 `DEFAULT_ADMIN_PASSWORD`，再执行 seed。
+默认管理员由基础 seed 创建。开发环境可使用 `.env.example` 中的占位账号和密码；共享部署或生产环境必须先在私有 `.env` / `.env.production` 中修改 `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL` 和 `DEFAULT_ADMIN_PASSWORD`，再执行 seed。需要演示样例 GEO 数据时，额外执行 `INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo`；正式库和干净库不要执行演示 seed。
 
 演示入口：
 
@@ -156,12 +156,12 @@ pnpm check:internal-mvp
 
 当前正式角色为 `platform_admin`、`company_admin`、`operator`、`viewer`：
 
-| 角色 | 说明 | 主要权限 | 限制 |
-| --- | --- | --- | --- |
-| `platform_admin` | 平台管理员 | 管理用户、查看当前公司上下文内所有业务数据、执行主要业务操作 | 生产环境仍需配合内网/Nginx/账号安全 |
-| `company_admin` | 公司管理员 | 管理本公司范围内的主要 GEO 业务数据 | 当前用户管理主要由 `platform_admin` 管理 |
-| `operator` | 运营成员 | 创建和维护 GEO 诊断、提示词、拓词、知识库、指令、内容、模型覆盖和报表相关数据 | 只能操作当前公司与自己权限范围内的数据 |
-| `viewer` | 只读角色 | 查看业务数据和报表 | 不能创建 GEO 诊断任务，不能创建 GEO 内容任务，不应执行写操作 |
+| 角色             | 说明       | 主要权限                                                                      | 限制                                                         |
+| ---------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `platform_admin` | 平台管理员 | 管理用户、查看当前公司上下文内所有业务数据、执行主要业务操作                  | 生产环境仍需配合内网/Nginx/账号安全                          |
+| `company_admin`  | 公司管理员 | 管理本公司范围内的主要 GEO 业务数据                                           | 当前用户管理主要由 `platform_admin` 管理                     |
+| `operator`       | 运营成员   | 创建和维护 GEO 诊断、提示词、拓词、知识库、指令、内容、模型覆盖和报表相关数据 | 只能操作当前公司与自己权限范围内的数据                       |
+| `viewer`         | 只读角色   | 查看业务数据和报表                                                            | 不能创建 GEO 诊断任务，不能创建 GEO 内容任务，不应执行写操作 |
 
 公司上下文会影响业务数据范围。前端会隐藏无权限入口，但真正的权限边界以后端认证、角色判断和 companyId 隔离为准。历史兼容角色如 `admin`、`geo_operator`、`content_editor` 仅用于旧数据兼容，不作为当前主文档角色。
 
@@ -395,11 +395,13 @@ pnpm prisma:generate
 pnpm prisma:migrate
 pnpm prisma:migrate:deploy
 pnpm prisma:seed
+pnpm prisma:seed:base
+pnpm prisma:seed:demo
 ```
 
 这些命令可以从项目根目录直接执行。`apps/api/prisma.config.ts` 会显式加载项目根目录 `.env`，不需要手动 `export DATABASE_URL`。`pnpm prisma:migrate` 仅用于开发迁移，生产发布使用 `pnpm prisma:migrate:deploy`。
 
-`pnpm prisma:seed` 会为默认管理员写入密码 hash。共享部署前请先修改私有环境变量中的 `DEFAULT_ADMIN_PASSWORD`，不要使用示例占位密码。生产环境 seed 仅建议首次初始化执行，且必须显式设置确认变量；已有真实数据后不要常规重跑 seed。
+`pnpm prisma:seed` 等同于 `pnpm prisma:seed:base`，会为默认管理员写入密码 hash，并创建默认公司、管理员 Membership 和基础产品线，不生成演示 GEO 数据。共享部署前请先修改私有环境变量中的 `DEFAULT_ADMIN_PASSWORD`，不要使用示例占位密码。生产环境基础 seed 仅建议首次初始化执行，且必须显式设置确认变量；已有真实数据后不要常规重跑 seed。演示 seed 需要 `INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo` 显式执行。
 
 本地开发使用 `docker-compose.yml` 中的 PostgreSQL。首次本地执行前可复制环境变量文件：
 

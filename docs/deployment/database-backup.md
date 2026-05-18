@@ -59,6 +59,12 @@ pnpm prisma:migrate
 pnpm prisma:seed
 ```
 
+如需演示样例数据，再显式执行：
+
+```bash
+INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo
+```
+
 如果 Docker Compose 项目名不同，volume 名称可能不同。可以先查看：
 
 ```bash
@@ -81,19 +87,27 @@ pnpm prisma:migrate:deploy
 pnpm prisma:generate
 ```
 
-首次初始化写入示例数据：
+首次初始化写入基础数据：
 
 ```bash
 ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
 ```
 
-Seed 数据用于演示和本地开发，不等同于正式业务数据。生产环境只有首次初始化且已确认备份、默认管理员策略和影响范围时才允许显式开启 `ALLOW_PRODUCTION_SEED=true`。已有真实数据后不要常规重跑 seed，避免覆盖默认管理员密码或默认公司信息。
+基础 seed 只创建默认管理员、默认公司、管理员 Membership 和基础产品线。生产环境只有首次初始化且已确认备份、默认管理员策略和影响范围时才允许显式开启 `ALLOW_PRODUCTION_SEED=true`。已有真实数据后不要常规重跑基础 seed，避免覆盖默认管理员密码或默认公司信息。
+
+演示 seed 只用于演示环境：
+
+```bash
+INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo
+```
+
+正式库、干净库和已有真实业务数据的数据库不要执行演示 seed。生产环境若确需演示 seed，还必须同时满足 `ALLOW_PRODUCTION_SEED=true`。
 
 ## 演示数据与正式数据
 
 演示数据：
 
-- 可以来自 `pnpm prisma:seed`。
+- 可以来自 `INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo`。
 - 可以来自 `pnpm smoke:api`。
 - 可以来自前端手动演示流程。
 - 允许包含 Mock 分析、Mock AI 拓词、Mock 内容生成结果。
@@ -102,8 +116,8 @@ Seed 数据用于演示和本地开发，不等同于正式业务数据。生产
 
 - 应由实际运营人员录入、导入或确认。
 - 不应混入无法解释的测试数据。
-- 首次上线可以在干净数据库中执行 seed 完成初始化，再导入真实资料。
-- 一旦已有真实资料，不要把 seed 当作常规修复或补数据命令。
+- 首次上线可以在干净数据库中执行基础 seed 完成初始化，再导入真实资料。
+- 一旦已有真实资料，不要把 seed 当作常规修复或补数据命令，不要执行演示 seed。
 
 ## `storage/uploads` 与数据库备份的关系
 

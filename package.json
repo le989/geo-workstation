@@ -15,6 +15,8 @@
     "prisma:migrate": "pnpm --filter @geo-workstation/api prisma:migrate",
     "prisma:migrate:deploy": "pnpm --filter @geo-workstation/api prisma:migrate:deploy",
     "prisma:seed": "pnpm --filter @geo-workstation/api prisma:seed",
+    "prisma:seed:base": "pnpm --filter @geo-workstation/api prisma:seed:base",
+    "prisma:seed:demo": "pnpm --filter @geo-workstation/api prisma:seed:demo",
     "test:api": "pnpm --filter @geo-workstation/api test:api",
     "test:geo-prompts": "pnpm --filter @geo-workstation/api test:geo-prompts",
     "test:geo-expansion": "pnpm --filter @geo-workstation/api test:geo-expansion",

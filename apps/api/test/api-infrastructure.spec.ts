@@ -263,9 +263,14 @@ describe("Phase 2A API infrastructure", () => {
 
   it("keeps production seed behind an explicit confirmation variable", () => {
     const seedSafetySource = readFileSync(join(process.cwd(), "prisma/seed-safety.ts"), "utf8");
+    const seedDataSource = readFileSync(join(process.cwd(), "prisma/seed-data.ts"), "utf8");
     const seedSource = readFileSync(join(process.cwd(), "prisma/seed.ts"), "utf8");
+    const seedDemoSource = readFileSync(join(process.cwd(), "prisma/seed-demo.ts"), "utf8");
 
     expect(seedSafetySource).toContain("ALLOW_PRODUCTION_SEED");
-    expect(seedSource).toContain("assertProductionSeedAllowed");
+    expect(seedSafetySource).toContain("INCLUDE_DEMO_SEED");
+    expect(seedDataSource).toContain("assertProductionSeedAllowed");
+    expect(seedSource).toContain("seedBaseData");
+    expect(seedDemoSource).toContain("assertDemoSeedAllowed");
   });
 });

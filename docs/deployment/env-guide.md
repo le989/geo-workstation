@@ -31,6 +31,7 @@ JWT_EXPIRES_IN=12h
 DEFAULT_ADMIN_EMAIL="admin@example.com"
 DEFAULT_ADMIN_PASSWORD="change_me_admin_password"
 BYPASS_AUTH_FOR_TESTS=false
+INCLUDE_DEMO_SEED=false
 AI_PROVIDER="mock"
 AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
 AI_OPENAI_COMPATIBLE_API_KEY=change_me
@@ -40,7 +41,7 @@ AI_MAX_TOKENS=3000
 AI_TEMPERATURE=0.7
 ```
 
-从项目根目录执行 `pnpm prisma:validate`、`pnpm prisma:generate`、`pnpm prisma:migrate`、`pnpm prisma:seed` 时，Prisma 配置会显式读取根目录 `.env`，不需要手动 `export DATABASE_URL`。生产发布迁移使用 `pnpm prisma:migrate:deploy`，不要用开发迁移命令替代。
+从项目根目录执行 `pnpm prisma:validate`、`pnpm prisma:generate`、`pnpm prisma:migrate`、`pnpm prisma:seed` 时，Prisma 配置会显式读取根目录 `.env`，不需要手动 `export DATABASE_URL`。`pnpm prisma:seed` 默认只执行基础 seed；演示数据必须额外使用 `INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo` 显式执行。生产发布迁移使用 `pnpm prisma:migrate:deploy`，不要用开发迁移命令替代。
 
 ## 根目录 `.env.production`
 
@@ -59,6 +60,7 @@ DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
 DEFAULT_ADMIN_PASSWORD=change_me_admin_password
 BYPASS_AUTH_FOR_TESTS=false
 ALLOW_PRODUCTION_SEED=false
+INCLUDE_DEMO_SEED=false
 AI_PROVIDER=mock
 AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
 AI_OPENAI_COMPATIBLE_API_KEY=change_me
@@ -84,6 +86,7 @@ JWT_EXPIRES_IN=12h
 DEFAULT_ADMIN_EMAIL=admin@geo-workstation.local
 DEFAULT_ADMIN_PASSWORD=change_me_admin_password
 BYPASS_AUTH_FOR_TESTS=false
+INCLUDE_DEMO_SEED=false
 ```
 
 说明：
@@ -94,14 +97,23 @@ BYPASS_AUTH_FOR_TESTS=false
 - `DEFAULT_ADMIN_PASSWORD`：`pnpm prisma:seed` 创建或更新默认管理员时使用的密码，会以 hash 写入数据库。
 - `BYPASS_AUTH_FOR_TESTS`：仅自动化测试可设为 `true`。生产环境必须保持 `false`。
 - `ALLOW_PRODUCTION_SEED`：生产环境防误执行开关。只有首次初始化且已确认备份/影响范围时，才临时设为 `true` 执行 seed。
+- `INCLUDE_DEMO_SEED`：演示 seed 防误执行开关。正式库和干净库保持 `false`，只有演示环境需要样例 GEO 数据时才临时设为 `true`。
 
-如果生产首次初始化确实需要执行 seed，需要显式确认：
+如果生产首次初始化确实需要执行基础 seed，需要显式确认：
 
 ```bash
 ALLOW_PRODUCTION_SEED=true pnpm prisma:seed
 ```
 
-生产 seed 会创建或更新默认管理员、默认公司和示例 GEO 数据；不要在已有真实业务数据的生产库中随意重跑。
+基础 seed 会创建或更新默认管理员、默认公司、管理员 Membership 和基础产品线，不会生成演示提示词、知识库、指令模板、内容任务、模型覆盖记录或 AI 调用日志。不要在已有真实业务数据的生产库中随意重跑。
+
+演示 seed 只用于演示环境，需要显式确认：
+
+```bash
+INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo
+```
+
+生产环境若确需演示 seed，还必须同时满足 `ALLOW_PRODUCTION_SEED=true`。正式库、干净库和已有真实业务数据的数据库不要执行演示 seed。
 
 不要把真实管理员密码、真实 JWT 密钥或 token 写入 README、部署文档、日志或 git。
 

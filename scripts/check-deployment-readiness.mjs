@@ -28,6 +28,8 @@ const requiredPackageScripts = [
   "prisma:migrate",
   "prisma:migrate:deploy",
   "prisma:seed",
+  "prisma:seed:base",
+  "prisma:seed:demo",
   "smoke:api",
   "test:web-mvp",
   "check:internal-mvp",
@@ -44,6 +46,8 @@ const requiredDocSnippets = new Map([
       "Docker Compose",
       "pnpm prisma:migrate:deploy",
       "ALLOW_PRODUCTION_SEED=true",
+      "INCLUDE_DEMO_SEED=true",
+      "pnpm prisma:seed:demo",
       "运行 smoke 验收",
       "回滚",
       "查看日志",
@@ -62,6 +66,7 @@ const requiredDocSnippets = new Map([
       "DEFAULT_ADMIN_PASSWORD",
       "BYPASS_AUTH_FOR_TESTS",
       "ALLOW_PRODUCTION_SEED",
+      "INCLUDE_DEMO_SEED",
       "CORS_ORIGIN",
       "VITE_API_BASE_URL",
       "AI_PROVIDER",
@@ -162,6 +167,7 @@ for (const required of [
   "DEFAULT_ADMIN_PASSWORD=change_me_admin_password",
   "BYPASS_AUTH_FOR_TESTS=false",
   "ALLOW_PRODUCTION_SEED=false",
+  "INCLUDE_DEMO_SEED=false",
   "AI_PROVIDER=mock",
   "AI_OPENAI_COMPATIBLE_API_KEY=change_me"
 ]) {
