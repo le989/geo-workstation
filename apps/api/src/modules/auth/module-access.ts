@@ -28,6 +28,8 @@ const API_MODULE_PREFIXES: Array<{ prefix: string; moduleKey: GeoModuleKey }> = 
   { prefix: "/api/content-items", moduleKey: "geo-content" },
   { prefix: "/api/model-inclusion-records", moduleKey: "model-inclusion-records" },
   { prefix: "/api/reports", moduleKey: "geo-reports" },
+  { prefix: "/api/usage", moduleKey: "usage-analytics" },
+  { prefix: "/api/operation-logs", moduleKey: "operation-logs" },
   { prefix: "/api/users", moduleKey: "users" },
   { prefix: "/api/companies", moduleKey: "companies" },
   { prefix: "/api/product-lines", moduleKey: "product-lines" },

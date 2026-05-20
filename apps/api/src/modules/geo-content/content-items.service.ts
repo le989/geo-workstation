@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   Prisma,
   type ContentItem,
@@ -43,6 +43,8 @@ import {
   assertCanManageOwnerCompanyResource,
   buildOwnerCompanyReadWhere
 } from "../auth/owner-company-policy";
+import { AiUsageService } from "../usage/ai-usage.service";
+import { OperationLogsService } from "../usage/operation-logs.service";
 
 export type GeneratedContentItemResponse = {
   id: string;
@@ -206,7 +208,13 @@ export class ContentItemsService {
     @Inject(AiProviderService)
     private readonly aiProviderService?: Pick<AiProviderService, "generateText">,
     @Inject(ProjectProfileService)
-    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">
+    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">,
+    @Optional()
+    @Inject(AiUsageService)
+    private readonly aiUsageService?: AiUsageService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
   ) {}
 
   async findMany(
@@ -343,7 +351,23 @@ export class ContentItemsService {
       assertCanManageOwnerCompanyResource(context, item.task, "无权导出当前 GEO 内容项");
     }
 
-    return buildContentItemMarkdown(item);
+    const markdown = buildContentItemMarkdown(item);
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "export",
+        targetType: "content_item",
+        targetId: item.id,
+        targetTitle: item.title,
+        success: true,
+        metadata: {
+          taskId: item.taskId
+        }
+      },
+      context
+    );
+
+    return markdown;
   }
 
   async formatForPublish(
@@ -387,11 +411,43 @@ export class ContentItemsService {
     const provider = normalizeAiProvider(input.provider);
 
     if (isMockAiProvider(provider)) {
+      await this.recordContentItemAiUsage(
+        "quality_check",
+        provider,
+        input.model,
+        true,
+        true,
+        qualityContext,
+        context
+      );
       return ruleResult;
     }
 
-    const aiResult = await this.runAiQualityCheck(qualityContext, input, ruleResult);
-    return aiResult ?? ruleResult;
+    try {
+      const aiResult = await this.runAiQualityCheck(qualityContext, input, ruleResult);
+      await this.recordContentItemAiUsage(
+        "quality_check",
+        provider,
+        input.model,
+        false,
+        true,
+        qualityContext,
+        context
+      );
+      return aiResult ?? ruleResult;
+    } catch (error) {
+      await this.recordContentItemAiUsage(
+        "quality_check",
+        provider,
+        input.model,
+        false,
+        false,
+        qualityContext,
+        context,
+        error
+      );
+      throw error;
+    }
   }
 
   async optimizeForPublish(
@@ -404,23 +460,90 @@ export class ContentItemsService {
     const qualityResult = this.buildRuleQualityCheck(qualityContext);
 
     if (isMockAiProvider(provider)) {
+      await this.recordContentItemAiUsage(
+        "optimize_for_publish",
+        provider,
+        input.model,
+        true,
+        true,
+        qualityContext,
+        context
+      );
       return this.buildMockPublishOptimization(qualityContext, input, qualityResult);
     }
 
-    const result = await this.requireAiProviderService().generateText({
-      provider,
-      model: input.model,
-      purpose: AI_OPTIMIZE_PURPOSE,
-      relatedType: AI_RELATED_TYPE,
-      relatedId: id,
-      temperature: 0.35,
-      maxTokens: 2600,
-      systemPrompt:
-        "你是 GEO 内容发布稿审校专家。请只基于原文、知识库事实和质量检查结果做稳妥改写，不要新增事实，只输出 JSON。",
-      userPrompt: this.buildPublishOptimizationPrompt(qualityContext, input, qualityResult)
-    });
+    try {
+      const result = await this.requireAiProviderService().generateText({
+        provider,
+        model: input.model,
+        purpose: AI_OPTIMIZE_PURPOSE,
+        relatedType: AI_RELATED_TYPE,
+        relatedId: id,
+        temperature: 0.35,
+        maxTokens: 2600,
+        systemPrompt:
+          "你是 GEO 内容发布稿审校专家。请只基于原文、知识库事实和质量检查结果做稳妥改写，不要新增事实，只输出 JSON。",
+        userPrompt: this.buildPublishOptimizationPrompt(qualityContext, input, qualityResult)
+      });
+      await this.recordContentItemAiUsage(
+        "optimize_for_publish",
+        result.provider,
+        result.model,
+        false,
+        true,
+        qualityContext,
+        context,
+        undefined,
+        result
+      );
 
-    return this.parsePublishOptimizationResult(result, qualityContext, qualityResult);
+      return this.parsePublishOptimizationResult(result, qualityContext, qualityResult);
+    } catch (error) {
+      await this.recordContentItemAiUsage(
+        "optimize_for_publish",
+        provider,
+        input.model,
+        false,
+        false,
+        qualityContext,
+        context,
+        error
+      );
+      throw error;
+    }
+  }
+
+  private async recordContentItemAiUsage(
+    action: "quality_check" | "optimize_for_publish",
+    provider: string,
+    model: string | undefined,
+    isMock: boolean,
+    success: boolean,
+    qualityContext: ContentQualityContext,
+    accessContext?: ResourceAccessContext,
+    error?: unknown,
+    usage?: GenerateTextResult
+  ): Promise<void> {
+    await this.aiUsageService?.recordUsage(
+      {
+        moduleKey: "geo-content",
+        action,
+        provider,
+        model: usage?.model ?? model ?? null,
+        isMock,
+        promptTokens: usage?.tokenInput ?? 0,
+        completionTokens: usage?.tokenOutput ?? 0,
+        totalTokens: (usage?.tokenInput ?? 0) + (usage?.tokenOutput ?? 0),
+        requestCount: 1,
+        success,
+        errorMessage: error,
+        metadata: {
+          contentItemId: qualityContext.item.id,
+          taskId: qualityContext.item.taskId
+        }
+      },
+      accessContext
+    );
   }
 
   private async loadQualityContext(

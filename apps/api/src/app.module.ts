@@ -14,6 +14,7 @@ import { GeoReportsModule } from "./modules/geo-reports/geo-reports.module";
 import { ModelInclusionModule } from "./modules/model-inclusion/model-inclusion.module";
 import { ProjectProfileModule } from "./modules/project-profile/project-profile.module";
 import { SettingsManagementModule } from "./modules/settings-management/settings-management.module";
+import { UsageModule } from "./modules/usage/usage.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
@@ -35,6 +36,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     GeoContentModule,
     ModelInclusionModule,
     GeoReportsModule,
+    UsageModule,
     ProjectProfileModule,
     SettingsManagementModule,
     UsersModule

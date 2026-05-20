@@ -159,6 +159,8 @@ model User {
   modelInclusionRecords ModelInclusionRecord[]  @relation("ModelInclusionRecordCreatedBy")
   updatedModelInclusionRecords ModelInclusionRecord[] @relation("ModelInclusionRecordUpdatedBy")
   aiCallLogs            AiCallLog[]             @relation("AiCallLogCreatedBy")
+  aiUsageRecords        AiUsageRecord[]         @relation("AiUsageRecordUser")
+  operationLogs         OperationLog[]          @relation("OperationLogUser")
 
   @@map("users")
 }
@@ -187,6 +189,8 @@ model Company {
   contentItems          ContentItem[]
   modelInclusionRecords ModelInclusionRecord[]
   aiCallLogs            AiCallLog[]
+  aiUsageRecords        AiUsageRecord[]
+  operationLogs         OperationLog[]
 
   @@map("companies")
 }
@@ -221,6 +225,8 @@ model Department {
   status            DepartmentStatus             @default(active)
   memberships       Membership[]
   modulePermissions DepartmentModulePermission[]
+  aiUsageRecords    AiUsageRecord[]
+  operationLogs     OperationLog[]
   createdAt         DateTime                     @default(now()) @map("created_at")
   updatedAt         DateTime                     @updatedAt @map("updated_at")
 
@@ -724,4 +730,70 @@ model AiCallLog {
   @@index([relatedType, relatedId])
   @@index([status])
   @@map("ai_call_logs")
+}
+
+model AiUsageRecord {
+  id               String      @id @default(cuid())
+  companyId        String?     @map("company_id")
+  company          Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  userId           String?     @map("user_id")
+  user             User?       @relation("AiUsageRecordUser", fields: [userId], references: [id], onDelete: SetNull)
+  departmentId     String?     @map("department_id")
+  department       Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  moduleKey        String      @map("module_key")
+  action           String
+  provider         String
+  model            String?
+  isMock           Boolean     @default(false) @map("is_mock")
+  promptTokens     Int         @default(0) @map("prompt_tokens")
+  completionTokens Int         @default(0) @map("completion_tokens")
+  totalTokens      Int         @default(0) @map("total_tokens")
+  requestCount     Int         @default(1) @map("request_count")
+  success          Boolean     @default(true)
+  errorMessage     String?     @map("error_message")
+  metadata         Json?
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([moduleKey])
+  @@index([action])
+  @@index([provider])
+  @@index([isMock])
+  @@index([success])
+  @@index([createdAt])
+  @@map("ai_usage_records")
+}
+
+model OperationLog {
+  id           String      @id @default(cuid())
+  companyId    String?     @map("company_id")
+  company      Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  userId       String?     @map("user_id")
+  user         User?       @relation("OperationLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  departmentId String?     @map("department_id")
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  moduleKey    String      @map("module_key")
+  action       String
+  targetType   String      @map("target_type")
+  targetId     String?     @map("target_id")
+  targetTitle  String?     @map("target_title")
+  success      Boolean     @default(true)
+  errorMessage String?     @map("error_message")
+  ip           String?
+  userAgent    String?     @map("user_agent")
+  metadata     Json?
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([moduleKey])
+  @@index([action])
+  @@index([targetType])
+  @@index([targetId])
+  @@index([success])
+  @@index([createdAt])
+  @@map("operation_logs")
 }

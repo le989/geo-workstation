@@ -3,7 +3,8 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import type { GeoModuleKey } from "@geo-workstation/shared";
 import {
@@ -19,6 +20,7 @@ import {
   type ResourceAccessContext
 } from "../auth/auth-policy";
 import { GEO_MODULE_KEYS } from "../auth/geo-module-catalog";
+import { OperationLogsService } from "../usage/operation-logs.service";
 import type { CreateDepartmentDto } from "./dto/create-department.dto";
 import type { SaveDepartmentModulePermissionsDto } from "./dto/save-department-module-permissions.dto";
 import type { UpdateDepartmentStatusDto } from "./dto/update-department-status.dto";
@@ -56,7 +58,12 @@ export type DepartmentPermissionsResponse = {
 
 @Injectable()
 export class DepartmentsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
+  ) {}
 
   async listDepartments(context?: ResourceAccessContext): Promise<ListDepartmentsResponse> {
     this.assertCanManageDepartments(context);
@@ -98,6 +105,22 @@ export class DepartmentsService {
       }
     });
 
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "departments",
+        action: "create",
+        targetType: "department",
+        targetId: department.id,
+        targetTitle: department.name,
+        success: true,
+        metadata: {
+          code: department.code,
+          status: department.status
+        }
+      },
+      context
+    );
+
     return this.toDepartmentResponse(department);
   }
 
@@ -131,6 +154,22 @@ export class DepartmentsService {
       data
     });
 
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "departments",
+        action: "update",
+        targetType: "department",
+        targetId: department.id,
+        targetTitle: department.name,
+        success: true,
+        metadata: {
+          code: department.code,
+          changedFields: Object.keys(data)
+        }
+      },
+      context
+    );
+
     return this.toDepartmentResponse(department);
   }
 
@@ -151,6 +190,21 @@ export class DepartmentsService {
         status: input.status
       }
     });
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "departments",
+        action: "status",
+        targetType: "department",
+        targetId: department.id,
+        targetTitle: department.name,
+        success: true,
+        metadata: {
+          status: department.status
+        }
+      },
+      context
+    );
 
     return this.toDepartmentResponse(department);
   }
@@ -216,6 +270,22 @@ export class DepartmentsService {
         departmentId
       }
     });
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "departments",
+        action: "save_permissions",
+        targetType: "department",
+        targetId: department.id,
+        targetTitle: department.name,
+        success: true,
+        metadata: {
+          permissionCount: input.permissions.length,
+          enabledCount: input.permissions.filter((permission) => permission.canAccess).length
+        }
+      },
+      context
+    );
 
     return {
       department: this.toDepartmentResponse(department),

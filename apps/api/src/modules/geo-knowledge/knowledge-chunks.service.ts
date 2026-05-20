@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   DepartmentStatus,
   KnowledgeMaterialType,
@@ -23,6 +23,7 @@ import {
   type ResourceAccessContext
 } from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
+import { OperationLogsService } from "../usage/operation-logs.service";
 
 const MIN_KNOWLEDGE_CONTENT_LENGTH = 10;
 
@@ -56,7 +57,12 @@ export type DeleteKnowledgeChunkResponse = {
 
 @Injectable()
 export class KnowledgeChunksService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
+  ) {}
 
   async findMany(
     knowledgeBaseId: string,
@@ -139,6 +145,23 @@ export class KnowledgeChunksService {
       },
       data: updateData
     });
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "knowledge-bases",
+        action: "chunk_update",
+        targetType: "knowledge_chunk",
+        targetId: updated.id,
+        targetTitle: updated.title,
+        success: true,
+        metadata: {
+          knowledgeBaseId: updated.knowledgeBaseId,
+          fileId: updated.fileId,
+          changedFields: Object.keys(updateData)
+        }
+      },
+      context
+    );
 
     return this.toResponse(updated);
   }

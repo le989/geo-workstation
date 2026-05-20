@@ -3,7 +3,8 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import {
   DepartmentStatus,
@@ -42,6 +43,7 @@ import {
   type ResourceAccessContext
 } from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
+import { OperationLogsService } from "../usage/operation-logs.service";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -157,7 +159,10 @@ export class KnowledgeFilesService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(LocalFileStorageService) private readonly storage: LocalFileStorageService,
-    @Inject(KnowledgeFileParserService) private readonly parser: KnowledgeFileParserService
+    @Inject(KnowledgeFileParserService) private readonly parser: KnowledgeFileParserService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
   ) {}
 
   async upload(
@@ -223,7 +228,7 @@ export class KnowledgeFilesService {
       }
     });
 
-    return this.parseAndStoreChunks(
+    const result = await this.parseAndStoreChunks(
       knowledgeFile.id,
       {
         materialType: metadata.chunkMaterialType ?? metadata.materialType,
@@ -231,6 +236,30 @@ export class KnowledgeFilesService {
       },
       context
     );
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "knowledge-bases",
+        action: "upload",
+        targetType: "knowledge_file",
+        targetId: knowledgeFile.id,
+        targetTitle: knowledgeFile.title,
+        success: result.parseStatus !== ParseStatus.failed,
+        errorMessage: result.errorMessage,
+        metadata: {
+          knowledgeBaseId,
+          fileType,
+          materialType: metadata.materialType,
+          reviewStatus: metadata.reviewStatus,
+          trustLevel: metadata.trustLevel,
+          createdChunksCount: result.createdChunksCount,
+          allowedDepartmentCount: metadata.allowedDepartmentIds.length
+        }
+      },
+      context
+    );
+
+    return result;
   }
 
   async createManualMaterial(
@@ -340,12 +369,34 @@ export class KnowledgeFilesService {
       };
     });
 
-    return {
+    const result = {
       knowledgeFile: this.toFileResponse(created.knowledgeFile),
       parseStatus: ParseStatus.succeeded,
       createdChunksCount: 1,
       createdChunks: [this.toChunkResponse(created.chunk)]
     };
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "knowledge-bases",
+        action: "manual_create",
+        targetType: "knowledge_file",
+        targetId: created.knowledgeFile.id,
+        targetTitle: created.knowledgeFile.title,
+        success: true,
+        metadata: {
+          knowledgeBaseId,
+          materialType: metadata.materialType,
+          reviewStatus: metadata.reviewStatus,
+          trustLevel: metadata.trustLevel,
+          createdChunksCount: 1,
+          allowedDepartmentCount: metadata.allowedDepartmentIds.length
+        }
+      },
+      context
+    );
+
+    return result;
   }
 
   async updateMetadata(
@@ -400,6 +451,27 @@ export class KnowledgeFilesService {
           : {})
       }
     });
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "knowledge-bases",
+        action: "metadata_update",
+        targetType: "knowledge_file",
+        targetId: updated.id,
+        targetTitle: updated.title,
+        success: true,
+        metadata: {
+          knowledgeBaseId: updated.knowledgeBaseId,
+          materialType: updated.materialType,
+          reviewStatus: updated.reviewStatus,
+          trustLevel: updated.trustLevel,
+          allowedDepartmentCount: this.jsonStringArrayToArray(
+            updated.allowedDepartmentIds
+          ).length
+        }
+      },
+      context
+    );
 
     return this.toFileResponse(updated);
   }

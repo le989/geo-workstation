@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import {
   GeoPromptType,
   TaskStatus,
@@ -19,6 +19,7 @@ import type { QueryPromptCoverageReportDto } from "./dto/query-prompt-coverage-r
 import { PrismaService } from "../../prisma/prisma.service";
 import type { ResourceAccessContext } from "../auth/auth-policy";
 import { deriveHitLevel } from "../model-inclusion/utils/derive-hit-level.util";
+import { OperationLogsService } from "../usage/operation-logs.service";
 import {
   assertCanExportReports,
   buildReportKnowledgeWhere,
@@ -284,7 +285,12 @@ export type OptimizationSuggestionsReport = {
 
 @Injectable()
 export class ReportsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
+  ) {}
 
   async getGeoOverview(
     query: QueryGeoOverviewReportDto,
@@ -846,21 +852,47 @@ export class ReportsService {
 
   async exportReport(query: ExportReportDto, context: ResourceAccessContext): Promise<string> {
     assertCanExportReports(context);
+    let csv: string;
 
     switch (query.reportType) {
       case "geo_overview":
-        return buildMetricCsv(await this.getGeoOverview(query, context));
+        csv = buildMetricCsv(await this.getGeoOverview(query, context));
+        break;
       case "prompt_coverage":
-        return buildMetricCsv(await this.getPromptCoverage(query, context));
+        csv = buildMetricCsv(await this.getPromptCoverage(query, context));
+        break;
       case "model_coverage":
-        return buildMetricCsv(await this.getModelCoverage(query, context));
+        csv = buildMetricCsv(await this.getModelCoverage(query, context));
+        break;
       case "content_coverage":
-        return buildMetricCsv(await this.getContentCoverage(query, context));
+        csv = buildMetricCsv(await this.getContentCoverage(query, context));
+        break;
       case "knowledge_coverage":
-        return buildMetricCsv(await this.getKnowledgeCoverage(query, context));
+        csv = buildMetricCsv(await this.getKnowledgeCoverage(query, context));
+        break;
       case "optimization_suggestions":
-        return this.buildSuggestionsCsv(await this.getOptimizationSuggestions(query, context));
+        csv = this.buildSuggestionsCsv(await this.getOptimizationSuggestions(query, context));
+        break;
     }
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-reports",
+        action: "export",
+        targetType: "geo_report",
+        targetTitle: query.reportType,
+        success: true,
+        metadata: {
+          reportType: query.reportType,
+          productLine: query.productLine,
+          from: query.from,
+          to: query.to
+        }
+      },
+      context
+    );
+
+    return csv;
   }
 
   private buildPromptWhere(

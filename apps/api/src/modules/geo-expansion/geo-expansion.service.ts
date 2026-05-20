@@ -3,7 +3,8 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import {
   AiCallStatus,
@@ -54,6 +55,8 @@ import {
   type ProjectProfileResponse
 } from "../project-profile/project-profile.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { AiUsageService } from "../usage/ai-usage.service";
+import { OperationLogsService } from "../usage/operation-logs.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const GLOBAL_AI_EXPANSION_RULES = [
@@ -160,7 +163,13 @@ export class GeoExpansionService {
     @Inject(AiProviderService)
     private readonly aiProviderService?: Pick<AiProviderService, "generateText">,
     @Inject(ProjectProfileService)
-    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">
+    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">,
+    @Optional()
+    @Inject(AiUsageService)
+    private readonly aiUsageService?: AiUsageService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
   ) {}
 
   async ruleGenerate(
@@ -283,6 +292,41 @@ export class GeoExpansionService {
           ...this.toAiCallLogContextData(context)
         }
       });
+      await this.aiUsageService?.recordUsage(
+        {
+          moduleKey: "expansion",
+          action: "ai_generate",
+          provider: generation.provider,
+          model: generation.model,
+          isMock: usesMockProvider,
+          promptTokens: generation.tokenInput,
+          completionTokens: generation.tokenOutput,
+          totalTokens: generation.tokenInput + generation.tokenOutput,
+          requestCount: 1,
+          success: true,
+          metadata: {
+            jobId: job.id,
+            candidateCount: generation.candidates.length
+          }
+        },
+        context
+      );
+      await this.operationLogsService?.recordOperation(
+        {
+          moduleKey: "expansion",
+          action: "ai_generate",
+          targetType: "expansion_job",
+          targetId: job.id,
+          targetTitle: normalized.baseWord,
+          success: true,
+          metadata: {
+            provider: generation.provider,
+            model: generation.model,
+            candidateCount: generation.candidates.length
+          }
+        },
+        context
+      );
 
       await this.prisma.expansionJob.update({
         where: {
@@ -315,6 +359,38 @@ export class GeoExpansionService {
           ...this.toAiCallLogContextData(context)
         }
       });
+      await this.aiUsageService?.recordUsage(
+        {
+          moduleKey: "expansion",
+          action: "ai_generate",
+          provider,
+          model: initialModel ?? "configured-default",
+          isMock: usesMockProvider,
+          requestCount: 1,
+          success: false,
+          errorMessage: error,
+          metadata: {
+            jobId: job.id
+          }
+        },
+        context
+      );
+      await this.operationLogsService?.recordOperation(
+        {
+          moduleKey: "expansion",
+          action: "ai_generate",
+          targetType: "expansion_job",
+          targetId: job.id,
+          targetTitle: normalized.baseWord,
+          success: false,
+          errorMessage: error,
+          metadata: {
+            provider,
+            model: initialModel ?? "configured-default"
+          }
+        },
+        context
+      );
       await this.prisma.expansionJob.update({
         where: {
           id: job.id
@@ -468,7 +544,7 @@ export class GeoExpansionService {
       }
     }
 
-    return {
+    const result = {
       totalSelected: normalized.candidateIds.length,
       savedCount: savedItems.length,
       skippedCount: skippedItems.length,
@@ -477,6 +553,25 @@ export class GeoExpansionService {
       skippedItems,
       failedItems
     };
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "expansion",
+        action: "save_candidates",
+        targetType: "expansion_job",
+        targetId: jobId,
+        targetTitle: job.mode,
+        success: failedItems.length === 0,
+        metadata: {
+          totalSelected: result.totalSelected,
+          savedCount: result.savedCount,
+          skippedCount: result.skippedCount,
+          failedCount: result.failedCount
+        }
+      },
+      context
+    );
+
+    return result;
   }
 
   private generateMockExpansionCandidates(

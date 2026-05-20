@@ -103,6 +103,14 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "GEO 报表",
     subtitle: "查看覆盖、命中和优化建议"
   },
+  "/usage-analytics": {
+    title: "使用统计",
+    subtitle: "查看 AI 调用、token 和 mock 使用"
+  },
+  "/operation-logs": {
+    title: "操作日志",
+    subtitle: "查看关键业务动作和失败摘要"
+  },
   "/users": {
     title: "用户管理",
     subtitle: "管理系统账号、所属公司与角色"
@@ -149,9 +157,15 @@ const navigationGroups = [
   {
     label: "复盘与配置",
     items: navigationItems.filter((item) =>
-      ["/model-inclusion-records", "/geo-reports", "/users", "/departments", "/settings"].includes(
-        item.path
-      )
+      [
+        "/model-inclusion-records",
+        "/geo-reports",
+        "/usage-analytics",
+        "/operation-logs",
+        "/users",
+        "/departments",
+        "/settings"
+      ].includes(item.path)
     )
   },
   {

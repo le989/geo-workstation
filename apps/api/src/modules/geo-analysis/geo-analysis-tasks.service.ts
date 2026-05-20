@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   GeoPromptType,
   Prisma,
@@ -42,6 +42,7 @@ import {
   resolveCreateVisibility,
   type ResourceAccessContext
 } from "../auth/auth-policy";
+import { AiUsageService } from "../usage/ai-usage.service";
 import {
   assertCanManageCompanyTask,
   buildTaskReadWhere,
@@ -129,7 +130,10 @@ export type ConvertAnalysisPromptsResponse = {
 export class GeoAnalysisTasksService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(ContentTasksService) private readonly contentTasksService: ContentTasksService
+    @Inject(ContentTasksService) private readonly contentTasksService: ContentTasksService,
+    @Optional()
+    @Inject(AiUsageService)
+    private readonly aiUsageService?: AiUsageService
   ) {}
 
   async findMany(
@@ -374,6 +378,22 @@ export class GeoAnalysisTasksService {
         })
       ]);
 
+      await this.aiUsageService?.recordUsage(
+        {
+          moduleKey: "geo-analysis",
+          action: "run_analysis",
+          provider: "mock",
+          model: "mock-analysis-v1",
+          isMock: true,
+          success: true,
+          metadata: {
+            taskId: runningTask.id,
+            resultCount: mockResult.modelResults.length
+          }
+        },
+        context
+      );
+
       return this.getDetail(id, context);
     } catch (error) {
       await this.prisma.geoAnalysisTask.update({
@@ -389,6 +409,21 @@ export class GeoAnalysisTasksService {
           }
         }
       });
+      await this.aiUsageService?.recordUsage(
+        {
+          moduleKey: "geo-analysis",
+          action: "run_analysis",
+          provider: "mock",
+          model: "mock-analysis-v1",
+          isMock: true,
+          success: false,
+          errorMessage: error,
+          metadata: {
+            taskId: id
+          }
+        },
+        context
+      );
       throw error;
     }
   }

@@ -12,8 +12,10 @@ import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
 import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
 import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
+import OperationLogsView from "@/views/OperationLogsView.vue";
 import ReportsView from "@/views/ReportsView.vue";
 import SettingsView from "@/views/SettingsView.vue";
+import UsageAnalyticsView from "@/views/UsageAnalyticsView.vue";
 import UsersView from "@/views/UsersView.vue";
 import HelpView from "@/views/HelpView.vue";
 import LandingView from "@/views/LandingView.vue";
@@ -30,6 +32,8 @@ export const phase3aRoutePaths = [
   "/geo-content",
   "/model-inclusion-records",
   "/geo-reports",
+  "/usage-analytics",
+  "/operation-logs",
   "/settings",
   "/help"
 ] as const;
@@ -68,15 +72,19 @@ export const routes: RouteRecordRaw[] = [
                           ? ModelInclusionRecordsView
                           : item.path === "/geo-reports"
                             ? ReportsView
-                            : item.path === "/users"
-                              ? UsersView
-                              : item.path === "/departments"
-                                ? DepartmentsView
-                                : item.path === "/settings"
-                                  ? SettingsView
-                                  : item.path === "/help"
-                                    ? HelpView
-                                    : ModulePlaceholderView,
+                            : item.path === "/usage-analytics"
+                              ? UsageAnalyticsView
+                              : item.path === "/operation-logs"
+                                ? OperationLogsView
+                                : item.path === "/users"
+                                  ? UsersView
+                                  : item.path === "/departments"
+                                    ? DepartmentsView
+                                    : item.path === "/settings"
+                                      ? SettingsView
+                                      : item.path === "/help"
+                                        ? HelpView
+                                        : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path],
           requiresAuth: true,
