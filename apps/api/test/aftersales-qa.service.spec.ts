@@ -527,7 +527,7 @@ describe("AftersalesQaService", () => {
     });
 
     const detail = await service.getConversation(conversation.id, context);
-    expect(detail.conversation.title).toBe("LD30 激光测距传感器没有输出");
+    expect(detail.conversation.title).toBe("LD30 激光测距传感器无输出排查");
     expect(detail.records).toHaveLength(1);
     expect(detail.records[0]).toMatchObject({
       id: answer.recordId,
@@ -599,7 +599,9 @@ describe("AftersalesQaService", () => {
       hasReliableSource: false,
       citedSources: []
     });
-    expect(result.answer).toBe("请补充产品型号、现场现象、输出方式或接线情况后再继续排查。");
+    expect(result.answer).toContain("需要补充信息后才能继续排查");
+    expect(result.answer).toContain("1. 产品型号");
+    expect(result.answer).toContain("4. 接线情况或供电电压");
   });
 
   it("limits cited sources to three and keeps old records API compatible", async () => {

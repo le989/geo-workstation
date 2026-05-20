@@ -39,7 +39,15 @@ const AFTERSALES_MODULE_KEY = "aftersales-qa";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
 const NO_RELIABLE_SOURCE_ANSWER =
   "知识库中未找到可靠依据，建议补充资料或转人工确认。";
-const CLARIFICATION_ANSWER = "请补充产品型号、现场现象、输出方式或接线情况后再继续排查。";
+const CLARIFICATION_ANSWER = [
+  "需要补充信息后才能继续排查：",
+  "",
+  "请补充以下任意信息：",
+  "1. 产品型号",
+  "2. 输出方式，例如 NPN / PNP / 4-20mA / RS485",
+  "3. 现场现象，例如不亮、无输出、误触发",
+  "4. 接线情况或供电电压"
+].join("\n");
 const FAILED_ANSWER = "售后问答生成失败，请稍后重试或转人工确认。";
 const MAX_RETRIEVED_CHUNKS = 50;
 const MAX_CITED_SOURCES = 3;
@@ -956,13 +964,24 @@ export class AftersalesQaService {
   }
 
   private generateConversationTitle(question: string): string {
-    const compact = question
+    let compact = question
       .replace(/\s+/g, " ")
       .trim()
+      .replace(/^(请问|麻烦问下|想问下|为什么|如何|怎么)/g, "")
       .replace(/[?？。！!，,；;：:]+$/g, "")
-      .replace(/(怎么办|怎么处理|如何处理|怎么排查|如何排查)$/g, "")
+      .replace(/(怎么办|怎么处理|如何处理|怎么排查|如何排查|是什么原因|什么原因)$/g, "")
       .replace(/[?？。！!，,；;：:]+$/g, "")
+      .replace(/没有输出/g, "无输出")
+      .replace(/没有信号|没信号|不出信号/g, "信号异常")
       .trim();
+
+    if (/无输出$/.test(compact)) {
+      compact += compact.length <= 8 ? "问题" : "排查";
+    } else if (/(不亮|故障|报警)$/.test(compact)) {
+      compact += "排查";
+    } else if (compact.length > 0 && compact.length <= 4 && !/(问题|排查|异常)$/.test(compact)) {
+      compact += "问题";
+    }
 
     return this.truncate(compact || DEFAULT_CONVERSATION_TITLE, MAX_GENERATED_TITLE_LENGTH);
   }

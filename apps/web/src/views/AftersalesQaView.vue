@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { ChatDotRound, EditPen, Plus, Refresh, Search } from "@element-plus/icons-vue";
+import { ChatDotRound, MoreFilled, Plus, Refresh, Search } from "@element-plus/icons-vue";
 import {
   askAftersalesConversation,
   createAftersalesConversation,
@@ -31,12 +31,17 @@ type ChatMessage = {
   createdAt?: string;
 };
 
+type ConversationCommand = {
+  action: "rename" | "archive" | "restore";
+  conversation: AftersalesConversation;
+};
+
 const NO_SOURCE_MESSAGE = "知识库中未找到可靠依据，建议补充资料或转人工确认。";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
 
 const answerStatusLabels: Record<AftersalesAnswerStatus, string> = {
   answered: "有依据",
-  no_reliable_source: "无可靠依据",
+  no_reliable_source: "暂无可靠依据",
   needs_clarification: "需补充信息",
   failed: "生成失败"
 };
@@ -85,8 +90,8 @@ const conversationHint = computed(() =>
   isActiveConversationArchived.value
     ? "该会话已归档，恢复后可继续提问。"
     : activeConversation.value
-    ? "基于已通过售后资料优先回答，产品资料仅作兜底。"
-    : "选择历史会话或新建会话后开始提问。"
+    ? "按已审核售后资料和产品资料回答，找不到依据时不编造。"
+    : "基于企业知识库的内部售后 AI 助手，按已审核资料回答。"
 );
 const emptyConversationDescription = computed(() => {
   if (keyword.value.trim()) {
@@ -96,7 +101,7 @@ const emptyConversationDescription = computed(() => {
     return "暂无已归档会话。";
   }
 
-  return "还没有售后对话，点击左上角新建会话开始提问。";
+  return "还没有售后对话，点击新建会话开始提问。";
 });
 
 const messages = computed<ChatMessage[]>(() => {
@@ -144,6 +149,11 @@ const materialTypeLabel = (value: KnowledgeMaterialType) => materialTypeLabelMap
 const getAnswerStatusLabel = (value: AftersalesAnswerStatus) => answerStatusLabels[value] ?? value;
 const getAnswerStatusType = (value: AftersalesAnswerStatus) =>
   answerStatusTagType[value] ?? "info";
+const getMessageBubbleClass = (message: ChatMessage) => ({
+  "is-loading": message.isLoading,
+  "is-no-source": message.status === "no_reliable_source",
+  "is-clarification": message.status === "needs_clarification"
+});
 
 const scrollToBottom = async () => {
   await nextTick();
@@ -342,6 +352,20 @@ const handleUpdateConversationStatus = async (
   }
 };
 
+const handleConversationCommand = (command: unknown) => {
+  const { action, conversation } = command as ConversationCommand;
+
+  if (action === "rename") {
+    void handleRenameConversation(conversation);
+    return;
+  }
+
+  void handleUpdateConversationStatus(
+    conversation,
+    action === "archive" ? "archived" : "active"
+  );
+};
+
 const handleAsk = async () => {
   const text = question.value.trim();
 
@@ -419,15 +443,17 @@ onMounted(() => {
       <div class="sidebar-header">
         <div>
           <h3>售后问答</h3>
-          <span>内部售后 AI 助手</span>
+          <span>基于知识库，无依据不编造</span>
         </div>
         <el-button
           :icon="Plus"
           :loading="creatingConversation"
+          class="new-conversation-button"
           type="primary"
-          circle
           @click="handleCreateConversation"
-        />
+        >
+          新建会话
+        </el-button>
       </div>
 
       <el-input
@@ -462,53 +488,61 @@ onMounted(() => {
       <AppErrorState v-if="errorMessage && conversations.length === 0" :message="errorMessage" @retry="refreshConversationList" />
 
       <el-scrollbar v-else v-loading="loadingConversations" class="conversation-list">
-        <button
+        <article
           v-for="conversation in conversations"
           :key="conversation.id"
           class="conversation-item"
           :class="{ 'is-active': activeConversation?.id === conversation.id }"
-          type="button"
+          role="button"
+          tabindex="0"
           @click="selectConversation(conversation)"
+          @keydown.enter.prevent="selectConversation(conversation)"
+          @keydown.space.prevent="selectConversation(conversation)"
         >
-          <span class="conversation-title">{{ conversation.title || DEFAULT_CONVERSATION_TITLE }}</span>
-          <small>{{ formatTime(conversation.lastMessageAt) }}</small>
-          <span class="conversation-meta">
-            <el-tag v-if="conversation.status === 'archived'" size="small" type="info" effect="plain">
-              已归档
-            </el-tag>
-            <span>{{ conversation.messageCount }} 轮</span>
-            <span v-if="isAdmin && conversationScope === 'all'">
-              {{ conversation.userName ?? "未知用户" }}
+          <div class="conversation-item__content">
+            <span class="conversation-title">{{ conversation.title || DEFAULT_CONVERSATION_TITLE }}</span>
+            <small>{{ formatTime(conversation.lastMessageAt) }}</small>
+            <span class="conversation-meta">
+              <el-tag v-if="conversation.status === 'archived'" size="small" type="info" effect="plain">
+                已归档
+              </el-tag>
+              <span>{{ conversation.messageCount }} 轮</span>
+              <span v-if="isAdmin && conversationScope === 'all'">
+                {{ conversation.userName ?? "未知用户" }}
+              </span>
             </span>
-          </span>
-          <el-button
-            class="rename-button"
-            :icon="EditPen"
-            link
-            type="primary"
-            @click.stop="handleRenameConversation(conversation)"
+          </div>
+          <el-dropdown
+            class="conversation-actions"
+            trigger="click"
+            @click.stop
+            @command="handleConversationCommand"
           >
-            重命名
-          </el-button>
-          <el-button
-            v-if="conversation.status === 'active'"
-            class="archive-button"
-            link
-            type="warning"
-            @click.stop="handleUpdateConversationStatus(conversation, 'archived')"
-          >
-            归档
-          </el-button>
-          <el-button
-            v-else
-            class="archive-button"
-            link
-            type="success"
-            @click.stop="handleUpdateConversationStatus(conversation, 'active')"
-          >
-            恢复
-          </el-button>
-        </button>
+            <el-button
+              :icon="MoreFilled"
+              aria-label="会话操作"
+              class="conversation-action-button"
+              text
+              @click.stop
+            />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item :command="{ action: 'rename', conversation }">
+                  重命名
+                </el-dropdown-item>
+                <el-dropdown-item
+                  v-if="conversation.status === 'active'"
+                  :command="{ action: 'archive', conversation }"
+                >
+                  归档
+                </el-dropdown-item>
+                <el-dropdown-item v-else :command="{ action: 'restore', conversation }">
+                  恢复
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </article>
 
         <div v-if="conversations.length > 0" class="load-more-row">
           <el-button
@@ -568,7 +602,7 @@ onMounted(() => {
                   {{ getAnswerStatusLabel(message.status) }}
                 </el-tag>
               </div>
-              <div class="message-bubble" :class="{ 'is-loading': message.isLoading }">
+              <div class="message-bubble" :class="getMessageBubbleClass(message)">
                 <el-icon v-if="message.isLoading" class="loading-icon"><ChatDotRound /></el-icon>
                 <p>{{ message.content || NO_SOURCE_MESSAGE }}</p>
               </div>
@@ -600,7 +634,7 @@ onMounted(() => {
 
         <el-empty
           v-else
-          description="新建会话后输入售后问题，回答会优先引用已通过售后资料。"
+          description="先描述产品型号、现场现象、输出方式或接线情况，售后 AI 助手会优先依据已审核资料回答。"
           :image-size="110"
         />
       </section>
@@ -626,7 +660,7 @@ onMounted(() => {
           @keydown.ctrl.enter.prevent="handleAsk"
         />
         <div class="composer-actions">
-          <span>不会进行自由聊天；无可靠依据时会提示补充资料或转人工确认。</span>
+          <span>仅基于已审核知识库回答；没有可靠依据时，将提示补充资料或转人工确认。</span>
           <el-button :loading="asking" type="primary" :disabled="!canSend" @click="handleAsk">
             发送
           </el-button>
@@ -639,12 +673,13 @@ onMounted(() => {
 <style scoped>
 .aftersales-chat-page {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   min-height: calc(100vh - 132px);
-  border: 1px solid var(--el-border-color-light);
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
-  background: var(--el-bg-color);
+  background: #f8fafc;
+  box-shadow: 0 18px 42px rgb(15 23 42 / 8%);
 }
 
 .conversation-sidebar {
@@ -652,8 +687,10 @@ onMounted(() => {
   flex-direction: column;
   gap: 12px;
   padding: 14px;
-  border-right: 1px solid var(--el-border-color-light);
-  background: var(--el-fill-color-extra-light);
+  border-right: 1px solid #e5e7eb;
+  background:
+    linear-gradient(180deg, rgb(109 40 217 / 8%), transparent 180px),
+    #f8fafc;
 }
 
 .sidebar-header,
@@ -690,6 +727,12 @@ onMounted(() => {
   font-size: 13px;
 }
 
+.new-conversation-button {
+  flex: 0 0 auto;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
 .conversation-list {
   flex: 1;
   min-height: 0;
@@ -697,25 +740,43 @@ onMounted(() => {
 
 .conversation-item {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   width: 100%;
-  min-height: 92px;
+  min-height: 86px;
   margin-bottom: 8px;
-  padding: 12px 76px 12px 12px;
-  border: 1px solid transparent;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   color: var(--el-text-color-primary);
   text-align: left;
-  background: transparent;
+  background: rgb(255 255 255 / 76%);
   cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .conversation-item:hover,
-.conversation-item.is-active {
-  border-color: var(--el-color-primary-light-7);
-  background: var(--el-bg-color);
+.conversation-item.is-active,
+.conversation-item:focus-visible {
+  border-color: var(--el-color-primary-light-5);
+  background: #fff;
+  box-shadow: 0 10px 28px rgb(79 70 229 / 10%);
+  outline: none;
+}
+
+.conversation-item:hover {
+  transform: translateY(-1px);
+}
+
+.conversation-item__content {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
 }
 
 .conversation-title {
@@ -733,16 +794,14 @@ onMounted(() => {
   align-items: center;
 }
 
-.rename-button {
-  position: absolute;
-  right: 10px;
-  top: 10px;
+.conversation-actions {
+  flex: 0 0 auto;
 }
 
-.archive-button {
-  position: absolute;
-  right: 10px;
-  top: 42px;
+.conversation-action-button {
+  width: 28px;
+  height: 28px;
+  color: var(--el-text-color-secondary);
 }
 
 .load-more-row {
@@ -758,11 +817,15 @@ onMounted(() => {
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
+  background: #fff;
 }
 
 .chat-header {
   padding: 16px 18px;
-  border-bottom: 1px solid var(--el-border-color-light);
+  border-bottom: 1px solid #e5e7eb;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 96%), rgb(245 247 255 / 92%)),
+    #fff;
 }
 
 .chat-header h2 {
@@ -777,13 +840,15 @@ onMounted(() => {
   min-height: 0;
   overflow-y: auto;
   padding: 20px;
-  background: linear-gradient(180deg, var(--el-bg-color), var(--el-fill-color-extra-light));
+  background:
+    linear-gradient(180deg, #fff, #f8fafc 58%, #eef2ff),
+    #f8fafc;
 }
 
 .chat-message {
   display: flex;
   gap: 12px;
-  max-width: 860px;
+  max-width: 920px;
   margin: 0 auto 18px;
 }
 
@@ -809,7 +874,7 @@ onMounted(() => {
 
 .message-body {
   min-width: 0;
-  max-width: min(720px, 80%);
+  max-width: min(760px, 82%);
 }
 
 .chat-message.is-user .message-body {
@@ -826,10 +891,10 @@ onMounted(() => {
 }
 
 .message-bubble {
-  padding: 12px 14px;
-  border: 1px solid var(--el-border-color-light);
+  padding: 13px 15px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: var(--el-bg-color);
+  background: #fff;
   box-shadow: 0 8px 24px rgb(0 0 0 / 4%);
 }
 
@@ -841,7 +906,7 @@ onMounted(() => {
 
 .message-bubble p {
   margin: 0;
-  line-height: 1.7;
+  line-height: 1.75;
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
@@ -853,14 +918,25 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
 }
 
+.message-bubble.is-no-source {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.message-bubble.is-clarification {
+  border-color: #c7d2fe;
+  background: #f8faff;
+}
+
 .loading-icon {
   animation: pulse 1.2s ease-in-out infinite;
 }
 
 .source-collapse {
-  margin-top: 8px;
+  margin-top: 10px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: var(--el-bg-color);
+  background: #fff;
 }
 
 .source-item {
@@ -886,12 +962,13 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 14px 18px 16px;
-  border-top: 1px solid var(--el-border-color-light);
-  background: var(--el-bg-color);
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
 }
 
 .composer-actions {
   align-items: center;
+  flex-wrap: wrap;
 }
 
 @keyframes pulse {
@@ -914,6 +991,14 @@ onMounted(() => {
     min-height: 260px;
     border-right: 0;
     border-bottom: 1px solid var(--el-border-color-light);
+  }
+
+  .sidebar-header {
+    align-items: flex-start;
+  }
+
+  .new-conversation-button {
+    min-width: 112px;
   }
 
   .message-body {
