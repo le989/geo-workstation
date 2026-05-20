@@ -9,10 +9,12 @@ import {
 } from "@nestjs/common";
 import {
   AftersalesAnswerStatus,
+  AftersalesConversationStatus,
   DepartmentStatus,
   KnowledgeMaterialType,
   KnowledgeReviewStatus,
   Prisma,
+  type AftersalesConversation,
   type AftersalesQuestionRecord,
   type KnowledgeBase,
   type KnowledgeChunk,
@@ -27,16 +29,22 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
 import type { AskAftersalesQuestionDto } from "./dto/ask-aftersales-question.dto";
+import type { CreateAftersalesConversationDto } from "./dto/create-aftersales-conversation.dto";
+import type { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
 import type { QueryAftersalesRecordsDto } from "./dto/query-aftersales-records.dto";
+import type { UpdateAftersalesConversationDto } from "./dto/update-aftersales-conversation.dto";
 
 const AFTERSALES_MODULE_KEY = "aftersales-qa";
+const DEFAULT_CONVERSATION_TITLE = "新售后会话";
 const NO_RELIABLE_SOURCE_ANSWER =
-  "知识库中未找到可靠依据，建议补充售后资料或转人工确认。\n\n以下仅为一般排查方向，当前知识库未找到直接依据：请先收集产品型号、现场工况、故障现象、已尝试操作和相关照片，再由售后负责人确认处理口径。";
+  "知识库中未找到可靠依据，建议补充资料或转人工确认。";
+const CLARIFICATION_ANSWER = "请补充产品型号、现场现象、输出方式或接线情况后再继续排查。";
 const FAILED_ANSWER = "售后问答生成失败，请稍后重试或转人工确认。";
 const MAX_RETRIEVED_CHUNKS = 50;
-const MAX_CITED_SOURCES = 5;
+const MAX_CITED_SOURCES = 3;
 const MAX_SNIPPET_LENGTH = 180;
 const MAX_QUESTION_PREVIEW_LENGTH = 80;
+const MAX_GENERATED_TITLE_LENGTH = 18;
 
 type CandidateChunk = KnowledgeChunk & {
   file: KnowledgeFile;
@@ -60,6 +68,8 @@ export type AftersalesQuestionRecordResponse = {
   userName?: string | null;
   departmentId?: string | null;
   departmentName?: string | null;
+  conversationId?: string | null;
+  sequence?: number | null;
   question: string;
   answer: string;
   answerStatus: AftersalesAnswerStatus;
@@ -92,6 +102,39 @@ export type AskAftersalesQuestionResponse = {
     totalTokens: number;
     requestCount: number;
   };
+};
+
+export type AftersalesConversationResponse = {
+  id: string;
+  companyId: string;
+  userId: string;
+  userName?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  title: string;
+  status: AftersalesConversationStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  lastMessageAt: Date;
+};
+
+export type AftersalesConversationListResponse = {
+  items: AftersalesConversationResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type AftersalesConversationDetailResponse = {
+  conversation: AftersalesConversationResponse;
+  records: AftersalesQuestionRecordResponse[];
+};
+
+export type AskAftersalesConversationResponse = AskAftersalesQuestionResponse & {
+  conversationId: string;
+  question: string;
+  createdAt: Date;
+  sequence?: number | null;
 };
 
 export type AftersalesQuestionRecordListResponse = {
@@ -128,6 +171,265 @@ export class AftersalesQaService {
     @Inject(OperationLogsService)
     private readonly operationLogsService?: OperationLogsService
   ) {}
+
+  async createConversation(
+    input: CreateAftersalesConversationDto,
+    context: ResourceAccessContext
+  ): Promise<AftersalesConversationResponse> {
+    this.assertCanUseAftersalesQa(context);
+
+    const conversation = await this.prisma.aftersalesConversation.create({
+      data: {
+        companyId: getCurrentCompanyId(context),
+        userId: context.user.id,
+        departmentId: this.getContextDepartmentId(context),
+        title: input.title ?? DEFAULT_CONVERSATION_TITLE,
+        status: AftersalesConversationStatus.active
+      },
+      include: this.conversationInclude()
+    });
+
+    return this.toConversationResponse(conversation);
+  }
+
+  async findConversations(
+    query: QueryAftersalesConversationsDto,
+    context: ResourceAccessContext
+  ): Promise<AftersalesConversationListResponse> {
+    this.assertCanUseAftersalesQa(context);
+    const page = Math.max(query.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(query.pageSize ?? 20, 1), 100);
+    const where = this.buildConversationWhere(query, context);
+    const [total, conversations] = await this.prisma.$transaction([
+      this.prisma.aftersalesConversation.count({ where }),
+      this.prisma.aftersalesConversation.findMany({
+        where,
+        include: this.conversationInclude(),
+        orderBy: [
+          {
+            lastMessageAt: "desc"
+          },
+          {
+            createdAt: "desc"
+          }
+        ],
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+
+    return {
+      items: conversations.map((conversation) => this.toConversationResponse(conversation)),
+      total,
+      page,
+      pageSize
+    };
+  }
+
+  async getConversation(
+    id: string,
+    context: ResourceAccessContext
+  ): Promise<AftersalesConversationDetailResponse> {
+    this.assertCanUseAftersalesQa(context);
+    const conversation = await this.findConversationForAccess(id, context);
+    const records = await this.prisma.aftersalesQuestionRecord.findMany({
+      where: {
+        companyId: getCurrentCompanyId(context),
+        conversationId: conversation.id
+      },
+      include: {
+        user: {
+          select: {
+            name: true
+          }
+        },
+        department: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        {
+          sequence: "asc"
+        },
+        {
+          createdAt: "asc"
+        }
+      ]
+    });
+
+    return {
+      conversation: this.toConversationResponse(conversation),
+      records: records.map((record) => this.toRecordResponse(record))
+    };
+  }
+
+  async updateConversation(
+    id: string,
+    input: UpdateAftersalesConversationDto,
+    context: ResourceAccessContext
+  ): Promise<AftersalesConversationResponse> {
+    this.assertCanUseAftersalesQa(context);
+    await this.findConversationForAccess(id, context);
+    const conversation = await this.prisma.aftersalesConversation.update({
+      where: {
+        id
+      },
+      data: {
+        title: input.title
+      },
+      include: this.conversationInclude()
+    });
+
+    return this.toConversationResponse(conversation);
+  }
+
+  async askInConversation(
+    id: string,
+    input: AskAftersalesQuestionDto,
+    context: ResourceAccessContext
+  ): Promise<AskAftersalesConversationResponse> {
+    this.assertCanUseAftersalesQa(context);
+    const conversation = await this.findConversationForAccess(id, context);
+    const question = this.normalizeQuestion(input.question);
+    const previousRecord = await this.prisma.aftersalesQuestionRecord.findFirst({
+      where: {
+        companyId: getCurrentCompanyId(context),
+        conversationId: conversation.id
+      },
+      orderBy: [
+        {
+          sequence: "desc"
+        },
+        {
+          createdAt: "desc"
+        }
+      ]
+    });
+    const previousQuestion = previousRecord?.question;
+    const latestRecord = await this.prisma.aftersalesQuestionRecord.findFirst({
+      where: {
+        companyId: getCurrentCompanyId(context),
+        conversationId: conversation.id
+      },
+      orderBy: {
+        sequence: "desc"
+      },
+      select: {
+        sequence: true
+      }
+    });
+    const sequence = (latestRecord?.sequence ?? 0) + 1;
+
+    try {
+      const retrievalQuestion = previousQuestion ? `${previousQuestion} ${question}` : question;
+      const draft = this.shouldAskForClarification(question, previousQuestion)
+        ? this.createClarificationDraft()
+        : await this.composeAnswer(retrievalQuestion, context);
+      const record = await this.createQuestionRecord(question, draft, context, {
+        conversationId: conversation.id,
+        sequence
+      });
+      const aiUsageRecord = await this.recordAskUsageAndOperation(record, draft, context, true);
+
+      if (aiUsageRecord?.id) {
+        await this.prisma.aftersalesQuestionRecord.update({
+          where: {
+            id: record.id
+          },
+          data: {
+            aiUsageRecordId: aiUsageRecord.id
+          }
+        });
+      }
+
+      await this.refreshConversationAfterAsk(conversation, question);
+
+      return {
+        conversationId: conversation.id,
+        recordId: record.id,
+        question: record.question,
+        answer: record.answer,
+        answerStatus: record.answerStatus,
+        isAnswered: record.isAnswered,
+        hasReliableSource: record.hasReliableSource,
+        citedSources: draft.citedSources,
+        usedMaterialTypes: draft.usedMaterialTypes,
+        isMock: record.isMock,
+        createdAt: record.createdAt,
+        sequence: record.sequence,
+        aiUsage: {
+          provider: "mock",
+          model: "internal-rule-based",
+          isMock: true,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          requestCount: 1
+        }
+      };
+    } catch (error) {
+      const draft: AnswerDraft = {
+        answer: FAILED_ANSWER,
+        answerStatus: AftersalesAnswerStatus.failed,
+        citedSources: [],
+        usedMaterialTypes: [],
+        isAnswered: false,
+        hasReliableSource: false
+      };
+      const record = await this.createQuestionRecord(question, draft, context, {
+        conversationId: conversation.id,
+        sequence
+      });
+      const aiUsageRecord = await this.recordAskUsageAndOperation(record, draft, context, false, error);
+
+      if (aiUsageRecord?.id) {
+        await this.prisma.aftersalesQuestionRecord
+          .update({
+            where: {
+              id: record.id
+            },
+            data: {
+              aiUsageRecordId: aiUsageRecord.id
+            }
+          })
+          .catch((updateError) => {
+            this.logger.warn(
+              `Failed to attach aftersales QA usage record: ${
+                updateError instanceof Error ? updateError.message : String(updateError)
+              }`
+            );
+          });
+      }
+
+      await this.refreshConversationAfterAsk(conversation, question);
+
+      return {
+        conversationId: conversation.id,
+        recordId: record.id,
+        question: record.question,
+        answer: record.answer,
+        answerStatus: record.answerStatus,
+        isAnswered: record.isAnswered,
+        hasReliableSource: record.hasReliableSource,
+        citedSources: [],
+        usedMaterialTypes: [],
+        isMock: true,
+        createdAt: record.createdAt,
+        sequence: record.sequence,
+        aiUsage: {
+          provider: "mock",
+          model: "internal-rule-based",
+          isMock: true,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          requestCount: 1
+        }
+      };
+    }
+  }
 
   async ask(
     input: AskAftersalesQuestionDto,
@@ -395,13 +697,19 @@ export class AftersalesQaService {
   private async createQuestionRecord(
     question: string,
     draft: AnswerDraft,
-    context: ResourceAccessContext
+    context: ResourceAccessContext,
+    conversationMeta: {
+      conversationId?: string | null;
+      sequence?: number | null;
+    } = {}
   ): Promise<AftersalesQuestionRecord> {
     return this.prisma.aftersalesQuestionRecord.create({
       data: {
         companyId: getCurrentCompanyId(context),
         userId: context.user.id,
         departmentId: this.getContextDepartmentId(context),
+        conversationId: conversationMeta.conversationId ?? null,
+        sequence: conversationMeta.sequence ?? null,
         question,
         answer: draft.answer,
         answerStatus: draft.answerStatus,
@@ -438,6 +746,7 @@ export class AftersalesQaService {
         success,
         errorMessage: error,
         metadata: {
+          conversationId: record.conversationId,
           answerStatus: draft.answerStatus,
           hasReliableSource: draft.hasReliableSource,
           citedSourceCount: draft.citedSources.length,
@@ -460,6 +769,7 @@ export class AftersalesQaService {
         success,
         errorMessage: error,
         metadata: {
+          conversationId: record.conversationId,
           answerStatus: draft.answerStatus,
           hasReliableSource: draft.hasReliableSource,
           questionPreview: this.truncate(record.question, MAX_QUESTION_PREVIEW_LENGTH),
@@ -476,6 +786,157 @@ export class AftersalesQaService {
     );
 
     return aiUsageRecord;
+  }
+
+  private buildConversationWhere(
+    query: QueryAftersalesConversationsDto,
+    context: ResourceAccessContext
+  ): Prisma.AftersalesConversationWhereInput {
+    const role = getEffectiveRole(context);
+    const where: Prisma.AftersalesConversationWhereInput = {
+      companyId: getCurrentCompanyId(context),
+      status: AftersalesConversationStatus.active
+    };
+
+    if (query.keyword) {
+      where.title = {
+        contains: query.keyword,
+        mode: "insensitive"
+      };
+    }
+
+    if (role === "platform_admin" || role === "company_admin") {
+      if (query.mineOnly) {
+        where.userId = context.user.id;
+      }
+    } else {
+      where.userId = context.user.id;
+    }
+
+    return where;
+  }
+
+  private async findConversationForAccess(
+    id: string,
+    context: ResourceAccessContext
+  ): Promise<
+    AftersalesConversation & {
+      user?: { name: string } | null;
+      department?: { name: string } | null;
+    }
+  > {
+    const role = getEffectiveRole(context);
+    const where: Prisma.AftersalesConversationWhereInput = {
+      id,
+      companyId: getCurrentCompanyId(context),
+      status: AftersalesConversationStatus.active
+    };
+
+    if (role !== "platform_admin" && role !== "company_admin") {
+      where.userId = context.user.id;
+    }
+
+    const conversation = await this.prisma.aftersalesConversation.findFirst({
+      where,
+      include: this.conversationInclude()
+    });
+
+    if (!conversation) {
+      throw new NotFoundException(`Aftersales conversation not found: ${id}`);
+    }
+
+    return conversation;
+  }
+
+  private conversationInclude() {
+    return {
+      user: {
+        select: {
+          name: true
+        }
+      },
+      department: {
+        select: {
+          name: true
+        }
+      }
+    } satisfies Prisma.AftersalesConversationInclude;
+  }
+
+  private async refreshConversationAfterAsk(
+    conversation: AftersalesConversation,
+    question: string
+  ): Promise<void> {
+    const shouldGenerateTitle = conversation.title === DEFAULT_CONVERSATION_TITLE;
+
+    await this.prisma.aftersalesConversation.update({
+      where: {
+        id: conversation.id
+      },
+      data: {
+        lastMessageAt: new Date(),
+        ...(shouldGenerateTitle ? { title: this.generateConversationTitle(question) } : {})
+      }
+    });
+  }
+
+  private generateConversationTitle(question: string): string {
+    const compact = question
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[?？。！!，,；;：:]+$/g, "")
+      .replace(/(怎么办|怎么处理|如何处理|怎么排查|如何排查)$/g, "")
+      .replace(/[?？。！!，,；;：:]+$/g, "")
+      .trim();
+
+    return this.truncate(compact || DEFAULT_CONVERSATION_TITLE, MAX_GENERATED_TITLE_LENGTH);
+  }
+
+  private shouldAskForClarification(question: string, previousQuestion?: string): boolean {
+    if (!this.isVagueQuestion(question)) {
+      return false;
+    }
+
+    return !previousQuestion || !this.hasUsefulQuestionContext(previousQuestion);
+  }
+
+  private isVagueQuestion(question: string): boolean {
+    const compact = question.replace(/\s+/g, "").replace(/[?？。！!，,；;：:]/g, "");
+    const vaguePhrases = new Set([
+      "没反应怎么办",
+      "不亮怎么办",
+      "没有输出",
+      "没有输出怎么办",
+      "怎么接",
+      "继续怎么办"
+    ]);
+
+    if (vaguePhrases.has(compact)) {
+      return true;
+    }
+
+    return compact.length <= 6 && /(没反应|不亮|无输出|没有输出|怎么接)/.test(compact);
+  }
+
+  private hasUsefulQuestionContext(question: string): boolean {
+    const normalized = question.replace(/\s+/g, " ").trim();
+
+    return (
+      /[a-zA-Z0-9]{3,}/.test(normalized) ||
+      /(传感器|设备|变频器|控制器|模块|电源|输出|接线|故障|报警|型号)/.test(normalized) ||
+      normalized.length >= 12
+    );
+  }
+
+  private createClarificationDraft(): AnswerDraft {
+    return {
+      answer: CLARIFICATION_ANSWER,
+      answerStatus: AftersalesAnswerStatus.needs_clarification,
+      citedSources: [],
+      usedMaterialTypes: [],
+      isAnswered: false,
+      hasReliableSource: false
+    };
   }
 
   private buildRecordWhere(
@@ -552,6 +1013,11 @@ export class AftersalesQaService {
     ]
       .join(" ")
       .toLowerCase();
+    const asciiTerms = terms.filter((term) => /^[a-z0-9][a-z0-9_-]+$/.test(term));
+
+    if (asciiTerms.length > 0 && !asciiTerms.some((term) => text.includes(term))) {
+      return 0;
+    }
 
     return terms.reduce((score, term) => {
       if (!text.includes(term)) {
@@ -623,6 +1089,8 @@ export class AftersalesQaService {
       userName: record.user?.name ?? null,
       departmentId: record.departmentId,
       departmentName: record.department?.name ?? null,
+      conversationId: record.conversationId,
+      sequence: record.sequence,
       question: record.question,
       answer: record.answer,
       answerStatus: record.answerStatus,
@@ -635,6 +1103,27 @@ export class AftersalesQaService {
       feedbackStatus: record.feedbackStatus,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt
+    };
+  }
+
+  private toConversationResponse(
+    conversation: AftersalesConversation & {
+      user?: { name: string } | null;
+      department?: { name: string } | null;
+    }
+  ): AftersalesConversationResponse {
+    return {
+      id: conversation.id,
+      companyId: conversation.companyId,
+      userId: conversation.userId,
+      userName: conversation.user?.name ?? null,
+      departmentId: conversation.departmentId,
+      departmentName: conversation.department?.name ?? null,
+      title: conversation.title,
+      status: conversation.status,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      lastMessageAt: conversation.lastMessageAt
     };
   }
 

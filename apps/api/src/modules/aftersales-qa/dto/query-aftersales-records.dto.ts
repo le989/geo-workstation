@@ -4,8 +4,8 @@ import { toOptionalBoolean, toOptionalInt } from "../../geo-prompts/dto/geo-prom
 
 export class QueryAftersalesRecordsDto {
   @IsOptional()
-  @IsIn(["answered", "no_reliable_source", "failed"])
-  answerStatus?: "answered" | "no_reliable_source" | "failed";
+  @IsIn(["answered", "no_reliable_source", "needs_clarification", "failed"])
+  answerStatus?: "answered" | "no_reliable_source" | "needs_clarification" | "failed";
 
   @IsOptional()
   @Transform(({ value }) => toOptionalBoolean(value))

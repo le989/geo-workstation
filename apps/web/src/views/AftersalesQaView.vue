@@ -1,112 +1,233 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
-import { ElMessage } from "element-plus";
-import { ChatDotRound, Refresh, Search } from "@element-plus/icons-vue";
+import { computed, nextTick, onMounted, ref } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { ChatDotRound, EditPen, Plus, Refresh, Search } from "@element-plus/icons-vue";
 import {
-  askAftersalesQuestion,
-  getAftersalesQuestionRecord,
-  getAftersalesQuestionRecords,
+  askAftersalesConversation,
+  createAftersalesConversation,
+  getAftersalesConversation,
+  getAftersalesConversations,
+  updateAftersalesConversation,
   type AftersalesAnswerStatus,
   type AftersalesCitedSource,
-  type AftersalesQuestionRecord,
-  type AftersalesQuestionRecordQuery
+  type AftersalesConversation,
+  type AftersalesQuestionRecord
 } from "@/api/aftersales-qa";
 import AppErrorState from "@/components/AppErrorState.vue";
 import { materialTypeLabelMap } from "@/config/knowledge-options";
 import { useAuthStore } from "@/stores/auth";
-import { normalizeRole } from "@/utils/permission";
 import type { KnowledgeMaterialType } from "@/api/knowledge";
 
-type DateRangeValue = [string, string] | null;
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  status?: AftersalesAnswerStatus;
+  citedSources?: AftersalesCitedSource[];
+  isLoading?: boolean;
+  createdAt?: string;
+};
 
 const NO_SOURCE_MESSAGE = "知识库中未找到可靠依据，建议补充资料或转人工确认。";
-
-const answerStatusOptions = [
-  { label: "全部状态", value: "" },
-  { label: "有依据", value: "answered" },
-  { label: "无可靠依据", value: "no_reliable_source" },
-  { label: "生成失败", value: "failed" }
-];
-
-const evidenceOptions = [
-  { label: "全部", value: "all" },
-  { label: "有依据", value: "yes" },
-  { label: "无依据", value: "no" }
-] as const;
+const DEFAULT_CONVERSATION_TITLE = "新售后会话";
 
 const answerStatusLabels: Record<AftersalesAnswerStatus, string> = {
   answered: "有依据",
   no_reliable_source: "无可靠依据",
+  needs_clarification: "需补充信息",
   failed: "生成失败"
 };
 
-const answerStatusTagType: Record<AftersalesAnswerStatus, "success" | "warning" | "danger"> = {
+const answerStatusTagType: Record<AftersalesAnswerStatus, "success" | "warning" | "danger" | "info"> = {
   answered: "success",
   no_reliable_source: "warning",
+  needs_clarification: "info",
   failed: "danger"
 };
 
 const authStore = useAuthStore();
-const question = ref("");
-const asking = ref(false);
-const loadingRecords = ref(false);
-const errorMessage = ref("");
-const latestResult = ref<AftersalesQuestionRecord | null>(null);
+const conversations = ref<AftersalesConversation[]>([]);
+const activeConversation = ref<AftersalesConversation | null>(null);
 const records = ref<AftersalesQuestionRecord[]>([]);
-const total = ref(0);
-const dateRange = ref<DateRangeValue>(null);
-const filters = reactive({
-  answerStatus: "" as "" | AftersalesAnswerStatus,
-  evidence: "all" as "all" | "yes" | "no",
-  scope: "mine" as "mine" | "all",
-  page: 1,
-  pageSize: 20
-});
+const keyword = ref("");
+const question = ref("");
+const pendingQuestion = ref("");
+const loadingConversations = ref(false);
+const loadingDetail = ref(false);
+const creatingConversation = ref(false);
+const asking = ref(false);
+const errorMessage = ref("");
+const messageListRef = ref<HTMLElement | null>(null);
 
-const normalizedRole = computed(() =>
-  normalizeRole(authStore.currentRole ?? authStore.currentUser?.role)
+const userName = computed(() => authStore.currentUser?.name ?? "我");
+const canSend = computed(() => question.value.trim().length >= 2 && !asking.value);
+const conversationHint = computed(() =>
+  activeConversation.value
+    ? "基于已通过售后资料优先回答，产品资料仅作兜底。"
+    : "选择历史会话或新建会话后开始提问。"
 );
-const isAdmin = computed(() =>
-  ["platform_admin", "company_admin"].includes(normalizedRole.value)
-);
 
-const canAsk = computed(() => question.value.trim().length >= 2 && !asking.value);
+const messages = computed<ChatMessage[]>(() => {
+  const items: ChatMessage[] = [];
 
-const buildRecordQuery = (): AftersalesQuestionRecordQuery => ({
-  answerStatus: filters.answerStatus || undefined,
-  hasReliableSource:
-    filters.evidence === "all" ? undefined : filters.evidence === "yes",
-  startDate: dateRange.value?.[0],
-  endDate: dateRange.value?.[1],
-  userId:
-    isAdmin.value && filters.scope === "mine" ? authStore.currentUser?.id : undefined,
-  page: filters.page,
-  pageSize: filters.pageSize
+  for (const record of records.value) {
+    items.push({
+      id: `${record.id}-question`,
+      role: "user",
+      content: record.question,
+      createdAt: record.createdAt
+    });
+    items.push({
+      id: `${record.id}-answer`,
+      role: "assistant",
+      content: record.answer,
+      status: record.answerStatus,
+      citedSources: record.citedSources,
+      createdAt: record.createdAt
+    });
+  }
+
+  if (pendingQuestion.value) {
+    items.push({
+      id: "pending-question",
+      role: "user",
+      content: pendingQuestion.value
+    });
+  }
+
+  if (asking.value) {
+    items.push({
+      id: "pending-answer",
+      role: "assistant",
+      content: "正在检索知识库...",
+      isLoading: true
+    });
+  }
+
+  return items;
 });
 
 const formatTime = (value: string) => new Date(value).toLocaleString("zh-CN");
-const formatSourceTitle = (source: AftersalesCitedSource) =>
-  `${source.knowledgeBaseName} / ${source.fileTitle}`;
-
 const materialTypeLabel = (value: KnowledgeMaterialType) => materialTypeLabelMap[value] ?? value;
 const getAnswerStatusLabel = (value: AftersalesAnswerStatus) => answerStatusLabels[value] ?? value;
 const getAnswerStatusType = (value: AftersalesAnswerStatus) =>
   answerStatusTagType[value] ?? "info";
 
-const loadRecords = async () => {
-  loadingRecords.value = true;
+const scrollToBottom = async () => {
+  await nextTick();
+  const element = messageListRef.value;
+
+  if (element) {
+    element.scrollTop = element.scrollHeight;
+  }
+};
+
+const loadConversations = async (keepActive = true) => {
+  loadingConversations.value = true;
   errorMessage.value = "";
 
   try {
-    const result = await getAftersalesQuestionRecords(buildRecordQuery());
-    records.value = result.items;
-    total.value = result.total;
+    const result = await getAftersalesConversations({
+      keyword: keyword.value.trim() || undefined,
+      page: 1,
+      pageSize: 50
+    });
+    conversations.value = result.items;
+
+    if (keepActive && activeConversation.value) {
+      const refreshed = result.items.find((item) => item.id === activeConversation.value?.id);
+      if (refreshed) {
+        activeConversation.value = refreshed;
+        return;
+      }
+    }
+
+    if (!activeConversation.value && result.items.length > 0) {
+      await selectConversation(result.items[0]);
+    }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "售后问答记录加载失败";
+    const message = error instanceof Error ? error.message : "售后会话加载失败";
     errorMessage.value = message;
     ElMessage.error(message);
   } finally {
-    loadingRecords.value = false;
+    loadingConversations.value = false;
+  }
+};
+
+const selectConversation = async (conversation: AftersalesConversation) => {
+  activeConversation.value = conversation;
+  loadingDetail.value = true;
+  errorMessage.value = "";
+
+  try {
+    const detail = await getAftersalesConversation(conversation.id);
+    activeConversation.value = detail.conversation;
+    records.value = detail.records;
+    await scrollToBottom();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "售后会话详情加载失败";
+    errorMessage.value = message;
+    ElMessage.error(message);
+  } finally {
+    loadingDetail.value = false;
+  }
+};
+
+const handleCreateConversation = async () => {
+  creatingConversation.value = true;
+
+  try {
+    const conversation = await createAftersalesConversation();
+    conversations.value = [conversation, ...conversations.value];
+    activeConversation.value = conversation;
+    records.value = [];
+    question.value = "";
+    await scrollToBottom();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "新建售后会话失败";
+    ElMessage.error(message);
+  } finally {
+    creatingConversation.value = false;
+  }
+};
+
+const ensureConversation = async () => {
+  if (activeConversation.value) {
+    return activeConversation.value;
+  }
+
+  const conversation = await createAftersalesConversation();
+  conversations.value = [conversation, ...conversations.value];
+  activeConversation.value = conversation;
+  records.value = [];
+  return conversation;
+};
+
+const handleRenameConversation = async (conversation: AftersalesConversation) => {
+  try {
+    const { value } = await ElMessageBox.prompt("请输入新的会话标题", "重命名会话", {
+      confirmButtonText: "保存",
+      cancelButtonText: "取消",
+      inputValue: conversation.title,
+      inputPattern: /^.{1,60}$/,
+      inputErrorMessage: "标题长度需在 1-60 个字符内"
+    });
+    const renamed = await updateAftersalesConversation(conversation.id, {
+      title: String(value).trim()
+    });
+    conversations.value = conversations.value.map((item) =>
+      item.id === renamed.id ? renamed : item
+    );
+
+    if (activeConversation.value?.id === renamed.id) {
+      activeConversation.value = renamed;
+    }
+    ElMessage.success("会话已重命名");
+  } catch (error) {
+    if (error !== "cancel" && error !== "close") {
+      const message = error instanceof Error ? error.message : "重命名会话失败";
+      ElMessage.error(message);
+    }
   }
 };
 
@@ -119,14 +240,24 @@ const handleAsk = async () => {
   }
 
   asking.value = true;
+  pendingQuestion.value = text;
+  question.value = "";
+  await scrollToBottom();
 
   try {
-    const result = await askAftersalesQuestion({ question: text });
-    latestResult.value = {
+    const conversation = await ensureConversation();
+    const result = await askAftersalesConversation(conversation.id, { question: text });
+
+    records.value.push({
       id: result.recordId,
       companyId: authStore.currentCompany?.id ?? "",
       userId: authStore.currentUser?.id ?? "",
-      question: text,
+      userName: authStore.currentUser?.name ?? null,
+      departmentId: authStore.currentCompany?.department?.id ?? null,
+      departmentName: authStore.currentCompany?.department?.name ?? null,
+      conversationId: result.conversationId,
+      sequence: result.sequence ?? null,
+      question: result.question,
       answer: result.answer,
       answerStatus: result.answerStatus,
       citedSources: result.citedSources,
@@ -136,340 +267,400 @@ const handleAsk = async () => {
       isMock: result.isMock,
       aiUsageRecordId: null,
       feedbackStatus: "none",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    question.value = "";
-    await loadRecords();
+      createdAt: result.createdAt,
+      updatedAt: result.createdAt
+    });
+    pendingQuestion.value = "";
+    await loadConversations(true);
+
+    if (activeConversation.value) {
+      const detail = await getAftersalesConversation(activeConversation.value.id);
+      activeConversation.value = detail.conversation;
+      records.value = detail.records;
+    }
+    await scrollToBottom();
   } catch (error) {
-    const message = error instanceof Error ? error.message : "售后问答提交失败";
+    const message = error instanceof Error ? error.message : "售后问题提交失败";
     ElMessage.error(message);
+    question.value = text;
   } finally {
+    pendingQuestion.value = "";
     asking.value = false;
+    await scrollToBottom();
   }
 };
-
-const handleSearch = () => {
-  filters.page = 1;
-  void loadRecords();
-};
-
-const handleRecordDetail = async (record: AftersalesQuestionRecord) => {
-  try {
-    latestResult.value = await getAftersalesQuestionRecord(record.id);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "售后问答详情加载失败";
-    ElMessage.error(message);
-  }
-};
-
-watch(
-  () => filters.pageSize,
-  () => {
-    filters.page = 1;
-    void loadRecords();
-  }
-);
 
 onMounted(() => {
-  if (isAdmin.value) {
-    filters.scope = "all";
-  }
-  void loadRecords();
+  void loadConversations();
 });
 </script>
 
 <template>
-  <section class="aftersales-qa-page">
-    <div class="qa-workspace">
-      <section class="ask-panel">
-        <div class="panel-heading">
-          <div>
-            <h3>售后问答</h3>
-            <span>基于已审核售后资料和产品资料回答</span>
-          </div>
-          <el-tag effect="plain" type="info">mock / token 0</el-tag>
+  <section class="aftersales-chat-page">
+    <aside class="conversation-sidebar">
+      <div class="sidebar-header">
+        <div>
+          <h3>售后问答</h3>
+          <span>内部售后 AI 助手</span>
         </div>
+        <el-button
+          :icon="Plus"
+          :loading="creatingConversation"
+          type="primary"
+          circle
+          @click="handleCreateConversation"
+        />
+      </div>
 
+      <el-input
+        v-model="keyword"
+        :prefix-icon="Search"
+        clearable
+        placeholder="搜索会话标题"
+        @change="loadConversations(false)"
+        @clear="loadConversations(false)"
+      />
+
+      <AppErrorState v-if="errorMessage && conversations.length === 0" :message="errorMessage" @retry="loadConversations" />
+
+      <el-scrollbar v-else v-loading="loadingConversations" class="conversation-list">
+        <button
+          v-for="conversation in conversations"
+          :key="conversation.id"
+          class="conversation-item"
+          :class="{ 'is-active': activeConversation?.id === conversation.id }"
+          type="button"
+          @click="selectConversation(conversation)"
+        >
+          <span class="conversation-title">{{ conversation.title || DEFAULT_CONVERSATION_TITLE }}</span>
+          <small>{{ formatTime(conversation.lastMessageAt) }}</small>
+          <el-button
+            class="rename-button"
+            :icon="EditPen"
+            link
+            type="primary"
+            @click.stop="handleRenameConversation(conversation)"
+          >
+            重命名
+          </el-button>
+        </button>
+
+        <el-empty
+          v-if="!loadingConversations && conversations.length === 0"
+          description="暂无售后会话"
+          :image-size="82"
+        />
+      </el-scrollbar>
+    </aside>
+
+    <main class="chat-main">
+      <header class="chat-header">
+        <div>
+          <h2>{{ activeConversation?.title ?? "基于知识库的内部售后 AI 助手" }}</h2>
+          <p>{{ conversationHint }}</p>
+        </div>
+        <el-button :icon="Refresh" :disabled="!activeConversation" @click="activeConversation && selectConversation(activeConversation)">
+          刷新
+        </el-button>
+      </header>
+
+      <section ref="messageListRef" v-loading="loadingDetail" class="message-list">
+        <template v-if="messages.length > 0">
+          <article
+            v-for="message in messages"
+            :key="message.id"
+            class="chat-message"
+            :class="`is-${message.role}`"
+          >
+            <div class="message-avatar">{{ message.role === "user" ? userName.slice(0, 1) : "售" }}</div>
+            <div class="message-body">
+              <div class="message-meta">
+                <strong>{{ message.role === "user" ? userName : "售后 AI 助手" }}</strong>
+                <span v-if="message.createdAt">{{ formatTime(message.createdAt) }}</span>
+                <el-tag
+                  v-if="message.role === 'assistant' && message.status"
+                  :type="getAnswerStatusType(message.status)"
+                  effect="plain"
+                  size="small"
+                >
+                  {{ getAnswerStatusLabel(message.status) }}
+                </el-tag>
+              </div>
+              <div class="message-bubble" :class="{ 'is-loading': message.isLoading }">
+                <el-icon v-if="message.isLoading" class="loading-icon"><ChatDotRound /></el-icon>
+                <p>{{ message.content || NO_SOURCE_MESSAGE }}</p>
+              </div>
+
+              <el-collapse
+                v-if="message.role === 'assistant' && message.citedSources?.length"
+                class="source-collapse"
+              >
+                <el-collapse-item title="引用来源" name="sources">
+                  <article
+                    v-for="source in message.citedSources"
+                    :key="source.chunkId"
+                    class="source-item"
+                  >
+                    <div class="source-title">
+                      <strong>{{ source.knowledgeBaseName }} / {{ source.fileTitle }}</strong>
+                      <el-tag effect="plain" size="small">
+                        {{ materialTypeLabel(source.materialType) }}
+                      </el-tag>
+                    </div>
+                    <p>{{ source.snippet }}</p>
+                    <span>片段 {{ source.chunkId }}</span>
+                  </article>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+          </article>
+        </template>
+
+        <el-empty
+          v-else
+          description="新建会话后输入售后问题，回答会优先引用已通过售后资料。"
+          :image-size="110"
+        />
+      </section>
+
+      <footer class="composer">
         <el-input
           v-model="question"
           type="textarea"
-          :rows="6"
+          :rows="3"
           maxlength="1000"
           show-word-limit
-          placeholder="输入内部售后问题，例如：某型号报错、现场无信号、接线异常等"
+          resize="none"
+          placeholder="输入内部售后问题，例如：某型号无输出、现场不亮、接线异常等"
           @keydown.meta.enter.prevent="handleAsk"
           @keydown.ctrl.enter.prevent="handleAsk"
         />
-        <div class="ask-actions">
-          <el-button :icon="ChatDotRound" :loading="asking" type="primary" :disabled="!canAsk" @click="handleAsk">
-            提问
+        <div class="composer-actions">
+          <span>不会进行自由聊天；无可靠依据时会提示补充资料或转人工确认。</span>
+          <el-button :loading="asking" type="primary" :disabled="!canSend" @click="handleAsk">
+            发送
           </el-button>
         </div>
-
-        <section class="answer-panel">
-          <template v-if="latestResult">
-            <div class="answer-heading">
-              <div>
-                <span>回答</span>
-                <strong>{{ latestResult.question }}</strong>
-              </div>
-              <el-tag :type="getAnswerStatusType(latestResult.answerStatus)" effect="plain">
-                {{ getAnswerStatusLabel(latestResult.answerStatus) }}
-              </el-tag>
-            </div>
-            <el-alert
-              v-if="!latestResult.hasReliableSource"
-              :title="NO_SOURCE_MESSAGE"
-              type="warning"
-              show-icon
-              :closable="false"
-            />
-            <p class="answer-text">{{ latestResult.answer }}</p>
-
-            <div class="source-section">
-              <h4>引用来源</h4>
-              <el-empty
-                v-if="latestResult.citedSources.length === 0"
-                description="暂无引用来源"
-                :image-size="80"
-              />
-              <div v-else class="source-list">
-                <article
-                  v-for="source in latestResult.citedSources"
-                  :key="source.chunkId"
-                  class="source-item"
-                >
-                  <div class="source-item__title">
-                    <strong>{{ formatSourceTitle(source) }}</strong>
-                    <el-tag size="small" effect="plain">
-                      {{ materialTypeLabel(source.materialType) }}
-                    </el-tag>
-                  </div>
-                  <p>{{ source.snippet }}</p>
-                  <span>片段 {{ source.chunkId }}</span>
-                </article>
-              </div>
-            </div>
-          </template>
-          <el-empty v-else description="暂无问答结果" :image-size="88" />
-        </section>
-      </section>
-
-      <section class="history-panel">
-        <div class="history-toolbar">
-          <el-form inline>
-            <el-form-item label="状态">
-              <el-select v-model="filters.answerStatus" class="history-control">
-                <el-option
-                  v-for="item in answerStatusOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="依据">
-              <el-select v-model="filters.evidence" class="evidence-control">
-                <el-option
-                  v-for="item in evidenceOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </el-form-item>
-            <el-form-item v-if="isAdmin" label="范围">
-              <el-segmented
-                v-model="filters.scope"
-                :options="[
-                  { label: '全部', value: 'all' },
-                  { label: '我的', value: 'mine' }
-                ]"
-              />
-            </el-form-item>
-            <el-form-item label="时间">
-              <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                value-format="YYYY-MM-DD"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                class="date-control"
-              />
-            </el-form-item>
-          </el-form>
-          <div class="toolbar-actions">
-            <el-button :icon="Search" type="primary" @click="handleSearch">查询</el-button>
-            <el-button :icon="Refresh" :loading="loadingRecords" @click="loadRecords">刷新</el-button>
-          </div>
-        </div>
-
-        <AppErrorState v-if="errorMessage" :message="errorMessage" @retry="loadRecords" />
-
-        <template v-else>
-          <el-table :data="records" :loading="loadingRecords" border>
-            <el-table-column label="时间" min-width="170">
-              <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
-            </el-table-column>
-            <el-table-column label="提问" min-width="220" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.question }}</template>
-            </el-table-column>
-            <el-table-column label="用户" min-width="130">
-              <template #default="{ row }">{{ row.userName ?? row.userId }}</template>
-            </el-table-column>
-            <el-table-column label="状态" width="120">
-              <template #default="{ row }">
-                <el-tag :type="getAnswerStatusType(row.answerStatus)" effect="plain">
-                  {{ getAnswerStatusLabel(row.answerStatus) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="引用" width="90">
-              <template #default="{ row }">{{ row.citedSources.length }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" @click="handleRecordDetail(row)">查看</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pagination-row">
-            <el-pagination
-              v-model:current-page="filters.page"
-              v-model:page-size="filters.pageSize"
-              :page-sizes="[10, 20, 50, 100]"
-              layout="total, sizes, prev, pager, next"
-              :total="total"
-              @current-change="loadRecords"
-            />
-          </div>
-        </template>
-      </section>
-    </div>
+      </footer>
+    </main>
   </section>
 </template>
 
 <style scoped>
-.aftersales-qa-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.qa-workspace {
+.aftersales-chat-page {
   display: grid;
-  grid-template-columns: minmax(360px, 0.92fr) minmax(520px, 1.08fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.ask-panel,
-.history-panel,
-.answer-panel {
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: calc(100vh - 132px);
   border: 1px solid var(--el-border-color-light);
   border-radius: 8px;
+  overflow: hidden;
   background: var(--el-bg-color);
 }
 
-.ask-panel {
+.conversation-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
+  border-right: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-extra-light);
 }
 
-.history-panel {
-  padding: 16px;
-}
-
-.panel-heading,
-.answer-heading,
-.source-item__title,
-.history-toolbar,
-.ask-actions,
-.toolbar-actions,
-.pagination-row {
+.sidebar-header,
+.chat-header,
+.composer-actions,
+.source-title,
+.message-meta {
   display: flex;
   align-items: center;
 }
 
-.panel-heading,
-.answer-heading,
-.history-toolbar,
-.pagination-row {
+.sidebar-header,
+.chat-header,
+.composer-actions,
+.source-title {
   justify-content: space-between;
   gap: 12px;
 }
 
-.panel-heading h3,
-.source-section h4 {
+.sidebar-header h3,
+.chat-header h2 {
   margin: 0;
 }
 
-.panel-heading span,
-.answer-heading span,
-.source-item span {
+.sidebar-header span,
+.chat-header p,
+.conversation-item small,
+.composer-actions span,
+.source-item span,
+.message-meta span {
   color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 
-.answer-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 14px;
+.conversation-list {
+  flex: 1;
+  min-height: 0;
 }
 
-.answer-heading {
-  align-items: flex-start;
-}
-
-.answer-heading div {
-  display: flex;
-  flex-direction: column;
+.conversation-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
-  min-width: 0;
+  width: 100%;
+  min-height: 72px;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--el-text-color-primary);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
 }
 
-.answer-heading strong {
-  font-size: 14px;
+.conversation-item:hover,
+.conversation-item.is-active {
+  border-color: var(--el-color-primary-light-7);
+  background: var(--el-bg-color);
+}
+
+.conversation-title {
+  display: block;
+  padding-right: 56px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rename-button {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+.chat-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.chat-header h2 {
+  font-size: 18px;
+}
+
+.chat-header p {
+  margin: 4px 0 0;
+}
+
+.message-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+  background: linear-gradient(180deg, var(--el-bg-color), var(--el-fill-color-extra-light));
+}
+
+.chat-message {
+  display: flex;
+  gap: 12px;
+  max-width: 860px;
+  margin: 0 auto 18px;
+}
+
+.chat-message.is-user {
+  flex-direction: row-reverse;
+}
+
+.message-avatar {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  background: var(--el-color-primary);
+}
+
+.chat-message.is-assistant .message-avatar {
+  background: var(--el-color-success);
+}
+
+.message-body {
+  min-width: 0;
+  max-width: min(720px, 80%);
+}
+
+.chat-message.is-user .message-body {
+  align-items: flex-end;
+}
+
+.message-meta {
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.chat-message.is-user .message-meta {
+  justify-content: flex-end;
+}
+
+.message-bubble {
+  padding: 12px 14px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 4%);
+}
+
+.chat-message.is-user .message-bubble {
+  color: #fff;
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+}
+
+.message-bubble p {
+  margin: 0;
+  line-height: 1.7;
+  white-space: pre-line;
   overflow-wrap: anywhere;
 }
 
-.answer-text {
-  margin: 0;
-  white-space: pre-line;
-  line-height: 1.75;
+.message-bubble.is-loading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--el-text-color-secondary);
 }
 
-.source-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.loading-icon {
+  animation: pulse 1.2s ease-in-out infinite;
 }
 
-.source-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.source-collapse {
+  margin-top: 8px;
+  border-radius: 8px;
+  background: var(--el-bg-color);
 }
 
 .source-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  background: var(--el-fill-color-extra-light);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.source-item__title {
-  justify-content: space-between;
-  gap: 8px;
+.source-item:last-child {
+  border-bottom: 0;
 }
 
 .source-item p {
@@ -478,43 +669,43 @@ onMounted(() => {
   line-height: 1.6;
 }
 
-.history-toolbar {
-  align-items: flex-start;
-  margin-bottom: 14px;
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px 16px;
+  border-top: 1px solid var(--el-border-color-light);
+  background: var(--el-bg-color);
 }
 
-.ask-actions {
-  justify-content: flex-end;
+.composer-actions {
+  align-items: center;
 }
 
-.toolbar-actions {
-  gap: 8px;
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
-.history-control {
-  width: 150px;
-}
-
-.evidence-control {
-  width: 120px;
-}
-
-.date-control {
-  width: 280px;
-}
-
-.pagination-row {
-  justify-content: flex-end;
-  margin-top: 14px;
-}
-
-@media (max-width: 1180px) {
-  .qa-workspace {
+@media (max-width: 960px) {
+  .aftersales-chat-page {
     grid-template-columns: 1fr;
   }
 
-  .history-toolbar {
-    flex-direction: column;
+  .conversation-sidebar {
+    min-height: 260px;
+    border-right: 0;
+    border-bottom: 1px solid var(--el-border-color-light);
+  }
+
+  .message-body {
+    max-width: 86%;
   }
 }
 </style>
