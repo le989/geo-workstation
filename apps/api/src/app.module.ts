@@ -3,6 +3,8 @@ import { ConfigModule } from "@nestjs/config";
 import { validateApiEnvironment } from "./config/api-environment";
 import { HealthController } from "./health.controller";
 import { AuthModule } from "./modules/auth/auth.module";
+import { AftersalesQaModule } from "./modules/aftersales-qa/aftersales-qa.module";
+import { DepartmentsModule } from "./modules/departments/departments.module";
 import { GeoAnalysisModule } from "./modules/geo-analysis/geo-analysis.module";
 import { GeoContentModule } from "./modules/geo-content/geo-content.module";
 import { GeoExpansionModule } from "./modules/geo-expansion/geo-expansion.module";
@@ -13,6 +15,7 @@ import { GeoReportsModule } from "./modules/geo-reports/geo-reports.module";
 import { ModelInclusionModule } from "./modules/model-inclusion/model-inclusion.module";
 import { ProjectProfileModule } from "./modules/project-profile/project-profile.module";
 import { SettingsManagementModule } from "./modules/settings-management/settings-management.module";
+import { UsageModule } from "./modules/usage/usage.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
 
@@ -25,6 +28,8 @@ import { PrismaModule } from "./prisma/prisma.module";
     }),
     PrismaModule,
     AuthModule,
+    AftersalesQaModule,
+    DepartmentsModule,
     GeoAnalysisModule,
     GeoPromptsModule,
     GeoExpansionModule,
@@ -33,6 +38,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     GeoContentModule,
     ModelInclusionModule,
     GeoReportsModule,
+    UsageModule,
     ProjectProfileModule,
     SettingsManagementModule,
     UsersModule

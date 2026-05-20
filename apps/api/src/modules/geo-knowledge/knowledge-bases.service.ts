@@ -1,5 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  DepartmentStatus,
+  KnowledgeMaterialType,
   Prisma,
   UserRole,
   UserStatus,
@@ -24,6 +26,7 @@ import {
   assertCanUpdateResource,
   buildResourceReadWhere,
   getCurrentCompanyId,
+  getEffectiveRole,
   resolveCreateVisibility,
   type ResourceAccessContext
 } from "../auth/auth-policy";
@@ -172,25 +175,25 @@ export class KnowledgeBasesService {
     context?: ResourceAccessContext
   ): Promise<KnowledgeBaseDetailResponse> {
     const knowledgeBase = await this.findActiveKnowledgeBase(id, context);
+    const chunkWhere = this.buildVisibleChunkWhere(id, context);
 
     const [filesCount, chunksCount, latestChunks] = await Promise.all([
       this.prisma.knowledgeFile.count({
         where: {
           knowledgeBaseId: id,
-          deletedAt: null
+          deletedAt: null,
+          ...(context && !this.isAdminBypass(context)
+            ? {
+                AND: [this.buildAfterSalesFileAccessWhere(context)]
+              }
+            : {})
         }
       }),
       this.prisma.knowledgeChunk.count({
-        where: {
-          knowledgeBaseId: id,
-          deletedAt: null
-        }
+        where: chunkWhere
       }),
       this.prisma.knowledgeChunk.findMany({
-        where: {
-          knowledgeBaseId: id,
-          deletedAt: null
-        },
+        where: chunkWhere,
         orderBy: {
           updatedAt: "desc"
         },
@@ -561,6 +564,115 @@ export class KnowledgeBasesService {
       createdAt: chunk.createdAt,
       updatedAt: chunk.updatedAt
     };
+  }
+
+  private buildVisibleChunkWhere(
+    knowledgeBaseId: string,
+    context?: ResourceAccessContext
+  ): Prisma.KnowledgeChunkWhereInput {
+    const where: Prisma.KnowledgeChunkWhereInput = {
+      knowledgeBaseId,
+      deletedAt: null
+    };
+
+    const aftersalesWhere =
+      context && !this.isAdminBypass(context)
+        ? this.buildAfterSalesChunkAccessWhere(context)
+        : undefined;
+
+    return aftersalesWhere
+      ? {
+          AND: [where, aftersalesWhere]
+        }
+      : where;
+  }
+
+  private buildAfterSalesFileAccessWhere(
+    context: ResourceAccessContext
+  ): Prisma.KnowledgeFileWhereInput {
+    const departmentId = this.getActiveDepartmentId(context);
+
+    return {
+      OR: [
+        {
+          materialType: {
+            not: KnowledgeMaterialType.aftersales_material
+          }
+        },
+        ...(departmentId
+          ? [
+              {
+                materialType: KnowledgeMaterialType.aftersales_material,
+                allowedDepartmentIds: {
+                  array_contains: [departmentId]
+                }
+              } satisfies Prisma.KnowledgeFileWhereInput
+            ]
+          : [])
+      ]
+    };
+  }
+
+  private buildAfterSalesChunkAccessWhere(
+    context: ResourceAccessContext
+  ): Prisma.KnowledgeChunkWhereInput {
+    const departmentId = this.getActiveDepartmentId(context);
+
+    return {
+      OR: [
+        {
+          fileId: null,
+          OR: [
+            {
+              materialType: null
+            },
+            {
+              materialType: {
+                not: KnowledgeMaterialType.aftersales_material
+              }
+            }
+          ]
+        },
+        {
+          file: {
+            materialType: {
+              not: KnowledgeMaterialType.aftersales_material
+            }
+          }
+        },
+        ...(departmentId
+          ? [
+              {
+                file: {
+                  materialType: KnowledgeMaterialType.aftersales_material,
+                  allowedDepartmentIds: {
+                    array_contains: [departmentId]
+                  }
+                }
+              } satisfies Prisma.KnowledgeChunkWhereInput
+            ]
+          : [])
+      ]
+    };
+  }
+
+  private isAdminBypass(context: ResourceAccessContext): boolean {
+    const role = getEffectiveRole(context);
+    return role === "platform_admin" || role === "company_admin";
+  }
+
+  private getActiveDepartmentId(context: ResourceAccessContext): string | undefined {
+    const department = context.currentCompany.department;
+
+    if (
+      !department ||
+      department.status !== DepartmentStatus.active ||
+      context.currentMembership?.departmentId !== department.id
+    ) {
+      return undefined;
+    }
+
+    return department.id;
   }
 
   private async resolveCreatedById(createdBy?: string): Promise<string> {

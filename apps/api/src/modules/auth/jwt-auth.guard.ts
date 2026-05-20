@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException
@@ -11,6 +12,7 @@ import { IS_PUBLIC_ROUTE } from "./public.decorator";
 import type { AuthenticatedRequest } from "./auth.types";
 import { AuthService } from "./auth.service";
 import { JwtTokenService } from "./jwt-token.service";
+import { isModuleAccessBypassed, resolveApiModuleKey } from "./module-access";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -59,8 +61,12 @@ export class JwtAuthGuard implements CanActivate {
       companyId: session.currentCompany.id,
       role: session.currentCompany.role,
       isDefault: session.currentCompany.isDefault,
-      isPlatformAdmin: session.user.isPlatformAdmin
+      isPlatformAdmin: session.user.isPlatformAdmin,
+      departmentId: session.currentCompany.department?.id ?? null,
+      accessibleModules: session.currentCompany.accessibleModules
     };
+
+    this.assertCanAccessRequestedModule(request, session);
 
     return true;
   }
@@ -92,5 +98,24 @@ export class JwtAuthGuard implements CanActivate {
     const trimmedCompanyId = companyId?.trim();
 
     return trimmedCompanyId || undefined;
+  }
+
+  private assertCanAccessRequestedModule(
+    request: AuthenticatedRequest,
+    session: NonNullable<AuthenticatedRequest["authSession"]>
+  ): void {
+    if (isModuleAccessBypassed(session.currentCompany.role, session.user.isPlatformAdmin)) {
+      return;
+    }
+
+    const moduleKey = resolveApiModuleKey(request.url ?? request.originalUrl);
+
+    if (!moduleKey) {
+      return;
+    }
+
+    if (!session.currentCompany.accessibleModules.includes(moduleKey)) {
+      throw new ForbiddenException("当前部门无权访问该模块");
+    }
   }
 }

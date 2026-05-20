@@ -1,4 +1,10 @@
-import { ForbiddenException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Optional,
+  UnauthorizedException
+} from "@nestjs/common";
 import {
   CompanyStatus,
   MembershipRole,
@@ -10,7 +16,9 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import type { AuthCompanyOption, AuthSession, AuthUser } from "./auth.types";
 import { JwtTokenService } from "./jwt-token.service";
+import { ALL_GEO_MODULE_KEYS, resolveAccessibleModuleKeys } from "./module-access";
 import { verifyPassword } from "./utils/password-hash.util";
+import { OperationLogsService } from "../usage/operation-logs.service";
 
 type LoginResult = AuthSession & {
   token: string;
@@ -22,7 +30,10 @@ export class AuthService {
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
     @Inject(JwtTokenService)
-    private readonly jwtTokenService: JwtTokenService
+    private readonly jwtTokenService: JwtTokenService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
   ) {}
 
   async login(input: { email: string; password: string }): Promise<LoginResult> {
@@ -37,10 +48,20 @@ export class AuthService {
       user.status !== UserStatus.active ||
       !(await verifyPassword(input.password, user.passwordHash))
     ) {
+      await this.recordLoginOperation(input.email, false);
       throw new UnauthorizedException("账号或密码错误");
     }
 
-    const session = await this.toAuthSession(user);
+    let session: AuthSession;
+
+    try {
+      session = await this.toAuthSession(user);
+    } catch (error) {
+      await this.recordLoginOperation(input.email, false, user, undefined, error);
+      throw error;
+    }
+
+    await this.recordLoginOperation(input.email, true, user, session.currentCompany);
 
     return {
       token: this.jwtTokenService.signUser(session.user),
@@ -131,7 +152,9 @@ export class AuthService {
         code: company.code,
         role: MembershipRole.platform_admin,
         isDefault: defaultCompanyIds.has(company.id),
-        status: company.status
+        status: company.status,
+        department: null,
+        accessibleModules: ALL_GEO_MODULE_KEYS
       }));
     }
 
@@ -144,22 +167,85 @@ export class AuthService {
         }
       },
       include: {
-        company: true
+        company: true,
+        department: true
       },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
     });
 
-    return memberships.map((membership) => ({
-      id: membership.company.id,
-      name: membership.company.name,
-      code: membership.company.code,
-      role: membership.role,
-      isDefault: membership.isDefault,
-      status: membership.company.status
-    }));
+    return Promise.all(
+      memberships.map(async (membership) => {
+        const permissions = membership.departmentId
+          ? await this.prisma.departmentModulePermission.findMany({
+              where: {
+                companyId: membership.companyId,
+                departmentId: membership.departmentId
+              },
+              select: {
+                moduleKey: true,
+                canAccess: true
+              }
+            })
+          : [];
+
+        return {
+          id: membership.company.id,
+          name: membership.company.name,
+          code: membership.company.code,
+          role: membership.role,
+          isDefault: membership.isDefault,
+          status: membership.company.status,
+          department: membership.department
+            ? {
+                id: membership.department.id,
+                name: membership.department.name,
+                code: membership.department.code,
+                status: membership.department.status
+              }
+            : null,
+          accessibleModules: resolveAccessibleModuleKeys({
+            role: membership.role,
+            isPlatformAdmin: false,
+            department: membership.department,
+            permissions
+          })
+        };
+      })
+    );
   }
 
   private isPlatformAdminRole(role: UserRole): boolean {
     return role === UserRole.platform_admin || role === UserRole.admin;
+  }
+
+  private async recordLoginOperation(
+    email: string,
+    success: boolean,
+    user?: User,
+    currentCompany?: AuthCompanyOption,
+    error?: unknown
+  ): Promise<void> {
+    await this.operationLogsService?.recordOperation({
+      companyId: currentCompany?.id ?? null,
+      userId: user?.id ?? null,
+      departmentId: currentCompany?.department?.id ?? null,
+      moduleKey: "dashboard",
+      action: "login",
+      targetType: "auth_session",
+      targetId: user?.id ?? null,
+      targetTitle: user?.name ?? null,
+      success,
+      errorMessage: success ? undefined : error ?? "账号或密码错误",
+      metadata: {
+        role: currentCompany?.role ?? user?.role,
+        emailDomain: this.extractEmailDomain(email)
+      }
+    });
+  }
+
+  private extractEmailDomain(email: string): string | undefined {
+    const domain = email.split("@")[1]?.trim().toLowerCase();
+
+    return domain || undefined;
   }
 }

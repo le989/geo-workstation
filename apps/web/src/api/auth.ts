@@ -1,4 +1,5 @@
 import { apiRequest } from "./http";
+import type { GeoModuleKey } from "@geo-workstation/shared";
 
 export type AuthRole =
   | "platform_admin"
@@ -25,6 +26,13 @@ export type AuthCompany = {
   role: "platform_admin" | "company_admin" | "operator" | "viewer";
   isDefault: boolean;
   status: "active" | "disabled";
+  department: {
+    id: string;
+    name: string;
+    code: string;
+    status: "active" | "inactive";
+  } | null;
+  accessibleModules: GeoModuleKey[];
 };
 
 export type LoginPayload = {

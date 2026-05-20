@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AiCallStatus,
   Prisma,
@@ -49,6 +49,8 @@ import {
   buildOwnerCompanyReadWhereById,
   resolveOwnerCompanyCreateData
 } from "../auth/owner-company-policy";
+import { AiUsageService } from "../usage/ai-usage.service";
+import { OperationLogsService } from "../usage/operation-logs.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const AI_CALL_PURPOSE = "content_generation";
@@ -177,7 +179,13 @@ export class ContentTasksService {
     @Inject(AiProviderService)
     private readonly aiProviderService?: Pick<AiProviderService, "generateText">,
     @Inject(ProjectProfileService)
-    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">
+    private readonly projectProfileService?: Pick<ProjectProfileService, "getPromptContext">,
+    @Optional()
+    @Inject(AiUsageService)
+    private readonly aiUsageService?: AiUsageService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
   ) {}
 
   async findMany(
@@ -351,6 +359,22 @@ export class ContentTasksService {
       prompts,
       createdItems,
       aiUsage,
+      context,
+      "content_generate"
+    );
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "create",
+        targetType: "content_task",
+        targetId: task.id,
+        targetTitle: task.name,
+        success: nextStatus !== TaskStatus.failed,
+        metadata: {
+          itemCount: createdItems.length,
+          failedCount
+        }
+      },
       context
     );
 
@@ -685,6 +709,22 @@ export class ContentTasksService {
         .filter((prompt): prompt is GeoPrompt => Boolean(prompt)),
       activeItems,
       aiUsage,
+      context,
+      "content_retry"
+    );
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "retry",
+        targetType: "content_task",
+        targetId: id,
+        targetTitle: task.name,
+        success: nextStatus !== TaskStatus.failed,
+        metadata: {
+          retryItemCount: activeItems.length,
+          failedCount
+        }
+      },
       context
     );
 
@@ -1093,7 +1133,8 @@ export class ContentTasksService {
     prompts: GeoPrompt[],
     items: Array<ContentItem | { body?: string }>,
     usage?: AiUsageSummary,
-    context?: ResourceAccessContext
+    context?: ResourceAccessContext,
+    action = "content_generate"
   ): Promise<void> {
     const inputText = JSON.stringify({
       name: input.name,
@@ -1133,6 +1174,31 @@ export class ContentTasksService {
           : {})
       }
     });
+    const provider = usage?.provider ?? input.provider;
+    const promptTokens = usage?.tokenInput ?? this.estimateTokenCount(inputText);
+    const completionTokens = usage?.tokenOutput ?? this.estimateTokenCount(outputText);
+
+    await this.aiUsageService?.recordUsage(
+      {
+        moduleKey: "geo-content",
+        action,
+        provider,
+        model: usage?.model ?? input.model ?? this.resolveFallbackModel(input.provider),
+        isMock: isMockAiProvider(provider),
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        requestCount: 1,
+        success: status !== TaskStatus.failed,
+        metadata: {
+          taskId,
+          promptCount: prompts.length,
+          itemCount: items.length,
+          generationType: input.generationType
+        }
+      },
+      context
+    );
   }
 
   private estimateTokenCount(text: string): number {

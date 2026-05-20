@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Refresh, Search } from "@element-plus/icons-vue";
 import {
@@ -15,6 +15,7 @@ import {
   type UserMembership,
   type UserStatus
 } from "@/api/users";
+import { listDepartments, type Department } from "@/api/departments";
 import AppEmptyState from "@/components/AppEmptyState.vue";
 import AppErrorState from "@/components/AppErrorState.vue";
 import AppLoadingState from "@/components/AppLoadingState.vue";
@@ -35,6 +36,7 @@ type CreateUserFormState = {
   initialPassword: string;
   role: MembershipRole;
   companyId: string;
+  departmentId: string;
   membershipRole: MembershipRole;
   status: UserStatus;
 };
@@ -46,6 +48,7 @@ type ResetPasswordFormState = {
 
 type EditMembershipFormState = {
   companyId: string;
+  departmentId: string;
   membershipRole: MembershipRole;
   membershipStatus: MembershipStatus;
   isDefault: boolean;
@@ -54,6 +57,7 @@ type EditMembershipFormState = {
 
 const authStore = useAuthStore();
 const users = ref<ManagedUser[]>([]);
+const departmentsByCompany = ref<Record<string, Department[]>>({});
 const total = ref(0);
 const page = ref(1);
 const pageSize = ref(10);
@@ -82,6 +86,7 @@ const createForm = reactive<CreateUserFormState>({
   initialPassword: "",
   role: "operator",
   companyId: "",
+  departmentId: "",
   membershipRole: "operator",
   status: "active"
 });
@@ -93,6 +98,7 @@ const resetForm = reactive<ResetPasswordFormState>({
 
 const editForm = reactive<EditMembershipFormState>({
   companyId: "",
+  departmentId: "",
   membershipRole: "operator",
   membershipStatus: "active",
   isDefault: true,
@@ -123,10 +129,26 @@ const companyOptions = computed(() =>
   }))
 );
 
+const departmentOptionsForCompany = (companyId: string) =>
+  (departmentsByCompany.value[companyId] ?? [])
+    .filter((department) => department.status === "active")
+    .map((department) => ({
+      label: `${department.name} / ${department.code}`,
+      value: department.id
+    }));
+
+const createDepartmentOptions = computed(() => departmentOptionsForCompany(createForm.companyId));
+const editDepartmentOptions = computed(() => departmentOptionsForCompany(editForm.companyId));
+
 const isEmpty = computed(() => !loading.value && users.value.length === 0);
 
 const getDefaultMembership = (user: ManagedUser): UserMembership | undefined =>
   user.memberships.find((membership) => membership.isDefault) ?? user.memberships[0];
+
+const formatDepartment = (membership?: UserMembership) =>
+  membership?.departmentName
+    ? `${membership.departmentName} / ${membership.departmentCode ?? "-"}`
+    : "未绑定";
 
 const statusLabel = (status?: UserStatus | MembershipStatus) =>
   status === "disabled" ? "禁用" : "启用";
@@ -170,6 +192,25 @@ const loadUsers = async () => {
   }
 };
 
+const loadDepartmentsForCompany = async (companyId: string) => {
+  if (!companyId || departmentsByCompany.value[companyId]) {
+    return;
+  }
+
+  try {
+    const result = await listDepartments(companyId);
+    departmentsByCompany.value = {
+      ...departmentsByCompany.value,
+      [companyId]: result.items
+    };
+  } catch {
+    departmentsByCompany.value = {
+      ...departmentsByCompany.value,
+      [companyId]: []
+    };
+  }
+};
+
 const resetCreateForm = () => {
   createForm.name = "";
   createForm.email = "";
@@ -178,6 +219,8 @@ const resetCreateForm = () => {
   createForm.membershipRole = "operator";
   createForm.status = "active";
   createForm.companyId = authStore.currentCompany?.id ?? authStore.companies[0]?.id ?? "";
+  createForm.departmentId = "";
+  void loadDepartmentsForCompany(createForm.companyId);
   createFormError.value = "";
 };
 
@@ -225,6 +268,7 @@ const submitCreateUser = async () => {
       initialPassword: createForm.initialPassword,
       role: createForm.role,
       companyId: createForm.companyId,
+      departmentId: trimOptional(createForm.departmentId) ?? null,
       membershipRole: createForm.membershipRole,
       status: createForm.status,
       isDefaultCompany: true
@@ -279,11 +323,13 @@ const openEditDialog = (user: ManagedUser) => {
   const membership = getDefaultMembership(user);
   selectedUser.value = user;
   editForm.companyId = membership?.companyId ?? authStore.currentCompany?.id ?? "";
+  editForm.departmentId = membership?.departmentId ?? "";
   editForm.membershipRole = membership?.role ?? "operator";
   editForm.membershipStatus = membership?.status ?? "active";
   editForm.isDefault = membership?.isDefault ?? true;
   editForm.status = user.status;
   editFormError.value = "";
+  void loadDepartmentsForCompany(editForm.companyId);
   editDialogVisible.value = true;
 };
 
@@ -298,6 +344,7 @@ const submitEditUser = async () => {
   try {
     await updateUserMembership(selectedUser.value.id, {
       companyId: editForm.companyId,
+      departmentId: trimOptional(editForm.departmentId) ?? null,
       membershipRole: editForm.membershipRole,
       membershipStatus: editForm.membershipStatus,
       isDefault: editForm.isDefault
@@ -369,7 +416,26 @@ const handlePageSizeChange = (nextPageSize: number) => {
 
 onMounted(() => {
   void loadUsers();
+  void loadDepartmentsForCompany(authStore.currentCompany?.id ?? "");
 });
+
+watch(
+  () => createForm.companyId,
+  (companyId) => {
+    createForm.departmentId = "";
+    void loadDepartmentsForCompany(companyId);
+  },
+  { flush: "sync" }
+);
+
+watch(
+  () => editForm.companyId,
+  (companyId) => {
+    editForm.departmentId = "";
+    void loadDepartmentsForCompany(companyId);
+  },
+  { flush: "sync" }
+);
 </script>
 
 <template>
@@ -436,6 +502,11 @@ onMounted(() => {
         <el-table-column label="所属公司" min-width="170">
           <template #default="{ row }: { row: ManagedUser }">
             <span>{{ getDefaultMembership(row)?.companyName ?? "未分配" }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="所属部门" min-width="160">
+          <template #default="{ row }: { row: ManagedUser }">
+            <span>{{ formatDepartment(getDefaultMembership(row)) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="公司角色" width="120">
@@ -534,6 +605,16 @@ onMounted(() => {
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="所属部门">
+          <el-select v-model="createForm.departmentId" clearable filterable placeholder="可不绑定">
+            <el-option
+              v-for="department in createDepartmentOptions"
+              :key="department.value"
+              :label="department.label"
+              :value="department.value"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="公司角色">
           <el-select v-model="createForm.membershipRole">
             <el-option
@@ -615,6 +696,16 @@ onMounted(() => {
               :key="company.value"
               :label="company.label"
               :value="company.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="所属部门">
+          <el-select v-model="editForm.departmentId" clearable filterable placeholder="可不绑定">
+            <el-option
+              v-for="department in editDepartmentOptions"
+              :key="department.value"
+              :label="department.label"
+              :value="department.value"
             />
           </el-select>
         </el-form-item>

@@ -1,7 +1,9 @@
 import type { RouteRecordRaw } from "vue-router";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { navigationItems, pageMetaByPath } from "@/config/navigation";
+import AftersalesQaView from "@/views/AftersalesQaView.vue";
 import DashboardView from "@/views/DashboardView.vue";
+import DepartmentsView from "@/views/DepartmentsView.vue";
 import ContentTasksView from "@/views/ContentTasksView.vue";
 import ExpansionView from "@/views/ExpansionView.vue";
 import ForbiddenView from "@/views/ForbiddenView.vue";
@@ -11,8 +13,10 @@ import InstructionTemplatesView from "@/views/InstructionTemplatesView.vue";
 import KnowledgeBasesView from "@/views/KnowledgeBasesView.vue";
 import ModelInclusionRecordsView from "@/views/ModelInclusionRecordsView.vue";
 import ModulePlaceholderView from "@/views/ModulePlaceholderView.vue";
+import OperationLogsView from "@/views/OperationLogsView.vue";
 import ReportsView from "@/views/ReportsView.vue";
 import SettingsView from "@/views/SettingsView.vue";
+import UsageAnalyticsView from "@/views/UsageAnalyticsView.vue";
 import UsersView from "@/views/UsersView.vue";
 import HelpView from "@/views/HelpView.vue";
 import LandingView from "@/views/LandingView.vue";
@@ -25,10 +29,13 @@ export const phase3aRoutePaths = [
   "/geo-prompts",
   "/expansion",
   "/knowledge-bases",
+  "/aftersales-qa",
   "/instruction-templates",
   "/geo-content",
   "/model-inclusion-records",
   "/geo-reports",
+  "/usage-analytics",
+  "/operation-logs",
   "/settings",
   "/help"
 ] as const;
@@ -59,21 +66,29 @@ export const routes: RouteRecordRaw[] = [
                   ? ExpansionView
                   : item.path === "/knowledge-bases"
                     ? KnowledgeBasesView
-                    : item.path === "/instruction-templates"
-                      ? InstructionTemplatesView
-                      : item.path === "/geo-content"
-                        ? ContentTasksView
-                        : item.path === "/model-inclusion-records"
-                          ? ModelInclusionRecordsView
-                          : item.path === "/geo-reports"
-                            ? ReportsView
-                            : item.path === "/users"
-                              ? UsersView
-                              : item.path === "/settings"
-                                ? SettingsView
-                                : item.path === "/help"
-                                  ? HelpView
-                                  : ModulePlaceholderView,
+                    : item.path === "/aftersales-qa"
+                      ? AftersalesQaView
+                      : item.path === "/instruction-templates"
+                        ? InstructionTemplatesView
+                        : item.path === "/geo-content"
+                          ? ContentTasksView
+                          : item.path === "/model-inclusion-records"
+                            ? ModelInclusionRecordsView
+                            : item.path === "/geo-reports"
+                              ? ReportsView
+                              : item.path === "/usage-analytics"
+                                ? UsageAnalyticsView
+                                : item.path === "/operation-logs"
+                                  ? OperationLogsView
+                                  : item.path === "/users"
+                                    ? UsersView
+                                    : item.path === "/departments"
+                                      ? DepartmentsView
+                                      : item.path === "/settings"
+                                        ? SettingsView
+                                        : item.path === "/help"
+                                          ? HelpView
+                                          : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path],
           requiresAuth: true,

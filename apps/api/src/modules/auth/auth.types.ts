@@ -1,4 +1,11 @@
-import type { CompanyStatus, MembershipRole, UserRole, UserStatus } from "@prisma/client";
+import type {
+  CompanyStatus,
+  DepartmentStatus,
+  MembershipRole,
+  UserRole,
+  UserStatus
+} from "@prisma/client";
+import type { GeoModuleKey } from "@geo-workstation/shared";
 
 export type AuthUser = {
   id: string;
@@ -16,6 +23,13 @@ export type AuthCompanyOption = {
   role: MembershipRole;
   isDefault: boolean;
   status: CompanyStatus;
+  department: {
+    id: string;
+    name: string;
+    code: string;
+    status: DepartmentStatus;
+  } | null;
+  accessibleModules: GeoModuleKey[];
 };
 
 export type CurrentMembershipContext = {
@@ -23,6 +37,8 @@ export type CurrentMembershipContext = {
   role: MembershipRole;
   isDefault: boolean;
   isPlatformAdmin: boolean;
+  departmentId?: string | null;
+  accessibleModules: GeoModuleKey[];
 };
 
 export type AuthSession = {
@@ -34,6 +50,8 @@ export type AuthSession = {
 export type AuthenticatedRequest = {
   headers: Record<string, string | string[] | undefined>;
   method?: string;
+  url?: string;
+  originalUrl?: string;
   user?: AuthUser;
   authSession?: AuthSession;
   currentCompany?: AuthCompanyOption;

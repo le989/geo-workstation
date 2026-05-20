@@ -13,6 +13,11 @@ export class UpdateUserMembershipDto {
   membershipRole!: MembershipRole;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
+  departmentId?: string | null;
+
+  @IsOptional()
   @IsEnum(MembershipStatus)
   membershipStatus?: MembershipStatus;
 

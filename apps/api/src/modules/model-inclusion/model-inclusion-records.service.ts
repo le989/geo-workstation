@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Inject, Injectable, Optional } from "@nestjs/common";
 import {
   GeoPromptType,
   Prisma,
@@ -52,6 +52,8 @@ import {
   type ResourceAccessContext
 } from "../auth/auth-policy";
 import { buildOwnerCompanyReadWhere } from "../auth/owner-company-policy";
+import { AiUsageService } from "../usage/ai-usage.service";
+import { OperationLogsService } from "../usage/operation-logs.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const MAX_EXPORT_ROWS = 5000;
@@ -212,7 +214,13 @@ export class ModelInclusionRecordsService {
     @Inject(VolcengineWebSearchProvider)
     private readonly volcengineWebSearchProvider: VolcengineWebSearchProvider,
     @Inject(AliyunBailianWebSearchProvider)
-    private readonly aliyunBailianWebSearchProvider: AliyunBailianWebSearchProvider
+    private readonly aliyunBailianWebSearchProvider: AliyunBailianWebSearchProvider,
+    @Optional()
+    @Inject(AiUsageService)
+    private readonly aiUsageService?: AiUsageService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
   ) {}
 
   async findMany(
@@ -470,6 +478,8 @@ export class ModelInclusionRecordsService {
       }
     }
 
+    await this.recordWebSearchCheckLogs(providerRuntime, createdItems, failedItems, context);
+
     return {
       provider: providerRuntime.provider,
       successCount: createdItems.length,
@@ -528,7 +538,95 @@ export class ModelInclusionRecordsService {
     this.assertCanExportModelInclusion(context);
     const normalized = normalizeQueryModelInclusionRecords(query, 1, MAX_EXPORT_ROWS);
     const records = await this.findRecordsForExport(normalized, context);
-    return buildModelInclusionRecordsCsv(records);
+    const csv = buildModelInclusionRecordsCsv(records);
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "model-inclusion-records",
+        action: "export",
+        targetType: "model_inclusion_records",
+        success: true,
+        metadata: {
+          recordCount: records.length,
+          model: normalized.model,
+          platform: normalized.platform,
+          entryPoint: normalized.entryPoint
+        }
+      },
+      context
+    );
+
+    return csv;
+  }
+
+  private async recordWebSearchCheckLogs(
+    providerRuntime: WebSearchProviderRuntime,
+    createdItems: ModelInclusionRecordResponse[],
+    failedItems: FailedWebSearchCheckItem[],
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    if (createdItems.length > 0) {
+      await this.aiUsageService?.recordUsage(
+        {
+          moduleKey: "model-inclusion-records",
+          action: "web_search_check",
+          provider: providerRuntime.provider,
+          model: providerRuntime.model,
+          isMock: false,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          requestCount: 1,
+          success: true,
+          metadata: {
+            successCount: createdItems.length,
+            failedCount: failedItems.length
+          }
+        },
+        context
+      );
+    }
+
+    if (failedItems.length > 0) {
+      await this.aiUsageService?.recordUsage(
+        {
+          moduleKey: "model-inclusion-records",
+          action: "web_search_check",
+          provider: providerRuntime.provider,
+          model: providerRuntime.model,
+          isMock: false,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          requestCount: 1,
+          success: false,
+          errorMessage: failedItems[0]?.errorMessage,
+          metadata: {
+            successCount: createdItems.length,
+            failedCount: failedItems.length,
+            errorCategory: failedItems[0]?.errorCategory
+          }
+        },
+        context
+      );
+    }
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "model-inclusion-records",
+        action: "web_search_check",
+        targetType: "model_inclusion_records",
+        success: failedItems.length === 0,
+        errorMessage: failedItems[0]?.errorMessage,
+        metadata: {
+          provider: providerRuntime.provider,
+          model: providerRuntime.model,
+          successCount: createdItems.length,
+          failedCount: failedItems.length
+        }
+      },
+      context
+    );
   }
 
   async findUncoveredPrompts(

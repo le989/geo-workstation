@@ -1,12 +1,14 @@
 import type { Component } from "vue";
 import {
   CollectionTag,
+  ChatDotRound,
   DataBoard,
   DocumentChecked,
   EditPen,
   Files,
   Guide,
   MagicStick,
+  OfficeBuilding,
   PieChart,
   Search,
   Setting,
@@ -86,10 +88,22 @@ export const navigationItems: GeoPageMeta[] = [
     title: "知识库",
     question: "AI 应该引用哪些企业事实资料？",
     description: "管理产品、案例、FAQ、解决方案和资质等可被内容生成引用的事实底座。",
-    phaseNote: "已支持知识库管理、文本导入、txt/md/csv 上传解析、片段编辑和解析重试。",
+    phaseNote: "已支持知识库管理、手动录入、txt/md/csv/Excel/Word 上传解析、片段编辑和解析重试。",
     nextSteps: ["维护产品线知识库", "导入可引用事实资料", "检查解析失败文件和知识片段质量"],
     apiFocus: "已联调 /api/knowledge-bases 和 /api/knowledge-files",
     icon: Files,
+    allowedRoles: allRoles
+  },
+  {
+    path: "/aftersales-qa",
+    label: "售后问答",
+    title: "售后问答",
+    question: "内部售后问题能否从已审核资料中找到依据？",
+    description: "基于已通过的售后资料和产品资料生成谨慎答复，并展示引用来源。",
+    phaseNote: "AFTERSALES-QA-1 使用关键词检索和规则回答，不接真实 AI Provider，不做客户开放版。",
+    nextSteps: ["输入内部售后问题", "查看有依据或无依据回答", "核对引用知识库、文件和片段"],
+    apiFocus: "已联调 /api/aftersales-qa/ask 和 /api/aftersales-qa/records",
+    icon: ChatDotRound,
     allowedRoles: allRoles
   },
   {
@@ -141,6 +155,30 @@ export const navigationItems: GeoPageMeta[] = [
     allowedRoles: allRoles
   },
   {
+    path: "/usage-analytics",
+    label: "使用统计",
+    title: "使用统计",
+    question: "AI 调用和 token 使用集中在哪些模块？",
+    description: "查看 AI / mock / stub 调用次数、token、用户、部门和模块维度统计。",
+    phaseNote: "USAGE-1 只记录统一统计，不做额度限制、扣费或真实 Provider 接入。",
+    nextSteps: ["查看日周月调用", "按模块、用户和部门复盘", "确认 mock / stub 调用规模"],
+    apiFocus: "已联调 /api/usage/summary、/api/usage/trends 和聚合接口。",
+    icon: PieChart,
+    allowedRoles: ["platform_admin", "company_admin"]
+  },
+  {
+    path: "/operation-logs",
+    label: "操作日志",
+    title: "操作日志",
+    question: "关键业务动作是谁在什么时候执行的？",
+    description: "查看登录、部门、知识库、内容生成、拓词、模型覆盖和报表导出日志。",
+    phaseNote: "USAGE-1 只记录关键动作摘要，不记录密码、JWT、完整 prompt、storagePath 或 AI 原文。",
+    nextSteps: ["按模块筛选操作", "查看失败摘要", "定位关键资料和内容变更"],
+    apiFocus: "已联调 /api/operation-logs",
+    icon: DocumentChecked,
+    allowedRoles: ["platform_admin", "company_admin"]
+  },
+  {
     path: "/users",
     label: "用户管理",
     title: "用户管理",
@@ -151,6 +189,18 @@ export const navigationItems: GeoPageMeta[] = [
     apiFocus: "已联调 /api/users；密码只写入 passwordHash，不返回明文或哈希。",
     icon: User,
     allowedRoles: ["platform_admin"]
+  },
+  {
+    path: "/departments",
+    label: "部门管理",
+    title: "部门管理",
+    question: "不同部门可以进入哪些 GEO 模块？",
+    description: "维护公司内部门，并配置部门能进入的 GEO 工作站模块。",
+    phaseNote: "DEPT-1 已支持单部门绑定、部门启停和模块进入权限，不涉及按钮级或字段级权限。",
+    nextSteps: ["新增或停用部门", "配置模块访问权限", "在用户管理中绑定部门"],
+    apiFocus: "已联调 /api/departments 和 /api/departments/:id/module-permissions",
+    icon: OfficeBuilding,
+    allowedRoles: ["platform_admin", "company_admin"]
   },
   {
     path: "/settings",

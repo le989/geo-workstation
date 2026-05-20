@@ -5,12 +5,17 @@ import { ConfigService } from "@nestjs/config";
 import {
   CompanyStatus,
   CompanyType,
+  DepartmentStatus,
+  KnowledgeMaterialType,
+  KnowledgeReviewStatus,
+  KnowledgeTrustLevel,
   MembershipRole,
   ParseStatus,
   UserRole,
   UserStatus,
   Visibility,
   type Company,
+  type Department,
   type User
 } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -18,6 +23,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { KnowledgeFileParserService } from "../src/modules/geo-knowledge/knowledge-file-parser.service";
 import { KnowledgeFilesService } from "../src/modules/geo-knowledge/knowledge-files.service";
 import { KnowledgeBasesService } from "../src/modules/geo-knowledge/knowledge-bases.service";
+import { KnowledgeChunksService } from "../src/modules/geo-knowledge/knowledge-chunks.service";
 import { LocalFileStorageService } from "../src/modules/geo-knowledge/local-file-storage.service";
 import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
@@ -32,12 +38,17 @@ describe("KnowledgeFilesService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let knowledgeBasesService: KnowledgeBasesService;
   let knowledgeFilesService: KnowledgeFilesService;
+  let knowledgeChunksService: KnowledgeChunksService;
   let createdBy: string;
   let companyA: Company;
   let companyB: Company;
   let companyAdmin: User;
   let operatorA: User;
   let operatorB: User;
+  let viewerA: User;
+  let allowedDepartment: Department;
+  let blockedDepartment: Department;
+  let otherCompanyDepartment: Department;
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -51,6 +62,7 @@ describe("KnowledgeFilesService", () => {
     const parser = new KnowledgeFileParserService();
 
     knowledgeBasesService = new KnowledgeBasesService(prisma as unknown as PrismaService);
+    knowledgeChunksService = new KnowledgeChunksService(prisma as unknown as PrismaService);
     knowledgeFilesService = new KnowledgeFilesService(
       prisma as unknown as PrismaService,
       storage,
@@ -97,6 +109,38 @@ describe("KnowledgeFilesService", () => {
         status: UserStatus.active
       }
     });
+    viewerA = await prisma.user.create({
+      data: {
+        email: `knowledge-file-viewer-a-${runId}@example.com`,
+        name: "KB-1 Knowledge File Viewer A",
+        role: UserRole.viewer,
+        status: UserStatus.active
+      }
+    });
+    allowedDepartment = await prisma.department.create({
+      data: {
+        companyId: companyA.id,
+        name: `KB-1 Allowed Department ${runId}`,
+        code: `kb1-allowed-${runId}`,
+        status: DepartmentStatus.active
+      }
+    });
+    blockedDepartment = await prisma.department.create({
+      data: {
+        companyId: companyA.id,
+        name: `KB-1 Blocked Department ${runId}`,
+        code: `kb1-blocked-${runId}`,
+        status: DepartmentStatus.active
+      }
+    });
+    otherCompanyDepartment = await prisma.department.create({
+      data: {
+        companyId: companyB.id,
+        name: `KB-1 Other Department ${runId}`,
+        code: `kb1-other-${runId}`,
+        status: DepartmentStatus.active
+      }
+    });
 
     const user = await prisma.user.create({
       data: {
@@ -138,7 +182,8 @@ describe("KnowledgeFilesService", () => {
     user: User,
     company: Company,
     role: MembershipRole,
-    isPlatformAdmin = false
+    isPlatformAdmin = false,
+    department?: Department | null
   ): ResourceAccessContext {
     return {
       user: {
@@ -155,13 +200,24 @@ describe("KnowledgeFilesService", () => {
         code: company.code,
         role,
         isDefault: true,
-        status: company.status
+        status: company.status,
+        department: department
+          ? {
+              id: department.id,
+              name: department.name,
+              code: department.code,
+              status: department.status
+            }
+          : null,
+        accessibleModules: ["knowledge-bases"]
       },
       currentMembership: {
         companyId: company.id,
         role,
         isDefault: true,
-        isPlatformAdmin
+        isPlatformAdmin,
+        departmentId: department?.id ?? null,
+        accessibleModules: ["knowledge-bases"]
       }
     };
   }
@@ -355,6 +411,370 @@ describe("KnowledgeFilesService", () => {
       }
     });
     expect(activeChunks).toBe(0);
+  });
+
+  it("stores material metadata, filters files, and creates manual material records", async () => {
+    const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const companyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        name: `KB-1 Metadata Base ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+
+    const uploaded = await knowledgeFilesService.upload(
+      companyBase.id,
+      uploadFile("product.txt", "产品资料正文包含产品能力、选型参数和 GEO 内容引用事实。"),
+      {
+        title: "产品资料标题",
+        materialType: KnowledgeMaterialType.product_material,
+        applicableModules: ["geo-content", "internal-search"],
+        sourceDescription: "官网产品资料",
+        trustLevel: KnowledgeTrustLevel.high,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        tags: ["产品", "GEO"]
+      },
+      companyAdminContext
+    );
+
+    expect(uploaded.knowledgeFile).toMatchObject({
+      title: "产品资料标题",
+      materialType: KnowledgeMaterialType.product_material,
+      applicableModules: ["geo-content", "internal-search"],
+      sourceDescription: "官网产品资料",
+      trustLevel: KnowledgeTrustLevel.high,
+      reviewStatus: KnowledgeReviewStatus.approved,
+      sourceType: "upload"
+    });
+    expect(uploaded.knowledgeFile).not.toHaveProperty("storagePath");
+    expect(uploaded.createdChunks[0]).toMatchObject({
+      fileId: uploaded.knowledgeFile.id,
+      materialType: KnowledgeMaterialType.product_material,
+      tags: ["产品", "GEO"]
+    });
+
+    const manual = await knowledgeFilesService.createManualMaterial(
+      companyBase.id,
+      {
+        title: "手动售后资料",
+        materialType: KnowledgeMaterialType.aftersales_material,
+        applicableModules: ["aftersales-qa", "internal-search"],
+        sourceDescription: "售后工程师整理",
+        trustLevel: KnowledgeTrustLevel.medium,
+        reviewStatus: KnowledgeReviewStatus.pending,
+        allowedDepartmentIds: [allowedDepartment.id],
+        content: "手动录入的售后资料会生成资料记录，并同步生成可查看和编辑的知识片段。"
+      },
+      companyAdminContext
+    );
+
+    expect(manual.parseStatus).toBe(ParseStatus.succeeded);
+    expect(manual.knowledgeFile).toMatchObject({
+      fileType: "manual",
+      sourceType: "manual",
+      title: "手动售后资料",
+      materialType: KnowledgeMaterialType.aftersales_material,
+      reviewStatus: KnowledgeReviewStatus.pending,
+      allowedDepartmentIds: [allowedDepartment.id]
+    });
+    expect(manual.knowledgeFile).not.toHaveProperty("storagePath");
+    expect(manual.createdChunksCount).toBe(1);
+    expect(manual.createdChunks[0]?.fileId).toBe(manual.knowledgeFile.id);
+
+    const filtered = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        materialType: KnowledgeMaterialType.product_material,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        trustLevel: KnowledgeTrustLevel.high,
+        applicableModule: "geo-content"
+      },
+      companyAdminContext
+    );
+    expect(filtered.total).toBe(1);
+    expect(filtered.items[0]?.id).toBe(uploaded.knowledgeFile.id);
+
+    const updated = await knowledgeFilesService.updateMetadata(
+      uploaded.knowledgeFile.id,
+      {
+        title: "更新后的产品资料标题",
+        reviewStatus: KnowledgeReviewStatus.disabled,
+        applicableModules: ["geo-analysis"]
+      },
+      companyAdminContext
+    );
+    expect(updated).toMatchObject({
+      title: "更新后的产品资料标题",
+      reviewStatus: KnowledgeReviewStatus.disabled,
+      applicableModules: ["geo-analysis"]
+    });
+
+    await expect(
+      knowledgeFilesService.updateMetadata(
+        uploaded.knowledgeFile.id,
+        {
+          allowedDepartmentIds: [otherCompanyDepartment.id],
+          materialType: KnowledgeMaterialType.aftersales_material
+        },
+        companyAdminContext
+      )
+    ).rejects.toThrow("allowedDepartmentIds must belong to current company");
+  });
+
+  it("limits aftersales materials by allowed departments while keeping admin bypass", async () => {
+    const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const allowedOperatorContext = contextFor(
+      operatorA,
+      companyA,
+      MembershipRole.operator,
+      false,
+      allowedDepartment
+    );
+    const blockedOperatorContext = contextFor(
+      operatorA,
+      companyA,
+      MembershipRole.operator,
+      false,
+      blockedDepartment
+    );
+    const companyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        name: `KB-1 Aftersales Base ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const aftersales = await knowledgeFilesService.createManualMaterial(
+      companyBase.id,
+      {
+        title: "受限售后资料",
+        materialType: KnowledgeMaterialType.aftersales_material,
+        applicableModules: ["aftersales-qa"],
+        trustLevel: KnowledgeTrustLevel.high,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        allowedDepartmentIds: [allowedDepartment.id],
+        content: "仅允许指定售后部门查看的售后资料，普通部门不应看到这条资料。"
+      },
+      companyAdminContext
+    );
+
+    await expect(
+      knowledgeFilesService.getDetail(aftersales.knowledgeFile.id, companyAdminContext)
+    ).resolves.toMatchObject({
+      knowledgeFile: {
+        id: aftersales.knowledgeFile.id
+      }
+    });
+    await expect(
+      knowledgeFilesService.getDetail(aftersales.knowledgeFile.id, allowedOperatorContext)
+    ).resolves.toMatchObject({
+      knowledgeFile: {
+        id: aftersales.knowledgeFile.id
+      }
+    });
+    await expect(
+      knowledgeFilesService.getDetail(aftersales.knowledgeFile.id, blockedOperatorContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const allowedFiles = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        materialType: KnowledgeMaterialType.aftersales_material
+      },
+      allowedOperatorContext
+    );
+    const blockedFiles = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        materialType: KnowledgeMaterialType.aftersales_material
+      },
+      blockedOperatorContext
+    );
+    expect(allowedFiles.total).toBe(1);
+    expect(blockedFiles.total).toBe(0);
+
+    const allowedChunks = await knowledgeChunksService.findMany(
+      companyBase.id,
+      {},
+      allowedOperatorContext
+    );
+    const blockedChunks = await knowledgeChunksService.findMany(
+      companyBase.id,
+      {},
+      blockedOperatorContext
+    );
+    expect(allowedChunks.items.some((chunk) => chunk.fileId === aftersales.knowledgeFile.id)).toBe(
+      true
+    );
+    expect(blockedChunks.items.some((chunk) => chunk.fileId === aftersales.knowledgeFile.id)).toBe(
+      false
+    );
+
+    const legacyAftersalesChunk = await prisma.knowledgeChunk.create({
+      data: {
+        companyId: companyA.id,
+        knowledgeBaseId: companyBase.id,
+        title: `旧文本导入售后片段 ${runId}`,
+        content: "旧 text-import API 产生的售后资料片段也不能绕过部门限制。",
+        sourceType: "pasted_text",
+        materialType: KnowledgeMaterialType.aftersales_material
+      }
+    });
+    const allowedChunksAfterLegacy = await knowledgeChunksService.findMany(
+      companyBase.id,
+      {},
+      allowedOperatorContext
+    );
+    const allowedDetailAfterLegacy = await knowledgeBasesService.getDetail(
+      companyBase.id,
+      allowedOperatorContext
+    );
+    expect(
+      allowedChunksAfterLegacy.items.some((chunk) => chunk.id === legacyAftersalesChunk.id)
+    ).toBe(false);
+    expect(
+      allowedDetailAfterLegacy.latestChunks.some((chunk) => chunk.id === legacyAftersalesChunk.id)
+    ).toBe(false);
+    expect(allowedDetailAfterLegacy.chunksCount).toBe(1);
+    await expect(
+      knowledgeChunksService.update(
+        legacyAftersalesChunk.id,
+        {
+          content: "旧无文件售后片段不能被普通用户通过编辑接口访问。"
+        },
+        allowedOperatorContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const inactiveAllowedDepartment = await prisma.department.update({
+      where: {
+        id: allowedDepartment.id
+      },
+      data: {
+        status: DepartmentStatus.inactive
+      }
+    });
+    const inactiveAllowedOperatorContext = contextFor(
+      operatorA,
+      companyA,
+      MembershipRole.operator,
+      false,
+      inactiveAllowedDepartment
+    );
+
+    await expect(
+      knowledgeFilesService.getDetail(aftersales.knowledgeFile.id, inactiveAllowedOperatorContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      knowledgeChunksService.update(
+        aftersales.createdChunks[0].id,
+        {
+          content: "停用部门成员不应能通过片段编辑继续访问售后资料。"
+        },
+        inactiveAllowedOperatorContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      knowledgeFilesService.updateMetadata(
+        aftersales.knowledgeFile.id,
+        {
+          title: "停用部门成员不应能更新售后资料元信息"
+        },
+        inactiveAllowedOperatorContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const inactiveFiles = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        materialType: KnowledgeMaterialType.aftersales_material
+      },
+      inactiveAllowedOperatorContext
+    );
+    const inactiveChunks = await knowledgeChunksService.findMany(
+      companyBase.id,
+      {},
+      inactiveAllowedOperatorContext
+    );
+    const inactiveDetail = await knowledgeBasesService.getDetail(
+      companyBase.id,
+      inactiveAllowedOperatorContext
+    );
+    expect(inactiveFiles.total).toBe(0);
+    expect(inactiveChunks.items.some((chunk) => chunk.fileId === aftersales.knowledgeFile.id)).toBe(
+      false
+    );
+    expect(inactiveDetail.filesCount).toBe(0);
+    expect(inactiveDetail.chunksCount).toBe(0);
+  });
+
+  it("keeps operator-created materials pending and prevents viewer writes", async () => {
+    const operatorContext = contextFor(operatorA, companyA, MembershipRole.operator);
+    const viewerContext = contextFor(viewerA, companyA, MembershipRole.viewer);
+    const privateBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.PRIVATE,
+        name: `KB-1 Operator Private Base ${runId}`,
+        status: "active",
+        createdById: operatorA.id
+      }
+    });
+
+    await expect(
+      knowledgeFilesService.upload(
+        privateBase.id,
+        uploadFile("operator.txt", "运营人员不能直接把资料审核为已通过。"),
+        {
+          reviewStatus: KnowledgeReviewStatus.approved
+        },
+        operatorContext
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const created = await knowledgeFilesService.upload(
+      privateBase.id,
+      uploadFile("operator-pending.txt", "运营人员上传资料默认进入待审核状态。"),
+      {},
+      operatorContext
+    );
+    expect(created.knowledgeFile.reviewStatus).toBe(KnowledgeReviewStatus.pending);
+
+    const platformBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.PLATFORM,
+        name: `KB-1 Viewer Readonly Base ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id,
+        chunks: {
+          create: {
+            companyId: companyA.id,
+            title: "Viewer Readonly Chunk",
+            content: "viewer 即使可以看到资料，也不能编辑知识片段内容。",
+            sourceType: "manual"
+          }
+        }
+      },
+      include: {
+        chunks: true
+      }
+    });
+
+    await expect(
+      knowledgeChunksService.update(
+        platformBase.chunks[0].id,
+        {
+          content: "viewer 尝试写入的新内容应该被拒绝。"
+        },
+        viewerContext
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("enforces knowledge file permissions through parent knowledge base access", async () => {

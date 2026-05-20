@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import {
   CompanyStatus,
+  DepartmentStatus,
   MembershipRole,
   MembershipStatus,
   Prisma,
@@ -34,6 +35,7 @@ type UserWithMemberships = Prisma.UserGetPayload<{
     memberships: {
       include: {
         company: true;
+        department: true;
       };
     };
   };
@@ -44,6 +46,10 @@ export type UserMembershipResponse = {
   companyId: string;
   companyName: string;
   companyCode: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  departmentCode: string | null;
+  departmentStatus: DepartmentStatus | null;
   role: MembershipRole;
   status: MembershipStatus;
   isDefault: boolean;
@@ -101,6 +107,7 @@ export class UsersService {
     this.assertNewRole(input.role);
     this.assertRoleMatchesMembership(input.role, input.membershipRole);
     const company = await this.getActiveCompany(input.companyId);
+    const departmentId = await this.resolveDepartmentId(input.departmentId ?? null, company.id);
     const existing = await this.prisma.user.findUnique({
       where: {
         email: input.email
@@ -124,6 +131,7 @@ export class UsersService {
         memberships: {
           create: {
             companyId: company.id,
+            departmentId,
             role: input.membershipRole,
             status: MembershipStatus.active,
             isDefault: input.isDefaultCompany ?? true
@@ -191,6 +199,10 @@ export class UsersService {
     this.assertNewMembershipRole(input.membershipRole);
     const user = await this.getUserOrThrow(userId);
     const company = await this.getActiveCompany(input.companyId);
+    const hasDepartmentInput = Object.prototype.hasOwnProperty.call(input, "departmentId");
+    const departmentId = hasDepartmentInput
+      ? await this.resolveDepartmentId(input.departmentId ?? null, company.id)
+      : undefined;
     const membershipStatus = input.membershipStatus ?? MembershipStatus.active;
     const isDefault = input.isDefault ?? true;
 
@@ -240,10 +252,12 @@ export class UsersService {
             update: {
               role: input.membershipRole,
               status: membershipStatus,
-              isDefault
+              isDefault,
+              ...(hasDepartmentInput ? { departmentId } : {})
             },
             create: {
               companyId: company.id,
+              departmentId: departmentId ?? null,
               role: input.membershipRole,
               status: membershipStatus,
               isDefault
@@ -305,7 +319,8 @@ export class UsersService {
     return {
       memberships: {
         include: {
-          company: true
+          company: true,
+          department: true
         },
         orderBy: [{ isDefault: "desc" as const }, { createdAt: "asc" as const }]
       }
@@ -326,6 +341,10 @@ export class UsersService {
         companyId: membership.companyId,
         companyName: membership.company.name,
         companyCode: membership.company.code,
+        departmentId: membership.departmentId,
+        departmentName: membership.department?.name ?? null,
+        departmentCode: membership.department?.code ?? null,
+        departmentStatus: membership.department?.status ?? null,
         role: membership.role,
         status: membership.status,
         isDefault: membership.isDefault
@@ -366,6 +385,32 @@ export class UsersService {
     }
 
     return company;
+  }
+
+  private async resolveDepartmentId(
+    departmentId: string | null | undefined,
+    companyId: string
+  ): Promise<string | null> {
+    if (!departmentId) {
+      return null;
+    }
+
+    const department = await this.prisma.department.findFirst({
+      where: {
+        id: departmentId,
+        companyId,
+        status: DepartmentStatus.active
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (!department) {
+      throw new BadRequestException("部门不存在、已停用或不属于当前公司");
+    }
+
+    return department.id;
   }
 
   private assertNewRole(role: UserRole): void {

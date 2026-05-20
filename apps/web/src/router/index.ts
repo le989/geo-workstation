@@ -32,7 +32,14 @@ router.beforeEach(async (to) => {
       .find(Boolean) as NormalizedRole[] | undefined;
     const role = authStore.currentRole ?? authStore.currentUser?.role;
 
-    if (!canAccessRoute(to.path, role, allowedRoles)) {
+    if (
+      !canAccessRoute(
+        to.path,
+        role,
+        allowedRoles,
+        authStore.currentCompany?.accessibleModules
+      )
+    ) {
       return {
         path: "/403",
         query: {

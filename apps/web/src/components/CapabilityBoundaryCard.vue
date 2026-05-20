@@ -2,7 +2,7 @@
 const realCapabilities = [
   "提示词策略库",
   "AI 拓词候选保存",
-  "知识库与 txt/md/csv 文件解析",
+  "知识库与 txt/md/csv/Excel/Word 文件解析",
   "指令库",
   "内容任务与内容项",
   "模型覆盖记录",

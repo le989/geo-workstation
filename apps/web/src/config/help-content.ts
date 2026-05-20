@@ -25,6 +25,9 @@ export const helpNavItems = [
   { id: "daily-content", title: "日常内容生产" },
   { id: "diagnosis-to-content", title: "GEO 诊断到内容补齐" },
   { id: "asset-relationship", title: "核心资产关系" },
+  { id: "knowledge-governance", title: "知识库资料治理" },
+  { id: "aftersales-qa", title: "售后问答" },
+  { id: "usage-audit", title: "使用统计与操作日志" },
   { id: "admin-maintenance", title: "管理员维护重点" },
   { id: "archive-cleanup", title: "归档与清理规则" },
   { id: "limits", title: "当前限制与注意事项" },
@@ -46,6 +49,11 @@ export const quickStartSteps: HelpStep[] = [
     description: "正式数据从公司管理和产品线管理开始；公司、产品线可新增、编辑、启用 / 停用。"
   },
   {
+    title: "配置部门和模块权限",
+    description:
+      "在 /departments 新增、编辑、停用部门，配置部门能进入的模块，再在用户管理中给用户绑定一个部门。"
+  },
+  {
     title: "建立提示词策略库",
     description:
       "在 /geo-prompts 维护训练词、蒸馏词、品牌词和场景词，优先保存真实用户会问 AI 的问题。"
@@ -56,7 +64,8 @@ export const quickStartSteps: HelpStep[] = [
   },
   {
     title: "建立知识库",
-    description: "在 /knowledge-bases 沉淀产品、服务、案例、资质、FAQ、解决方案等可引用事实资料。"
+    description:
+      "在 /knowledge-bases 沉淀产品、服务、案例、资质、FAQ、解决方案等可引用事实资料，并维护资料类型、可信度和审核状态。"
   },
   {
     title: "建立指令模板",
@@ -67,9 +76,14 @@ export const quickStartSteps: HelpStep[] = [
     description: "在 /geo-content 选择提示词、知识库和指令模板，生成内容草稿并人工审核。"
   },
   {
+    title: "使用售后问答",
+    description:
+      "在 /aftersales-qa 基于已通过售后资料和产品资料回答内部售后问题，回答必须带知识库、文件和片段引用。"
+  },
+  {
     title: "录入覆盖并复盘",
     description:
-      "在 /model-inclusion-records 录入 AI 模型覆盖记录，再到 /geo-reports 查看提示词、内容、知识库和模型覆盖。"
+      "在 /model-inclusion-records 录入 AI 模型覆盖记录，到 /geo-reports 复盘，并由管理员查看 /usage-analytics 与 /operation-logs。"
   }
 ];
 
@@ -78,7 +92,7 @@ export const sopSections: HelpSection[] = [
     id: "zero-build",
     title: "从 0 搭建正式数据",
     summary:
-      "clean 库业务数据保持 0 时，先搭公司和产品线，再搭提示词、知识库、指令模板、内容任务和覆盖记录。",
+      "clean 库业务数据保持 0 时，先搭公司、产品线和部门权限，再搭提示词、知识库、指令模板、内容任务、售后问答和覆盖记录。",
     steps: [
       {
         title: "确认公司",
@@ -91,6 +105,11 @@ export const sopSections: HelpSection[] = [
           "为当前公司新增正式产品线，支持新增、编辑、启用 / 停用；产品线暂不支持说明字段。"
       },
       {
+        title: "建立部门和模块权限",
+        description:
+          "先新增部门，配置模块访问权限，再给用户绑定部门；部门控制进入模块，角色控制写入权限。"
+      },
+      {
         title: "建立提示词策略库",
         description: "围绕产品线导入第一批正式提示词，避免先导入大量泛词。"
       },
@@ -100,7 +119,13 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "建立知识库",
-        description: "按公司或产品线建立知识库，导入真实产品、服务、案例、FAQ、资质和解决方案资料。"
+        description:
+          "按公司或产品线建立知识库，上传或手动录入真实资料，并设置资料类型、可信度、适用模块和审核状态。"
+      },
+      {
+        title: "审核售后资料",
+        description:
+          "售后资料按需配置可见部门，审核通过后再用于售后问答；待审核和已停用资料不能作为问答依据。"
       },
       {
         title: "建立指令模板",
@@ -117,10 +142,14 @@ export const sopSections: HelpSection[] = [
       {
         title: "查看 GEO 报表",
         description: "用 GEO 报表判断下一步补提示词、补知识库、补内容还是补覆盖记录。"
+      },
+      {
+        title: "复盘统计和日志",
+        description: "平台管理员或公司管理员查看使用统计和操作日志，复盘调用情况和关键操作。"
       }
     ],
     reminders: [
-      "推荐顺序：确认公司 -> 维护产品线 -> 建提示词 -> AI 拓词 -> 建知识库 -> 建指令模板 -> 创建内容任务 -> 录入模型覆盖记录 -> 查看报表。",
+      "推荐顺序：确认公司 -> 维护产品线 -> 建部门 -> 配置模块权限 -> 绑定用户部门 -> 建提示词 -> AI 拓词 -> 建知识库 -> 审核资料 -> 建指令模板 -> 创建内容任务 -> 使用售后问答 -> 录入模型覆盖记录 -> 查看报表。",
       "基础 seed 与演示 seed 已分离，clean 库从 0 搭建时不要写入演示 GEO 业务数据。",
       "不要在 clean 库上运行会写入的 API 测试。"
     ]
@@ -141,7 +170,7 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "确认知识库资料",
-        description: "检查关联产品线是否有足够事实资料支撑内容生成。"
+        description: "检查关联产品线是否有足够已整理、可信、可审核的事实资料支撑内容生成。"
       },
       {
         title: "选择指令模板",
@@ -207,6 +236,10 @@ export const sopSections: HelpSection[] = [
       "公司和产品线是基础；提示词定义用户问题；知识库提供事实；指令库定义方法；内容任务形成草稿；覆盖记录和报表用于复盘。",
     steps: [
       {
+        title: "部门和角色",
+        description: "部门控制能否进入模块，角色控制写入权限；查看者仍然只读。"
+      },
+      {
         title: "公司 / 产品线",
         description: "决定业务数据归属和报表观察范围，是从 0 搭建正式数据的第一步。"
       },
@@ -220,7 +253,8 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "知识库",
-        description: "作为事实底座，支撑内容生成和质量检查。"
+        description:
+          "作为事实底座，支撑内容生成、售后问答和质量检查；资料需维护类型、审核状态和可信度。"
       },
       {
         title: "指令库",
@@ -231,6 +265,14 @@ export const sopSections: HelpSection[] = [
         description: "把提示词、知识库和指令模板串起来，生成可审核内容草稿。"
       },
       {
+        title: "售后问答",
+        description: "面向内部人员，基于已通过售后资料和产品资料回答问题，并展示引用来源。"
+      },
+      {
+        title: "使用统计 / 操作日志",
+        description: "帮助管理员复盘 AI 调用、mock 使用、关键操作和异常排查。"
+      },
+      {
         title: "AI 模型覆盖记录 / GEO 报表",
         description: "记录模型表现并复盘下一步优化方向。"
       }
@@ -238,7 +280,114 @@ export const sopSections: HelpSection[] = [
     reminders: [
       "知识库是事实底座。",
       "项目档案只提供品牌和语气上下文，事实仍以知识库为准。",
-      "提示词、内容任务和报表都应围绕公司和产品线维护。"
+      "提示词、内容任务、售后问答和报表都应围绕公司、产品线和资料依据维护。"
+    ]
+  },
+  {
+    id: "knowledge-governance",
+    title: "知识库资料治理",
+    summary:
+      "知识库不只是文件库。资料需要标记类型、可信度、适用模块和审核状态，售后资料还可以限制可见部门。",
+    steps: [
+      {
+        title: "选择资料类型",
+        description:
+          "资料类型包括产品资料、售后资料、公司可信信息、内容引用资料、内部制度 / 流程资料和客户案例资料。"
+      },
+      {
+        title: "设置审核状态",
+        description: "新上传或手动录入资料可标为待审核、已通过或已停用；售后问答只使用已通过资料。"
+      },
+      {
+        title: "维护可信度和适用模块",
+        description: "按资料来源设置高、中、低可信度，并选择内部检索、GEO 内容生成、售后问答或 GEO 分析等适用模块。"
+      },
+      {
+        title: "配置售后资料可见部门",
+        description: "售后资料可以限制可见部门；普通用户只有在所属部门启用且被允许时才能访问。"
+      },
+      {
+        title: "上传或手动录入",
+        description: "支持 TXT、Markdown、CSV、Excel 和 Word；手动录入会生成资料记录和片段。"
+      },
+      {
+        title: "编辑片段",
+        description: "上传或录入后可编辑单个片段内容，让标题、正文和资料类型更清楚。"
+      }
+    ],
+    reminders: [
+      "PDF / OCR 后置，当前不要写成已支持能力。",
+      "本地 storagePath 不对前端展示。",
+      "待审核和已停用资料不能作为售后问答依据。"
+    ]
+  },
+  {
+    id: "aftersales-qa",
+    title: "售后问答",
+    summary:
+      "售后问答仅供内部使用，基于已通过售后资料和产品资料回答问题；有依据就显示引用，无依据就提示补资料或转人工确认。",
+    steps: [
+      {
+        title: "准备已通过资料",
+        description: "先在知识库中录入售后资料或产品资料，并确认审核状态为已通过。"
+      },
+      {
+        title: "配置售后资料部门",
+        description: "售后资料按需配置可见部门；无权限或部门停用的普通用户不能读取。"
+      },
+      {
+        title: "内部提问",
+        description: "在 /aftersales-qa 输入售后问题，系统优先查售后资料，没有命中时再用产品资料兜底。"
+      },
+      {
+        title: "查看引用来源",
+        description: "引用来源会显示知识库、文件、片段、资料类型和片段摘要。"
+      },
+      {
+        title: "处理无依据回答",
+        description:
+          "如果提示“知识库中未找到可靠依据，建议补充资料或转人工确认。”，不要把一般排查方向当作确定答案。"
+      },
+      {
+        title: "查看历史记录",
+        description: "运营人员和查看者只能看自己的记录，管理员可以看本公司全部记录。"
+      }
+    ],
+    reminders: [
+      "售后问答不是客户开放版。",
+      "不能当万能聊天机器人使用。",
+      "不会引用公司可信信息、内容引用资料、内部制度 / 流程资料或客户案例资料作为售后答案依据。"
+    ]
+  },
+  {
+    id: "usage-audit",
+    title: "使用统计与操作日志",
+    summary:
+      "使用统计和操作日志面向平台管理员、公司管理员，用于查看调用规模、mock 使用和关键操作，不做额度限制或成本扣费。",
+    steps: [
+      {
+        title: "查看使用统计",
+        description: "在 /usage-analytics 查看总量、用户、部门、模块和时间趋势；mock / stub 调用 token 记为 0。"
+      },
+      {
+        title: "查看操作日志",
+        description:
+          "在 /operation-logs 查询登录、部门、知识库、内容生成、拓词、模型覆盖、报表导出和售后问答等关键动作。"
+      },
+      {
+        title: "按条件筛选",
+        description: "按模块、动作、用户、部门、时间和成功 / 失败筛选，定位问题来源。"
+      },
+      {
+        title: "保护敏感信息",
+        description:
+          "日志不记录密码、JWT、API Key、数据库连接串、本地路径、完整 prompt 或完整 AI 原文。"
+      }
+    ],
+    reminders: [
+      "第一版只给平台管理员和公司管理员查看全局统计与日志。",
+      "第一版不做 token 额度限制，也不做成本扣费。",
+      "统计和日志用于审计与排查，不替代业务审核。"
     ]
   },
   {
@@ -258,11 +407,17 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "运营人员",
-        description: "日常维护提示词、知识库、指令模板、GEO 内容任务、AI 模型覆盖记录和报表复盘。"
+        description:
+          "日常维护提示词、知识库、售后问答、指令模板、GEO 内容任务、AI 模型覆盖记录和报表复盘。"
       },
       {
         title: "查看者",
         description: "主要用于只读、演示和临时查看，不参与日常维护。"
+      },
+      {
+        title: "部门管理",
+        description:
+          "支持部门新增、编辑、停用和模块访问权限配置；平台管理员和公司管理员不会被部门权限锁死。"
       },
       {
         title: "公司管理",
@@ -276,7 +431,7 @@ export const sopSections: HelpSection[] = [
     reminders: [
       "用户建议禁用，不建议物理删除。",
       "公司 / 产品线建议启用或停用，不建议物理删除。",
-      "查看者不是核心日常角色。"
+      "查看者不是核心日常角色，且仍然只读。"
     ]
   },
   {
@@ -298,7 +453,8 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "知识库 / 文件 / 片段",
-        description: "可软删除，适合处理错误、过期、测试或不应再引用的资料。"
+        description:
+          "可软删除，适合处理错误、过期、测试或不应再引用的资料；资料也可以通过审核状态停用。"
       },
       {
         title: "指令模板",
@@ -337,6 +493,18 @@ export const sopSections: HelpSection[] = [
         description: "需要单独配置；普通用户教程不写 API Key、token 或部署细节。"
       },
       {
+        title: "售后问答",
+        description: "当前只面向内部人员，不做客户开放版，不做自由聊天机器人，也不做自动纠错写入知识库。"
+      },
+      {
+        title: "资料解析和额度",
+        description: "PDF / OCR、token 额度限制和成本扣费属于后续能力。"
+      },
+      {
+        title: "权限管理边界",
+        description: "company_admin 暂不支持管理本公司用户；查看统计和日志仅限管理员。"
+      },
+      {
         title: "clean 库",
         description: "用于从 0 搭建正式数据，不要运行会写入的 API 测试，也不要写入演示 seed 数据。"
       },
@@ -353,7 +521,8 @@ export const sopSections: HelpSection[] = [
     pendingNotes: [
       "后续能力：AI 拓词历史清理。",
       "后续能力：AI 模型覆盖记录编辑 / 作废。",
-      "后续能力：外部 AI 自动检测和发布记录模块。"
+      "后续能力：外部 AI 自动检测和发布记录模块。",
+      "后续能力：客户开放版售后问答、反馈中心、PDF / OCR、token 额度限制。"
     ]
   }
 ];
@@ -370,10 +539,34 @@ export const versionNotes: VersionNote[] = [
   {
     name: "基础管理能力",
     capabilities: [
-      "公司管理支持新增、编辑、启用 / 停用；产品线管理支持新增、编辑、启用 / 停用；用户管理支持角色和状态维护。"
+      "公司管理支持新增、编辑、启用 / 停用；产品线管理支持新增、编辑、启用 / 停用；部门管理支持新增、编辑、停用和模块访问权限配置；用户管理支持角色、状态和部门绑定维护。"
     ],
-    usage: "适合从 clean 库搭建正式公司、产品线和账号权限。",
-    notes: "产品线暂不支持说明字段；用户建议禁用，不建议物理删除。"
+    usage: "适合从 clean 库搭建正式公司、产品线、部门和账号权限。",
+    notes: "部门控制模块进入，角色控制写入权限；company_admin 暂不支持管理本公司用户。"
+  },
+  {
+    name: "知识库资料治理",
+    capabilities: [
+      "知识库资料支持资料类型、审核状态、可信度、适用模块、售后资料可见部门、文件上传、手动录入和片段编辑。"
+    ],
+    usage: "适合把企业资料从普通文件库升级为可引用、可审核、可用于售后问答的事实底座。",
+    notes: "支持 TXT、Markdown、CSV、Excel、Word；PDF / OCR 后置；storagePath 不对前端展示。"
+  },
+  {
+    name: "售后问答",
+    capabilities: [
+      "售后问答基于已通过售后资料优先回答，未命中时用已通过产品资料兜底，并显示知识库、文件、片段和资料类型引用。"
+    ],
+    usage: "适合内部售后人员查询已有资料依据，无法找到可靠依据时提示补资料或转人工确认。",
+    notes: "不是客户开放版，不是万能聊天机器人；运营人员和查看者只能看自己的问答记录。"
+  },
+  {
+    name: "使用统计与操作日志",
+    capabilities: [
+      "使用统计展示 AI / mock / stub 调用总量、用户、部门、模块和趋势；操作日志记录关键业务动作摘要。"
+    ],
+    usage: "适合平台管理员和公司管理员做审计、复盘和问题排查。",
+    notes: "mock / stub token 记为 0；第一版不做额度限制和成本扣费，不记录敏感信息。"
   },
   {
     name: "任务归档能力",

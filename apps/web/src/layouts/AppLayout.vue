@@ -79,6 +79,10 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "知识库",
     subtitle: "管理产品资料、FAQ 和知识片段"
   },
+  "/aftersales-qa": {
+    title: "售后问答",
+    subtitle: "内部售后问题、依据引用和无依据提示"
+  },
   "/instruction-templates": {
     title: "指令库",
     subtitle: "管理内容生成模板和规则"
@@ -103,9 +107,21 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "GEO 报表",
     subtitle: "查看覆盖、命中和优化建议"
   },
+  "/usage-analytics": {
+    title: "使用统计",
+    subtitle: "查看 AI 调用、token 和 mock 使用"
+  },
+  "/operation-logs": {
+    title: "操作日志",
+    subtitle: "查看关键业务动作和失败摘要"
+  },
   "/users": {
     title: "用户管理",
     subtitle: "管理系统账号、所属公司与角色"
+  },
+  "/departments": {
+    title: "部门管理",
+    subtitle: "配置部门和模块进入权限"
   },
   "/settings": {
     title: "系统设置",
@@ -139,13 +155,23 @@ const navigationGroups = [
   {
     label: "知识与内容资产",
     items: navigationItems.filter((item) =>
-      ["/knowledge-bases", "/instruction-templates", "/geo-content"].includes(item.path)
+      ["/knowledge-bases", "/aftersales-qa", "/instruction-templates", "/geo-content"].includes(
+        item.path
+      )
     )
   },
   {
     label: "复盘与配置",
     items: navigationItems.filter((item) =>
-      ["/model-inclusion-records", "/geo-reports", "/users", "/settings"].includes(item.path)
+      [
+        "/model-inclusion-records",
+        "/geo-reports",
+        "/usage-analytics",
+        "/operation-logs",
+        "/users",
+        "/departments",
+        "/settings"
+      ].includes(item.path)
     )
   },
   {
@@ -160,7 +186,14 @@ const visibleNavigationGroups = computed(() => {
   return navigationGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => canAccessRoute(item.path, role, item.allowedRoles))
+      items: group.items.filter((item) =>
+        canAccessRoute(
+          item.path,
+          role,
+          item.allowedRoles,
+          authStore.currentCompany?.accessibleModules
+        )
+      )
     }))
     .filter((group) => group.items.length > 0);
 });
