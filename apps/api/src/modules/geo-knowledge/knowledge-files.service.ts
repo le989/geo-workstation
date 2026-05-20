@@ -6,6 +6,7 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import {
+  DepartmentStatus,
   KnowledgeMaterialType,
   KnowledgeReviewStatus,
   KnowledgeTrustLevel,
@@ -933,8 +934,11 @@ export class KnowledgeFilesService {
     );
 
     if (departmentIds.length === 0) {
-      if (context && !this.isAdminBypass(context) && context.currentMembership?.departmentId) {
-        return [context.currentMembership.departmentId];
+      const activeDepartmentId =
+        context && !this.isAdminBypass(context) ? this.getActiveDepartmentId(context) : undefined;
+
+      if (activeDepartmentId) {
+        return [activeDepartmentId];
       }
 
       return [];
@@ -968,7 +972,7 @@ export class KnowledgeFilesService {
       return undefined;
     }
 
-    const departmentId = context.currentMembership?.departmentId;
+    const departmentId = this.getActiveDepartmentId(context);
 
     return {
       OR: [
@@ -1011,11 +1015,25 @@ export class KnowledgeFilesService {
       return true;
     }
 
-    const departmentId = context.currentMembership?.departmentId;
+    const departmentId = this.getActiveDepartmentId(context);
 
     return Boolean(
       departmentId && this.jsonStringArrayToArray(knowledgeFile.allowedDepartmentIds).includes(departmentId)
     );
+  }
+
+  private getActiveDepartmentId(context: ResourceAccessContext): string | undefined {
+    const department = context.currentCompany.department;
+
+    if (
+      !department ||
+      department.status !== DepartmentStatus.active ||
+      context.currentMembership?.departmentId !== department.id
+    ) {
+      return undefined;
+    }
+
+    return department.id;
   }
 
   private isAdminBypass(context: ResourceAccessContext): boolean {

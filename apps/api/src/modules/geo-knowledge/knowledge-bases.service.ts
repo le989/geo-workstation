@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  DepartmentStatus,
   KnowledgeMaterialType,
   Prisma,
   UserRole,
@@ -589,7 +590,7 @@ export class KnowledgeBasesService {
   private buildAfterSalesFileAccessWhere(
     context: ResourceAccessContext
   ): Prisma.KnowledgeFileWhereInput {
-    const departmentId = context.currentMembership?.departmentId;
+    const departmentId = this.getActiveDepartmentId(context);
 
     return {
       OR: [
@@ -615,12 +616,22 @@ export class KnowledgeBasesService {
   private buildAfterSalesChunkAccessWhere(
     context: ResourceAccessContext
   ): Prisma.KnowledgeChunkWhereInput {
-    const departmentId = context.currentMembership?.departmentId;
+    const departmentId = this.getActiveDepartmentId(context);
 
     return {
       OR: [
         {
-          fileId: null
+          fileId: null,
+          OR: [
+            {
+              materialType: null
+            },
+            {
+              materialType: {
+                not: KnowledgeMaterialType.aftersales_material
+              }
+            }
+          ]
         },
         {
           file: {
@@ -648,6 +659,20 @@ export class KnowledgeBasesService {
   private isAdminBypass(context: ResourceAccessContext): boolean {
     const role = getEffectiveRole(context);
     return role === "platform_admin" || role === "company_admin";
+  }
+
+  private getActiveDepartmentId(context: ResourceAccessContext): string | undefined {
+    const department = context.currentCompany.department;
+
+    if (
+      !department ||
+      department.status !== DepartmentStatus.active ||
+      context.currentMembership?.departmentId !== department.id
+    ) {
+      return undefined;
+    }
+
+    return department.id;
   }
 
   private async resolveCreatedById(createdBy?: string): Promise<string> {

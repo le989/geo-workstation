@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  DepartmentStatus,
   KnowledgeMaterialType,
   Prisma,
   type KnowledgeBase,
@@ -275,12 +276,22 @@ export class KnowledgeChunksService {
       return undefined;
     }
 
-    const departmentId = context.currentMembership?.departmentId;
+    const departmentId = this.getActiveDepartmentId(context);
 
     return {
       OR: [
         {
-          fileId: null
+          fileId: null,
+          OR: [
+            {
+              materialType: null
+            },
+            {
+              materialType: {
+                not: KnowledgeMaterialType.aftersales_material
+              }
+            }
+          ]
         },
         {
           file: {
@@ -317,7 +328,11 @@ export class KnowledgeChunksService {
       return false;
     }
 
-    if (!chunk.file || chunk.file.materialType !== KnowledgeMaterialType.aftersales_material) {
+    if (!chunk.file) {
+      return chunk.materialType !== KnowledgeMaterialType.aftersales_material;
+    }
+
+    if (chunk.file.materialType !== KnowledgeMaterialType.aftersales_material) {
       return true;
     }
 
@@ -325,11 +340,25 @@ export class KnowledgeChunksService {
       return true;
     }
 
-    const departmentId = context.currentMembership?.departmentId;
+    const departmentId = this.getActiveDepartmentId(context);
 
     return Boolean(
       departmentId && this.jsonStringArrayToArray(chunk.file.allowedDepartmentIds).includes(departmentId)
     );
+  }
+
+  private getActiveDepartmentId(context: ResourceAccessContext): string | undefined {
+    const department = context.currentCompany.department;
+
+    if (
+      !department ||
+      department.status !== DepartmentStatus.active ||
+      context.currentMembership?.departmentId !== department.id
+    ) {
+      return undefined;
+    }
+
+    return department.id;
   }
 
   private isAdminBypass(context: ResourceAccessContext): boolean {

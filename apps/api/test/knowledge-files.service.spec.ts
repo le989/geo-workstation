@@ -614,6 +614,103 @@ describe("KnowledgeFilesService", () => {
     expect(blockedChunks.items.some((chunk) => chunk.fileId === aftersales.knowledgeFile.id)).toBe(
       false
     );
+
+    const legacyAftersalesChunk = await prisma.knowledgeChunk.create({
+      data: {
+        companyId: companyA.id,
+        knowledgeBaseId: companyBase.id,
+        title: `旧文本导入售后片段 ${runId}`,
+        content: "旧 text-import API 产生的售后资料片段也不能绕过部门限制。",
+        sourceType: "pasted_text",
+        materialType: KnowledgeMaterialType.aftersales_material
+      }
+    });
+    const allowedChunksAfterLegacy = await knowledgeChunksService.findMany(
+      companyBase.id,
+      {},
+      allowedOperatorContext
+    );
+    const allowedDetailAfterLegacy = await knowledgeBasesService.getDetail(
+      companyBase.id,
+      allowedOperatorContext
+    );
+    expect(
+      allowedChunksAfterLegacy.items.some((chunk) => chunk.id === legacyAftersalesChunk.id)
+    ).toBe(false);
+    expect(
+      allowedDetailAfterLegacy.latestChunks.some((chunk) => chunk.id === legacyAftersalesChunk.id)
+    ).toBe(false);
+    expect(allowedDetailAfterLegacy.chunksCount).toBe(1);
+    await expect(
+      knowledgeChunksService.update(
+        legacyAftersalesChunk.id,
+        {
+          content: "旧无文件售后片段不能被普通用户通过编辑接口访问。"
+        },
+        allowedOperatorContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const inactiveAllowedDepartment = await prisma.department.update({
+      where: {
+        id: allowedDepartment.id
+      },
+      data: {
+        status: DepartmentStatus.inactive
+      }
+    });
+    const inactiveAllowedOperatorContext = contextFor(
+      operatorA,
+      companyA,
+      MembershipRole.operator,
+      false,
+      inactiveAllowedDepartment
+    );
+
+    await expect(
+      knowledgeFilesService.getDetail(aftersales.knowledgeFile.id, inactiveAllowedOperatorContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      knowledgeChunksService.update(
+        aftersales.createdChunks[0].id,
+        {
+          content: "停用部门成员不应能通过片段编辑继续访问售后资料。"
+        },
+        inactiveAllowedOperatorContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      knowledgeFilesService.updateMetadata(
+        aftersales.knowledgeFile.id,
+        {
+          title: "停用部门成员不应能更新售后资料元信息"
+        },
+        inactiveAllowedOperatorContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const inactiveFiles = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        materialType: KnowledgeMaterialType.aftersales_material
+      },
+      inactiveAllowedOperatorContext
+    );
+    const inactiveChunks = await knowledgeChunksService.findMany(
+      companyBase.id,
+      {},
+      inactiveAllowedOperatorContext
+    );
+    const inactiveDetail = await knowledgeBasesService.getDetail(
+      companyBase.id,
+      inactiveAllowedOperatorContext
+    );
+    expect(inactiveFiles.total).toBe(0);
+    expect(inactiveChunks.items.some((chunk) => chunk.fileId === aftersales.knowledgeFile.id)).toBe(
+      false
+    );
+    expect(inactiveDetail.filesCount).toBe(0);
+    expect(inactiveDetail.chunksCount).toBe(0);
   });
 
   it("keeps operator-created materials pending and prevents viewer writes", async () => {
