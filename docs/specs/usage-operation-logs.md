@@ -28,6 +28,7 @@ USAGE-1 新增两类独立记录：
 ## Token 规则
 
 - mock / stub：`requestCount=1`，`promptTokens=0`，`completionTokens=0`，`totalTokens=0`。
+- 当前接入点写入的 `AiUsageRecord.requestCount` 第一版固定为 `1`。
 - 真实 Provider：预留 `provider`、`model`、token 字段；本阶段不新增真实 Provider 接入。
 - 调用失败也记录，`success=false`，`errorMessage` 只保留简短错误摘要。
 - 不记录完整 prompt 原文，也不记录大段 AI 原始回答。

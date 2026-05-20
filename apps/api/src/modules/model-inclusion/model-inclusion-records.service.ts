@@ -576,7 +576,7 @@ export class ModelInclusionRecordsService {
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
-          requestCount: createdItems.length,
+          requestCount: 1,
           success: true,
           metadata: {
             successCount: createdItems.length,
@@ -598,7 +598,7 @@ export class ModelInclusionRecordsService {
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
-          requestCount: failedItems.length,
+          requestCount: 1,
           success: false,
           errorMessage: failedItems[0]?.errorMessage,
           metadata: {

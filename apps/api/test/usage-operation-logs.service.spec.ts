@@ -159,6 +159,19 @@ describe("Usage and operation logs services", () => {
     );
     await aiUsageService.recordUsage(
       {
+        moduleKey: "geo-content",
+        action: "content_generate",
+        provider: "stub",
+        model: "stub-content-v1",
+        promptTokens: 60,
+        completionTokens: 40,
+        requestCount: 1,
+        success: true
+      },
+      adminContext
+    );
+    await aiUsageService.recordUsage(
+      {
         companyId: companyB.id,
         moduleKey: "geo-content",
         action: "content_generate",
@@ -176,17 +189,17 @@ describe("Usage and operation logs services", () => {
     const byDepartment = await aiUsageService.queryByDepartment({}, adminContext);
 
     expect(summary).toMatchObject({
-      totalRequests: 1,
+      totalRequests: 2,
       totalTokens: 0,
-      mockRequests: 1,
+      mockRequests: 2,
       realRequests: 0,
-      successCount: 1,
+      successCount: 2,
       failureCount: 0
     });
     expect(byModule.items).toEqual([
       expect.objectContaining({
         moduleKey: "geo-content",
-        totalRequests: 1,
+        totalRequests: 2,
         totalTokens: 0
       })
     ]);
@@ -194,15 +207,47 @@ describe("Usage and operation logs services", () => {
       expect.objectContaining({
         userId: companyAdminA.id,
         userName: companyAdminA.name,
-        totalRequests: 1
+        totalRequests: 2
       })
     ]);
     expect(byDepartment.items).toEqual([
       expect.objectContaining({
         departmentId: departmentA.id,
         departmentName: departmentA.name,
-        totalRequests: 1
+        totalRequests: 2
       })
+    ]);
+    const records = await aiUsageService.queryRecords(
+      {
+        moduleKey: "geo-content",
+        action: "content_generate"
+      },
+      adminContext
+    );
+    expect(records.items).toHaveLength(2);
+    expect(
+      records.items.map((item) => ({
+        isMock: item.isMock,
+        promptTokens: item.promptTokens,
+        completionTokens: item.completionTokens,
+        totalTokens: item.totalTokens,
+        requestCount: item.requestCount
+      }))
+    ).toEqual([
+      {
+        isMock: true,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        requestCount: 1
+      },
+      {
+        isMock: true,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        requestCount: 1
+      }
     ]);
     await expect(
       aiUsageService.querySummary({}, contextFor(operatorA, MembershipRole.operator))
@@ -262,5 +307,40 @@ describe("Usage and operation logs services", () => {
     await expect(
       operationLogsService.queryLogs({}, contextFor(viewerA, MembershipRole.viewer))
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("redacts sensitive strings from operation error summaries", async () => {
+    const adminContext = contextFor(companyAdminA, MembershipRole.company_admin);
+
+    await operationLogsService.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "export",
+        targetType: "content_item",
+        targetId: "content-sensitive-error",
+        success: false,
+        errorMessage:
+          "provider rejected API key sk-test-sensitive-value with DATABASE_URL=postgresql://user:pass@localhost:5432/private and bearer token Bearer abc.def.ghi"
+      },
+      adminContext
+    );
+
+    const logs = await operationLogsService.queryLogs(
+      {
+        moduleKey: "geo-content",
+        action: "export",
+        success: false
+      },
+      adminContext
+    );
+    const errorMessage = logs.items.find(
+      (item) => item.targetId === "content-sensitive-error"
+    )?.errorMessage;
+
+    expect(errorMessage).toBeTruthy();
+    expect(errorMessage).not.toContain("sk-test-sensitive-value");
+    expect(errorMessage).not.toContain("postgresql://");
+    expect(errorMessage).not.toContain("abc.def.ghi");
+    expect(errorMessage).toContain("[REDACTED");
   });
 });
