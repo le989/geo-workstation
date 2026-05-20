@@ -8,14 +8,17 @@ import {
   getAftersalesConversation,
   getAftersalesConversations,
   updateAftersalesConversation,
+  updateAftersalesConversationStatus,
   type AftersalesAnswerStatus,
   type AftersalesCitedSource,
   type AftersalesConversation,
+  type AftersalesConversationStatus,
   type AftersalesQuestionRecord
 } from "@/api/aftersales-qa";
 import AppErrorState from "@/components/AppErrorState.vue";
 import { materialTypeLabelMap } from "@/config/knowledge-options";
 import { useAuthStore } from "@/stores/auth";
+import { normalizeRole } from "@/utils/permission";
 import type { KnowledgeMaterialType } from "@/api/knowledge";
 
 type ChatMessage = {
@@ -50,6 +53,12 @@ const conversations = ref<AftersalesConversation[]>([]);
 const activeConversation = ref<AftersalesConversation | null>(null);
 const records = ref<AftersalesQuestionRecord[]>([]);
 const keyword = ref("");
+const conversationStatus = ref<AftersalesConversationStatus | "all">("active");
+const conversationScope = ref<"mine" | "all">("mine");
+const conversationPage = ref(1);
+const conversationPageSize = 20;
+const conversationTotal = ref(0);
+const hasMoreConversations = ref(false);
 const question = ref("");
 const pendingQuestion = ref("");
 const loadingConversations = ref(false);
@@ -60,12 +69,35 @@ const errorMessage = ref("");
 const messageListRef = ref<HTMLElement | null>(null);
 
 const userName = computed(() => authStore.currentUser?.name ?? "我");
-const canSend = computed(() => question.value.trim().length >= 2 && !asking.value);
+const normalizedRole = computed(() =>
+  normalizeRole(authStore.currentRole ?? authStore.currentUser?.role)
+);
+const isAdmin = computed(() =>
+  ["platform_admin", "company_admin"].includes(normalizedRole.value)
+);
+const isActiveConversationArchived = computed(
+  () => activeConversation.value?.status === "archived"
+);
+const canSend = computed(
+  () => question.value.trim().length >= 2 && !asking.value && !isActiveConversationArchived.value
+);
 const conversationHint = computed(() =>
-  activeConversation.value
+  isActiveConversationArchived.value
+    ? "该会话已归档，恢复后可继续提问。"
+    : activeConversation.value
     ? "基于已通过售后资料优先回答，产品资料仅作兜底。"
     : "选择历史会话或新建会话后开始提问。"
 );
+const emptyConversationDescription = computed(() => {
+  if (keyword.value.trim()) {
+    return "没有找到相关会话，换个关键词试试。";
+  }
+  if (conversationStatus.value === "archived") {
+    return "暂无已归档会话。";
+  }
+
+  return "还没有售后对话，点击左上角新建会话开始提问。";
+});
 
 const messages = computed<ChatMessage[]>(() => {
   const items: ChatMessage[] = [];
@@ -122,28 +154,43 @@ const scrollToBottom = async () => {
   }
 };
 
-const loadConversations = async (keepActive = true) => {
+const loadConversations = async (options: { reset?: boolean; keepActive?: boolean } = {}) => {
+  const reset = options.reset ?? true;
+  const keepActive = options.keepActive ?? true;
+
+  if (reset) {
+    conversationPage.value = 1;
+  }
   loadingConversations.value = true;
   errorMessage.value = "";
 
   try {
     const result = await getAftersalesConversations({
       keyword: keyword.value.trim() || undefined,
-      page: 1,
-      pageSize: 50
+      status: conversationStatus.value,
+      scope: isAdmin.value ? conversationScope.value : "mine",
+      page: conversationPage.value,
+      pageSize: conversationPageSize
     });
-    conversations.value = result.items;
+    conversations.value = reset ? result.items : [...conversations.value, ...result.items];
+    conversationTotal.value = result.total;
+    hasMoreConversations.value = result.hasMore;
 
     if (keepActive && activeConversation.value) {
-      const refreshed = result.items.find((item) => item.id === activeConversation.value?.id);
+      const refreshed = conversations.value.find((item) => item.id === activeConversation.value?.id);
       if (refreshed) {
         activeConversation.value = refreshed;
         return;
       }
     }
 
-    if (!activeConversation.value && result.items.length > 0) {
-      await selectConversation(result.items[0]);
+    if (reset && (!activeConversation.value || !keepActive)) {
+      records.value = [];
+      activeConversation.value = null;
+    }
+
+    if (!activeConversation.value && conversations.value.length > 0) {
+      await selectConversation(conversations.value[0]);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "售后会话加载失败";
@@ -152,6 +199,21 @@ const loadConversations = async (keepActive = true) => {
   } finally {
     loadingConversations.value = false;
   }
+};
+
+const refreshConversationList = () => loadConversations({ reset: true, keepActive: true });
+
+const handleConversationFilterChange = async () => {
+  await loadConversations({ reset: true, keepActive: false });
+};
+
+const handleLoadMoreConversations = async () => {
+  if (!hasMoreConversations.value || loadingConversations.value) {
+    return;
+  }
+
+  conversationPage.value += 1;
+  await loadConversations({ reset: false, keepActive: true });
 };
 
 const selectConversation = async (conversation: AftersalesConversation) => {
@@ -231,11 +293,64 @@ const handleRenameConversation = async (conversation: AftersalesConversation) =>
   }
 };
 
+const handleUpdateConversationStatus = async (
+  conversation: AftersalesConversation,
+  status: AftersalesConversationStatus
+) => {
+  const isArchiving = status === "archived";
+
+  if (isArchiving) {
+    try {
+      await ElMessageBox.confirm(
+        "归档后默认列表不再显示，可在已归档中查看和恢复。",
+        "归档会话",
+        {
+          confirmButtonText: "归档",
+          cancelButtonText: "取消",
+          type: "warning"
+        }
+      );
+    } catch (error) {
+      if (error === "cancel" || error === "close") {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  try {
+    const updated = await updateAftersalesConversationStatus(conversation.id, { status });
+    ElMessage.success(isArchiving ? "会话已归档" : "会话已恢复");
+
+    if (activeConversation.value?.id === updated.id) {
+      activeConversation.value = updated;
+    }
+
+    if (isArchiving && conversationStatus.value === "active") {
+      if (activeConversation.value?.id === updated.id) {
+        activeConversation.value = null;
+        records.value = [];
+      }
+      await loadConversations({ reset: true, keepActive: false });
+      return;
+    }
+
+    await loadConversations({ reset: true, keepActive: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "会话状态更新失败";
+    ElMessage.error(message);
+  }
+};
+
 const handleAsk = async () => {
   const text = question.value.trim();
 
   if (text.length < 2) {
     ElMessage.warning("请输入售后问题");
+    return;
+  }
+  if (isActiveConversationArchived.value) {
+    ElMessage.warning("该会话已归档，恢复后可继续提问");
     return;
   }
 
@@ -271,7 +386,7 @@ const handleAsk = async () => {
       updatedAt: result.createdAt
     });
     pendingQuestion.value = "";
-    await loadConversations(true);
+    await loadConversations({ reset: true, keepActive: true });
 
     if (activeConversation.value) {
       const detail = await getAftersalesConversation(activeConversation.value.id);
@@ -291,6 +406,9 @@ const handleAsk = async () => {
 };
 
 onMounted(() => {
+  if (isAdmin.value) {
+    conversationScope.value = "all";
+  }
   void loadConversations();
 });
 </script>
@@ -317,11 +435,31 @@ onMounted(() => {
         :prefix-icon="Search"
         clearable
         placeholder="搜索会话标题"
-        @change="loadConversations(false)"
-        @clear="loadConversations(false)"
+        @change="handleConversationFilterChange"
+        @clear="handleConversationFilterChange"
       />
 
-      <AppErrorState v-if="errorMessage && conversations.length === 0" :message="errorMessage" @retry="loadConversations" />
+      <el-segmented
+        v-if="isAdmin"
+        v-model="conversationScope"
+        :options="[
+          { label: '我的会话', value: 'mine' },
+          { label: '全部会话', value: 'all' }
+        ]"
+        @change="handleConversationFilterChange"
+      />
+
+      <el-segmented
+        v-model="conversationStatus"
+        :options="[
+          { label: '进行中', value: 'active' },
+          { label: '已归档', value: 'archived' },
+          { label: '全部', value: 'all' }
+        ]"
+        @change="handleConversationFilterChange"
+      />
+
+      <AppErrorState v-if="errorMessage && conversations.length === 0" :message="errorMessage" @retry="refreshConversationList" />
 
       <el-scrollbar v-else v-loading="loadingConversations" class="conversation-list">
         <button
@@ -334,6 +472,15 @@ onMounted(() => {
         >
           <span class="conversation-title">{{ conversation.title || DEFAULT_CONVERSATION_TITLE }}</span>
           <small>{{ formatTime(conversation.lastMessageAt) }}</small>
+          <span class="conversation-meta">
+            <el-tag v-if="conversation.status === 'archived'" size="small" type="info" effect="plain">
+              已归档
+            </el-tag>
+            <span>{{ conversation.messageCount }} 轮</span>
+            <span v-if="isAdmin && conversationScope === 'all'">
+              {{ conversation.userName ?? "未知用户" }}
+            </span>
+          </span>
           <el-button
             class="rename-button"
             :icon="EditPen"
@@ -343,11 +490,41 @@ onMounted(() => {
           >
             重命名
           </el-button>
+          <el-button
+            v-if="conversation.status === 'active'"
+            class="archive-button"
+            link
+            type="warning"
+            @click.stop="handleUpdateConversationStatus(conversation, 'archived')"
+          >
+            归档
+          </el-button>
+          <el-button
+            v-else
+            class="archive-button"
+            link
+            type="success"
+            @click.stop="handleUpdateConversationStatus(conversation, 'active')"
+          >
+            恢复
+          </el-button>
         </button>
+
+        <div v-if="conversations.length > 0" class="load-more-row">
+          <el-button
+            v-if="hasMoreConversations"
+            :loading="loadingConversations"
+            plain
+            @click="handleLoadMoreConversations"
+          >
+            加载更多
+          </el-button>
+          <span v-else>没有更多会话</span>
+        </div>
 
         <el-empty
           v-if="!loadingConversations && conversations.length === 0"
-          description="暂无售后会话"
+          :description="emptyConversationDescription"
           :image-size="82"
         />
       </el-scrollbar>
@@ -359,9 +536,14 @@ onMounted(() => {
           <h2>{{ activeConversation?.title ?? "基于知识库的内部售后 AI 助手" }}</h2>
           <p>{{ conversationHint }}</p>
         </div>
-        <el-button :icon="Refresh" :disabled="!activeConversation" @click="activeConversation && selectConversation(activeConversation)">
-          刷新
-        </el-button>
+        <div class="chat-header__actions">
+          <el-tag v-if="activeConversation?.status === 'archived'" type="info" effect="plain">
+            已归档
+          </el-tag>
+          <el-button :icon="Refresh" :disabled="!activeConversation" @click="activeConversation && selectConversation(activeConversation)">
+            刷新
+          </el-button>
+        </div>
       </header>
 
       <section ref="messageListRef" v-loading="loadingDetail" class="message-list">
@@ -424,6 +606,13 @@ onMounted(() => {
       </section>
 
       <footer class="composer">
+        <el-alert
+          v-if="isActiveConversationArchived"
+          title="该会话已归档，恢复后可继续提问。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
         <el-input
           v-model="question"
           type="textarea"
@@ -431,6 +620,7 @@ onMounted(() => {
           maxlength="1000"
           show-word-limit
           resize="none"
+          :disabled="isActiveConversationArchived"
           placeholder="输入内部售后问题，例如：某型号无输出、现场不亮、接线异常等"
           @keydown.meta.enter.prevent="handleAsk"
           @keydown.ctrl.enter.prevent="handleAsk"
@@ -468,6 +658,7 @@ onMounted(() => {
 
 .sidebar-header,
 .chat-header,
+.chat-header__actions,
 .composer-actions,
 .source-title,
 .message-meta {
@@ -491,6 +682,7 @@ onMounted(() => {
 .sidebar-header span,
 .chat-header p,
 .conversation-item small,
+.conversation-meta,
 .composer-actions span,
 .source-item span,
 .message-meta span {
@@ -509,9 +701,9 @@ onMounted(() => {
   grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   width: 100%;
-  min-height: 72px;
+  min-height: 92px;
   margin-bottom: 8px;
-  padding: 12px;
+  padding: 12px 76px 12px 12px;
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--el-text-color-primary);
@@ -528,17 +720,37 @@ onMounted(() => {
 
 .conversation-title {
   display: block;
-  padding-right: 56px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.conversation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
 .rename-button {
   position: absolute;
   right: 10px;
   top: 10px;
+}
+
+.archive-button {
+  position: absolute;
+  right: 10px;
+  top: 42px;
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 
 .chat-main {

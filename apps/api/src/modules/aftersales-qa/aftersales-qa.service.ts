@@ -33,6 +33,7 @@ import type { CreateAftersalesConversationDto } from "./dto/create-aftersales-co
 import type { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
 import type { QueryAftersalesRecordsDto } from "./dto/query-aftersales-records.dto";
 import type { UpdateAftersalesConversationDto } from "./dto/update-aftersales-conversation.dto";
+import type { UpdateAftersalesConversationStatusDto } from "./dto/update-aftersales-conversation-status.dto";
 
 const AFTERSALES_MODULE_KEY = "aftersales-qa";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
@@ -116,6 +117,7 @@ export type AftersalesConversationResponse = {
   createdAt: Date;
   updatedAt: Date;
   lastMessageAt: Date;
+  messageCount: number;
 };
 
 export type AftersalesConversationListResponse = {
@@ -123,6 +125,7 @@ export type AftersalesConversationListResponse = {
   total: number;
   page: number;
   pageSize: number;
+  hasMore: boolean;
 };
 
 export type AftersalesConversationDetailResponse = {
@@ -198,7 +201,7 @@ export class AftersalesQaService {
   ): Promise<AftersalesConversationListResponse> {
     this.assertCanUseAftersalesQa(context);
     const page = Math.max(query.page ?? 1, 1);
-    const pageSize = Math.min(Math.max(query.pageSize ?? 20, 1), 100);
+    const pageSize = Math.min(Math.max(query.pageSize ?? 20, 1), 50);
     const where = this.buildConversationWhere(query, context);
     const [total, conversations] = await this.prisma.$transaction([
       this.prisma.aftersalesConversation.count({ where }),
@@ -210,7 +213,7 @@ export class AftersalesQaService {
             lastMessageAt: "desc"
           },
           {
-            createdAt: "desc"
+            updatedAt: "desc"
           }
         ],
         skip: (page - 1) * pageSize,
@@ -222,7 +225,8 @@ export class AftersalesQaService {
       items: conversations.map((conversation) => this.toConversationResponse(conversation)),
       total,
       page,
-      pageSize
+      pageSize,
+      hasMore: page * pageSize < total
     };
   }
 
@@ -285,6 +289,32 @@ export class AftersalesQaService {
     return this.toConversationResponse(conversation);
   }
 
+  async updateConversationStatus(
+    id: string,
+    input: UpdateAftersalesConversationStatusDto,
+    context: ResourceAccessContext
+  ): Promise<AftersalesConversationResponse> {
+    this.assertCanUseAftersalesQa(context);
+    const current = await this.findConversationForAccess(id, context);
+    const nextStatus =
+      input.status === "archived"
+        ? AftersalesConversationStatus.archived
+        : AftersalesConversationStatus.active;
+    const conversation = await this.prisma.aftersalesConversation.update({
+      where: {
+        id
+      },
+      data: {
+        status: nextStatus
+      },
+      include: this.conversationInclude()
+    });
+
+    await this.recordConversationStatusOperation(current, nextStatus, context);
+
+    return this.toConversationResponse(conversation);
+  }
+
   async askInConversation(
     id: string,
     input: AskAftersalesQuestionDto,
@@ -292,6 +322,11 @@ export class AftersalesQaService {
   ): Promise<AskAftersalesConversationResponse> {
     this.assertCanUseAftersalesQa(context);
     const conversation = await this.findConversationForAccess(id, context);
+
+    if (conversation.status !== AftersalesConversationStatus.active) {
+      throw new ForbiddenException("该会话已归档，恢复后可继续提问");
+    }
+
     const question = this.normalizeQuestion(input.question);
     const previousRecord = await this.prisma.aftersalesQuestionRecord.findFirst({
       where: {
@@ -788,15 +823,51 @@ export class AftersalesQaService {
     return aiUsageRecord;
   }
 
+  private async recordConversationStatusOperation(
+    conversation: AftersalesConversation,
+    nextStatus: AftersalesConversationStatus,
+    context: ResourceAccessContext
+  ): Promise<void> {
+    const action =
+      nextStatus === AftersalesConversationStatus.archived
+        ? "archive_conversation"
+        : "restore_conversation";
+
+    await this.operationLogsService?.recordOperation(
+      {
+        companyId: conversation.companyId,
+        userId: context.user.id,
+        departmentId: this.getContextDepartmentId(context),
+        moduleKey: AFTERSALES_MODULE_KEY,
+        action,
+        targetType: "aftersales_conversation",
+        targetId: conversation.id,
+        targetTitle: this.truncate(conversation.title, MAX_QUESTION_PREVIEW_LENGTH),
+        success: true,
+        metadata: {
+          conversationId: conversation.id,
+          fromStatus: conversation.status,
+          toStatus: nextStatus
+        }
+      },
+      context
+    );
+  }
+
   private buildConversationWhere(
     query: QueryAftersalesConversationsDto,
     context: ResourceAccessContext
   ): Prisma.AftersalesConversationWhereInput {
     const role = getEffectiveRole(context);
     const where: Prisma.AftersalesConversationWhereInput = {
-      companyId: getCurrentCompanyId(context),
-      status: AftersalesConversationStatus.active
+      companyId: getCurrentCompanyId(context)
     };
+
+    if (!query.status || query.status === "active") {
+      where.status = AftersalesConversationStatus.active;
+    } else if (query.status === "archived") {
+      where.status = AftersalesConversationStatus.archived;
+    }
 
     if (query.keyword) {
       where.title = {
@@ -806,7 +877,7 @@ export class AftersalesQaService {
     }
 
     if (role === "platform_admin" || role === "company_admin") {
-      if (query.mineOnly) {
+      if (query.scope === "mine" || query.mineOnly) {
         where.userId = context.user.id;
       }
     } else {
@@ -828,8 +899,7 @@ export class AftersalesQaService {
     const role = getEffectiveRole(context);
     const where: Prisma.AftersalesConversationWhereInput = {
       id,
-      companyId: getCurrentCompanyId(context),
-      status: AftersalesConversationStatus.active
+      companyId: getCurrentCompanyId(context)
     };
 
     if (role !== "platform_admin" && role !== "company_admin") {
@@ -858,6 +928,11 @@ export class AftersalesQaService {
       department: {
         select: {
           name: true
+        }
+      },
+      _count: {
+        select: {
+          records: true
         }
       }
     } satisfies Prisma.AftersalesConversationInclude;
@@ -1110,6 +1185,7 @@ export class AftersalesQaService {
     conversation: AftersalesConversation & {
       user?: { name: string } | null;
       department?: { name: string } | null;
+      _count?: { records: number };
     }
   ): AftersalesConversationResponse {
     return {
@@ -1123,7 +1199,8 @@ export class AftersalesQaService {
       status: conversation.status,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
-      lastMessageAt: conversation.lastMessageAt
+      lastMessageAt: conversation.lastMessageAt,
+      messageCount: conversation._count?.records ?? 0
     };
   }
 

@@ -4,6 +4,8 @@
 
 AQA-CHAT-1 保留 `/aftersales-qa` 入口，将售后问答升级为内部售后 AI 对话助手。页面左侧为历史会话，右侧为对话窗口，支持新建会话、第一条问题自动生成标题、会话重命名、连续追问和每条回答下方的引用来源折叠展示。
 
+AQA-CHAT-1-UX 在此基础上补齐会话管理体验：会话搜索、进行中 / 已归档 / 全部筛选、管理员“我的会话 / 全部会话”切换、加载更多、会话归档和恢复。归档不做物理删除，已归档会话默认只读，恢复后可继续提问。
+
 会话由 `AftersalesConversation` 保存，一轮“用户问题 + AI 回答”仍复用 `AftersalesQuestionRecord` 保存。旧记录可以没有 `conversationId`，旧 `/api/aftersales-qa/records` 和 `/records/:id` 继续保留兼容。
 
 ## 会话模型
@@ -19,6 +21,11 @@ AQA-CHAT-1 保留 `/aftersales-qa` 入口，将售后问答升级为内部售后
 - `createdAt`
 - `updatedAt`
 
+`status` 使用现有枚举：
+
+- `active`：进行中，默认列表显示
+- `archived`：已归档，可筛选查看和恢复
+
 `AftersalesQuestionRecord` 增加：
 
 - `conversationId`：可为空，兼容旧记录
@@ -32,12 +39,24 @@ AQA-CHAT-1 保留 `/aftersales-qa` 入口，将售后问答升级为内部售后
 - `POST /api/aftersales-qa/conversations`
 - `GET /api/aftersales-qa/conversations/:id`
 - `PATCH /api/aftersales-qa/conversations/:id`
+- `PATCH /api/aftersales-qa/conversations/:id/status`
 - `POST /api/aftersales-qa/conversations/:id/ask`
+
+会话列表支持：
+
+- `page` / `pageSize`
+- `keyword`：第一版搜索会话标题
+- `status`：`active` / `archived` / `all`
+- `scope`：`mine` / `all`
+
+默认只返回 `active` 会话，按 `lastMessageAt desc`、`updatedAt desc` 排序，并返回 `total` 与 `hasMore` 供左侧加载更多使用。
 
 权限策略：
 
 - `platform_admin` / `company_admin` 可查看本公司全部会话和记录。
 - `operator` / `viewer` 只能查看自己的会话和记录。
+- `operator` / `viewer` 即使传 `scope=all`，也只能查看自己的会话。
+- 会话归档 / 恢复遵守同样的归属和 `companyId` 隔离。
 - 所有查询和提问均受 `companyId` 隔离与 `aftersales-qa` 模块访问权限限制。
 
 ## 检索范围
@@ -126,6 +145,13 @@ AQA-CHAT-1 保留 `/aftersales-qa` 入口，将售后问答升级为内部售后
 
 日志不保存完整资料正文、大段 AI 原始回答、`storagePath`、本地绝对路径、密码、JWT、API Key 或 `DATABASE_URL`。日志写入失败不应拖垮主问答流程。
 
+会话归档 / 恢复也写入 `OperationLog`：
+
+- `action = archive_conversation` 或 `restore_conversation`
+- `targetType = aftersales_conversation`
+- `targetId = conversationId`
+- metadata 只保存状态变化摘要
+
 ## 第一阶段不做什么
 
 - 不做回答有误按钮
@@ -133,6 +159,7 @@ AQA-CHAT-1 保留 `/aftersales-qa` 入口，将售后问答升级为内部售后
 - 不做反馈待处理列表
 - 不做转知识库待审核草稿
 - 不做 Markdown 导出
+- 不做物理删除会话
 - 不做图片或文件上传提问
 - 不接真实 AI Provider
 - 不做客户开放版

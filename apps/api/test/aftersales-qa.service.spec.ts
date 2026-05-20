@@ -682,4 +682,192 @@ describe("AftersalesQaService", () => {
     });
     expect(JSON.stringify(operation.metadata)).not.toContain("storagePath");
   });
+
+  it("filters conversations by status, keyword, scope, and pagination metadata", async () => {
+    const context = contextFor(allowedOperator, MembershipRole.operator);
+    const keyword = `UX ${runId}`;
+    const activeOne = await service.createConversation({ title: `${keyword} Active LD30 会话` }, context);
+    const activeTwo = await service.createConversation({ title: `${keyword} Active E77 会话` }, context);
+    const archived = await service.createConversation({ title: `${keyword} Archived LD30 会话` }, context);
+    await prisma.aftersalesConversation.update({
+      where: {
+        id: archived.id
+      },
+      data: {
+        status: "archived"
+      }
+    });
+
+    const defaultList = await service.findConversations(
+      {
+        keyword,
+        page: 1,
+        pageSize: 10
+      },
+      context
+    );
+    const archivedList = await service.findConversations(
+      {
+        keyword,
+        status: "archived",
+        page: 1,
+        pageSize: 10
+      },
+      context
+    );
+    const allFirstPage = await service.findConversations(
+      {
+        keyword,
+        status: "all",
+        page: 1,
+        pageSize: 2
+      },
+      context
+    );
+
+    expect(defaultList.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([activeOne.id, activeTwo.id])
+    );
+    expect(defaultList.items.some((item) => item.id === archived.id)).toBe(false);
+    expect(archivedList.items.map((item) => item.id)).toEqual([archived.id]);
+    expect(allFirstPage.total).toBeGreaterThanOrEqual(3);
+    expect(allFirstPage.items).toHaveLength(2);
+    expect(allFirstPage.hasMore).toBe(true);
+    expect(allFirstPage.items.every((item) => typeof item.messageCount === "number")).toBe(true);
+  });
+
+  it("lets admins switch all and mine scope while regular users remain scoped to themselves", async () => {
+    const operatorContext = contextFor(allowedOperator, MembershipRole.operator);
+    const viewerContext = contextFor(viewer, MembershipRole.viewer);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const keyword = `UX Scope ${runId}`;
+    const operatorConversation = await service.createConversation(
+      { title: `${keyword} Operator 会话` },
+      operatorContext
+    );
+    const viewerConversation = await service.createConversation(
+      { title: `${keyword} Viewer 会话` },
+      viewerContext
+    );
+
+    const adminAll = await service.findConversations(
+      {
+        keyword,
+        scope: "all"
+      },
+      adminContext
+    );
+    const adminMine = await service.findConversations(
+      {
+        keyword,
+        scope: "mine"
+      },
+      adminContext
+    );
+    const operatorAllAttempt = await service.findConversations(
+      {
+        keyword,
+        scope: "all"
+      },
+      operatorContext
+    );
+
+    expect(adminAll.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([operatorConversation.id, viewerConversation.id])
+    );
+    expect(adminMine.items.some((item) => item.id === operatorConversation.id)).toBe(false);
+    expect(operatorAllAttempt.items.map((item) => item.id)).toContain(operatorConversation.id);
+    expect(operatorAllAttempt.items.some((item) => item.id === viewerConversation.id)).toBe(false);
+  });
+
+  it("archives and restores conversations with permission checks and operation logs", async () => {
+    const operatorContext = contextFor(allowedOperator, MembershipRole.operator);
+    const viewerContext = contextFor(viewer, MembershipRole.viewer);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const otherCompanyContext = contextFor(otherCompanyAdmin, MembershipRole.company_admin, {
+      company: companyB,
+      department: null
+    });
+    const conversation = await service.createConversation(
+      { title: "UX Archive 权限会话" },
+      operatorContext
+    );
+
+    await expect(
+      service.updateConversationStatus(conversation.id, { status: "archived" }, viewerContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.updateConversationStatus(conversation.id, { status: "archived" }, otherCompanyContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const archived = await service.updateConversationStatus(
+      conversation.id,
+      {
+        status: "archived"
+      },
+      adminContext
+    );
+    const restored = await service.updateConversationStatus(
+      conversation.id,
+      {
+        status: "active"
+      },
+      operatorContext
+    );
+
+    expect(archived.status).toBe("archived");
+    expect(restored.status).toBe("active");
+
+    const logs = await prisma.operationLog.findMany({
+      where: {
+        targetType: "aftersales_conversation",
+        targetId: conversation.id
+      },
+      orderBy: {
+        createdAt: "asc"
+      }
+    });
+
+    expect(logs.map((log) => log.action)).toEqual(
+      expect.arrayContaining(["archive_conversation", "restore_conversation"])
+    );
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("storagePath");
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("DATABASE_URL");
+  });
+
+  it("keeps archived conversations readable but blocks asking until restored", async () => {
+    const context = contextFor(allowedOperator, MembershipRole.operator);
+    const conversation = await service.createConversation(
+      { title: "UX Archived Readonly 会话" },
+      context
+    );
+    await service.askInConversation(
+      conversation.id,
+      {
+        question: "E77 故障安全回路断开怎么处理？"
+      },
+      context
+    );
+    await prisma.aftersalesConversation.update({
+      where: {
+        id: conversation.id
+      },
+      data: {
+        status: "archived"
+      }
+    });
+
+    const detail = await service.getConversation(conversation.id, context);
+    expect(detail.conversation.status).toBe("archived");
+    expect(detail.records.length).toBeGreaterThan(0);
+    await expect(
+      service.askInConversation(
+        conversation.id,
+        {
+          question: "继续怎么办？"
+        },
+        context
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

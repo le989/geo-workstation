@@ -28,6 +28,7 @@ import { CreateAftersalesConversationDto } from "./dto/create-aftersales-convers
 import { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
 import { QueryAftersalesRecordsDto } from "./dto/query-aftersales-records.dto";
 import { UpdateAftersalesConversationDto } from "./dto/update-aftersales-conversation.dto";
+import { UpdateAftersalesConversationStatusDto } from "./dto/update-aftersales-conversation-status.dto";
 
 @Controller("api/aftersales-qa")
 export class AftersalesQaController {
@@ -75,6 +76,22 @@ export class AftersalesQaController {
     @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
     return this.service.updateConversation(id, body, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Patch("conversations/:id/status")
+  updateConversationStatus(
+    @Param("id") id: string,
+    @Body(createValidationPipe(UpdateAftersalesConversationStatusDto))
+    body: UpdateAftersalesConversationStatusDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.updateConversationStatus(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Post("conversations/:id/ask")

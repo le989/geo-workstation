@@ -77,11 +77,14 @@ export type AftersalesConversation = {
   createdAt: string;
   updatedAt: string;
   lastMessageAt: string;
+  messageCount: number;
 };
 
 export type AftersalesConversationListQuery = {
   keyword?: string;
   mineOnly?: boolean;
+  status?: AftersalesConversationStatus | "all";
+  scope?: "mine" | "all";
   page?: number;
   pageSize?: number;
 };
@@ -91,6 +94,7 @@ export type AftersalesConversationListResponse = {
   total: number;
   page: number;
   pageSize: number;
+  hasMore: boolean;
 };
 
 export type AftersalesConversationDetail = {
@@ -149,6 +153,8 @@ export const getAftersalesConversations = (
     `/api/aftersales-qa/conversations${toQueryString({
       keyword: query.keyword,
       mineOnly: query.mineOnly,
+      status: query.status,
+      scope: query.scope,
       page: query.page,
       pageSize: query.pageSize
     })}`
@@ -165,6 +171,15 @@ export const getAftersalesConversation = (id: string) =>
 
 export const updateAftersalesConversation = (id: string, payload: { title: string }) =>
   apiRequest<AftersalesConversation>(`/api/aftersales-qa/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+export const updateAftersalesConversationStatus = (
+  id: string,
+  payload: { status: AftersalesConversationStatus }
+) =>
+  apiRequest<AftersalesConversation>(`/api/aftersales-qa/conversations/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });

@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 import { toOptionalBoolean, toOptionalInt } from "../../geo-prompts/dto/geo-prompt-dto-transforms";
 
 const trimOptionalString = (value: unknown) => {
@@ -23,6 +23,14 @@ export class QueryAftersalesConversationsDto {
   mineOnly?: boolean;
 
   @IsOptional()
+  @IsIn(["active", "archived", "all"])
+  status?: "active" | "archived" | "all" = "active";
+
+  @IsOptional()
+  @IsIn(["mine", "all"])
+  scope?: "mine" | "all";
+
+  @IsOptional()
   @Transform(({ value }) => toOptionalInt(value))
   @IsInt()
   @Min(1)
@@ -32,6 +40,6 @@ export class QueryAftersalesConversationsDto {
   @Transform(({ value }) => toOptionalInt(value))
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(50)
   pageSize?: number = 20;
 }
