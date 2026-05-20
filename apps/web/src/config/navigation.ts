@@ -7,6 +7,7 @@ import {
   Files,
   Guide,
   MagicStick,
+  OfficeBuilding,
   PieChart,
   Search,
   Setting,
@@ -151,6 +152,18 @@ export const navigationItems: GeoPageMeta[] = [
     apiFocus: "已联调 /api/users；密码只写入 passwordHash，不返回明文或哈希。",
     icon: User,
     allowedRoles: ["platform_admin"]
+  },
+  {
+    path: "/departments",
+    label: "部门管理",
+    title: "部门管理",
+    question: "不同部门可以进入哪些 GEO 模块？",
+    description: "维护公司内部门，并配置部门能进入的 GEO 工作站模块。",
+    phaseNote: "DEPT-1 已支持单部门绑定、部门启停和模块进入权限，不涉及按钮级或字段级权限。",
+    nextSteps: ["新增或停用部门", "配置模块访问权限", "在用户管理中绑定部门"],
+    apiFocus: "已联调 /api/departments 和 /api/departments/:id/module-permissions",
+    icon: OfficeBuilding,
+    allowedRoles: ["platform_admin", "company_admin"]
   },
   {
     path: "/settings",

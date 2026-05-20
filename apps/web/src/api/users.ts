@@ -10,6 +10,10 @@ export type UserMembership = {
   companyId: string;
   companyName: string;
   companyCode: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  departmentCode: string | null;
+  departmentStatus: "active" | "inactive" | null;
   role: MembershipRole;
   status: MembershipStatus;
   isDefault: boolean;
@@ -50,6 +54,7 @@ export type CreateUserPayload = {
   role: MembershipRole;
   companyId: string;
   membershipRole: MembershipRole;
+  departmentId?: string | null;
   status?: UserStatus;
   isDefaultCompany?: boolean;
 };
@@ -65,6 +70,7 @@ export type UpdateUserStatusPayload = {
 export type UpdateUserMembershipPayload = {
   companyId: string;
   membershipRole: MembershipRole;
+  departmentId?: string | null;
   membershipStatus?: MembershipStatus;
   isDefault?: boolean;
 };

@@ -1,4 +1,5 @@
 import type { AuthRole } from "@/api/auth";
+import type { GeoModuleKey } from "@geo-workstation/shared";
 
 export type NormalizedRole = "platform_admin" | "company_admin" | "operator" | "viewer";
 
@@ -29,6 +30,24 @@ export const businessOperatorRoles: NormalizedRole[] = [
   "company_admin",
   "operator"
 ];
+
+export const routeModuleKeyByPath: Record<string, GeoModuleKey> = {
+  "/dashboard": "dashboard",
+  "/geo-analysis": "geo-analysis",
+  "/geo-prompts": "geo-prompts",
+  "/expansion": "expansion",
+  "/knowledge-bases": "knowledge-bases",
+  "/instruction-templates": "instruction-templates",
+  "/geo-content": "geo-content",
+  "/content-tasks": "geo-content",
+  "/model-inclusion-records": "model-inclusion-records",
+  "/geo-reports": "geo-reports",
+  "/reports": "geo-reports",
+  "/users": "users",
+  "/settings": "settings",
+  "/help": "help",
+  "/departments": "departments"
+};
 
 export const normalizeRole = (role?: AuthRole | string | null): NormalizedRole => {
   switch (role) {
@@ -61,17 +80,22 @@ export const getRoleLabel = (role?: AuthRole | string | null) => {
 export const canAccessRoute = (
   path: string,
   role?: AuthRole | string | null,
-  allowedRoles?: NormalizedRole[]
+  allowedRoles?: NormalizedRole[],
+  accessibleModules?: readonly string[] | null
 ) => {
-  if (path === "/403" || path === "/help" || path === "/dashboard") {
+  if (path === "/403") {
     return true;
   }
 
-  if (path === "/users") {
-    return normalizeRole(role) === "platform_admin";
-  }
-
   const normalizedRole = normalizeRole(role);
+
+  if (accessibleModules) {
+    const moduleKey = routeModuleKeyByPath[path];
+
+    if (moduleKey && !accessibleModules.includes(moduleKey)) {
+      return normalizedRole === "platform_admin" || normalizedRole === "company_admin";
+    }
+  }
 
   if (allowedRoles) {
     return allowedRoles.includes(normalizedRole);

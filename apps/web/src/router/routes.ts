@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from "vue-router";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { navigationItems, pageMetaByPath } from "@/config/navigation";
 import DashboardView from "@/views/DashboardView.vue";
+import DepartmentsView from "@/views/DepartmentsView.vue";
 import ContentTasksView from "@/views/ContentTasksView.vue";
 import ExpansionView from "@/views/ExpansionView.vue";
 import ForbiddenView from "@/views/ForbiddenView.vue";
@@ -69,11 +70,13 @@ export const routes: RouteRecordRaw[] = [
                             ? ReportsView
                             : item.path === "/users"
                               ? UsersView
-                              : item.path === "/settings"
-                                ? SettingsView
-                                : item.path === "/help"
-                                  ? HelpView
-                                  : ModulePlaceholderView,
+                              : item.path === "/departments"
+                                ? DepartmentsView
+                                : item.path === "/settings"
+                                  ? SettingsView
+                                  : item.path === "/help"
+                                    ? HelpView
+                                    : ModulePlaceholderView,
         meta: {
           geoPage: pageMetaByPath[item.path],
           requiresAuth: true,

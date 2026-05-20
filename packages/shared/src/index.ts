@@ -7,3 +7,4 @@ export type ApiResponse<T> = {
 };
 
 export * from "./geo-enums";
+export * from "./module-permissions";

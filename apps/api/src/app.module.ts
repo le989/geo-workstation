@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { validateApiEnvironment } from "./config/api-environment";
 import { HealthController } from "./health.controller";
 import { AuthModule } from "./modules/auth/auth.module";
+import { DepartmentsModule } from "./modules/departments/departments.module";
 import { GeoAnalysisModule } from "./modules/geo-analysis/geo-analysis.module";
 import { GeoContentModule } from "./modules/geo-content/geo-content.module";
 import { GeoExpansionModule } from "./modules/geo-expansion/geo-expansion.module";
@@ -25,6 +26,7 @@ import { PrismaModule } from "./prisma/prisma.module";
     }),
     PrismaModule,
     AuthModule,
+    DepartmentsModule,
     GeoAnalysisModule,
     GeoPromptsModule,
     GeoExpansionModule,

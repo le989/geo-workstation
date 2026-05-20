@@ -10,6 +10,7 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import type { AuthCompanyOption, AuthSession, AuthUser } from "./auth.types";
 import { JwtTokenService } from "./jwt-token.service";
+import { ALL_GEO_MODULE_KEYS, resolveAccessibleModuleKeys } from "./module-access";
 import { verifyPassword } from "./utils/password-hash.util";
 
 type LoginResult = AuthSession & {
@@ -131,7 +132,9 @@ export class AuthService {
         code: company.code,
         role: MembershipRole.platform_admin,
         isDefault: defaultCompanyIds.has(company.id),
-        status: company.status
+        status: company.status,
+        department: null,
+        accessibleModules: ALL_GEO_MODULE_KEYS
       }));
     }
 
@@ -144,19 +147,51 @@ export class AuthService {
         }
       },
       include: {
-        company: true
+        company: true,
+        department: true
       },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }]
     });
 
-    return memberships.map((membership) => ({
-      id: membership.company.id,
-      name: membership.company.name,
-      code: membership.company.code,
-      role: membership.role,
-      isDefault: membership.isDefault,
-      status: membership.company.status
-    }));
+    return Promise.all(
+      memberships.map(async (membership) => {
+        const permissions = membership.departmentId
+          ? await this.prisma.departmentModulePermission.findMany({
+              where: {
+                companyId: membership.companyId,
+                departmentId: membership.departmentId
+              },
+              select: {
+                moduleKey: true,
+                canAccess: true
+              }
+            })
+          : [];
+
+        return {
+          id: membership.company.id,
+          name: membership.company.name,
+          code: membership.company.code,
+          role: membership.role,
+          isDefault: membership.isDefault,
+          status: membership.company.status,
+          department: membership.department
+            ? {
+                id: membership.department.id,
+                name: membership.department.name,
+                code: membership.department.code,
+                status: membership.department.status
+              }
+            : null,
+          accessibleModules: resolveAccessibleModuleKeys({
+            role: membership.role,
+            isPlatformAdmin: false,
+            department: membership.department,
+            permissions
+          })
+        };
+      })
+    );
   }
 
   private isPlatformAdminRole(role: UserRole): boolean {

@@ -107,6 +107,10 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "用户管理",
     subtitle: "管理系统账号、所属公司与角色"
   },
+  "/departments": {
+    title: "部门管理",
+    subtitle: "配置部门和模块进入权限"
+  },
   "/settings": {
     title: "系统设置",
     subtitle: "管理公司、产品线和项目档案"
@@ -145,7 +149,9 @@ const navigationGroups = [
   {
     label: "复盘与配置",
     items: navigationItems.filter((item) =>
-      ["/model-inclusion-records", "/geo-reports", "/users", "/settings"].includes(item.path)
+      ["/model-inclusion-records", "/geo-reports", "/users", "/departments", "/settings"].includes(
+        item.path
+      )
     )
   },
   {
@@ -160,7 +166,14 @@ const visibleNavigationGroups = computed(() => {
   return navigationGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => canAccessRoute(item.path, role, item.allowedRoles))
+      items: group.items.filter((item) =>
+        canAccessRoute(
+          item.path,
+          role,
+          item.allowedRoles,
+          authStore.currentCompany?.accessibleModules
+        )
+      )
     }))
     .filter((group) => group.items.length > 0);
 });

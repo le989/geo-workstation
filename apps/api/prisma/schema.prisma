@@ -36,6 +36,11 @@ enum ProductLineStatus {
   disabled
 }
 
+enum DepartmentStatus {
+  active
+  inactive
+}
+
 enum MembershipRole {
   platform_admin
   company_admin
@@ -146,6 +151,8 @@ model Company {
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")
   productLines          ProductLine[]
+  departments           Department[]
+  departmentModulePermissions DepartmentModulePermission[]
   memberships           Membership[]
   projectProfiles       ProjectProfile[]
   geoAnalysisTasks      GeoAnalysisTask[]
@@ -184,12 +191,49 @@ model ProductLine {
   @@map("product_lines")
 }
 
+model Department {
+  id                String                       @id @default(cuid())
+  companyId         String                       @map("company_id")
+  company           Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name              String
+  code              String
+  status            DepartmentStatus             @default(active)
+  memberships       Membership[]
+  modulePermissions DepartmentModulePermission[]
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  updatedAt         DateTime                     @updatedAt @map("updated_at")
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([status])
+  @@map("departments")
+}
+
+model DepartmentModulePermission {
+  id           String     @id @default(cuid())
+  companyId    String     @map("company_id")
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  moduleKey    String     @map("module_key")
+  canAccess    Boolean    @default(false) @map("can_access")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@unique([departmentId, moduleKey])
+  @@index([companyId])
+  @@index([moduleKey])
+  @@map("department_module_permissions")
+}
+
 model Membership {
   id        String           @id @default(cuid())
   userId    String           @map("user_id")
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyId String           @map("company_id")
   company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  departmentId String?       @map("department_id")
+  department Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   role      MembershipRole   @default(operator)
   status    MembershipStatus @default(active)
   isDefault Boolean          @default(false) @map("is_default")
@@ -198,6 +242,7 @@ model Membership {
 
   @@unique([userId, companyId])
   @@index([companyId])
+  @@index([departmentId])
   @@index([role])
   @@map("memberships")
 }
