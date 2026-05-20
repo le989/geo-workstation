@@ -1,13 +1,26 @@
 import { KnowledgeReviewStatus, KnowledgeTrustLevel } from "@prisma/client";
 import { Transform } from "class-transformer";
-import { IsArray, IsEnum, IsOptional, IsString } from "class-validator";
-import { toTags, trimOptionalString } from "./knowledge-dto-transforms";
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength
+} from "class-validator";
+import { toTags, trimOptionalString, trimRequiredString } from "./knowledge-dto-transforms";
 
-export class UploadKnowledgeFileDto {
-  @IsOptional()
+export class ManualKnowledgeMaterialDto {
   @IsString()
-  @Transform(({ value }) => trimOptionalString(value))
-  title?: string;
+  @IsNotEmpty()
+  @Transform(({ value }) => trimRequiredString(value))
+  title!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10)
+  @Transform(({ value }) => trimRequiredString(value))
+  content!: string;
 
   @IsOptional()
   @IsString()

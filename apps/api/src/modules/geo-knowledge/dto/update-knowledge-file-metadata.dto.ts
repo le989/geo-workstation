@@ -3,7 +3,7 @@ import { Transform } from "class-transformer";
 import { IsArray, IsEnum, IsOptional, IsString } from "class-validator";
 import { toTags, trimOptionalString } from "./knowledge-dto-transforms";
 
-export class UploadKnowledgeFileDto {
+export class UpdateKnowledgeFileMetadataDto {
   @IsOptional()
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
@@ -38,15 +38,4 @@ export class UploadKnowledgeFileDto {
   @IsString({ each: true })
   @Transform(({ value }) => toTags(value))
   allowedDepartmentIds?: string[] = [];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @Transform(({ value }) => toTags(value))
-  tags?: string[] = [];
-
-  @IsOptional()
-  @IsString()
-  @Transform(({ value }) => trimOptionalString(value))
-  createdBy?: string;
 }

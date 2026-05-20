@@ -5,6 +5,7 @@ import {
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -24,8 +25,10 @@ import type {
   AuthUser,
   CurrentMembershipContext
 } from "../auth/auth.types";
+import { ManualKnowledgeMaterialDto } from "./dto/manual-knowledge-material.dto";
 import { QueryKnowledgeFilesDto } from "./dto/query-knowledge-files.dto";
 import { ReparseKnowledgeFileDto } from "./dto/reparse-knowledge-file.dto";
+import { UpdateKnowledgeFileMetadataDto } from "./dto/update-knowledge-file-metadata.dto";
 import { UploadKnowledgeFileDto } from "./dto/upload-knowledge-file.dto";
 import { KnowledgeFilesService } from "./knowledge-files.service";
 import type { UploadedKnowledgeFile } from "./local-file-storage.service";
@@ -57,6 +60,21 @@ export class KnowledgeFilesController {
     return this.knowledgeFilesService.upload(
       id,
       file,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Post("api/knowledge-bases/:id/manual-materials")
+  createManualMaterial(
+    @Param("id") id: string,
+    @Body(createValidationPipe(ManualKnowledgeMaterialDto)) body: ManualKnowledgeMaterialDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.knowledgeFilesService.createManualMaterial(
+      id,
       body,
       this.buildContext(user, currentCompany, currentMembership)
     );
@@ -99,6 +117,21 @@ export class KnowledgeFilesController {
     @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
     return this.knowledgeFilesService.reparse(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Patch("api/knowledge-files/:id/metadata")
+  updateMetadata(
+    @Param("id") id: string,
+    @Body(createValidationPipe(UpdateKnowledgeFileMetadataDto)) body: UpdateKnowledgeFileMetadataDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.knowledgeFilesService.updateMetadata(
       id,
       body,
       this.buildContext(user, currentCompany, currentMembership)

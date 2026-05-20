@@ -2,6 +2,20 @@ import { apiRequest } from "./http";
 import type { ResourceVisibility } from "./geo-prompts";
 
 export type ParseStatus = "pending" | "parsing" | "succeeded" | "failed";
+export type KnowledgeMaterialType =
+  | "product_material"
+  | "aftersales_material"
+  | "company_trust_material"
+  | "content_reference_material"
+  | "internal_process_material"
+  | "customer_case_material";
+export type KnowledgeReviewStatus = "pending" | "approved" | "disabled";
+export type KnowledgeTrustLevel = "high" | "medium" | "low";
+export type KnowledgeApplicableModule =
+  | "internal-search"
+  | "geo-content"
+  | "aftersales-qa"
+  | "geo-analysis";
 
 export type PaginatedResponse<T> = {
   items: T[];
@@ -40,11 +54,18 @@ export type KnowledgeChunk = {
 export type KnowledgeFile = {
   id: string;
   knowledgeBaseId: string;
+  title: string;
   fileName: string;
   fileType: string;
   fileSize?: number;
   companyId?: string;
-  storagePath?: string;
+  sourceType: string;
+  materialType: KnowledgeMaterialType;
+  applicableModules: KnowledgeApplicableModule[];
+  sourceDescription?: string;
+  trustLevel: KnowledgeTrustLevel;
+  reviewStatus: KnowledgeReviewStatus;
+  allowedDepartmentIds: string[];
   parseStatus: ParseStatus;
   errorMessage?: string;
   createdBy?: string;
@@ -90,6 +111,10 @@ export type KnowledgeFileQuery = {
   parseStatus?: ParseStatus;
   fileType?: string;
   search?: string;
+  materialType?: string;
+  reviewStatus?: KnowledgeReviewStatus;
+  trustLevel?: KnowledgeTrustLevel;
+  applicableModule?: KnowledgeApplicableModule;
 };
 
 export type CreateKnowledgeBasePayload = {
@@ -112,6 +137,23 @@ export type TextImportPayload = {
   createdBy?: string;
 };
 
+export type KnowledgeMaterialMetadataPayload = {
+  title?: string;
+  materialType?: string;
+  applicableModules?: KnowledgeApplicableModule[];
+  sourceDescription?: string;
+  trustLevel?: KnowledgeTrustLevel;
+  reviewStatus?: KnowledgeReviewStatus;
+  allowedDepartmentIds?: string[];
+};
+
+export type ManualKnowledgeMaterialPayload = KnowledgeMaterialMetadataPayload & {
+  title: string;
+  content: string;
+  tags?: string[];
+  createdBy?: string;
+};
+
 export type UpdateKnowledgeChunkPayload = {
   title?: string;
   content?: string;
@@ -122,7 +164,13 @@ export type UpdateKnowledgeChunkPayload = {
 };
 
 export type UploadKnowledgeFileExtraFields = {
+  title?: string;
   materialType?: string;
+  applicableModules?: KnowledgeApplicableModule[];
+  sourceDescription?: string;
+  trustLevel?: KnowledgeTrustLevel;
+  reviewStatus?: KnowledgeReviewStatus;
+  allowedDepartmentIds?: string[];
   tags?: string[];
   createdBy?: string;
 };
@@ -201,6 +249,15 @@ export const textImportKnowledge = (id: string, payload: TextImportPayload) =>
     body: JSON.stringify(payload)
   });
 
+export const createManualKnowledgeMaterial = (
+  id: string,
+  payload: ManualKnowledgeMaterialPayload
+) =>
+  apiRequest<UploadKnowledgeFileResult>(`/api/knowledge-bases/${id}/manual-materials`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
 export const getKnowledgeChunks = (knowledgeBaseId: string, params: KnowledgeChunkQuery = {}) =>
   apiRequest<PaginatedResponse<KnowledgeChunk>>(
     `/api/knowledge-bases/${knowledgeBaseId}/chunks${toQueryString(params)}`
@@ -225,8 +282,32 @@ export const uploadKnowledgeFile = (
   const formData = new FormData();
   formData.set("file", file);
 
+  if (extraFields.title) {
+    formData.set("title", extraFields.title);
+  }
+
   if (extraFields.materialType) {
     formData.set("materialType", extraFields.materialType);
+  }
+
+  if (extraFields.applicableModules && extraFields.applicableModules.length > 0) {
+    formData.set("applicableModules", extraFields.applicableModules.join(","));
+  }
+
+  if (extraFields.sourceDescription) {
+    formData.set("sourceDescription", extraFields.sourceDescription);
+  }
+
+  if (extraFields.trustLevel) {
+    formData.set("trustLevel", extraFields.trustLevel);
+  }
+
+  if (extraFields.reviewStatus) {
+    formData.set("reviewStatus", extraFields.reviewStatus);
+  }
+
+  if (extraFields.allowedDepartmentIds && extraFields.allowedDepartmentIds.length > 0) {
+    formData.set("allowedDepartmentIds", extraFields.allowedDepartmentIds.join(","));
   }
 
   if (extraFields.tags && extraFields.tags.length > 0) {
@@ -254,6 +335,15 @@ export const getKnowledgeFile = (id: string) =>
 export const reparseKnowledgeFile = (id: string, payload: ReparseKnowledgeFilePayload = {}) =>
   apiRequest<UploadKnowledgeFileResult>(`/api/knowledge-files/${id}/reparse`, {
     method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const updateKnowledgeFileMetadata = (
+  id: string,
+  payload: KnowledgeMaterialMetadataPayload
+) =>
+  apiRequest<KnowledgeFile>(`/api/knowledge-files/${id}/metadata`, {
+    method: "PATCH",
     body: JSON.stringify(payload)
   });
 

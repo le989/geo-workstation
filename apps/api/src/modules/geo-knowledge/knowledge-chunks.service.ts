@@ -1,5 +1,11 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, type KnowledgeBase, type KnowledgeChunk } from "@prisma/client";
+import {
+  KnowledgeMaterialType,
+  Prisma,
+  type KnowledgeBase,
+  type KnowledgeChunk,
+  type KnowledgeFile
+} from "@prisma/client";
 import type { QueryKnowledgeChunksDto } from "./dto/query-knowledge-chunks.dto";
 import type { UpdateKnowledgeChunkDto } from "./dto/update-knowledge-chunk.dto";
 import {
@@ -12,6 +18,7 @@ import {
   assertCanUpdateResource,
   canReadResource,
   getCurrentCompanyId,
+  getEffectiveRole,
   type ResourceAccessContext
 } from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -213,6 +220,13 @@ export class KnowledgeChunksService {
         array_contains: query.tags
       };
     }
+    const aftersalesWhere = this.buildAfterSalesChunkAccessWhere(context);
+
+    if (aftersalesWhere) {
+      return {
+        AND: [where, aftersalesWhere]
+      };
+    }
 
     return where;
   }
@@ -236,21 +250,99 @@ export class KnowledgeChunksService {
   private async findExistingKnowledgeChunk(
     id: string,
     context?: ResourceAccessContext
-  ): Promise<KnowledgeChunk & { knowledgeBase: KnowledgeBase }> {
+  ): Promise<KnowledgeChunk & { knowledgeBase: KnowledgeBase; file: KnowledgeFile | null }> {
     const chunk = await this.prisma.knowledgeChunk.findFirst({
       where: {
         id
       },
       include: {
-        knowledgeBase: true
+        knowledgeBase: true,
+        file: true
       }
     });
 
-    if (!chunk || (context && !canReadResource(context, chunk.knowledgeBase))) {
+    if (!chunk || !this.canReadKnowledgeChunk(chunk, context)) {
       throw new NotFoundException(`GEO knowledge chunk not found: ${id}`);
     }
 
     return chunk;
+  }
+
+  private buildAfterSalesChunkAccessWhere(
+    context?: ResourceAccessContext
+  ): Prisma.KnowledgeChunkWhereInput | undefined {
+    if (!context || this.isAdminBypass(context)) {
+      return undefined;
+    }
+
+    const departmentId = context.currentMembership?.departmentId;
+
+    return {
+      OR: [
+        {
+          fileId: null
+        },
+        {
+          file: {
+            materialType: {
+              not: KnowledgeMaterialType.aftersales_material
+            }
+          }
+        },
+        ...(departmentId
+          ? [
+              {
+                file: {
+                  materialType: KnowledgeMaterialType.aftersales_material,
+                  allowedDepartmentIds: {
+                    array_contains: [departmentId]
+                  }
+                }
+              } satisfies Prisma.KnowledgeChunkWhereInput
+            ]
+          : [])
+      ]
+    };
+  }
+
+  private canReadKnowledgeChunk(
+    chunk: KnowledgeChunk & { knowledgeBase: KnowledgeBase; file: KnowledgeFile | null },
+    context?: ResourceAccessContext
+  ): boolean {
+    if (!context) {
+      return true;
+    }
+
+    if (!canReadResource(context, chunk.knowledgeBase)) {
+      return false;
+    }
+
+    if (!chunk.file || chunk.file.materialType !== KnowledgeMaterialType.aftersales_material) {
+      return true;
+    }
+
+    if (this.isAdminBypass(context)) {
+      return true;
+    }
+
+    const departmentId = context.currentMembership?.departmentId;
+
+    return Boolean(
+      departmentId && this.jsonStringArrayToArray(chunk.file.allowedDepartmentIds).includes(departmentId)
+    );
+  }
+
+  private isAdminBypass(context: ResourceAccessContext): boolean {
+    const role = getEffectiveRole(context);
+    return role === "platform_admin" || role === "company_admin";
+  }
+
+  private jsonStringArrayToArray(value: Prisma.JsonValue | null | undefined): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.map((item) => String(item).trim()).filter(Boolean);
   }
 
   private assertKnowledgeChunkTitle(title: string): void {

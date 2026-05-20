@@ -1,6 +1,6 @@
 import { extname } from "node:path";
 
-const SUPPORTED_KNOWLEDGE_FILE_TYPES = new Set(["txt", "md", "csv"]);
+const SUPPORTED_KNOWLEDGE_FILE_TYPES = new Set(["txt", "md", "csv", "xlsx", "xls", "docx"]);
 
 export function resolveKnowledgeFileType(fileName: string): string {
   const extension = extname(fileName).toLowerCase();

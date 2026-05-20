@@ -1,21 +1,28 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from "vue";
+import type { Department } from "@/api/departments";
 import type {
+  KnowledgeApplicableModule,
   KnowledgeBaseDetail,
   KnowledgeChunk,
   KnowledgeChunkQuery,
   KnowledgeFile,
   KnowledgeFileQuery,
+  KnowledgeReviewStatus,
+  KnowledgeTrustLevel,
+  ManualKnowledgeMaterialPayload,
   ParseStatus,
-  TextImportPayload,
   UploadKnowledgeFileExtraFields
 } from "@/api/knowledge";
 import { formatDateTime, formatOptional, splitCommaValues } from "@/config/geo-prompt-options";
 import {
+  applicableModuleOptions,
   knowledgeBaseStatusLabelMap,
   materialTypeOptions,
   parseStatusOptions,
-  sourceTypeOptions
+  reviewStatusOptions,
+  sourceTypeOptions,
+  trustLevelOptions
 } from "@/config/knowledge-options";
 import KnowledgeChunkTable from "./KnowledgeChunkTable.vue";
 import KnowledgeFileTable from "./KnowledgeFileTable.vue";
@@ -40,6 +47,8 @@ const props = defineProps<{
   textImportSubmitting?: boolean;
   uploading?: boolean;
   canManage?: boolean;
+  canReview?: boolean;
+  departments?: Department[];
   reparsingIds?: string[];
   deletingFileIds?: string[];
   deletingChunkIds?: string[];
@@ -49,7 +58,7 @@ const emit = defineEmits<{
   "update:modelValue": [value: boolean];
   "update:activeTab": [value: "chunks" | "files" | "text-import"];
   refresh: [];
-  "text-import": [payload: TextImportPayload];
+  "text-import": [payload: ManualKnowledgeMaterialPayload];
   "upload-file": [payload: { file: File; extraFields: UploadKnowledgeFileExtraFields }];
   "search-chunks": [query: KnowledgeChunkQuery];
   "reset-chunks": [];
@@ -77,9 +86,13 @@ const chunkFilters = reactive({
 const showChunkAdvancedFilters = ref(false);
 
 const fileFilters = reactive({
+  applicableModule: "" as KnowledgeApplicableModule | "",
   fileType: "",
+  materialType: "",
   parseStatus: "" as ParseStatus | "",
-  search: ""
+  reviewStatus: "" as KnowledgeReviewStatus | "",
+  search: "",
+  trustLevel: "" as KnowledgeTrustLevel | ""
 });
 
 watch(
@@ -92,8 +105,12 @@ watch(
     chunkFilters.tagsText = "";
     showChunkAdvancedFilters.value = false;
     fileFilters.fileType = "";
+    fileFilters.materialType = "";
     fileFilters.parseStatus = "";
+    fileFilters.reviewStatus = "";
     fileFilters.search = "";
+    fileFilters.trustLevel = "";
+    fileFilters.applicableModule = "";
   }
 );
 
@@ -123,16 +140,24 @@ const handleChunkReset = () => {
 
 const handleFileSearch = () => {
   emit("search-files", {
+    applicableModule: fileFilters.applicableModule || undefined,
     fileType: fileFilters.fileType.trim() || undefined,
+    materialType: fileFilters.materialType || undefined,
     parseStatus: fileFilters.parseStatus || undefined,
-    search: fileFilters.search.trim() || undefined
+    reviewStatus: fileFilters.reviewStatus || undefined,
+    search: fileFilters.search.trim() || undefined,
+    trustLevel: fileFilters.trustLevel || undefined
   });
 };
 
 const handleFileReset = () => {
+  fileFilters.applicableModule = "";
   fileFilters.fileType = "";
+  fileFilters.materialType = "";
   fileFilters.parseStatus = "";
+  fileFilters.reviewStatus = "";
   fileFilters.search = "";
+  fileFilters.trustLevel = "";
   emit("reset-files");
 };
 
@@ -228,7 +253,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
           >
             <span>文件资料</span>
             <strong>{{ detail.filesCount }} 个解析文件</strong>
-            <small>跟踪 txt / md / csv 资料的解析状态和来源信息。</small>
+            <small>跟踪文件和手动资料的解析状态、审核状态和来源信息。</small>
           </button>
           <button
             v-if="canManage"
@@ -374,6 +399,50 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                     <el-option label="txt" value="txt" />
                     <el-option label="md" value="md" />
                     <el-option label="csv" value="csv" />
+                    <el-option label="xlsx" value="xlsx" />
+                    <el-option label="xls" value="xls" />
+                    <el-option label="docx" value="docx" />
+                    <el-option label="manual" value="manual" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="资料类型">
+                  <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
+                    <el-option
+                      v-for="option in materialTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="审核状态">
+                  <el-select v-model="fileFilters.reviewStatus" clearable placeholder="全部状态">
+                    <el-option
+                      v-for="option in reviewStatusOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="可信度">
+                  <el-select v-model="fileFilters.trustLevel" clearable placeholder="全部可信度">
+                    <el-option
+                      v-for="option in trustLevelOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="适用模块">
+                  <el-select v-model="fileFilters.applicableModule" clearable placeholder="全部模块">
+                    <el-option
+                      v-for="option in applicableModuleOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
                   </el-select>
                 </el-form-item>
               </el-form>
@@ -421,10 +490,17 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                 </div>
               </div>
               <div class="knowledge-add-source-grid">
-                <KnowledgeFileUpload :uploading="uploading" @upload="emit('upload-file', $event)" />
+                <KnowledgeFileUpload
+                  :uploading="uploading"
+                  :can-review="canReview"
+                  :departments="departments"
+                  @upload="emit('upload-file', $event)"
+                />
                 <KnowledgeTextImportForm
                   :default-product-line="detail.knowledgeBase.productLine"
                   :submitting="textImportSubmitting"
+                  :can-review="canReview"
+                  :departments="departments"
                   @submit="emit('text-import', $event)"
                 />
               </div>

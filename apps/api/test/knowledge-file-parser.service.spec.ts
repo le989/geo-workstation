@@ -1,6 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import JSZip from "jszip";
+import * as XLSX from "xlsx";
 import { describe, expect, it, afterEach, beforeEach } from "vitest";
 
 import { KnowledgeFileParserService } from "../src/modules/geo-knowledge/knowledge-file-parser.service";
@@ -24,6 +26,12 @@ describe("KnowledgeFileParserService", () => {
   async function writeTempFile(fileName: string, content: string): Promise<string> {
     const filePath = join(tempDir, fileName);
     await writeFile(filePath, content, "utf8");
+    return filePath;
+  }
+
+  async function writeTempBuffer(fileName: string, content: Buffer): Promise<string> {
+    const filePath = join(tempDir, fileName);
+    await writeFile(filePath, content);
     return filePath;
   }
 
@@ -79,6 +87,85 @@ describe("KnowledgeFileParserService", () => {
       title: "选型FAQ",
       content: "激光测距传感器选型要关注量程精度和响应速度。"
     });
+  });
+
+  it("parses xlsx files with title and content columns", async () => {
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet([
+      {
+        title: "Excel选型资料",
+        content: "Excel 表格中的激光测距传感器资料会解析为可引用知识片段。"
+      },
+      {
+        title: "Excel应用资料",
+        content: "Excel 表格可承载应用场景、安装条件和售后排查说明。"
+      }
+    ]);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "知识资料");
+    const storagePath = await writeTempBuffer(
+      "materials.xlsx",
+      XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "buffer"
+      }) as Buffer
+    );
+
+    const chunks = await parser.parse({
+      fileName: "materials.xlsx",
+      fileType: "xlsx",
+      storagePath
+    });
+
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toMatchObject({
+      title: "Excel选型资料",
+      content: "Excel 表格中的激光测距传感器资料会解析为可引用知识片段。"
+    });
+  });
+
+  it("parses docx files into text chunks", async () => {
+    const zip = new JSZip();
+    zip.file(
+      "[Content_Types].xml",
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>`
+    );
+    zip.folder("_rels")?.file(
+      ".rels",
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>`
+    );
+    zip.folder("word")?.file(
+      "document.xml",
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+        <w:body>
+          <w:p><w:r><w:t>Word 产品资料标题</w:t></w:r></w:p>
+          <w:p><w:r><w:t>Word 文档中的企业资料可以用于 GEO 内容生成和售后知识沉淀。</w:t></w:r></w:p>
+          <w:p><w:r><w:t>安装调试时需要关注现场距离、反光面和接线方式。</w:t></w:r></w:p>
+        </w:body>
+      </w:document>`
+    );
+    const storagePath = await writeTempBuffer(
+      "material.docx",
+      await zip.generateAsync({ type: "nodebuffer" })
+    );
+
+    const chunks = await parser.parse({
+      fileName: "material.docx",
+      fileType: "docx",
+      storagePath
+    });
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]?.content).toContain("Word 文档中的企业资料");
+    expect(chunks[0]?.content).toContain("安装调试");
   });
 
   it("throws a parse error for malformed csv files", async () => {

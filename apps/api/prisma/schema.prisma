@@ -97,6 +97,27 @@ enum ParseStatus {
   failed
 }
 
+enum KnowledgeMaterialType {
+  product_material
+  aftersales_material
+  company_trust_material
+  content_reference_material
+  internal_process_material
+  customer_case_material
+}
+
+enum KnowledgeReviewStatus {
+  pending
+  approved
+  disabled
+}
+
+enum KnowledgeTrustLevel {
+  high
+  medium
+  low
+}
+
 enum RecordMethod {
   manual
   api
@@ -369,10 +390,18 @@ model KnowledgeFile {
   company         Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   knowledgeBaseId String           @map("knowledge_base_id")
   knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  title           String?
   fileName        String           @map("file_name")
   fileType        String           @map("file_type")
   fileSize        Int?             @map("file_size")
   storagePath     String?          @map("storage_path")
+  sourceType      String           @default("upload") @map("source_type")
+  materialType    KnowledgeMaterialType @default(content_reference_material) @map("material_type")
+  applicableModules Json?          @map("applicable_modules")
+  sourceDescription String?        @map("source_description")
+  trustLevel      KnowledgeTrustLevel @default(medium) @map("trust_level")
+  reviewStatus    KnowledgeReviewStatus @default(pending) @map("review_status")
+  allowedDepartmentIds Json?       @map("allowed_department_ids")
   parseStatus     ParseStatus      @default(pending) @map("parse_status")
   errorMessage    String?          @map("error_message")
   createdById     String           @map("created_by")
@@ -389,6 +418,9 @@ model KnowledgeFile {
   @@index([createdById])
   @@index([updatedById])
   @@index([parseStatus])
+  @@index([materialType])
+  @@index([trustLevel])
+  @@index([reviewStatus])
   @@index([deletedAt])
   @@map("knowledge_files")
 }

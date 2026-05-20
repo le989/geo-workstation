@@ -30,7 +30,7 @@ const getWordCount = (value?: string) => (value ? value.length : 0);
     class="knowledge-chunk-table"
     row-key="id"
     border
-    empty-text="暂无知识片段，可先文本导入或上传 txt/md/csv 文件。"
+    empty-text="暂无知识片段，可先手动录入或上传文件资料。"
   >
     <el-table-column prop="title" label="片段" min-width="250" fixed="left">
       <template #default="{ row }: { row: KnowledgeChunk }">
@@ -98,7 +98,7 @@ const getWordCount = (value?: string) => (value ? value.length : 0);
       </template>
     </el-table-column>
     <template #empty>
-      <el-empty description="暂无知识片段，可先文本导入或上传 txt/md/csv 文件。">
+      <el-empty description="暂无知识片段，可先手动录入或上传文件资料。">
         <template #image>
           <div class="empty-mark">GEO</div>
         </template>

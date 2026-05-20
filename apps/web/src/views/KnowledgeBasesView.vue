@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import {
+  createManualKnowledgeMaterial,
   createKnowledgeBase,
   deleteKnowledgeBase,
   deleteKnowledgeChunk,
@@ -13,7 +14,6 @@ import {
   getKnowledgeFile,
   getKnowledgeFiles,
   reparseKnowledgeFile,
-  textImportKnowledge,
   updateKnowledgeBase,
   updateKnowledgeChunk,
   uploadKnowledgeFile,
@@ -25,18 +25,26 @@ import {
   type KnowledgeChunkQuery,
   type KnowledgeFile,
   type KnowledgeFileQuery,
-  type TextImportPayload,
+  type ManualKnowledgeMaterialPayload,
   type UpdateKnowledgeBasePayload,
   type UpdateKnowledgeChunkPayload,
   type UploadKnowledgeFileExtraFields
 } from "@/api/knowledge";
+import { listDepartments, type Department } from "@/api/departments";
 import AppErrorState from "@/components/AppErrorState.vue";
 import KnowledgeBaseDetailDrawer from "@/components/KnowledgeBaseDetailDrawer.vue";
 import KnowledgeBaseFilters from "@/components/KnowledgeBaseFilters.vue";
 import KnowledgeBaseFormDialog from "@/components/KnowledgeBaseFormDialog.vue";
 import KnowledgeChunkFormDialog from "@/components/KnowledgeChunkFormDialog.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
-import { knowledgeBaseStatusLabelMap, parseStatusLabelMap } from "@/config/knowledge-options";
+import {
+  applicableModuleLabelMap,
+  knowledgeBaseStatusLabelMap,
+  materialTypeLabelMap,
+  parseStatusLabelMap,
+  reviewStatusLabelMap,
+  trustLevelLabelMap
+} from "@/config/knowledge-options";
 import { useAuthStore } from "@/stores/auth";
 import { canUseAction } from "@/utils/permission";
 
@@ -79,6 +87,8 @@ const filesPage = ref(1);
 const filesPageSize = ref(10);
 const filesLoading = ref(false);
 const fileFilters = reactive<KnowledgeFileQuery>({});
+const departments = ref<Department[]>([]);
+const departmentsLoading = ref(false);
 
 const textImportSubmitting = ref(false);
 const uploading = ref(false);
@@ -150,6 +160,9 @@ const isOperatorRole = () =>
   ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
 const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
 const canCreateKnowledgeBase = computed(() => canUseAction("create", currentRole.value));
+const canReviewMaterials = computed(() =>
+  ["platform_admin", "company_admin"].includes(String(currentRole.value ?? ""))
+);
 
 const canManageKnowledgeBase = (knowledgeBase?: KnowledgeBase | null) => {
   if (!knowledgeBase || knowledgeBase.visibility === "PLATFORM") {
@@ -339,6 +352,22 @@ const loadFiles = async () => {
   }
 };
 
+const loadDepartments = async () => {
+  if (!canReviewMaterials.value || departmentsLoading.value) {
+    return;
+  }
+
+  departmentsLoading.value = true;
+  try {
+    const result = await listDepartments();
+    departments.value = result.items.filter((department) => department.status === "active");
+  } catch {
+    departments.value = [];
+  } finally {
+    departmentsLoading.value = false;
+  }
+};
+
 const refreshDetailResources = async () => {
   await Promise.all([loadDetail(), loadChunks(), loadFiles()]);
 };
@@ -357,11 +386,16 @@ const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
     tags: undefined
   });
   Object.assign(fileFilters, {
+    applicableModule: undefined,
     fileType: undefined,
+    materialType: undefined,
     parseStatus: undefined,
-    search: undefined
+    reviewStatus: undefined,
+    search: undefined,
+    trustLevel: undefined
   });
   drawerVisible.value = true;
+  void loadDepartments();
   await refreshDetailResources();
 };
 
@@ -419,7 +453,7 @@ const handleDeleteKnowledgeBase = async (knowledgeBase: KnowledgeBase) => {
   }
 };
 
-const handleTextImport = async (payload: TextImportPayload) => {
+const handleTextImport = async (payload: ManualKnowledgeMaterialPayload) => {
   if (!selectedKnowledgeBaseId.value) {
     return;
   }
@@ -427,13 +461,13 @@ const handleTextImport = async (payload: TextImportPayload) => {
   textImportSubmitting.value = true;
 
   try {
-    await textImportKnowledge(selectedKnowledgeBaseId.value, payload);
-    ElMessage.success("文本资料已导入为 GEO 知识片段。");
+    await createManualKnowledgeMaterial(selectedKnowledgeBaseId.value, payload);
+    ElMessage.success("手动资料已保存，并生成知识片段。");
     activeTab.value = "chunks";
     chunksPage.value = 1;
-    await Promise.all([loadDetail(), loadChunks()]);
+    await Promise.all([loadDetail(), loadChunks(), loadFiles()]);
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "文本导入失败，请稍后重试。");
+    ElMessage.error(error instanceof Error ? error.message : "手动资料保存失败，请稍后重试。");
   } finally {
     textImportSubmitting.value = false;
   }
@@ -486,8 +520,21 @@ const handleFileDetail = async (file: KnowledgeFile) => {
     const parseStatusLabel =
       parseStatusLabelMap[fileDetail.knowledgeFile.parseStatus] ??
       fileDetail.knowledgeFile.parseStatus;
+    const materialTypeLabel =
+      materialTypeLabelMap[fileDetail.knowledgeFile.materialType] ??
+      fileDetail.knowledgeFile.materialType;
+    const reviewStatusLabel =
+      reviewStatusLabelMap[fileDetail.knowledgeFile.reviewStatus] ??
+      fileDetail.knowledgeFile.reviewStatus;
+    const trustLevelLabel =
+      trustLevelLabelMap[fileDetail.knowledgeFile.trustLevel] ??
+      fileDetail.knowledgeFile.trustLevel;
+    const applicableModules =
+      fileDetail.knowledgeFile.applicableModules
+        .map((item) => applicableModuleLabelMap[item] ?? item)
+        .join("、") || "未设置";
     await ElMessageBox.alert(
-      `文件资料：${fileDetail.knowledgeFile.fileName}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
+      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n适用模块：${applicableModules}\n来源说明：${fileDetail.knowledgeFile.sourceDescription ?? "未设置"}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"
@@ -624,9 +671,13 @@ const handleFileSearch = (query: KnowledgeFileQuery) => {
 
 const handleFileReset = () => {
   Object.assign(fileFilters, {
+    applicableModule: undefined,
     fileType: undefined,
+    materialType: undefined,
     parseStatus: undefined,
-    search: undefined
+    reviewStatus: undefined,
+    search: undefined,
+    trustLevel: undefined
   });
   filesPage.value = 1;
   void loadFiles();
@@ -714,7 +765,7 @@ onMounted(() => {
         class="knowledge-base-table"
         row-key="id"
         border
-        empty-text="暂无企业 GEO 知识库，可先新建知识库并导入文本或 txt/md/csv 文件。"
+        empty-text="暂无企业 GEO 知识库，可先新建知识库并导入文件或手动资料。"
       >
         <el-table-column prop="name" label="知识库名称" min-width="220" fixed="left">
           <template #default="{ row }: { row: KnowledgeBase }">
@@ -828,6 +879,8 @@ onMounted(() => {
       :text-import-submitting="textImportSubmitting"
       :uploading="uploading"
       :can-manage="canManageKnowledgeBase(selectedKnowledgeBase)"
+      :can-review="canReviewMaterials"
+      :departments="departments"
       :reparsing-ids="reparsingIds"
       :deleting-file-ids="deletingFileIds"
       :deleting-chunk-ids="deletingChunkIds"

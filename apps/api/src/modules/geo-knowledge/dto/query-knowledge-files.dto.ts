@@ -1,4 +1,4 @@
-import { ParseStatus } from "@prisma/client";
+import { KnowledgeReviewStatus, KnowledgeTrustLevel, ParseStatus } from "@prisma/client";
 import { Transform } from "class-transformer";
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 import { toOptionalInt, trimOptionalString } from "./knowledge-dto-transforms";
@@ -30,4 +30,22 @@ export class QueryKnowledgeFilesDto {
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  materialType?: string;
+
+  @IsOptional()
+  @IsEnum(KnowledgeReviewStatus)
+  reviewStatus?: KnowledgeReviewStatus;
+
+  @IsOptional()
+  @IsEnum(KnowledgeTrustLevel)
+  trustLevel?: KnowledgeTrustLevel;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  applicableModule?: string;
 }

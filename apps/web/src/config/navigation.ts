@@ -87,7 +87,7 @@ export const navigationItems: GeoPageMeta[] = [
     title: "知识库",
     question: "AI 应该引用哪些企业事实资料？",
     description: "管理产品、案例、FAQ、解决方案和资质等可被内容生成引用的事实底座。",
-    phaseNote: "已支持知识库管理、文本导入、txt/md/csv 上传解析、片段编辑和解析重试。",
+    phaseNote: "已支持知识库管理、手动录入、txt/md/csv/Excel/Word 上传解析、片段编辑和解析重试。",
     nextSteps: ["维护产品线知识库", "导入可引用事实资料", "检查解析失败文件和知识片段质量"],
     apiFocus: "已联调 /api/knowledge-bases 和 /api/knowledge-files",
     icon: Files,

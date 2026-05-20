@@ -1,4 +1,9 @@
-import type { ParseStatus } from "@/api/knowledge";
+import type {
+  KnowledgeApplicableModule,
+  KnowledgeReviewStatus,
+  KnowledgeTrustLevel,
+  ParseStatus
+} from "@/api/knowledge";
 
 export const knowledgeBaseStatusOptions = [
   { label: "启用", value: "active" },
@@ -8,18 +13,37 @@ export const knowledgeBaseStatusOptions = [
 export const sourceTypeOptions = [
   { label: "粘贴文本", value: "pasted_text" },
   { label: "文本导入", value: "text_import" },
-  { label: "上传文件", value: "uploaded_file" }
+  { label: "上传文件", value: "uploaded_file" },
+  { label: "手动录入", value: "manual" },
+  { label: "文件上传", value: "upload" }
 ];
 
 export const materialTypeOptions = [
-  { label: "产品资料", value: "product_info" },
-  { label: "常见问题", value: "faq" },
-  { label: "客户案例", value: "case" },
-  { label: "解决方案", value: "solution" },
-  { label: "资质认证", value: "qualification" },
-  { label: "对比资料", value: "comparison" },
-  { label: "服务说明", value: "service" },
-  { label: "文件导入", value: "file_import" }
+  { label: "产品资料", value: "product_material" },
+  { label: "售后资料", value: "aftersales_material" },
+  { label: "公司可信信息", value: "company_trust_material" },
+  { label: "内容引用资料", value: "content_reference_material" },
+  { label: "内部制度 / 流程资料", value: "internal_process_material" },
+  { label: "客户案例资料", value: "customer_case_material" }
+];
+
+export const reviewStatusOptions: Array<{ label: string; value: KnowledgeReviewStatus }> = [
+  { label: "待审核", value: "pending" },
+  { label: "已通过", value: "approved" },
+  { label: "已停用", value: "disabled" }
+];
+
+export const trustLevelOptions: Array<{ label: string; value: KnowledgeTrustLevel }> = [
+  { label: "高", value: "high" },
+  { label: "中", value: "medium" },
+  { label: "低", value: "low" }
+];
+
+export const applicableModuleOptions: Array<{ label: string; value: KnowledgeApplicableModule }> = [
+  { label: "内部检索", value: "internal-search" },
+  { label: "GEO 内容生成", value: "geo-content" },
+  { label: "售后问答", value: "aftersales-qa" },
+  { label: "GEO 分析", value: "geo-analysis" }
 ];
 
 export const parseStatusOptions: Array<{ label: string; value: ParseStatus }> = [
@@ -43,11 +67,34 @@ export const materialTypeLabelMap = Object.fromEntries(
   materialTypeOptions.map((item) => [item.value, item.label])
 ) as Record<string, string>;
 
+Object.assign(materialTypeLabelMap, {
+  case: "客户案例",
+  comparison: "对比资料",
+  faq: "常见问题",
+  file_import: "文件导入",
+  product_info: "产品资料",
+  qualification: "资质认证",
+  service: "服务说明",
+  solution: "解决方案"
+});
+
+export const reviewStatusLabelMap = Object.fromEntries(
+  reviewStatusOptions.map((item) => [item.value, item.label])
+) as Record<KnowledgeReviewStatus, string>;
+
+export const trustLevelLabelMap = Object.fromEntries(
+  trustLevelOptions.map((item) => [item.value, item.label])
+) as Record<KnowledgeTrustLevel, string>;
+
+export const applicableModuleLabelMap = Object.fromEntries(
+  applicableModuleOptions.map((item) => [item.value, item.label])
+) as Record<KnowledgeApplicableModule, string>;
+
 export const parseStatusLabelMap = Object.fromEntries(
   parseStatusOptions.map((item) => [item.value, item.label])
 ) as Record<ParseStatus, string>;
 
-export const supportedKnowledgeFileExtensions = ["txt", "md", "csv"];
+export const supportedKnowledgeFileExtensions = ["txt", "md", "csv", "xlsx", "xls", "docx"];
 
 export const isSupportedKnowledgeFileName = (fileName: string) => {
   const extension = fileName.split(".").pop()?.toLowerCase();
