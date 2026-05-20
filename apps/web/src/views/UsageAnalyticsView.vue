@@ -30,6 +30,7 @@ const moduleOptions = [
   { label: "全部模块", value: "" },
   { label: "GEO 诊断", value: "geo-analysis" },
   { label: "AI 拓词", value: "expansion" },
+  { label: "售后问答", value: "aftersales-qa" },
   { label: "GEO 内容生成", value: "geo-content" },
   { label: "AI 模型覆盖记录", value: "model-inclusion-records" }
 ];
@@ -37,6 +38,7 @@ const moduleOptions = [
 const moduleLabelMap: Record<string, string> = {
   "geo-analysis": "GEO 诊断",
   expansion: "AI 拓词",
+  "aftersales-qa": "售后问答",
   "geo-content": "GEO 内容生成",
   "model-inclusion-records": "AI 模型覆盖记录"
 };

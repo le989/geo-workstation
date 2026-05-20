@@ -37,6 +37,7 @@ export const routeModuleKeyByPath: Record<string, GeoModuleKey> = {
   "/geo-prompts": "geo-prompts",
   "/expansion": "expansion",
   "/knowledge-bases": "knowledge-bases",
+  "/aftersales-qa": "aftersales-qa",
   "/instruction-templates": "instruction-templates",
   "/geo-content": "geo-content",
   "/content-tasks": "geo-content",

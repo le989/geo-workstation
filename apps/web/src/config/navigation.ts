@@ -1,6 +1,7 @@
 import type { Component } from "vue";
 import {
   CollectionTag,
+  ChatDotRound,
   DataBoard,
   DocumentChecked,
   EditPen,
@@ -91,6 +92,18 @@ export const navigationItems: GeoPageMeta[] = [
     nextSteps: ["维护产品线知识库", "导入可引用事实资料", "检查解析失败文件和知识片段质量"],
     apiFocus: "已联调 /api/knowledge-bases 和 /api/knowledge-files",
     icon: Files,
+    allowedRoles: allRoles
+  },
+  {
+    path: "/aftersales-qa",
+    label: "售后问答",
+    title: "售后问答",
+    question: "内部售后问题能否从已审核资料中找到依据？",
+    description: "基于已通过的售后资料和产品资料生成谨慎答复，并展示引用来源。",
+    phaseNote: "AFTERSALES-QA-1 使用关键词检索和规则回答，不接真实 AI Provider，不做客户开放版。",
+    nextSteps: ["输入内部售后问题", "查看有依据或无依据回答", "核对引用知识库、文件和片段"],
+    apiFocus: "已联调 /api/aftersales-qa/ask 和 /api/aftersales-qa/records",
+    icon: ChatDotRound,
     allowedRoles: allRoles
   },
   {

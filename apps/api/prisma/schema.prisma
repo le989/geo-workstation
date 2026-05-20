@@ -118,6 +118,16 @@ enum KnowledgeTrustLevel {
   low
 }
 
+enum AftersalesAnswerStatus {
+  answered
+  no_reliable_source
+  failed
+}
+
+enum AftersalesFeedbackStatus {
+  none
+}
+
 enum RecordMethod {
   manual
   api
@@ -161,6 +171,7 @@ model User {
   aiCallLogs            AiCallLog[]             @relation("AiCallLogCreatedBy")
   aiUsageRecords        AiUsageRecord[]         @relation("AiUsageRecordUser")
   operationLogs         OperationLog[]          @relation("OperationLogUser")
+  aftersalesQuestionRecords AftersalesQuestionRecord[] @relation("AftersalesQuestionRecordUser")
 
   @@map("users")
 }
@@ -191,6 +202,7 @@ model Company {
   aiCallLogs            AiCallLog[]
   aiUsageRecords        AiUsageRecord[]
   operationLogs         OperationLog[]
+  aftersalesQuestionRecords AftersalesQuestionRecord[]
 
   @@map("companies")
 }
@@ -227,6 +239,7 @@ model Department {
   modulePermissions DepartmentModulePermission[]
   aiUsageRecords    AiUsageRecord[]
   operationLogs     OperationLog[]
+  aftersalesQuestionRecords AftersalesQuestionRecord[]
   createdAt         DateTime                     @default(now()) @map("created_at")
   updatedAt         DateTime                     @updatedAt @map("updated_at")
 
@@ -753,6 +766,7 @@ model AiUsageRecord {
   errorMessage     String?     @map("error_message")
   metadata         Json?
   createdAt        DateTime    @default(now()) @map("created_at")
+  aftersalesQuestionRecords AftersalesQuestionRecord[]
 
   @@index([companyId])
   @@index([userId])
@@ -764,6 +778,39 @@ model AiUsageRecord {
   @@index([success])
   @@index([createdAt])
   @@map("ai_usage_records")
+}
+
+model AftersalesQuestionRecord {
+  id                String                    @id @default(cuid())
+  companyId         String                    @map("company_id")
+  company           Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId            String                    @map("user_id")
+  user              User                      @relation("AftersalesQuestionRecordUser", fields: [userId], references: [id], onDelete: Restrict)
+  departmentId      String?                   @map("department_id")
+  department        Department?               @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  question          String                    @db.Text
+  answer            String                    @db.Text
+  answerStatus      AftersalesAnswerStatus    @default(no_reliable_source) @map("answer_status")
+  citedSources      Json                      @default("[]") @map("cited_sources")
+  usedMaterialTypes Json                      @default("[]") @map("used_material_types")
+  isAnswered        Boolean                   @default(false) @map("is_answered")
+  hasReliableSource Boolean                   @default(false) @map("has_reliable_source")
+  isMock            Boolean                   @default(true) @map("is_mock")
+  aiUsageRecordId   String?                   @map("ai_usage_record_id")
+  aiUsageRecord     AiUsageRecord?            @relation(fields: [aiUsageRecordId], references: [id], onDelete: SetNull)
+  feedbackStatus    AftersalesFeedbackStatus  @default(none) @map("feedback_status")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([answerStatus])
+  @@index([hasReliableSource])
+  @@index([isAnswered])
+  @@index([aiUsageRecordId])
+  @@index([createdAt])
+  @@map("aftersales_question_records")
 }
 
 model OperationLog {

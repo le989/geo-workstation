@@ -20,7 +20,7 @@ export const GEO_MODULE_OPTIONS: Array<{
   { key: "companies", label: "公司管理", group: "设置子模块" },
   { key: "product-lines", label: "产品线管理", group: "设置子模块" },
   { key: "departments", label: "部门管理", group: "新增模块" },
-  { key: "aftersales-qa", label: "售后问答", group: "预留模块" },
+  { key: "aftersales-qa", label: "售后问答", group: "新增模块" },
   { key: "feedback-center", label: "反馈中心", group: "预留模块" },
   { key: "usage-analytics", label: "用量分析", group: "预留模块" },
   { key: "operation-logs", label: "操作日志", group: "预留模块" }

@@ -71,7 +71,10 @@ export class AiUsageService {
 
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async recordUsage(input: RecordAiUsageInput, context?: ResourceAccessContext): Promise<void> {
+  async recordUsage(
+    input: RecordAiUsageInput,
+    context?: ResourceAccessContext
+  ): Promise<AiUsageRecord | null> {
     try {
       const isMock = input.isMock ?? (input.provider === "mock" || input.provider === "stub");
       const promptTokens = isMock ? 0 : this.toNonNegativeInt(input.promptTokens);
@@ -80,7 +83,7 @@ export class AiUsageService {
         ? 0
         : this.toNonNegativeInt(input.totalTokens ?? promptTokens + completionTokens);
 
-      await this.prisma.aiUsageRecord.create({
+      return await this.prisma.aiUsageRecord.create({
         data: {
           companyId: input.companyId ?? context?.currentCompany.id ?? null,
           userId: input.userId ?? context?.user.id ?? null,
@@ -108,6 +111,7 @@ export class AiUsageService {
       this.logger.warn(
         `Failed to record AI usage: ${error instanceof Error ? error.message : String(error)}`
       );
+      return null;
     }
   }
 
