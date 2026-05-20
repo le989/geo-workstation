@@ -38,7 +38,7 @@ import type { UpdateAftersalesConversationStatusDto } from "./dto/update-aftersa
 const AFTERSALES_MODULE_KEY = "aftersales-qa";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
 const NO_RELIABLE_SOURCE_ANSWER =
-  "知识库中未找到可靠依据，建议补充资料或转人工确认。";
+  "未找到可引用资料，建议补充资料或转人工确认。";
 const CLARIFICATION_ANSWER = [
   "需要补充信息后才能继续排查：",
   "",
@@ -367,9 +367,11 @@ export class AftersalesQaService {
 
     try {
       const retrievalQuestion = previousQuestion ? `${previousQuestion} ${question}` : question;
-      const draft = this.shouldAskForClarification(question, previousQuestion)
-        ? this.createClarificationDraft()
-        : await this.composeAnswer(retrievalQuestion, context);
+      const draft =
+        this.createSystemGuideDraft(question) ??
+        (this.shouldAskForClarification(question, previousQuestion)
+          ? this.createClarificationDraft()
+          : await this.composeAnswer(retrievalQuestion, context));
       const record = await this.createQuestionRecord(question, draft, context, {
         conversationId: conversation.id,
         sequence
@@ -482,7 +484,7 @@ export class AftersalesQaService {
     const question = this.normalizeQuestion(input.question);
 
     try {
-      const draft = await this.composeAnswer(question, context);
+      const draft = this.createSystemGuideDraft(question) ?? (await this.composeAnswer(question, context));
       const record = await this.createQuestionRecord(question, draft, context);
       const aiUsageRecord = await this.recordAskUsageAndOperation(record, draft, context, true);
 
@@ -1010,6 +1012,41 @@ export class AftersalesQaService {
     }
 
     return compact.length <= 6 && /(没反应|不亮|无输出|没有输出|怎么接)/.test(compact);
+  }
+
+  private createSystemGuideDraft(question: string): AnswerDraft | null {
+    const normalized = question.replace(/\s+/g, "").toLowerCase();
+
+    if (/(怎么|如何)?补充资料|资料怎么补|补资料/.test(normalized)) {
+      return this.createSystemGuideAnswer(
+        "可以在「知识库」中上传文件或手动录入资料，选择资料类型、可信度和审核状态。资料审核通过后，才会被售后问答引用。"
+      );
+    }
+
+    if (/人工确认|怎么转人工|如何转人工|转人工/.test(normalized)) {
+      return this.createSystemGuideAnswer(
+        "人工确认指当前资料未命中可引用依据，建议由售后、技术或管理员结合现场信息确认，再补充到知识库。"
+      );
+    }
+
+    if (/售后问答怎么用|怎么使用售后问答|你能做什么|能做什么/.test(normalized)) {
+      return this.createSystemGuideAnswer(
+        "请尽量提供产品型号、现场现象、输出方式和接线情况。系统会优先依据已审核售后资料回答，未命中时再查产品资料。"
+      );
+    }
+
+    return null;
+  }
+
+  private createSystemGuideAnswer(answer: string): AnswerDraft {
+    return {
+      answer,
+      answerStatus: AftersalesAnswerStatus.answered,
+      citedSources: [],
+      usedMaterialTypes: [],
+      isAnswered: true,
+      hasReliableSource: false
+    };
   }
 
   private hasUsefulQuestionContext(question: string): boolean {

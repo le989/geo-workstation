@@ -287,7 +287,35 @@ describe("AftersalesQaService", () => {
       hasReliableSource: false,
       citedSources: []
     });
-    expect(result.answer).toContain("知识库中未找到可靠依据");
+    expect(result.answer).toContain("未找到可引用资料");
+  });
+
+  it("answers system usage guide questions without citing knowledge material", async () => {
+    const result = await service.ask(
+      {
+        question: "怎么补充资料？"
+      },
+      contextFor(allowedOperator, MembershipRole.operator)
+    );
+    const operations = await prisma.operationLog.findMany({
+      where: {
+        moduleKey: "aftersales-qa",
+        action: "ai_question",
+        targetId: result.recordId
+      }
+    });
+
+    expect(result).toMatchObject({
+      answerStatus: "answered",
+      isAnswered: true,
+      hasReliableSource: false,
+      citedSources: [],
+      usedMaterialTypes: []
+    });
+    expect(result.answer).toContain("知识库");
+    expect(result.answer).toContain("审核通过后");
+    expect(operations).toHaveLength(1);
+    expect(JSON.stringify(operations[0]?.metadata)).not.toContain("storagePath");
   });
 
   it("answers from approved售后 materials only when department access is valid", async () => {

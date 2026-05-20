@@ -36,12 +36,12 @@ type ConversationCommand = {
   conversation: AftersalesConversation;
 };
 
-const NO_SOURCE_MESSAGE = "知识库中未找到可靠依据，建议补充资料或转人工确认。";
+const NO_SOURCE_MESSAGE = "未找到可引用资料，建议补充资料或转人工确认。";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
 
 const answerStatusLabels: Record<AftersalesAnswerStatus, string> = {
   answered: "有依据",
-  no_reliable_source: "暂无可靠依据",
+  no_reliable_source: "未找到可引用资料",
   needs_clarification: "需补充信息",
   failed: "生成失败"
 };
@@ -90,8 +90,8 @@ const conversationHint = computed(() =>
   isActiveConversationArchived.value
     ? "该会话已归档，恢复后可继续提问。"
     : activeConversation.value
-    ? "按已审核售后资料和产品资料回答，找不到依据时不编造。"
-    : "基于企业知识库的内部售后 AI 助手，按已审核资料回答。"
+    ? "依据已审核售后资料和产品资料辅助排查，未命中资料时提示人工确认。"
+    : "基于已审核售后资料和产品资料回答。"
 );
 const emptyConversationDescription = computed(() => {
   if (keyword.value.trim()) {
@@ -136,7 +136,7 @@ const messages = computed<ChatMessage[]>(() => {
     items.push({
       id: "pending-answer",
       role: "assistant",
-      content: "正在检索知识库...",
+      content: "正在查询已审核资料...",
       isLoading: true
     });
   }
@@ -145,10 +145,37 @@ const messages = computed<ChatMessage[]>(() => {
 });
 
 const formatTime = (value: string) => new Date(value).toLocaleString("zh-CN");
+const formatConversationTime = (value: string) => {
+  const date = new Date(value);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  const time = date.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  if (isToday) {
+    return `今天 ${time}`;
+  }
+  if (isYesterday) {
+    return `昨天 ${time}`;
+  }
+
+  return date.toLocaleDateString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit"
+  });
+};
+const formatConversationMeta = (conversation: AftersalesConversation) =>
+  `${conversation.messageCount} 轮对话 · ${formatConversationTime(conversation.lastMessageAt)}`;
 const materialTypeLabel = (value: KnowledgeMaterialType) => materialTypeLabelMap[value] ?? value;
 const getAnswerStatusLabel = (value: AftersalesAnswerStatus) => answerStatusLabels[value] ?? value;
 const getAnswerStatusType = (value: AftersalesAnswerStatus) =>
   answerStatusTagType[value] ?? "info";
+const getSourceCollapseTitle = (count: number) => `引用来源 ${count} 条`;
 const getMessageBubbleClass = (message: ChatMessage) => ({
   "is-loading": message.isLoading,
   "is-no-source": message.status === "no_reliable_source",
@@ -443,7 +470,7 @@ onMounted(() => {
       <div class="sidebar-header">
         <div>
           <h3>售后问答</h3>
-          <span>基于知识库，无依据不编造</span>
+          <span>依据已审核资料辅助排查</span>
         </div>
         <el-button
           :icon="Plus"
@@ -501,12 +528,11 @@ onMounted(() => {
         >
           <div class="conversation-item__content">
             <span class="conversation-title">{{ conversation.title || DEFAULT_CONVERSATION_TITLE }}</span>
-            <small>{{ formatTime(conversation.lastMessageAt) }}</small>
+            <small>{{ formatConversationMeta(conversation) }}</small>
             <span class="conversation-meta">
               <el-tag v-if="conversation.status === 'archived'" size="small" type="info" effect="plain">
                 已归档
               </el-tag>
-              <span>{{ conversation.messageCount }} 轮</span>
               <span v-if="isAdmin && conversationScope === 'all'">
                 {{ conversation.userName ?? "未知用户" }}
               </span>
@@ -567,7 +593,7 @@ onMounted(() => {
     <main class="chat-main">
       <header class="chat-header">
         <div>
-          <h2>{{ activeConversation?.title ?? "基于知识库的内部售后 AI 助手" }}</h2>
+          <h2>{{ activeConversation?.title ?? "售后知识助手" }}</h2>
           <p>{{ conversationHint }}</p>
         </div>
         <div class="chat-header__actions">
@@ -591,7 +617,7 @@ onMounted(() => {
             <div class="message-avatar">{{ message.role === "user" ? userName.slice(0, 1) : "售" }}</div>
             <div class="message-body">
               <div class="message-meta">
-                <strong>{{ message.role === "user" ? userName : "售后 AI 助手" }}</strong>
+                <strong>{{ message.role === "user" ? userName : "售后知识助手" }}</strong>
                 <span v-if="message.createdAt">{{ formatTime(message.createdAt) }}</span>
                 <el-tag
                   v-if="message.role === 'assistant' && message.status"
@@ -611,7 +637,7 @@ onMounted(() => {
                 v-if="message.role === 'assistant' && message.citedSources?.length"
                 class="source-collapse"
               >
-                <el-collapse-item title="引用来源" name="sources">
+                <el-collapse-item :title="getSourceCollapseTitle(message.citedSources.length)" name="sources">
                   <article
                     v-for="source in message.citedSources"
                     :key="source.chunkId"
@@ -634,7 +660,7 @@ onMounted(() => {
 
         <el-empty
           v-else
-          description="先描述产品型号、现场现象、输出方式或接线情况，售后 AI 助手会优先依据已审核资料回答。"
+          description="先描述产品型号、现场现象、输出方式或接线情况，系统会优先依据已审核资料回答。"
           :image-size="110"
         />
       </section>
@@ -672,25 +698,27 @@ onMounted(() => {
 
 <style scoped>
 .aftersales-chat-page {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  min-height: calc(100vh - 132px);
+  display: flex;
+  height: calc(100vh - 132px);
+  min-height: 560px;
+  max-height: calc(100vh - 132px);
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
-  background: #f8fafc;
-  box-shadow: 0 18px 42px rgb(15 23 42 / 8%);
+  background: #f7f8fa;
+  box-shadow: 0 16px 36px rgb(15 23 42 / 7%);
 }
 
 .conversation-sidebar {
   display: flex;
+  flex: 0 0 320px;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
   padding: 14px;
   border-right: 1px solid #e5e7eb;
-  background:
-    linear-gradient(180deg, rgb(109 40 217 / 8%), transparent 180px),
-    #f8fafc;
+  background: #f8fafc;
 }
 
 .sidebar-header,
@@ -736,6 +764,7 @@ onMounted(() => {
 .conversation-list {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .conversation-item {
@@ -744,9 +773,9 @@ onMounted(() => {
   gap: 10px;
   align-items: flex-start;
   width: 100%;
-  min-height: 86px;
-  margin-bottom: 8px;
-  padding: 12px;
+  min-height: 78px;
+  margin-bottom: 7px;
+  padding: 11px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   color: var(--el-text-color-primary);
@@ -762,10 +791,14 @@ onMounted(() => {
 .conversation-item:hover,
 .conversation-item.is-active,
 .conversation-item:focus-visible {
-  border-color: var(--el-color-primary-light-5);
+  border-color: #c8c2f0;
   background: #fff;
-  box-shadow: 0 10px 28px rgb(79 70 229 / 10%);
+  box-shadow: 0 8px 22px rgb(15 23 42 / 8%);
   outline: none;
+}
+
+.conversation-item.is-active {
+  box-shadow: inset 3px 0 0 #6d40d7, 0 8px 22px rgb(15 23 42 / 8%);
 }
 
 .conversation-item:hover {
@@ -809,23 +842,23 @@ onMounted(() => {
   justify-content: center;
   padding: 10px 0 4px;
   color: var(--el-text-color-secondary);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .chat-main {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   background: #fff;
 }
 
 .chat-header {
+  flex: 0 0 auto;
   padding: 16px 18px;
   border-bottom: 1px solid #e5e7eb;
-  background:
-    linear-gradient(90deg, rgb(255 255 255 / 96%), rgb(245 247 255 / 92%)),
-    #fff;
+  background: #fff;
 }
 
 .chat-header h2 {
@@ -837,12 +870,11 @@ onMounted(() => {
 }
 
 .message-list {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px;
-  background:
-    linear-gradient(180deg, #fff, #f8fafc 58%, #eef2ff),
-    #f8fafc;
+  padding: 22px 22px 18px;
+  background: linear-gradient(180deg, #fff, #f8fafc 52%, #f1f5f9);
 }
 
 .chat-message {
@@ -858,18 +890,19 @@ onMounted(() => {
 
 .message-avatar {
   display: grid;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 34px;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   border-radius: 50%;
-  color: #fff;
+  color: #394150;
   font-weight: 700;
-  background: var(--el-color-primary);
+  background: #e9edf3;
 }
 
 .chat-message.is-assistant .message-avatar {
-  background: var(--el-color-success);
+  color: #24514a;
+  background: #dff4ed;
 }
 
 .message-body {
@@ -895,13 +928,14 @@ onMounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 4%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 5%);
 }
 
 .chat-message.is-user .message-bubble {
-  color: #fff;
-  border-color: var(--el-color-primary);
-  background: var(--el-color-primary);
+  color: #18202f;
+  border-color: #d8e0ea;
+  background: #eef3f8;
+  box-shadow: none;
 }
 
 .message-bubble p {
@@ -919,8 +953,8 @@ onMounted(() => {
 }
 
 .message-bubble.is-no-source {
-  border-color: #fde68a;
-  background: #fffbeb;
+  border-color: #f5dc91;
+  background: #fffaf0;
 }
 
 .message-bubble.is-clarification {
@@ -937,14 +971,18 @@ onMounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
+  overflow: hidden;
 }
 
 .source-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid #eef1f5;
+  border-radius: 8px;
+  background: #fbfcfe;
 }
 
 .source-item:last-child {
@@ -955,15 +993,21 @@ onMounted(() => {
   margin: 0;
   color: var(--el-text-color-regular);
   line-height: 1.6;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .composer {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 10px;
   padding: 14px 18px 16px;
   border-top: 1px solid #e5e7eb;
   background: #fff;
+  box-shadow: 0 -10px 24px rgb(15 23 42 / 4%);
 }
 
 .composer-actions {
@@ -984,11 +1028,15 @@ onMounted(() => {
 
 @media (max-width: 960px) {
   .aftersales-chat-page {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    height: auto;
+    max-height: none;
   }
 
   .conversation-sidebar {
+    flex: 0 0 auto;
     min-height: 260px;
+    max-height: 40vh;
     border-right: 0;
     border-bottom: 1px solid var(--el-border-color-light);
   }
