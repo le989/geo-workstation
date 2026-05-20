@@ -36,7 +36,7 @@ type ConversationCommand = {
   conversation: AftersalesConversation;
 };
 
-const NO_SOURCE_MESSAGE = "未找到可引用资料，建议补充资料或转人工确认。";
+const NO_SOURCE_MESSAGE = "当前资料库未命中可引用内容，建议补充对应资料或由售后/技术人员确认。";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
 
 const answerStatusLabels: Record<AftersalesAnswerStatus, string> = {
@@ -181,6 +181,10 @@ const getMessageBubbleClass = (message: ChatMessage) => ({
   "is-no-source": message.status === "no_reliable_source",
   "is-clarification": message.status === "needs_clarification"
 });
+const getMessageContent = (message: ChatMessage) =>
+  message.status === "no_reliable_source"
+    ? NO_SOURCE_MESSAGE
+    : message.content || NO_SOURCE_MESSAGE;
 
 const scrollToBottom = async () => {
   await nextTick();
@@ -469,8 +473,8 @@ onMounted(() => {
     <aside class="conversation-sidebar">
       <div class="sidebar-header">
         <div>
-          <h3>售后问答</h3>
-          <span>依据已审核资料辅助排查</span>
+          <h3>会话记录</h3>
+          <span>售后排查历史</span>
         </div>
         <el-button
           :icon="Plus"
@@ -630,7 +634,7 @@ onMounted(() => {
               </div>
               <div class="message-bubble" :class="getMessageBubbleClass(message)">
                 <el-icon v-if="message.isLoading" class="loading-icon"><ChatDotRound /></el-icon>
-                <p>{{ message.content || NO_SOURCE_MESSAGE }}</p>
+                <p>{{ getMessageContent(message) }}</p>
               </div>
 
               <el-collapse
@@ -686,7 +690,7 @@ onMounted(() => {
           @keydown.ctrl.enter.prevent="handleAsk"
         />
         <div class="composer-actions">
-          <span>仅基于已审核知识库回答；没有可靠依据时，将提示补充资料或转人工确认。</span>
+          <span>仅依据已审核资料辅助排查；未命中资料时，将提示补充资料或转人工确认。</span>
           <el-button :loading="asking" type="primary" :disabled="!canSend" @click="handleAsk">
             发送
           </el-button>
@@ -873,7 +877,7 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 22px 22px 18px;
+  padding: 18px 20px 14px;
   background: linear-gradient(180deg, #fff, #f8fafc 52%, #f1f5f9);
 }
 
@@ -881,7 +885,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   max-width: 920px;
-  margin: 0 auto 18px;
+  margin: 0 auto 14px;
 }
 
 .chat-message.is-user {
@@ -916,7 +920,7 @@ onMounted(() => {
 
 .message-meta {
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .chat-message.is-user .message-meta {
@@ -924,7 +928,7 @@ onMounted(() => {
 }
 
 .message-bubble {
-  padding: 13px 15px;
+  padding: 12px 14px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
@@ -967,7 +971,7 @@ onMounted(() => {
 }
 
 .source-collapse {
-  margin-top: 10px;
+  margin-top: 8px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
@@ -1003,11 +1007,11 @@ onMounted(() => {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px 16px;
+  gap: 8px;
+  padding: 12px 18px 14px;
   border-top: 1px solid #e5e7eb;
   background: #fff;
-  box-shadow: 0 -10px 24px rgb(15 23 42 / 4%);
+  box-shadow: 0 -8px 20px rgb(15 23 42 / 4%);
 }
 
 .composer-actions {

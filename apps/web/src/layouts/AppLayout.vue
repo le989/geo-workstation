@@ -81,7 +81,7 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
   },
   "/aftersales-qa": {
     title: "售后问答",
-    subtitle: "内部售后问题、依据引用和无依据提示"
+    subtitle: "基于已审核资料的内部售后排查助手"
   },
   "/instruction-templates": {
     title: "指令库",
