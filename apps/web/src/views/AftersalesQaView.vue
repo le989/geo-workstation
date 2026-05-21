@@ -1370,7 +1370,7 @@ onMounted(() => {
                 <p>
                   <el-tag type="warning" effect="plain">已转知识库草稿</el-tag>
                   <span>
-                    {{ reviewStatusLabel(convertedKnowledgeDraft.reviewStatus) }} · 可信度
+                    {{ reviewStatusLabel(convertedKnowledgeDraft.reviewStatus) }} · 可靠程度
                     {{ trustLevelLabel(convertedKnowledgeDraft.trustLevel) }}
                   </span>
                 </p>
@@ -1437,7 +1437,7 @@ onMounted(() => {
     <el-dialog v-model="draftDialogVisible" title="转为知识库草稿" width="760px">
       <div class="knowledge-draft-dialog">
         <el-alert
-          title="草稿将以待审核、中可信状态创建；审核通过前不会被售后问答或 GEO 内容正式引用。"
+          title="草稿将以待审核、中可靠状态创建；审核通过前不会被售后问答或 GEO 内容正式引用。"
           type="warning"
           show-icon
           :closable="false"

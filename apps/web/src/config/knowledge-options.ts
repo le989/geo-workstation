@@ -49,9 +49,9 @@ export const reviewStatusOptions: Array<{ label: string; value: KnowledgeReviewS
 ];
 
 export const trustLevelOptions: Array<{ label: string; value: KnowledgeTrustLevel }> = [
-  { label: "高", value: "high" },
-  { label: "中", value: "medium" },
-  { label: "低", value: "low" }
+  { label: "高可靠", value: "high" },
+  { label: "中可靠", value: "medium" },
+  { label: "低可靠", value: "low" }
 ];
 
 export const applicableModuleOptions: Array<{ label: string; value: KnowledgeApplicableModule }> = [
@@ -62,8 +62,8 @@ export const applicableModuleOptions: Array<{ label: string; value: KnowledgeApp
 ];
 
 export const officialCitationStatusOptions = [
-  { label: "可正式引用", value: "citable" },
-  { label: "不正式引用", value: "not_citable" }
+  { label: "可被 AI 引用", value: "citable" },
+  { label: "暂不可引用", value: "not_citable" }
 ];
 
 export const materialTypeDefaults: Record<

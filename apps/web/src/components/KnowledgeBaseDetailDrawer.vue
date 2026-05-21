@@ -22,9 +22,7 @@ import {
   knowledgeBaseStatusLabelMap,
   materialTopicOptions,
   materialTypeOptions,
-  officialCitationStatusOptions,
   parseStatusOptions,
-  reviewStatusOptions,
   sourceTypeOptions,
   trustLevelOptions
 } from "@/config/knowledge-options";
@@ -101,18 +99,27 @@ const fileFilters = reactive({
   fileType: "",
   materialType: "",
   materialTopic: "",
-  officialCitationStatus: "" as KnowledgeOfficialCitationStatus | "",
   parseStatus: "" as ParseStatus | "",
-  reviewStatus: "" as KnowledgeReviewStatus | "",
   search: "",
   trustLevel: "" as KnowledgeTrustLevel | ""
 });
-const fileViewMode = ref<"card" | "table">("table");
+const fileViewMode = ref<"card" | "table">("card");
+const fileDisplayMode = ref<"simple" | "management">("simple");
+const fileStatusFilter = ref<"all" | "pending" | "approved" | "citable" | "not_citable">("all");
+const showFileAdvancedFilters = ref(false);
+const ingestInitialMethod = ref<"manual" | "upload">("manual");
 const directoryManageVisible = ref(false);
 const directoryFormName = ref("");
 const editingDirectoryId = ref("");
 const directoryFormError = ref("");
 const directoryItems = computed(() => props.directories ?? []);
+const fileStatusFilterOptions = [
+  { label: "全部", value: "all" },
+  { label: "待审核", value: "pending" },
+  { label: "已通过", value: "approved" },
+  { label: "可被 AI 引用", value: "citable" },
+  { label: "暂不可引用", value: "not_citable" }
+] as const;
 
 watch(
   () => props.detail?.knowledgeBase.id,
@@ -127,12 +134,14 @@ watch(
     fileFilters.directoryId = "";
     fileFilters.materialType = "";
     fileFilters.materialTopic = "";
-    fileFilters.officialCitationStatus = "";
     fileFilters.parseStatus = "";
-    fileFilters.reviewStatus = "";
     fileFilters.search = "";
     fileFilters.trustLevel = "";
     fileFilters.applicableModule = "";
+    fileStatusFilter.value = "all";
+    fileDisplayMode.value = "simple";
+    fileViewMode.value = "card";
+    showFileAdvancedFilters.value = false;
   }
 );
 
@@ -160,6 +169,23 @@ const handleChunkReset = () => {
   emit("reset-chunks");
 };
 
+const getFileStatusQuery = () => {
+  if (fileStatusFilter.value === "pending") {
+    return { reviewStatus: "pending" as KnowledgeReviewStatus };
+  }
+  if (fileStatusFilter.value === "approved") {
+    return { reviewStatus: "approved" as KnowledgeReviewStatus };
+  }
+  if (fileStatusFilter.value === "citable") {
+    return { officialCitationStatus: "citable" as KnowledgeOfficialCitationStatus };
+  }
+  if (fileStatusFilter.value === "not_citable") {
+    return { officialCitationStatus: "not_citable" as KnowledgeOfficialCitationStatus };
+  }
+
+  return {};
+};
+
 const handleFileSearch = () => {
   emit("search-files", {
     applicableModule: fileFilters.applicableModule || undefined,
@@ -167,9 +193,8 @@ const handleFileSearch = () => {
     fileType: fileFilters.fileType.trim() || undefined,
     materialType: fileFilters.materialType || undefined,
     materialTopic: fileFilters.materialTopic || undefined,
-    officialCitationStatus: fileFilters.officialCitationStatus || undefined,
+    ...getFileStatusQuery(),
     parseStatus: fileFilters.parseStatus || undefined,
-    reviewStatus: fileFilters.reviewStatus || undefined,
     search: fileFilters.search.trim() || undefined,
     trustLevel: fileFilters.trustLevel || undefined
   });
@@ -181,11 +206,11 @@ const handleFileReset = () => {
   fileFilters.fileType = "";
   fileFilters.materialType = "";
   fileFilters.materialTopic = "";
-  fileFilters.officialCitationStatus = "";
   fileFilters.parseStatus = "";
-  fileFilters.reviewStatus = "";
   fileFilters.search = "";
   fileFilters.trustLevel = "";
+  fileStatusFilter.value = "all";
+  showFileAdvancedFilters.value = false;
   emit("reset-files");
 };
 
@@ -199,13 +224,39 @@ const hasFileFilters = computed(() =>
       fileFilters.fileType ||
       fileFilters.materialType ||
       fileFilters.materialTopic ||
-      fileFilters.officialCitationStatus ||
       fileFilters.parseStatus ||
-      fileFilters.reviewStatus ||
+      fileStatusFilter.value !== "all" ||
       fileFilters.search.trim() ||
       fileFilters.trustLevel
   )
 );
+
+const advancedFileFilterCount = computed(
+  () =>
+    [
+      fileFilters.applicableModule,
+      fileFilters.fileType,
+      fileFilters.materialType,
+      fileFilters.materialTopic,
+      fileFilters.parseStatus,
+      fileFilters.trustLevel
+    ].filter(Boolean).length
+);
+
+const getDirectoryDisplayName = (directory: KnowledgeDirectory) =>
+  directory.isDefault ? "默认根目录" : directory.name;
+
+const openIngestWizard = (method: "manual" | "upload") => {
+  ingestInitialMethod.value = method;
+  emit("update:activeTab", "text-import");
+};
+
+const showPendingKnowledgeFiles = () => {
+  fileStatusFilter.value = "pending";
+  fileDisplayMode.value = "management";
+  emit("update:activeTab", "files");
+  handleFileSearch();
+};
 
 const getDirectoryStatusLabel = (directory: KnowledgeDirectory) =>
   directory.status === "active" ? "启用" : "已停用";
@@ -328,34 +379,45 @@ const submitDirectoryForm = () => {
           class="knowledge-empty-alert"
         />
 
-        <section class="knowledge-operation-grid">
+        <section class="knowledge-operation-grid knowledge-operation-grid--primary">
           <button
             class="knowledge-operation-card"
             type="button"
-            @click="emit('update:activeTab', 'chunks')"
+            :disabled="!canManage"
+            @click="openIngestWizard('upload')"
           >
-            <span>知识片段</span>
-            <strong>{{ detail.chunksCount }} 条可引用资料</strong>
-            <small>文件和文本会解析为知识片段，可被内容生成引用。</small>
+            <span>上传资料</span>
+            <strong>上传文件入库</strong>
+            <small>上传 TXT、Markdown、CSV、Excel 或 Word 文件，进入资料库统一管理。</small>
           </button>
           <button
             class="knowledge-operation-card"
             type="button"
-            @click="emit('update:activeTab', 'files')"
+            :disabled="!canManage"
+            @click="openIngestWizard('manual')"
           >
-            <span>文件资料</span>
-            <strong>{{ detail.filesCount }} 个解析文件</strong>
-            <small>跟踪文件和手动资料的解析状态、审核状态和来源信息。</small>
+            <span>手动录入</span>
+            <strong>粘贴整理后的资料</strong>
+            <small>适合补充 FAQ、售后经验、产品参数和应用场景。</small>
           </button>
           <button
-            v-if="canManage"
             class="knowledge-operation-card"
             type="button"
-            @click="emit('update:activeTab', 'text-import')"
+            @click="showPendingKnowledgeFiles"
           >
-            <span>新增资料</span>
-            <strong>上传或粘贴资料</strong>
-            <small>补充产品能力、应用场景、FAQ 和选型规则。</small>
+            <span>待审核资料</span>
+            <strong>筛出待处理资料</strong>
+            <small>快速查看反馈草稿和新入库资料，集中做资料状态维护。</small>
+          </button>
+          <button
+            class="knowledge-operation-card"
+            type="button"
+            :disabled="!canManage"
+            @click="openDirectoryManager"
+          >
+            <span>管理目录</span>
+            <strong>维护资料分类</strong>
+            <small>新增、重命名或停用目录；已有资料不会被删除。</small>
           </button>
         </section>
 
@@ -463,12 +525,20 @@ const submitDirectoryForm = () => {
                 <div>
                   <p class="section-kicker">资料文件</p>
                   <h3>资料列表管理</h3>
-                  <p>搜索资料标题、主题、来源说明，判断哪些资料可被售后问答 / GEO 内容正式引用。</p>
+                  <p>搜索资料标题、目录和资料状态，快速判断哪些资料可被售后问答 / GEO 内容引用。</p>
                 </div>
                 <div class="knowledge-file-toolbar">
-                  <el-button v-if="canManage" @click="openDirectoryManager">
-                    目录管理
+                  <el-button v-if="canManage" type="primary" plain @click="openDirectoryManager">
+                    管理目录
                   </el-button>
+                  <el-radio-group
+                    v-model="fileDisplayMode"
+                    size="small"
+                    class="knowledge-view-toggle"
+                  >
+                    <el-radio-button label="simple">简洁视图</el-radio-button>
+                    <el-radio-button label="management">管理视图</el-radio-button>
+                  </el-radio-group>
                   <el-radio-group v-model="fileViewMode" size="small" class="knowledge-view-toggle">
                     <el-radio-button label="card">卡片视图</el-radio-button>
                     <el-radio-button label="table">表格视图</el-radio-button>
@@ -476,7 +546,7 @@ const submitDirectoryForm = () => {
                 </div>
               </div>
 
-              <el-form class="knowledge-inner-filters" label-position="top">
+              <el-form class="knowledge-inner-filters knowledge-inner-filters--basic" label-position="top">
                 <el-form-item label="搜索资料">
                   <el-input
                     v-model="fileFilters.search"
@@ -498,13 +568,42 @@ const submitDirectoryForm = () => {
                       :key="directory.id"
                       :label="
                         directory.status === 'disabled'
-                          ? `${directory.name}（已停用）`
-                          : directory.name
+                          ? `${getDirectoryDisplayName(directory)}（已停用）`
+                          : getDirectoryDisplayName(directory)
                       "
                       :value="directory.id"
                     />
                   </el-select>
                 </el-form-item>
+                <el-form-item label="状态">
+                  <el-select v-model="fileStatusFilter" placeholder="全部">
+                    <el-option
+                      v-for="option in fileStatusFilterOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <div class="knowledge-inner-filter-actions">
+                  <el-button type="primary" :loading="filesLoading" @click="handleFileSearch">
+                    查询资料
+                  </el-button>
+                  <el-button @click="handleFileReset">清空筛选</el-button>
+                  <el-button text @click="showFileAdvancedFilters = !showFileAdvancedFilters">
+                    {{ showFileAdvancedFilters ? "收起高级筛选" : "高级筛选" }}
+                  </el-button>
+                  <el-tag v-if="advancedFileFilterCount > 0" type="warning" effect="plain">
+                    已启用 {{ advancedFileFilterCount }} 个高级筛选
+                  </el-tag>
+                </div>
+              </el-form>
+
+              <el-form
+                v-if="showFileAdvancedFilters"
+                class="knowledge-inner-filters knowledge-inner-filters--advanced"
+                label-position="top"
+              >
                 <el-form-item label="资料类型">
                   <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
                     <el-option
@@ -525,18 +624,8 @@ const submitDirectoryForm = () => {
                     />
                   </el-select>
                 </el-form-item>
-                <el-form-item label="审核状态">
-                  <el-select v-model="fileFilters.reviewStatus" clearable placeholder="全部状态">
-                    <el-option
-                      v-for="option in reviewStatusOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="可信度">
-                  <el-select v-model="fileFilters.trustLevel" clearable placeholder="全部可信度">
+                <el-form-item label="可靠程度">
+                  <el-select v-model="fileFilters.trustLevel" clearable placeholder="全部可靠程度">
                     <el-option
                       v-for="option in trustLevelOptions"
                       :key="option.value"
@@ -545,24 +634,10 @@ const submitDirectoryForm = () => {
                     />
                   </el-select>
                 </el-form-item>
-                <el-form-item label="适用模块">
-                  <el-select v-model="fileFilters.applicableModule" clearable placeholder="全部模块">
+                <el-form-item label="可用场景">
+                  <el-select v-model="fileFilters.applicableModule" clearable placeholder="全部场景">
                     <el-option
                       v-for="option in applicableModuleOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="正式引用状态">
-                  <el-select
-                    v-model="fileFilters.officialCitationStatus"
-                    clearable
-                    placeholder="全部状态"
-                  >
-                    <el-option
-                      v-for="option in officialCitationStatusOptions"
                       :key="option.value"
                       :label="option.label"
                       :value="option.value"
@@ -592,13 +667,6 @@ const submitDirectoryForm = () => {
                 </el-form-item>
               </el-form>
 
-              <div class="knowledge-actions">
-                <el-button type="primary" :loading="filesLoading" @click="handleFileSearch">
-                  查询资料
-                </el-button>
-                <el-button @click="handleFileReset">清空筛选</el-button>
-              </div>
-
               <el-alert
                 v-if="!filesLoading && filesTotal === 0 && hasFileFilters"
                 title="没有符合条件的资料"
@@ -617,6 +685,7 @@ const submitDirectoryForm = () => {
                 :deleting-ids="deletingFileIds"
                 :can-manage="canManage"
                 :knowledge-base-name="detail.knowledgeBase.name"
+                :display-mode="fileDisplayMode"
                 @detail="emit('file-detail', $event)"
                 @edit="emit('file-edit', $event)"
                 @reparse="emit('reparse-file', $event)"
@@ -630,6 +699,7 @@ const submitDirectoryForm = () => {
                 :deleting-ids="deletingFileIds"
                 :can-manage="canManage"
                 :knowledge-base-name="detail.knowledgeBase.name"
+                :display-mode="fileDisplayMode"
                 @detail="emit('file-detail', $event)"
                 @edit="emit('file-edit', $event)"
                 @reparse="emit('reparse-file', $event)"
@@ -668,6 +738,7 @@ const submitDirectoryForm = () => {
                 :can-review="canReview"
                 :departments="departments"
                 :directories="directories"
+                :initial-method="ingestInitialMethod"
                 @submit="emit('text-import', $event)"
                 @upload="emit('upload-file', $event)"
               />
@@ -738,7 +809,7 @@ const submitDirectoryForm = () => {
             >
               <el-table-column prop="name" label="目录名称" min-width="180">
                 <template #default="{ row }: { row: KnowledgeDirectory }">
-                  <strong>{{ row.name }}</strong>
+                  <strong>{{ getDirectoryDisplayName(row) }}</strong>
                   <el-tag v-if="row.isDefault" size="small" type="success" effect="plain">
                     默认根目录
                   </el-tag>

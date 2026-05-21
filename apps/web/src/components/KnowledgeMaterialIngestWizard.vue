@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { ElMessageBox } from "element-plus";
 import type { Department } from "@/api/departments";
 import type {
@@ -33,6 +33,7 @@ const props = defineProps<{
   canReview?: boolean;
   departments?: Department[];
   directories?: KnowledgeDirectory[];
+  initialMethod?: IngestMethod;
 }>();
 
 const emit = defineEmits<{
@@ -171,6 +172,16 @@ const selectMethod = (method: IngestMethod) => {
   }
 };
 
+watch(
+  () => props.initialMethod,
+  (method) => {
+    if (method) {
+      selectMethod(method);
+    }
+  },
+  { immediate: true }
+);
+
 const handleMaterialTypeChange = () => {
   applyMaterialTypeDefaults();
 };
@@ -184,19 +195,19 @@ const validateForm = () => {
   }
 
   if (form.applicableModules.length === 0) {
-    formError.value = "请至少选择一个适用模块。";
+    formError.value = "请至少选择一个可用场景。";
     advancedOpen.value = true;
     return false;
   }
 
   if (!form.trustLevel) {
-    formError.value = "请选择可信度。";
+    formError.value = "请选择可靠程度。";
     advancedOpen.value = true;
     return false;
   }
 
   if (!form.reviewStatus) {
-    formError.value = "请选择审核状态。";
+    formError.value = "请选择资料状态。";
     advancedOpen.value = true;
     return false;
   }
@@ -388,7 +399,7 @@ const submit = () => {
             >
               <p>
                 该 Word 可能包含多个章节或多类资料。建议按公司介绍、产品资料、售后资料、客户案例、FAQ
-                等章节拆分后分别入库，避免资料类型和适用模块混乱；仍可作为一条资料上传。
+                等章节拆分后分别入库，避免资料类型和可用场景混乱；仍可作为一条资料上传。
               </p>
               <small>当前文件：{{ selectedFileName }}</small>
             </el-alert>
@@ -440,7 +451,7 @@ const submit = () => {
       <button type="button" class="knowledge-ingest-advanced__toggle" @click="advancedOpen = !advancedOpen">
         <span>
           <strong>高级资料属性</strong>
-          <small>系统会根据资料类型自动设置用途、审核状态和可信度；需要细分主题或调整引用范围时再展开修改。</small>
+          <small>系统会根据资料类型自动设置用途、资料状态和可靠程度；需要细分主题或调整引用范围时再展开修改。</small>
         </span>
         <em>{{ advancedOpen ? "收起" : "展开" }}</em>
       </button>
@@ -464,7 +475,7 @@ const submit = () => {
             <p class="knowledge-field-help">用于细分资料内容，例如资质证书、故障排查、行业动态。</p>
           </el-form-item>
 
-          <el-form-item label="适用模块" required>
+          <el-form-item label="可用场景" required>
             <el-select
               v-model="form.applicableModules"
               multiple
@@ -481,7 +492,7 @@ const submit = () => {
             <p class="knowledge-field-help">决定资料可被哪些功能使用。</p>
           </el-form-item>
 
-          <el-form-item label="审核状态" required>
+          <el-form-item label="资料状态" required>
             <el-select
               v-model="form.reviewStatus"
               :disabled="!props.canReview"
@@ -497,7 +508,7 @@ const submit = () => {
             <p class="knowledge-field-help">已通过资料才能被正式引用。</p>
           </el-form-item>
 
-          <el-form-item label="可信度" required>
+          <el-form-item label="可靠程度" required>
             <el-select v-model="form.trustLevel" @change="touched.trustLevel = true">
               <el-option
                 v-for="option in trustLevelOptions"
@@ -506,7 +517,7 @@ const submit = () => {
                 :value="option.value"
               />
             </el-select>
-            <p class="knowledge-field-help">低可信资料不会被售后问答 / GEO 内容正式引用。</p>
+            <p class="knowledge-field-help">低可靠资料不会被售后问答 / GEO 内容正式引用。</p>
           </el-form-item>
 
           <el-form-item label="来源说明">
@@ -550,16 +561,16 @@ const submit = () => {
         <span>默认属性</span>
         <strong>{{ selectedMaterialTypeLabel }}</strong>
         <strong>{{ selectedReviewStatusLabel }}</strong>
-        <strong>{{ selectedTrustLevelLabel }}可信</strong>
+        <strong>{{ selectedTrustLevelLabel }}</strong>
         <strong>{{ selectedDirectoryLabel }}</strong>
-        <small>{{ selectedModuleLabels || "未设置适用模块" }}</small>
+        <small>{{ selectedModuleLabels || "未设置可用场景" }}</small>
         <small v-if="selectedDepartmentNames">售后可见部门：{{ selectedDepartmentNames }}</small>
       </div>
     </section>
 
     <el-alert
       v-if="form.reviewStatus === 'pending'"
-      title="资料已保存为待审核时，审核通过后才会被正式引用。"
+      title="资料已保存为待审核时，通过后才会被 AI 引用。"
       type="warning"
       :closable="false"
       show-icon
