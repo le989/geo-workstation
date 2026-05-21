@@ -6,6 +6,8 @@ AQA-CHAT-1 保留 `/aftersales-qa` 入口，将售后问答升级为内部售后
 
 AQA-CHAT-1-UX 在此基础上补齐会话管理体验：会话搜索、进行中 / 已归档 / 全部筛选、管理员“我的会话 / 全部会话”切换、加载更多、会话归档和恢复。归档不做物理删除，已归档会话默认只读，恢复后可继续提问。
 
+AQA-FEEDBACK-1 增加“回答有误”反馈闭环。用户可以对每条系统回答提交错误类型和正确答案 / 补充说明；管理员在售后问答页顶部切换到“反馈待处理”查看列表，并标记已处理或无需处理。第一版只记录和处理反馈，不自动写入知识库，不生成知识库草稿。
+
 会话由 `AftersalesConversation` 保存，一轮“用户问题 + AI 回答”仍复用 `AftersalesQuestionRecord` 保存。旧记录可以没有 `conversationId`，旧 `/api/aftersales-qa/records` 和 `/records/:id` 继续保留兼容。
 
 ## 会话模型
@@ -30,6 +32,41 @@ AQA-CHAT-1-UX 在此基础上补齐会话管理体验：会话搜索、进行中
 
 - `conversationId`：可为空，兼容旧记录
 - `sequence`：用于会话内排序
+- `feedbackStatus`：记录该回答是否有待处理 / 已处理 / 无需处理反馈
+
+`AftersalesAnswerFeedback` 记录：
+
+- `companyId`
+- `conversationId`
+- `questionRecordId`
+- `userId`
+- `departmentId`
+- `errorType`
+- `correctionText`
+- `description`
+- `status`
+- `handledById`
+- `handledAt`
+- `handleNote`
+- `createdAt`
+- `updatedAt`
+
+错误类型包括：
+
+- `citation_wrong`：引用错了
+- `answer_incomplete`：答案不完整
+- `answer_wrong`：答案错误
+- `knowledge_missing`：知识库缺资料
+- `question_unclear`：问题描述不清
+- `other`：其他
+
+反馈状态包括：
+
+- `pending`：待处理
+- `handled`：已处理
+- `no_action`：无需处理
+
+同一用户对同一条回答第一版只保留一条反馈；重复提交会更新原反馈并重新置为待处理。
 
 ## 会话 API
 
@@ -41,6 +78,10 @@ AQA-CHAT-1-UX 在此基础上补齐会话管理体验：会话搜索、进行中
 - `PATCH /api/aftersales-qa/conversations/:id`
 - `PATCH /api/aftersales-qa/conversations/:id/status`
 - `POST /api/aftersales-qa/conversations/:id/ask`
+- `POST /api/aftersales-qa/records/:id/feedback`
+- `GET /api/aftersales-qa/feedbacks`
+- `GET /api/aftersales-qa/feedbacks/:id`
+- `PATCH /api/aftersales-qa/feedbacks/:id/status`
 
 会话列表支持：
 
@@ -57,6 +98,8 @@ AQA-CHAT-1-UX 在此基础上补齐会话管理体验：会话搜索、进行中
 - `operator` / `viewer` 只能查看自己的会话和记录。
 - `operator` / `viewer` 即使传 `scope=all`，也只能查看自己的会话。
 - 会话归档 / 恢复遵守同样的归属和 `companyId` 隔离。
+- 运营人员和查看者只能给自己的回答提交反馈，也只能查看自己提交的反馈。
+- 只有 `platform_admin` / `company_admin` 可以查看本公司全部反馈并处理反馈。
 - 所有查询和提问均受 `companyId` 隔离与 `aftersales-qa` 模块访问权限限制。
 
 ## 检索范围
@@ -154,12 +197,22 @@ AQA-CHAT-1-UX 在此基础上补齐会话管理体验：会话搜索、进行中
 - `targetId = conversationId`
 - metadata 只保存状态变化摘要
 
+反馈提交 / 处理也写入 `OperationLog`：
+
+- `action = feedback_submit` 或 `feedback_update_status`
+- `targetType = aftersales_answer_feedback`
+- `targetId = feedbackId`
+- metadata 只保存 `questionRecordId`、`conversationId`、错误类型和状态变化摘要
+
+反馈日志不保存完整答案、大段资料正文、完整引用来源、`storagePath`、本地路径、密码、JWT、API Key 或 `DATABASE_URL`。
+
 ## 第一阶段不做什么
 
-- 不做回答有误按钮
-- 不做反馈弹窗
-- 不做反馈待处理列表
-- 不做转知识库待审核草稿
+- 不自动写入知识库
+- 不生成知识库草稿
+- 不做转知识库待审核资料；该闭环后续单独进入 AQA-KB-LOOP-1
+- 不做复杂审批流
+- 不做工单系统
 - 不做 Markdown 导出
 - 不做物理删除会话
 - 不做图片或文件上传提问
