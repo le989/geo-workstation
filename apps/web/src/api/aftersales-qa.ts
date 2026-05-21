@@ -1,5 +1,11 @@
 import { apiGet, apiRequest } from "./http";
-import type { KnowledgeMaterialType } from "./knowledge";
+import type {
+  KnowledgeApplicableModule,
+  KnowledgeFile,
+  KnowledgeMaterialType,
+  KnowledgeReviewStatus,
+  KnowledgeTrustLevel
+} from "./knowledge";
 
 export type AftersalesAnswerStatus =
   | "answered"
@@ -200,6 +206,33 @@ export type AftersalesFeedbackDetail = AftersalesFeedbackListItem & {
   handleNote?: string | null;
   handledById?: string | null;
   handledByName?: string | null;
+  convertedKnowledgeDraft?: {
+    id: string;
+    knowledgeBaseId: string;
+    title: string;
+    materialType: KnowledgeMaterialType;
+    materialTopic?: string;
+    sourceDescription?: string;
+    trustLevel: KnowledgeTrustLevel;
+    reviewStatus: KnowledgeReviewStatus;
+    createdAt: string;
+  } | null;
+};
+
+export type ConvertFeedbackKnowledgeDraftPayload = {
+  knowledgeBaseId: string;
+  title: string;
+  materialType?: KnowledgeMaterialType;
+  materialTopic?: string;
+  content: string;
+  sourceDescription?: string;
+  applicableModules?: KnowledgeApplicableModule[];
+  allowedDepartmentIds?: string[];
+};
+
+export type ConvertFeedbackKnowledgeDraftResult = {
+  feedbackId: string;
+  knowledgeFile: KnowledgeFile;
 };
 
 const toQueryString = (query: Record<string, string | number | boolean | undefined>) => {
@@ -309,6 +342,18 @@ export const getAftersalesFeedbacks = (query: AftersalesFeedbackQuery = {}) =>
 
 export const getAftersalesFeedback = (id: string) =>
   apiGet<AftersalesFeedbackDetail>(`/api/aftersales-qa/feedbacks/${id}`);
+
+export const convertFeedbackToKnowledgeDraft = (
+  id: string,
+  payload: ConvertFeedbackKnowledgeDraftPayload
+) =>
+  apiRequest<ConvertFeedbackKnowledgeDraftResult>(
+    `/api/aftersales-qa/feedbacks/${id}/convert-to-knowledge-draft`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }
+  );
 
 export const updateAftersalesFeedbackStatus = (
   id: string,

@@ -444,30 +444,77 @@ export class KnowledgeFilesService {
       },
       context
     );
+    const normalizedContent = this.normalizeManualMaterialContent(input.content);
+    const shouldUpdateManualChunk =
+      existing.sourceType === "manual" &&
+      (normalizedContent !== undefined ||
+        normalized.title !== existing.title ||
+        normalized.materialType !== existing.materialType);
 
-    const updated = await this.prisma.knowledgeFile.update({
-      where: {
-        id
-      },
-      data: {
-        title: normalized.title,
-        materialType: normalized.materialType,
-        materialTopic: normalized.materialTopic ?? null,
-        applicableModules: normalized.applicableModules,
-        sourceDescription: normalized.sourceDescription ?? null,
-        trustLevel: normalized.trustLevel,
-        reviewStatus: normalized.reviewStatus,
-        allowedDepartmentIds: normalized.allowedDepartmentIds,
-        ...(context
-          ? {
-              updatedBy: {
-                connect: {
-                  id: context.user.id
+    if (input.content !== undefined && existing.sourceType !== "manual") {
+      throw new BadRequestException("仅手动录入资料支持直接编辑正文内容。");
+    }
+
+    const manualChunk = shouldUpdateManualChunk
+      ? await this.prisma.knowledgeChunk.findFirst({
+          where: {
+            fileId: existing.id,
+            deletedAt: null
+          },
+          orderBy: {
+            createdAt: "asc"
+          }
+        })
+      : null;
+
+    if (input.content !== undefined && !manualChunk) {
+      throw new BadRequestException("手动资料缺少可编辑正文片段，请重新录入资料。");
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const knowledgeFile = await tx.knowledgeFile.update({
+        where: {
+          id
+        },
+        data: {
+          title: normalized.title,
+          fileSize:
+            normalizedContent !== undefined
+              ? Buffer.byteLength(normalizedContent, "utf8")
+              : existing.fileSize,
+          materialType: normalized.materialType,
+          materialTopic: normalized.materialTopic ?? null,
+          applicableModules: normalized.applicableModules,
+          sourceDescription: normalized.sourceDescription ?? null,
+          trustLevel: normalized.trustLevel,
+          reviewStatus: normalized.reviewStatus,
+          allowedDepartmentIds: normalized.allowedDepartmentIds,
+          ...(context
+            ? {
+                updatedBy: {
+                  connect: {
+                    id: context.user.id
+                  }
                 }
               }
-            }
-          : {})
+            : {})
+        }
+      });
+
+      if (manualChunk) {
+        await tx.knowledgeChunk.update({
+          where: {
+            id: manualChunk.id
+          },
+          data: {
+            title: normalized.title ?? knowledgeFile.title ?? knowledgeFile.fileName,
+            content: normalizedContent ?? manualChunk.content,
+            materialType: normalized.chunkMaterialType ?? normalized.materialType
+          }
+        });
       }
+
+      return knowledgeFile;
     });
 
     await this.operationLogsService?.recordOperation(
@@ -484,6 +531,7 @@ export class KnowledgeFilesService {
           materialTopic: updated.materialTopic,
           reviewStatus: updated.reviewStatus,
           trustLevel: updated.trustLevel,
+          contentUpdated: normalizedContent !== undefined,
           allowedDepartmentCount: this.jsonStringArrayToArray(
             updated.allowedDepartmentIds
           ).length
@@ -1029,6 +1077,20 @@ export class KnowledgeFilesService {
     }
 
     throw new ForbiddenException("当前角色无权设置资料审核状态");
+  }
+
+  private normalizeManualMaterialContent(value?: string): string | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    const content = value.trim();
+
+    if (content.length < 10) {
+      throw new BadRequestException("手动资料正文至少需要 10 个字符。");
+    }
+
+    return content;
   }
 
   private normalizeApplicableModules(value?: string[]): string[] {

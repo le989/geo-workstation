@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import {
@@ -16,7 +17,9 @@ import {
   reparseKnowledgeFile,
   updateKnowledgeBase,
   updateKnowledgeChunk,
+  updateKnowledgeFileMetadata,
   uploadKnowledgeFile,
+  type KnowledgeApplicableModule,
   type CreateKnowledgeBasePayload,
   type KnowledgeBase,
   type KnowledgeBaseDetail,
@@ -25,6 +28,10 @@ import {
   type KnowledgeChunkQuery,
   type KnowledgeFile,
   type KnowledgeFileQuery,
+  type KnowledgeMaterialMetadataPayload,
+  type KnowledgeMaterialType,
+  type KnowledgeReviewStatus,
+  type KnowledgeTrustLevel,
   type ManualKnowledgeMaterialPayload,
   type UpdateKnowledgeBasePayload,
   type UpdateKnowledgeChunkPayload,
@@ -38,22 +45,30 @@ import KnowledgeBaseFormDialog from "@/components/KnowledgeBaseFormDialog.vue";
 import KnowledgeChunkFormDialog from "@/components/KnowledgeChunkFormDialog.vue";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
+  applicableModuleOptions,
   applicableModuleLabelMap,
   knowledgeBaseStatusLabelMap,
+  materialTopicOptions,
   materialTopicLabelMap,
+  materialTypeOptions,
   materialTypeLabelMap,
   parseStatusLabelMap,
+  reviewStatusOptions,
   reviewStatusLabelMap,
+  trustLevelOptions,
   trustLevelLabelMap
 } from "@/config/knowledge-options";
 import { useAuthStore } from "@/stores/auth";
 import {
   getKnowledgeFileCitationDescription,
-  getKnowledgeFileCitationLabel
+  getKnowledgeFileCitationLabel,
+  isKnowledgeFileOfficiallyCitable
 } from "@/utils/knowledge-citation";
+import { formatKnowledgeSourceDescription } from "@/utils/knowledge-source";
 import { canUseAction } from "@/utils/permission";
 
 const authStore = useAuthStore();
+const route = useRoute();
 const knowledgeBases = ref<KnowledgeBase[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -105,6 +120,30 @@ const chunkDialogVisible = ref(false);
 const editingChunk = ref<KnowledgeChunk | null>(null);
 const chunkFormSubmitting = ref(false);
 const chunkFormError = ref("");
+const fileEditDialogVisible = ref(false);
+const editingFile = ref<KnowledgeFile | null>(null);
+const fileEditSubmitting = ref(false);
+const fileEditLoading = ref(false);
+const fileEditError = ref("");
+const fileEditForm = reactive<{
+  title: string;
+  materialType: KnowledgeMaterialType;
+  materialTopic: string;
+  reviewStatus: KnowledgeReviewStatus;
+  trustLevel: KnowledgeTrustLevel;
+  applicableModules: KnowledgeApplicableModule[];
+  sourceDescription: string;
+  content: string;
+}>({
+  title: "",
+  materialType: "content_reference_material",
+  materialTopic: "",
+  reviewStatus: "pending",
+  trustLevel: "medium",
+  applicableModules: [],
+  sourceDescription: "",
+  content: ""
+});
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && knowledgeBases.value.length === 0);
@@ -114,6 +153,37 @@ const selectedKnowledgeBase = computed(
     knowledgeBases.value.find((item) => item.id === selectedKnowledgeBaseId.value) ??
     null
 );
+const canEditFileContent = computed(() => editingFile.value?.sourceType === "manual");
+const fileEditCitationPreview = computed(() => {
+  const previewFile = {
+    ...(editingFile.value ?? {}),
+    reviewStatus: fileEditForm.reviewStatus,
+    trustLevel: fileEditForm.trustLevel,
+    applicableModules: fileEditForm.applicableModules,
+    deletedAt: null
+  } as KnowledgeFile & { deletedAt: null };
+  const reasons: string[] = [];
+
+  if (fileEditForm.reviewStatus === "pending") {
+    reasons.push("未审核");
+  } else if (fileEditForm.reviewStatus === "disabled") {
+    reasons.push("已停用");
+  }
+  if (fileEditForm.trustLevel === "low") {
+    reasons.push("低可信");
+  }
+  if (fileEditForm.applicableModules.length === 0) {
+    reasons.push("不适用当前模块");
+  }
+
+  return {
+    label: isKnowledgeFileOfficiallyCitable(previewFile) ? "正式可引用" : "不正式引用",
+    reasons:
+      reasons.length > 0
+        ? reasons.join("、")
+        : "已通过且可信度为高 / 中；正式引用状态由系统规则自动推导。"
+  };
+});
 const knowledgeAssetMetrics = computed(() => {
   const activeCount = knowledgeBases.value.filter(
     (item) => item.status === "active" || item.status === "enabled"
@@ -406,6 +476,53 @@ const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
   await refreshDetailResources();
 };
 
+const resetResourceFilters = () => {
+  Object.assign(chunkFilters, {
+    materialType: undefined,
+    productLine: undefined,
+    search: undefined,
+    sourceType: undefined,
+    tags: undefined
+  });
+  Object.assign(fileFilters, {
+    applicableModule: undefined,
+    fileType: undefined,
+    materialType: undefined,
+    materialTopic: undefined,
+    officialCitationStatus: undefined,
+    parseStatus: undefined,
+    reviewStatus: undefined,
+    search: undefined,
+    trustLevel: undefined
+  });
+};
+
+const openRoutedKnowledgeFile = async () => {
+  const knowledgeBaseId =
+    typeof route.query.knowledgeBaseId === "string" ? route.query.knowledgeBaseId : "";
+  const knowledgeFileId =
+    typeof route.query.knowledgeFileId === "string" ? route.query.knowledgeFileId : "";
+
+  if (!knowledgeBaseId) {
+    return;
+  }
+
+  selectedKnowledgeBaseId.value = knowledgeBaseId;
+  detail.value = null;
+  activeTab.value = "files";
+  chunksPage.value = 1;
+  filesPage.value = 1;
+  resetResourceFilters();
+  drawerVisible.value = true;
+  void loadDepartments();
+  await refreshDetailResources();
+
+  if (knowledgeFileId) {
+    const fileDetail = await getKnowledgeFile(knowledgeFileId);
+    await handleFileDetail(fileDetail.knowledgeFile);
+  }
+};
+
 const handleFormSubmit = async (
   payload: CreateKnowledgeBasePayload | UpdateKnowledgeBasePayload
 ) => {
@@ -554,8 +671,10 @@ const handleFileDetail = async (file: KnowledgeFile) => {
         .map((item) => applicableModuleLabelMap[item] ?? item)
         .join("、") || "未设置";
     const citationStatus = `${getKnowledgeFileCitationLabel(fileDetail.knowledgeFile)}（${getKnowledgeFileCitationDescription(fileDetail.knowledgeFile)}）`;
+    const sourceDescription =
+      formatKnowledgeSourceDescription(fileDetail.knowledgeFile.sourceDescription) ?? "未设置";
     await ElMessageBox.alert(
-      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n正式引用状态：${citationStatus}\n适用模块：${applicableModules}\n来源说明：${fileDetail.knowledgeFile.sourceDescription ?? "未设置"}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
+      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n正式引用状态：${citationStatus}\n适用模块：${applicableModules}\n来源说明：${sourceDescription}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"
@@ -563,6 +682,81 @@ const handleFileDetail = async (file: KnowledgeFile) => {
     );
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "文件详情加载失败。");
+  }
+};
+
+const openFileEditDialog = async (file: KnowledgeFile) => {
+  fileEditDialogVisible.value = true;
+  fileEditLoading.value = true;
+  fileEditError.value = "";
+  editingFile.value = file;
+
+  try {
+    const fileDetail = await getKnowledgeFile(file.id);
+    editingFile.value = fileDetail.knowledgeFile;
+    Object.assign(fileEditForm, {
+      title: fileDetail.knowledgeFile.title,
+      materialType: fileDetail.knowledgeFile.materialType,
+      materialTopic: fileDetail.knowledgeFile.materialTopic ?? "",
+      reviewStatus: fileDetail.knowledgeFile.reviewStatus,
+      trustLevel: fileDetail.knowledgeFile.trustLevel,
+      applicableModules: [...fileDetail.knowledgeFile.applicableModules],
+      sourceDescription:
+        formatKnowledgeSourceDescription(fileDetail.knowledgeFile.sourceDescription) ?? "",
+      content: fileDetail.latestChunks[0]?.content ?? ""
+    });
+  } catch (error) {
+    fileEditError.value = error instanceof Error ? error.message : "资料详情加载失败。";
+  } finally {
+    fileEditLoading.value = false;
+  }
+};
+
+const handleFileEditSubmit = async () => {
+  const file = editingFile.value;
+  const title = fileEditForm.title.trim();
+  const content = fileEditForm.content.trim();
+
+  if (!file) {
+    return;
+  }
+  if (!title) {
+    fileEditError.value = "资料标题不能为空。";
+    return;
+  }
+  if (canEditFileContent.value && content.length < 10) {
+    fileEditError.value = "整理后的正文内容至少需要 10 个字符。";
+    return;
+  }
+
+  fileEditSubmitting.value = true;
+  fileEditError.value = "";
+
+  try {
+    const payload: KnowledgeMaterialMetadataPayload = {
+      title,
+      materialType: fileEditForm.materialType,
+      materialTopic: fileEditForm.materialTopic.trim() || undefined,
+      reviewStatus: fileEditForm.reviewStatus,
+      trustLevel: fileEditForm.trustLevel,
+      applicableModules: fileEditForm.applicableModules,
+      sourceDescription: fileEditForm.sourceDescription.trim() || undefined,
+      ...(canEditFileContent.value
+        ? {
+            content
+          }
+        : {})
+    };
+
+    await updateKnowledgeFileMetadata(file.id, payload);
+    ElMessage.success("保存资料属性成功。");
+    fileEditDialogVisible.value = false;
+    editingFile.value = null;
+    await Promise.all([loadDetail(), loadFiles(), loadChunks()]);
+  } catch (error) {
+    fileEditError.value = error instanceof Error ? error.message : "资料属性保存失败。";
+  } finally {
+    fileEditSubmitting.value = false;
   }
 };
 
@@ -715,8 +909,9 @@ const handleFilePageSizeChange = (nextPageSize: number) => {
   void loadFiles();
 };
 
-onMounted(() => {
-  void loadKnowledgeBases();
+onMounted(async () => {
+  await loadKnowledgeBases();
+  await openRoutedKnowledgeFile();
 });
 </script>
 
@@ -919,9 +1114,144 @@ onMounted(() => {
       @page-files="handleFilePageChange"
       @size-files="handleFilePageSizeChange"
       @file-detail="handleFileDetail"
+      @file-edit="openFileEditDialog"
       @reparse-file="handleReparseFile"
       @delete-file="handleDeleteFile"
     />
+
+    <el-dialog
+      v-model="fileEditDialogVisible"
+      title="审核 / 编辑资料"
+      width="760px"
+      class="knowledge-file-edit-dialog"
+    >
+      <div v-loading="fileEditLoading" class="file-edit-panel">
+        <el-alert
+          v-if="fileEditError"
+          :title="fileEditError"
+          type="error"
+          show-icon
+          :closable="false"
+        />
+        <el-alert
+          title="正式引用状态由审核状态、可信度和删除状态自动推导，不能手动编辑。"
+          type="info"
+          show-icon
+          :closable="false"
+        />
+        <section class="file-edit-citation-preview">
+          <span>当前正式引用状态</span>
+          <el-tag
+            :type="fileEditCitationPreview.label === '正式可引用' ? 'success' : 'warning'"
+            effect="plain"
+          >
+            {{ fileEditCitationPreview.label }}
+          </el-tag>
+          <small>{{ fileEditCitationPreview.reasons }}</small>
+        </section>
+        <el-form label-position="top">
+          <el-form-item label="资料标题" required>
+            <el-input v-model="fileEditForm.title" maxlength="120" show-word-limit />
+          </el-form-item>
+          <div class="file-edit-grid">
+            <el-form-item label="资料类型">
+              <el-select v-model="fileEditForm.materialType" class="full-width">
+                <el-option
+                  v-for="option in materialTypeOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="资料主题">
+              <el-select
+                v-model="fileEditForm.materialTopic"
+                class="full-width"
+                clearable
+                filterable
+                allow-create
+              >
+                <el-option
+                  v-for="option in materialTopicOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="审核状态">
+              <el-select v-model="fileEditForm.reviewStatus" class="full-width">
+                <el-option
+                  v-for="option in reviewStatusOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="可信度">
+              <el-select v-model="fileEditForm.trustLevel" class="full-width">
+                <el-option
+                  v-for="option in trustLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+          </div>
+          <el-form-item label="适用模块">
+            <el-select
+              v-model="fileEditForm.applicableModules"
+              class="full-width"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+            >
+              <el-option
+                v-for="option in applicableModuleOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="来源说明">
+            <el-input
+              v-model="fileEditForm.sourceDescription"
+              type="textarea"
+              :rows="3"
+              maxlength="600"
+              show-word-limit
+            />
+          </el-form-item>
+          <el-form-item label="整理后的正文内容">
+            <el-input
+              v-model="fileEditForm.content"
+              type="textarea"
+              :rows="8"
+              maxlength="8000"
+              show-word-limit
+              :disabled="!canEditFileContent"
+            />
+            <small class="form-hint">
+              {{
+                canEditFileContent
+                  ? "手动录入资料会同步更新正文片段。"
+                  : "文件上传资料请编辑知识片段或重新解析，原文件正文不在此处直接修改。"
+              }}
+            </small>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="fileEditDialogVisible = false">取消</el-button>
+        <el-button :loading="fileEditSubmitting" type="primary" @click="handleFileEditSubmit">
+          保存资料属性
+        </el-button>
+      </template>
+    </el-dialog>
 
     <KnowledgeChunkFormDialog
       v-model="chunkDialogVisible"
@@ -932,3 +1262,54 @@ onMounted(() => {
     />
   </section>
 </template>
+
+<style scoped>
+.file-edit-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.file-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.file-edit-citation-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.file-edit-citation-preview span {
+  color: #334155;
+  font-weight: 600;
+}
+
+.file-edit-citation-preview small,
+.form-hint {
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .file-edit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

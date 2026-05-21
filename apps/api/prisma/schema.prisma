@@ -193,6 +193,7 @@ model User {
   aftersalesQuestionRecords AftersalesQuestionRecord[] @relation("AftersalesQuestionRecordUser")
   aftersalesAnswerFeedbacks AftersalesAnswerFeedback[] @relation("AftersalesAnswerFeedbackUser")
   handledAftersalesAnswerFeedbacks AftersalesAnswerFeedback[] @relation("AftersalesAnswerFeedbackHandledBy")
+  convertedAftersalesAnswerFeedbacks AftersalesAnswerFeedback[] @relation("AftersalesAnswerFeedbackConvertedBy")
 
   @@map("users")
 }
@@ -457,6 +458,7 @@ model KnowledgeFile {
   updatedAt       DateTime         @updatedAt @map("updated_at")
   deletedAt       DateTime?        @map("deleted_at")
   chunks          KnowledgeChunk[]
+  convertedAftersalesFeedbacks AftersalesAnswerFeedback[] @relation("AftersalesFeedbackConvertedKnowledgeFile")
 
   @@index([companyId])
   @@index([knowledgeBaseId])
@@ -890,6 +892,11 @@ model AftersalesAnswerFeedback {
   handledBy        User?                        @relation("AftersalesAnswerFeedbackHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
   handledAt        DateTime?                    @map("handled_at")
   handleNote       String?                      @map("handle_note") @db.Text
+  convertedKnowledgeFileId String?              @unique @map("converted_knowledge_file_id")
+  convertedKnowledgeFile KnowledgeFile?         @relation("AftersalesFeedbackConvertedKnowledgeFile", fields: [convertedKnowledgeFileId], references: [id], onDelete: SetNull)
+  convertedAt      DateTime?                    @map("converted_at")
+  convertedByUserId String?                     @map("converted_by_user_id")
+  convertedByUser  User?                        @relation("AftersalesAnswerFeedbackConvertedBy", fields: [convertedByUserId], references: [id], onDelete: SetNull)
   createdAt        DateTime                     @default(now()) @map("created_at")
   updatedAt        DateTime                     @updatedAt @map("updated_at")
 
@@ -902,6 +909,8 @@ model AftersalesAnswerFeedback {
   @@index([errorType])
   @@index([status])
   @@index([handledById])
+  @@index([convertedAt])
+  @@index([convertedByUserId])
   @@index([createdAt])
   @@map("aftersales_answer_feedbacks")
 }

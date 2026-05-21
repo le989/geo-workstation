@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { ChatDotRound, MoreFilled, Plus, Refresh, Search } from "@element-plus/icons-vue";
+import {
+  ChatDotRound,
+  DocumentAdd,
+  Link,
+  MoreFilled,
+  Plus,
+  Refresh,
+  Search
+} from "@element-plus/icons-vue";
 import {
   askAftersalesConversation,
+  convertFeedbackToKnowledgeDraft,
   createAftersalesConversation,
   getAftersalesFeedback,
   getAftersalesFeedbacks,
@@ -24,10 +34,20 @@ import {
   type AftersalesQuestionRecord
 } from "@/api/aftersales-qa";
 import AppErrorState from "@/components/AppErrorState.vue";
-import { materialTypeLabelMap } from "@/config/knowledge-options";
+import {
+  materialTopicOptions,
+  materialTypeLabelMap,
+  materialTypeOptions,
+  reviewStatusLabelMap,
+  trustLevelLabelMap
+} from "@/config/knowledge-options";
 import { useAuthStore } from "@/stores/auth";
 import { normalizeRole } from "@/utils/permission";
-import type { KnowledgeMaterialType } from "@/api/knowledge";
+import {
+  getKnowledgeBases,
+  type KnowledgeBase,
+  type KnowledgeMaterialType
+} from "@/api/knowledge";
 
 type ChatMessage = {
   id: string;
@@ -50,6 +70,7 @@ type ConversationCommand = {
 
 const NO_SOURCE_MESSAGE = "当前资料库未命中可引用内容，建议补充对应资料或由售后/技术人员确认。";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
+const DEFAULT_DRAFT_MATERIAL_TYPE: KnowledgeMaterialType = "aftersales_material";
 
 const answerStatusLabels: Record<AftersalesAnswerStatus, string> = {
   answered: "有依据",
@@ -89,6 +110,7 @@ const feedbackStatusTagType: Record<
 };
 
 const authStore = useAuthStore();
+const router = useRouter();
 const activePanel = ref<"chat" | "feedbacks">("chat");
 const conversations = ref<AftersalesConversation[]>([]);
 const activeConversation = ref<AftersalesConversation | null>(null);
@@ -134,6 +156,25 @@ const feedbackDetail = ref<AftersalesFeedbackDetail | null>(null);
 const loadingFeedbackDetail = ref(false);
 const feedbackHandleNote = ref("");
 const updatingFeedbackStatus = ref(false);
+const draftDialogVisible = ref(false);
+const draftSubmitting = ref(false);
+const loadingDraftKnowledgeBases = ref(false);
+const draftKnowledgeBases = ref<KnowledgeBase[]>([]);
+const draftForm = ref<{
+  knowledgeBaseId: string;
+  title: string;
+  materialType: KnowledgeMaterialType;
+  materialTopic: string;
+  content: string;
+  sourceDescription: string;
+}>({
+  knowledgeBaseId: "",
+  title: "",
+  materialType: DEFAULT_DRAFT_MATERIAL_TYPE,
+  materialTopic: "",
+  content: "",
+  sourceDescription: ""
+});
 
 const userName = computed(() => authStore.currentUser?.name ?? "我");
 const normalizedRole = computed(() =>
@@ -169,6 +210,9 @@ const feedbackEmptyText = computed(() =>
   feedbackStatusFilter.value === "pending" && feedbackErrorTypeFilter.value === "all"
     ? "暂无待处理反馈"
     : "暂无符合条件的反馈"
+);
+const convertedKnowledgeDraft = computed(
+  () => feedbackDetail.value?.convertedKnowledgeDraft ?? null
 );
 
 const messages = computed<ChatMessage[]>(() => {
@@ -243,6 +287,10 @@ const formatConversationTime = (value: string) => {
 const formatConversationMeta = (conversation: AftersalesConversation) =>
   `${conversation.messageCount} 轮对话 · ${formatConversationTime(conversation.lastMessageAt)}`;
 const materialTypeLabel = (value: KnowledgeMaterialType) => materialTypeLabelMap[value] ?? value;
+const reviewStatusLabel = (value?: string) =>
+  value ? (reviewStatusLabelMap as Record<string, string>)[value] ?? value : "待审核";
+const trustLevelLabel = (value?: string) =>
+  value ? (trustLevelLabelMap as Record<string, string>)[value] ?? value : "中";
 const getAnswerStatusLabel = (value: AftersalesAnswerStatus) => answerStatusLabels[value] ?? value;
 const getAnswerStatusType = (value: AftersalesAnswerStatus) =>
   answerStatusTagType[value] ?? "info";
@@ -262,6 +310,33 @@ const getMessageContent = (message: ChatMessage) =>
   message.status === "no_reliable_source"
     ? NO_SOURCE_MESSAGE
     : message.content || NO_SOURCE_MESSAGE;
+
+const truncateText = (value: string, maxLength: number) => {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+};
+
+const buildDraftTitle = (detail: AftersalesFeedbackDetail) =>
+  `售后问答反馈：${truncateText(detail.question, 32)}`;
+
+const buildDraftContent = (detail: AftersalesFeedbackDetail) =>
+  [
+    "【问题】",
+    detail.question,
+    "",
+    "【原回答】",
+    detail.answer,
+    "",
+    "【错误类型】",
+    getFeedbackErrorTypeLabel(detail.errorType),
+    "",
+    "【正确答案 / 补充说明】",
+    [detail.correctionText, detail.description].filter(Boolean).join("\n") || "请补充正确答案或说明。",
+    "",
+    "【建议沉淀为知识】",
+    "请将上方信息整理为可复用的标准售后知识。"
+  ].join("\n");
 
 const scrollToBottom = async () => {
   await nextTick();
@@ -679,6 +754,112 @@ const openFeedbackDetail = async (feedback: AftersalesFeedbackListItem) => {
   } finally {
     loadingFeedbackDetail.value = false;
   }
+};
+
+const loadDraftKnowledgeBases = async () => {
+  loadingDraftKnowledgeBases.value = true;
+
+  try {
+    const result = await getKnowledgeBases({
+      status: "active",
+      page: 1,
+      pageSize: 100
+    });
+    draftKnowledgeBases.value = result.items;
+  } catch (error) {
+    draftKnowledgeBases.value = [];
+    ElMessage.error(error instanceof Error ? error.message : "知识库列表加载失败");
+  } finally {
+    loadingDraftKnowledgeBases.value = false;
+  }
+};
+
+const openConvertDraftDialog = async () => {
+  if (!feedbackDetail.value) {
+    return;
+  }
+  if (feedbackDetail.value.convertedKnowledgeDraft) {
+    ElMessage.info("已转知识库草稿，不能重复转草稿。");
+    return;
+  }
+
+  draftDialogVisible.value = true;
+  draftForm.value = {
+    knowledgeBaseId: "",
+    title: buildDraftTitle(feedbackDetail.value),
+    materialType: DEFAULT_DRAFT_MATERIAL_TYPE,
+    materialTopic: "",
+    content: buildDraftContent(feedbackDetail.value),
+    sourceDescription: "来源：售后问答反馈，管理员整理后进入知识库审核。"
+  };
+
+  if (draftKnowledgeBases.value.length === 0) {
+    await loadDraftKnowledgeBases();
+  }
+  draftForm.value.knowledgeBaseId =
+    draftForm.value.knowledgeBaseId || draftKnowledgeBases.value[0]?.id || "";
+};
+
+const handleConvertFeedbackToDraft = async () => {
+  const detail = feedbackDetail.value;
+  const content = draftForm.value.content.trim();
+
+  if (!detail) {
+    return;
+  }
+  if (detail.convertedKnowledgeDraft) {
+    ElMessage.info("已转知识库草稿，不能重复转草稿。");
+    return;
+  }
+  if (!draftForm.value.knowledgeBaseId) {
+    ElMessage.warning("请选择所属知识库");
+    return;
+  }
+  if (!draftForm.value.title.trim()) {
+    ElMessage.warning("请填写知识库资料标题");
+    return;
+  }
+  if (!content) {
+    ElMessage.warning("请填写整理后的知识正文");
+    return;
+  }
+
+  draftSubmitting.value = true;
+
+  try {
+    const result = await convertFeedbackToKnowledgeDraft(detail.feedbackId, {
+      knowledgeBaseId: draftForm.value.knowledgeBaseId,
+      title: draftForm.value.title.trim(),
+      materialType: draftForm.value.materialType,
+      materialTopic: draftForm.value.materialTopic.trim() || undefined,
+      applicableModules: ["aftersales-qa", "internal-search"],
+      sourceDescription: draftForm.value.sourceDescription.trim() || undefined,
+      content
+    });
+    feedbackDetail.value = await getAftersalesFeedback(result.feedbackId);
+    draftDialogVisible.value = false;
+    ElMessage.success("已转知识库草稿，待审核前不会被正式引用。");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "转为知识库草稿失败");
+  } finally {
+    draftSubmitting.value = false;
+  }
+};
+
+const goToConvertedKnowledgeDraft = async () => {
+  const draft = convertedKnowledgeDraft.value;
+
+  if (!draft) {
+    return;
+  }
+
+  await router.push({
+    path: "/knowledge-bases",
+    query: {
+      knowledgeBaseId: draft.knowledgeBaseId,
+      knowledgeFileId: draft.id
+    }
+  });
 };
 
 const handleUpdateFeedbackStatus = async (
@@ -1183,6 +1364,28 @@ onMounted(() => {
               <p>{{ feedbackDetail.correctionText }}</p>
               <p v-if="feedbackDetail.description">{{ feedbackDetail.description }}</p>
             </section>
+            <section class="knowledge-draft-status">
+              <strong>知识库草稿</strong>
+              <template v-if="convertedKnowledgeDraft">
+                <p>
+                  <el-tag type="warning" effect="plain">已转知识库草稿</el-tag>
+                  <span>
+                    {{ reviewStatusLabel(convertedKnowledgeDraft.reviewStatus) }} · 可信度
+                    {{ trustLevelLabel(convertedKnowledgeDraft.trustLevel) }}
+                  </span>
+                </p>
+                <p>{{ convertedKnowledgeDraft.title }}</p>
+                <el-button :icon="Link" text type="primary" @click="goToConvertedKnowledgeDraft">
+                  查看知识库资料
+                </el-button>
+              </template>
+              <template v-else>
+                <p>尚未转为知识库草稿。创建后会保持待审核，不会被正式引用。</p>
+                <el-button type="primary" :icon="DocumentAdd" @click="openConvertDraftDialog">
+                  转为知识库草稿
+                </el-button>
+              </template>
+            </section>
             <section v-if="feedbackDetail.citedSources.length">
               <strong>引用来源</strong>
               <article
@@ -1227,6 +1430,88 @@ onMounted(() => {
           @click="handleUpdateFeedbackStatus('handled')"
         >
           标记已处理
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="draftDialogVisible" title="转为知识库草稿" width="760px">
+      <div class="knowledge-draft-dialog">
+        <el-alert
+          title="草稿将以待审核、中可信状态创建；审核通过前不会被售后问答或 GEO 内容正式引用。"
+          type="warning"
+          show-icon
+          :closable="false"
+        />
+        <el-form label-position="top">
+          <el-form-item label="所属知识库" required>
+            <el-select
+              v-model="draftForm.knowledgeBaseId"
+              class="full-width"
+              :loading="loadingDraftKnowledgeBases"
+              placeholder="选择承接这条售后资料的知识库"
+            >
+              <el-option
+                v-for="knowledgeBase in draftKnowledgeBases"
+                :key="knowledgeBase.id"
+                :label="knowledgeBase.name"
+                :value="knowledgeBase.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="知识库资料标题" required>
+            <el-input v-model="draftForm.title" maxlength="120" show-word-limit />
+          </el-form-item>
+          <el-form-item label="资料主题">
+            <el-select
+              v-model="draftForm.materialTopic"
+              class="full-width"
+              clearable
+              filterable
+              allow-create
+              placeholder="例如：故障排查 / 安装接线 / 售后流程"
+            >
+              <el-option
+                v-for="option in materialTopicOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="资料类型">
+            <el-select v-model="draftForm.materialType" class="full-width">
+              <el-option
+                v-for="option in materialTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+            <small class="form-hint">默认使用售后资料，创建后仍需知识库审核。</small>
+          </el-form-item>
+          <el-form-item label="来源说明">
+            <el-input
+              v-model="draftForm.sourceDescription"
+              maxlength="300"
+              show-word-limit
+              placeholder="来源：售后问答反馈"
+            />
+          </el-form-item>
+          <el-form-item label="整理后的知识正文" required>
+            <el-input
+              v-model="draftForm.content"
+              type="textarea"
+              :rows="14"
+              maxlength="6000"
+              show-word-limit
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="draftDialogVisible = false">取消</el-button>
+        <el-button :loading="draftSubmitting" type="primary" @click="handleConvertFeedbackToDraft">
+          创建待审核草稿
         </el-button>
       </template>
     </el-dialog>
@@ -1728,6 +2013,26 @@ onMounted(() => {
   border: 1px solid #eef1f5;
   border-radius: 8px;
   background: #fbfcfe;
+}
+
+.knowledge-draft-status p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.knowledge-draft-dialog {
+  display: grid;
+  gap: 14px;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .full-width {

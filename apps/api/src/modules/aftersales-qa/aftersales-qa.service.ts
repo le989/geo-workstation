@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -14,6 +15,8 @@ import {
   AftersalesFeedbackStatus,
   DepartmentStatus,
   KnowledgeMaterialType,
+  KnowledgeReviewStatus,
+  KnowledgeTrustLevel,
   Prisma,
   type AftersalesAnswerFeedback,
   type AftersalesConversation,
@@ -30,8 +33,10 @@ import {
 import { PrismaService } from "../../prisma/prisma.service";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
+import { KnowledgeFilesService, type KnowledgeFileResponse } from "../geo-knowledge/knowledge-files.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
 import type { AskAftersalesQuestionDto } from "./dto/ask-aftersales-question.dto";
+import type { ConvertFeedbackKnowledgeDraftDto } from "./dto/convert-feedback-knowledge-draft.dto";
 import type { CreateAftersalesConversationDto } from "./dto/create-aftersales-conversation.dto";
 import type { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
 import type { QueryAftersalesFeedbacksDto } from "./dto/query-aftersales-feedbacks.dto";
@@ -195,6 +200,18 @@ export type AftersalesFeedbackListResponse = {
   pageSize: number;
 };
 
+export type ConvertedKnowledgeDraftSummary = {
+  id: string;
+  knowledgeBaseId: string;
+  title: string;
+  materialType: KnowledgeMaterialType;
+  materialTopic?: string;
+  sourceDescription?: string;
+  trustLevel: KnowledgeTrustLevel;
+  reviewStatus: KnowledgeReviewStatus;
+  createdAt: Date;
+};
+
 export type AftersalesFeedbackDetailResponse = AftersalesFeedbackListItemResponse & {
   correctionText: string;
   description?: string | null;
@@ -204,6 +221,7 @@ export type AftersalesFeedbackDetailResponse = AftersalesFeedbackListItemRespons
   handleNote?: string | null;
   handledById?: string | null;
   handledByName?: string | null;
+  convertedKnowledgeDraft?: ConvertedKnowledgeDraftSummary | null;
 };
 
 export type SubmitAftersalesFeedbackResponse = {
@@ -214,6 +232,11 @@ export type SubmitAftersalesFeedbackResponse = {
 };
 
 export type UpdateAftersalesFeedbackStatusResponse = SubmitAftersalesFeedbackResponse;
+
+export type ConvertFeedbackKnowledgeDraftResponse = {
+  feedbackId: string;
+  knowledgeFile: KnowledgeFileResponse;
+};
 
 type AnswerDraft = {
   answer: string;
@@ -235,6 +258,19 @@ type FeedbackWithRelations = AftersalesAnswerFeedback & {
   user?: { name: string } | null;
   department?: { name: string } | null;
   handledBy?: { name: string } | null;
+  convertedKnowledgeFile?: Pick<
+    KnowledgeFile,
+    | "id"
+    | "knowledgeBaseId"
+    | "title"
+    | "fileName"
+    | "materialType"
+    | "materialTopic"
+    | "sourceDescription"
+    | "trustLevel"
+    | "reviewStatus"
+    | "createdAt"
+  > | null;
 };
 
 @Injectable()
@@ -248,7 +284,10 @@ export class AftersalesQaService {
     private readonly aiUsageService?: AiUsageService,
     @Optional()
     @Inject(OperationLogsService)
-    private readonly operationLogsService?: OperationLogsService
+    private readonly operationLogsService?: OperationLogsService,
+    @Optional()
+    @Inject(KnowledgeFilesService)
+    private readonly knowledgeFilesService?: KnowledgeFilesService
   ) {}
 
   async createConversation(
@@ -800,6 +839,104 @@ export class AftersalesQaService {
     const feedback = await this.findFeedbackForAccess(id, context);
 
     return this.toFeedbackDetail(feedback);
+  }
+
+  async convertFeedbackToKnowledgeDraft(
+    id: string,
+    input: ConvertFeedbackKnowledgeDraftDto,
+    context: ResourceAccessContext
+  ): Promise<ConvertFeedbackKnowledgeDraftResponse> {
+    this.assertCanUseAftersalesQa(context);
+    this.assertCanHandleFeedback(context);
+    const feedback = await this.findFeedbackForAccess(id, context);
+
+    if (feedback.convertedKnowledgeFileId) {
+      throw new ConflictException("该反馈已转为知识库草稿，不能重复转换。");
+    }
+    if (!this.knowledgeFilesService) {
+      throw new BadRequestException("知识库资料服务不可用，无法转为草稿。");
+    }
+
+    const content = input.content.trim();
+    if (content === feedback.questionRecord.answer.trim()) {
+      throw new BadRequestException("请先整理为标准知识正文，不能直接把原 AI 回答作为知识草稿。");
+    }
+
+    const sourceDescription = this.buildConvertedDraftSourceDescription(
+      feedback,
+      input.sourceDescription
+    );
+    const knowledgeFileResult = await this.knowledgeFilesService.createManualMaterial(
+      input.knowledgeBaseId,
+      {
+        title: input.title,
+        content,
+        materialType: input.materialType ?? KnowledgeMaterialType.aftersales_material,
+        materialTopic: input.materialTopic,
+        applicableModules:
+          input.applicableModules && input.applicableModules.length > 0
+            ? input.applicableModules
+            : ["aftersales-qa", "internal-search"],
+        sourceDescription,
+        trustLevel: KnowledgeTrustLevel.medium,
+        reviewStatus: KnowledgeReviewStatus.pending,
+        allowedDepartmentIds:
+          input.allowedDepartmentIds && input.allowedDepartmentIds.length > 0
+            ? input.allowedDepartmentIds
+            : feedback.departmentId
+              ? [feedback.departmentId]
+              : []
+      },
+      context
+    );
+
+    const updateResult = await this.prisma.aftersalesAnswerFeedback.updateMany({
+      where: {
+        id: feedback.id,
+        convertedKnowledgeFileId: null
+      },
+      data: {
+        convertedKnowledgeFileId: knowledgeFileResult.knowledgeFile.id,
+        convertedAt: new Date(),
+        convertedByUserId: context.user.id
+      }
+    });
+
+    if (updateResult.count !== 1) {
+      await this.prisma.knowledgeFile.update({
+        where: {
+          id: knowledgeFileResult.knowledgeFile.id
+        },
+        data: {
+          deletedAt: new Date(),
+          updatedById: context.user.id
+        }
+      });
+      throw new ConflictException("该反馈已转为知识库草稿，不能重复转换。");
+    }
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: AFTERSALES_MODULE_KEY,
+        action: "feedback_convert_to_knowledge_draft",
+        targetType: "aftersales_answer_feedback",
+        targetId: feedback.id,
+        targetTitle: this.truncate(feedback.questionRecord.question, MAX_QUESTION_PREVIEW_LENGTH),
+        success: true,
+        metadata: {
+          knowledgeFileId: knowledgeFileResult.knowledgeFile.id,
+          knowledgeBaseId: knowledgeFileResult.knowledgeFile.knowledgeBaseId,
+          reviewStatus: knowledgeFileResult.knowledgeFile.reviewStatus,
+          trustLevel: knowledgeFileResult.knowledgeFile.trustLevel
+        }
+      },
+      context
+    );
+
+    return {
+      feedbackId: feedback.id,
+      knowledgeFile: knowledgeFileResult.knowledgeFile
+    };
   }
 
   async updateFeedbackStatus(
@@ -1462,8 +1599,33 @@ export class AftersalesQaService {
         select: {
           name: true
         }
+      },
+      convertedKnowledgeFile: {
+        select: {
+          id: true,
+          knowledgeBaseId: true,
+          title: true,
+          fileName: true,
+          materialType: true,
+          materialTopic: true,
+          sourceDescription: true,
+          trustLevel: true,
+          reviewStatus: true,
+          createdAt: true
+        }
       }
     } satisfies Prisma.AftersalesAnswerFeedbackInclude;
+  }
+
+  private buildConvertedDraftSourceDescription(
+    feedback: FeedbackWithRelations,
+    sourceDescription?: string
+  ): string {
+    const source = "来源：售后问答反馈";
+    const record = "说明：由管理员从售后问答反馈转入知识库草稿，待审核后进入正式知识库。";
+    const extra = sourceDescription?.trim();
+
+    return extra ? `${source}；${record}；${extra}` : `${source}；${record}`;
   }
 
   private assertCanHandleFeedback(context: ResourceAccessContext): void {
@@ -1668,7 +1830,21 @@ export class AftersalesQaService {
       citedSources: this.jsonCitedSourcesToArray(feedback.questionRecord.citedSources),
       handleNote: feedback.handleNote,
       handledById: feedback.handledById,
-      handledByName: feedback.handledBy?.name ?? null
+      handledByName: feedback.handledBy?.name ?? null,
+      convertedKnowledgeDraft: feedback.convertedKnowledgeFile
+        ? {
+            id: feedback.convertedKnowledgeFile.id,
+            knowledgeBaseId: feedback.convertedKnowledgeFile.knowledgeBaseId,
+            title:
+              feedback.convertedKnowledgeFile.title ?? feedback.convertedKnowledgeFile.fileName,
+            materialType: feedback.convertedKnowledgeFile.materialType,
+            materialTopic: feedback.convertedKnowledgeFile.materialTopic ?? undefined,
+            sourceDescription: feedback.convertedKnowledgeFile.sourceDescription ?? undefined,
+            trustLevel: feedback.convertedKnowledgeFile.trustLevel,
+            reviewStatus: feedback.convertedKnowledgeFile.reviewStatus,
+            createdAt: feedback.convertedKnowledgeFile.createdAt
+          }
+        : null
     };
   }
 

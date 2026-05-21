@@ -30,6 +30,8 @@ const requiredFiles = [
   "apps/web/src/views/ReportsView.vue",
   "apps/web/src/views/SettingsView.vue",
   "apps/web/src/views/HelpView.vue",
+  "apps/web/src/views/AftersalesQaView.vue",
+  "apps/web/src/api/aftersales-qa.ts",
   "apps/web/src/config/help-content.ts",
   "apps/web/src/api/project-profile.ts"
 ];
@@ -66,6 +68,25 @@ const requiredGuideSnippets = [
   "后端未启动",
   "CSV 导出",
   "文件上传格式限制"
+];
+
+const requiredAftersalesKbLoopSnippets = [
+  "convertFeedbackToKnowledgeDraft",
+  "/api/aftersales-qa/feedbacks/${id}/convert-to-knowledge-draft",
+  "转为知识库草稿",
+  "已转知识库草稿",
+  "知识库资料标题",
+  "资料主题",
+  "所属知识库",
+  "售后资料",
+  "【问题】",
+  "【原回答】",
+  "【错误类型】",
+  "【正确答案 / 补充说明】",
+  "【建议沉淀为知识】",
+  "请填写整理后的知识正文",
+  "不能重复转草稿",
+  "查看知识库资料"
 ];
 
 const assert = (condition, message) => {
@@ -358,6 +379,17 @@ for (const file of requiredFiles) {
 const guide = await readFile(path.join(repoRoot, "docs/frontend/frontend-mvp-guide.md"), "utf8");
 for (const snippet of requiredGuideSnippets) {
   assert(guide.includes(snippet), `Frontend MVP guide missing ${snippet}`);
+}
+
+const aftersalesKbLoopSource = [
+  await readFile(path.join(repoRoot, "apps/web/src/views/AftersalesQaView.vue"), "utf8"),
+  await readFile(path.join(repoRoot, "apps/web/src/api/aftersales-qa.ts"), "utf8")
+].join("\n");
+for (const snippet of requiredAftersalesKbLoopSnippets) {
+  assert(
+    aftersalesKbLoopSource.includes(snippet),
+    `Aftersales feedback knowledge draft UI missing ${snippet}`
+  );
 }
 
 const stubApi = process.env.VITE_API_BASE_URL ? undefined : await startStubApi();
