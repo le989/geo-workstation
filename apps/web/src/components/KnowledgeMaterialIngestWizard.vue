@@ -78,6 +78,31 @@ const selectedTrustLevelLabel = computed(
 const selectedModuleLabels = computed(() =>
   form.applicableModules.map((item) => applicableModuleLabelMap[item] ?? item).join("、")
 );
+const selectedFileName = computed(() => selectedFile.value?.name ?? "");
+const shouldSuggestWordSplit = computed(() => {
+  const file = selectedFile.value;
+  if (!file || !file.name.toLowerCase().endsWith(".docx")) {
+    return false;
+  }
+
+  const normalizedName = file.name.toLowerCase();
+  const comprehensiveWordKeywords = [
+    "知识库",
+    "资料收集",
+    "资料包",
+    "综合",
+    "整理版",
+    "正式版",
+    "第二版",
+    "geo知识库",
+    "faq"
+  ];
+
+  return (
+    file.size >= 500 * 1024 ||
+    comprehensiveWordKeywords.some((keyword) => normalizedName.includes(keyword.toLowerCase()))
+  );
+});
 const selectedDepartmentNames = computed(() => {
   if (form.materialType !== "aftersales_material" || form.allowedDepartmentIds.length === 0) {
     return "";
@@ -340,6 +365,20 @@ const submit = () => {
                 <span>上传后会解析为知识片段。支持 TXT、Markdown、CSV、Excel（xls / xlsx）和 Word（docx）；PDF / OCR 后置。</span>
               </div>
             </div>
+            <el-alert
+              v-if="shouldSuggestWordSplit"
+              title="建议拆分"
+              type="warning"
+              :closable="false"
+              show-icon
+              class="knowledge-word-split-alert"
+            >
+              <p>
+                该 Word 可能包含多个章节或多类资料。建议按公司介绍、产品资料、售后资料、客户案例、FAQ
+                等章节拆分后分别入库，避免资料类型和适用模块混乱；仍可作为一条资料上传。
+              </p>
+              <small>当前文件：{{ selectedFileName }}</small>
+            </el-alert>
           </el-form-item>
         </template>
 

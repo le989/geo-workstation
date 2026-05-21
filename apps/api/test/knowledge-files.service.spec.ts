@@ -266,6 +266,62 @@ describe("KnowledgeFilesService", () => {
     expect(csv.createdChunks[0]?.tags).toEqual(["FAQ", "GEO素材"]);
   });
 
+  it("normalizes uploaded display filenames without leaking storage paths", async () => {
+    const knowledgeBase = await createKnowledgeBase("中文文件名");
+    const chineseFileName = "南京凯基特电气有限公司_GEO知识库资料收集文档_第二版_正式版.docx";
+    const mojibakeFileName = Buffer.from(chineseFileName, "utf8").toString("latin1");
+
+    const mojibake = await knowledgeFilesService.upload(
+      knowledgeBase.id,
+      {
+        ...uploadFile(mojibakeFileName, "fake docx content"),
+        mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      },
+      {
+        createdBy
+      }
+    );
+    expect(mojibake.knowledgeFile.fileName).toBe(chineseFileName);
+    expect(mojibake.knowledgeFile.title).toBe(chineseFileName);
+    expect(mojibake.knowledgeFile).not.toHaveProperty("storagePath");
+
+    const normalChinese = await knowledgeFilesService.upload(
+      knowledgeBase.id,
+      {
+        ...uploadFile("正常中文资料.docx", "fake docx content"),
+        mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      },
+      {
+        createdBy,
+        title: "手动标题"
+      }
+    );
+    expect(normalChinese.knowledgeFile.fileName).toBe("正常中文资料.docx");
+    expect(normalChinese.knowledgeFile.title).toBe("手动标题");
+
+    const english = await knowledgeFilesService.upload(
+      knowledgeBase.id,
+      {
+        ...uploadFile("Safety Guide.docx", "fake docx content"),
+        mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      },
+      {
+        createdBy
+      }
+    );
+    expect(english.knowledgeFile.fileName).toBe("Safety Guide.docx");
+
+    const unsafe = await knowledgeFilesService.upload(
+      knowledgeBase.id,
+      uploadFile("..\\部门/安全资料.txt", "异常路径文件名需要被安全清洗后再展示。"),
+      {
+        createdBy
+      }
+    );
+    expect(unsafe.knowledgeFile.fileName).toBe("部门_安全资料.txt");
+    expect(unsafe.knowledgeFile).not.toHaveProperty("storagePath");
+  });
+
   it("rejects unsupported files, missing knowledge bases, deleted knowledge bases, and empty uploads", async () => {
     const knowledgeBase = await createKnowledgeBase("校验");
 

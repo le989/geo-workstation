@@ -50,6 +50,7 @@ const pageRequiredSnippets = [
   "txt/md/csv",
   "新建知识库",
   "资料入库向导",
+  "建议拆分",
   "上传 / 粘贴资料",
   "解析为知识片段",
   "用于内容生成",

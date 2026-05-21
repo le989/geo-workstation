@@ -3148,6 +3148,21 @@ a {
   line-height: 1.55;
 }
 
+.knowledge-word-split-alert {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.knowledge-word-split-alert p {
+  margin: 0 0 6px;
+  color: #5f4b18;
+  line-height: 1.65;
+}
+
+.knowledge-word-split-alert small {
+  color: #6b7280;
+}
+
 .knowledge-ingest-advanced {
   overflow: hidden;
   border: 1px solid #d7e2ee;

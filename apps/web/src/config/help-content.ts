@@ -323,7 +323,8 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "上传或手动录入",
-        description: "支持 TXT、Markdown、CSV、Excel 和 Word；手动录入会生成资料记录和片段。"
+        description:
+          "支持 TXT、Markdown、CSV、Excel 和 Word；手动录入会生成资料记录和片段。大 Word 综合资料建议拆成资料卡片后分别入库。"
       },
       {
         title: "编辑片段",
@@ -334,7 +335,8 @@ export const sopSections: HelpSection[] = [
       "PDF / OCR 后置，当前不要写成已支持能力。",
       "本地 storagePath 不对前端展示。",
       "待审核和已停用资料不能作为售后问答依据。",
-      "低可信资料只用于内部查询；统一 AI 引用规则后续单独收口。"
+      "低可信资料只用于内部查询；统一 AI 引用规则后续单独收口。",
+      "Word 自动拆分章节、自动推荐资料类型 / 资料主题后置。"
     ]
   },
   {
@@ -588,7 +590,7 @@ export const versionNotes: VersionNote[] = [
       "知识库资料支持轻量入库、高级资料属性折叠、资料类型、资料主题、审核状态、可信度、适用模块、售后资料可见部门、文件上传、手动录入和片段编辑。"
     ],
     usage: "适合把企业资料从普通文件库升级为可引用、可审核、可用于售后问答的事实底座。",
-    notes: "资料主题用于承载公司新闻、活动资讯、资质证书、培训资料、行业动态等细分内容；支持 TXT、Markdown、CSV、Excel、Word；PDF / OCR 后置。"
+    notes: "资料主题用于承载公司新闻、活动资讯、资质证书、培训资料、行业动态等细分内容；支持 TXT、Markdown、CSV、Excel、Word；PDF / OCR、Word 自动拆分和自动推荐主题后置。"
   },
   {
     name: "售后问答",

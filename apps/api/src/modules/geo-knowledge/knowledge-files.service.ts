@@ -34,6 +34,7 @@ import { LocalFileStorageService, type UploadedKnowledgeFile } from "./local-fil
 import { resolveKnowledgeFileType } from "./utils/file-type.util";
 import { trimOptional } from "./utils/normalize-knowledge-base";
 import { jsonTagsToArray, normalizeTags } from "./utils/tags.util";
+import { normalizeUploadedFilename } from "./utils/uploaded-filename.util";
 import {
   assertCanDeleteResource,
   assertCanUpdateResource,
@@ -179,11 +180,16 @@ export class KnowledgeFilesService {
       assertCanUpdateResource(context, knowledgeBase);
     }
     this.assertUploadFile(file);
-    const fileType = this.resolveFileType(file.originalname);
+    const displayFileName = normalizeUploadedFilename(file.originalname);
+    const fileForStorage = {
+      ...file,
+      originalname: displayFileName
+    };
+    const fileType = this.resolveFileType(displayFileName);
     const createdById = context?.user.id ?? (await this.resolveCreatedById(input.createdBy));
     const companyId = context ? getCurrentCompanyId(context) : undefined;
     const metadata = await this.normalizeMetadataInput(input, context);
-    const storagePath = await this.storage.saveKnowledgeFile(knowledgeBaseId, file);
+    const storagePath = await this.storage.saveKnowledgeFile(knowledgeBaseId, fileForStorage);
 
     const knowledgeFile = await this.prisma.knowledgeFile.create({
       data: {
@@ -192,8 +198,8 @@ export class KnowledgeFilesService {
             id: knowledgeBase.id
           }
         },
-        title: metadata.title ?? file.originalname,
-        fileName: file.originalname,
+        title: metadata.title ?? displayFileName,
+        fileName: displayFileName,
         fileType,
         fileSize: file.size,
         storagePath,
