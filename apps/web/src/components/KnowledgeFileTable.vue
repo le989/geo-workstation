@@ -124,7 +124,16 @@ const formatMaterialTopic = (value?: string) =>
     </el-table-column>
     <el-table-column prop="trustLevel" label="可信度" width="96">
       <template #default="{ row }: { row: KnowledgeFile }">
-        {{ trustLevelLabelMap[row.trustLevel] ?? row.trustLevel }}
+        <div class="knowledge-trust-cell">
+          <span>{{ trustLevelLabelMap[row.trustLevel] ?? row.trustLevel }}</span>
+          <el-tooltip
+            v-if="row.trustLevel === 'low'"
+            content="低可信资料不会被售后问答 / GEO 内容正式引用"
+            placement="top"
+          >
+            <el-tag size="small" type="warning" effect="plain">不正式引用</el-tag>
+          </el-tooltip>
+        </div>
       </template>
     </el-table-column>
     <el-table-column prop="parseStatus" label="解析状态" width="116">
@@ -170,3 +179,13 @@ const formatMaterialTopic = (value?: string) =>
     </template>
   </el-table>
 </template>
+
+<style scoped>
+.knowledge-trust-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.25;
+}
+</style>

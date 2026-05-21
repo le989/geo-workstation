@@ -14,7 +14,6 @@ import {
   AftersalesFeedbackStatus,
   DepartmentStatus,
   KnowledgeMaterialType,
-  KnowledgeReviewStatus,
   Prisma,
   type AftersalesAnswerFeedback,
   type AftersalesConversation,
@@ -30,6 +29,7 @@ import {
 } from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AiUsageService } from "../usage/ai-usage.service";
+import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
 import { OperationLogsService } from "../usage/operation-logs.service";
 import type { AskAftersalesQuestionDto } from "./dto/ask-aftersales-question.dto";
 import type { CreateAftersalesConversationDto } from "./dto/create-aftersales-conversation.dto";
@@ -901,12 +901,10 @@ export class AftersalesQaService {
           status: "active"
         },
         file: {
-          is: {
+          is: buildOfficialCitableKnowledgeFileWhere({
             companyId,
-            deletedAt: null,
-            materialType,
-            reviewStatus: KnowledgeReviewStatus.approved
-          }
+            materialType
+          })
         }
       },
       include: {
