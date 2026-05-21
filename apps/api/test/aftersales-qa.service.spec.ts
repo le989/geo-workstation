@@ -1,10 +1,11 @@
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import {
   CompanyStatus,
   CompanyType,
   DepartmentStatus,
   KnowledgeMaterialType,
   KnowledgeReviewStatus,
+  KnowledgeTrustLevel,
   MembershipRole,
   UserRole,
   UserStatus,
@@ -14,6 +15,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { AftersalesQaService } from "../src/modules/aftersales-qa/aftersales-qa.service";
+import { KnowledgeFilesService } from "../src/modules/geo-knowledge/knowledge-files.service";
+import { KnowledgeFileParserService } from "../src/modules/geo-knowledge/knowledge-file-parser.service";
+import { LocalFileStorageService } from "../src/modules/geo-knowledge/local-file-storage.service";
+import { isKnowledgeFileOfficiallyCitable } from "../src/modules/geo-knowledge/utils/official-citation.util";
 import { AiUsageService } from "../src/modules/usage/ai-usage.service";
 import { OperationLogsService } from "../src/modules/usage/operation-logs.service";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
@@ -48,6 +53,17 @@ type QueryFeedbacksPayload = {
 type UpdateFeedbackStatusPayload = {
   status: "pending" | "handled" | "no_action";
   handleNote?: string;
+};
+
+type ConvertFeedbackToKnowledgeDraftPayload = {
+  knowledgeBaseId: string;
+  title: string;
+  materialTopic?: string;
+  materialType?: string;
+  content: string;
+  sourceDescription?: string;
+  applicableModules?: string[];
+  allowedDepartmentIds?: string[];
 };
 
 type AftersalesFeedbackMethods = {
@@ -100,6 +116,24 @@ type AftersalesFeedbackMethods = {
     status: string;
     feedbackStatus: string;
   }>;
+  convertFeedbackToKnowledgeDraft: (
+    id: string,
+    input: ConvertFeedbackToKnowledgeDraftPayload,
+    context: ResourceAccessContext
+  ) => Promise<{
+    feedbackId: string;
+    knowledgeFile: {
+      id: string;
+      knowledgeBaseId: string;
+      title: string;
+      materialType: KnowledgeMaterialType;
+      materialTopic?: string;
+      sourceDescription?: string;
+      trustLevel: KnowledgeTrustLevel;
+      reviewStatus: KnowledgeReviewStatus;
+      allowedDepartmentIds: string[];
+    };
+  }>;
 };
 
 describe("AftersalesQaService", () => {
@@ -107,6 +141,7 @@ describe("AftersalesQaService", () => {
   let service: AftersalesQaService;
   let aiUsageService: AiUsageService;
   let operationLogsService: OperationLogsService;
+  let knowledgeFilesService: KnowledgeFilesService;
 
   let companyA: { id: string; name: string; code: string; status: CompanyStatus };
   let companyB: { id: string; name: string; code: string; status: CompanyStatus };
@@ -136,10 +171,17 @@ describe("AftersalesQaService", () => {
 
     aiUsageService = new AiUsageService(prisma as unknown as PrismaService);
     operationLogsService = new OperationLogsService(prisma as unknown as PrismaService);
+    knowledgeFilesService = new KnowledgeFilesService(
+      prisma as unknown as PrismaService,
+      new LocalFileStorageService(),
+      new KnowledgeFileParserService(),
+      operationLogsService
+    );
     service = new AftersalesQaService(
       prisma as unknown as PrismaService,
       aiUsageService,
-      operationLogsService
+      operationLogsService,
+      knowledgeFilesService
     );
 
     companyA = await prisma.company.create({
@@ -337,6 +379,19 @@ describe("AftersalesQaService", () => {
     });
 
     return { knowledgeBase, knowledgeFile, chunk };
+  }
+
+  async function createKnowledgeBase(label: string, companyId = companyA.id, createdById = companyAdmin.id) {
+    return prisma.knowledgeBase.create({
+      data: {
+        companyId,
+        name: `${label} KB ${runId}`,
+        description: "售后反馈转知识库草稿测试知识库",
+        visibility: Visibility.COMPANY,
+        status: "active",
+        createdById
+      }
+    });
   }
 
   function feedbackService() {
@@ -1233,5 +1288,176 @@ describe("AftersalesQaService", () => {
     expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("storagePath");
     expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("DATABASE_URL");
     expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("引用来源需要更换");
+  });
+
+  it("lets admins convert feedback into a pending knowledge draft that is not officially citable", async () => {
+    const ownerContext = contextFor(allowedOperator, MembershipRole.operator);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const knowledgeBase = await createKnowledgeBase("反馈转草稿");
+    const conversation = await service.createConversation({ title: "反馈转草稿会话" }, ownerContext);
+    const answer = await service.askInConversation(
+      conversation.id,
+      {
+        question: "AQA-KB-LOOP-1 中 M300 无输出应该如何沉淀知识？"
+      },
+      ownerContext
+    );
+    const submitted = await feedbackService().submitFeedback(
+      answer.recordId,
+      {
+        errorType: "answer_wrong",
+        correctionText: "正确答案应要求先确认供电电压、输出类型和负载接线。",
+        description: "原回答没有把现场排查顺序说清楚。"
+      },
+      ownerContext
+    );
+
+    const result = await feedbackService().convertFeedbackToKnowledgeDraft(
+      submitted.feedbackId,
+      {
+        knowledgeBaseId: knowledgeBase.id,
+        title: `售后问答反馈：M300 无输出 ${runId}`,
+        materialType: KnowledgeMaterialType.aftersales_material,
+        materialTopic: "故障排查",
+        applicableModules: ["aftersales-qa", "internal-search"],
+        allowedDepartmentIds: [allowedDepartment.id],
+        sourceDescription: "管理员整理后准备进入知识库审核。",
+        content: [
+          "【问题】M300 无输出应该如何排查？",
+          "【原回答】原回答缺少供电、输出类型和负载接线的排查顺序。",
+          "【错误类型】答案错误",
+          "【正确答案 / 补充说明】先确认供电电压，再确认 NPN/PNP 输出类型和负载接线。",
+          "【建议沉淀为知识】M300 无输出排查应按供电、电源极性、输出类型、负载接线、现场干扰顺序处理。"
+        ].join("\n")
+      },
+      adminContext
+    );
+    const knowledgeFile = await prisma.knowledgeFile.findUniqueOrThrow({
+      where: {
+        id: result.knowledgeFile.id
+      }
+    });
+    const chunk = await prisma.knowledgeChunk.findFirstOrThrow({
+      where: {
+        fileId: knowledgeFile.id
+      }
+    });
+    const detail = await feedbackService().getFeedback(submitted.feedbackId, adminContext);
+
+    expect(result.feedbackId).toBe(submitted.feedbackId);
+    expect(knowledgeFile.companyId).toBe(companyA.id);
+    expect(knowledgeFile.reviewStatus).toBe(KnowledgeReviewStatus.pending);
+    expect(knowledgeFile.reviewStatus).not.toBe(KnowledgeReviewStatus.approved);
+    expect(knowledgeFile.trustLevel).toBe(KnowledgeTrustLevel.medium);
+    expect(knowledgeFile.materialType).toBe(KnowledgeMaterialType.aftersales_material);
+    expect(knowledgeFile.sourceDescription).toContain("来源：售后问答反馈");
+    expect(knowledgeFile.sourceDescription).toContain(submitted.feedbackId);
+    expect(knowledgeFile.allowedDepartmentIds).toEqual([allowedDepartment.id]);
+    expect(isKnowledgeFileOfficiallyCitable(knowledgeFile)).toBe(false);
+    expect(chunk.content).toContain("【建议沉淀为知识】");
+    expect(detail.status).toBe("pending");
+    expect(detail).toMatchObject({
+      convertedKnowledgeDraft: {
+        id: knowledgeFile.id,
+        title: knowledgeFile.title,
+        reviewStatus: KnowledgeReviewStatus.pending,
+        trustLevel: KnowledgeTrustLevel.medium
+      }
+    });
+  });
+
+  it("prevents duplicate feedback conversion and keeps company isolation", async () => {
+    const ownerContext = contextFor(allowedOperator, MembershipRole.operator);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const otherCompanyContext = contextFor(otherCompanyAdmin, MembershipRole.company_admin, {
+      company: companyB,
+      department: null
+    });
+    const knowledgeBase = await createKnowledgeBase("反馈重复转草稿");
+    const otherCompanyKnowledgeBase = await createKnowledgeBase(
+      "其他公司反馈转草稿",
+      companyB.id,
+      otherCompanyAdmin.id
+    );
+    const conversation = await service.createConversation({ title: "反馈重复转草稿会话" }, ownerContext);
+    const firstAnswer = await service.askInConversation(
+      conversation.id,
+      {
+        question: "AQA-KB-LOOP-1 重复转换反馈怎么处理？"
+      },
+      ownerContext
+    );
+    const firstSubmitted = await feedbackService().submitFeedback(
+      firstAnswer.recordId,
+      {
+        errorType: "knowledge_missing",
+        correctionText: "这条反馈需要沉淀为售后知识草稿。"
+      },
+      ownerContext
+    );
+    await feedbackService().convertFeedbackToKnowledgeDraft(
+      firstSubmitted.feedbackId,
+      {
+        knowledgeBaseId: knowledgeBase.id,
+        title: `售后问答反馈：重复转换 ${runId}`,
+        content:
+          "【问题】重复转换反馈怎么处理？\n【正确答案 / 补充说明】同一条反馈只能生成一条待审核知识库草稿。\n【建议沉淀为知识】再次点击应提示已转草稿。"
+      },
+      adminContext
+    );
+
+    await expect(
+      feedbackService().convertFeedbackToKnowledgeDraft(
+        firstSubmitted.feedbackId,
+        {
+          knowledgeBaseId: knowledgeBase.id,
+          title: `售后问答反馈：重复转换第二次 ${runId}`,
+          content:
+            "【问题】重复转换反馈怎么处理？\n【正确答案 / 补充说明】不能重复生成草稿。\n【建议沉淀为知识】返回明确错误。"
+        },
+        adminContext
+      )
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      feedbackService().convertFeedbackToKnowledgeDraft(
+        firstSubmitted.feedbackId,
+        {
+          knowledgeBaseId: knowledgeBase.id,
+          title: `售后问答反馈：跨公司读取 ${runId}`,
+          content:
+            "【问题】跨公司读取反馈。\n【正确答案 / 补充说明】其他公司不能读取或转换。\n【建议沉淀为知识】保持公司隔离。"
+        },
+        otherCompanyContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const secondAnswer = await service.askInConversation(
+      conversation.id,
+      {
+        question: "AQA-KB-LOOP-1 跨公司知识库应该如何拦截？"
+      },
+      ownerContext
+    );
+    const secondSubmitted = await feedbackService().submitFeedback(
+      secondAnswer.recordId,
+      {
+        errorType: "knowledge_missing",
+        correctionText: "这条反馈不能写入其他公司的知识库。"
+      },
+      ownerContext
+    );
+
+    await expect(
+      feedbackService().convertFeedbackToKnowledgeDraft(
+        secondSubmitted.feedbackId,
+        {
+          knowledgeBaseId: otherCompanyKnowledgeBase.id,
+          title: `售后问答反馈：跨公司知识库 ${runId}`,
+          content:
+            "【问题】跨公司知识库写入。\n【正确答案 / 补充说明】当前公司反馈只能进入当前公司知识库。\n【建议沉淀为知识】不允许前端传入覆盖 companyId。"
+        },
+        adminContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

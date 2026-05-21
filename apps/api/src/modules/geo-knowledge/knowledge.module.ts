@@ -16,6 +16,7 @@ import { LocalFileStorageService } from "./local-file-storage.service";
     KnowledgeFilesService,
     KnowledgeFileParserService,
     LocalFileStorageService
-  ]
+  ],
+  exports: [KnowledgeFilesService]
 })
 export class GeoKnowledgeModule {}

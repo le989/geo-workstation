@@ -24,6 +24,7 @@ import type {
 } from "../auth/auth.types";
 import { AftersalesQaService } from "./aftersales-qa.service";
 import { AskAftersalesQuestionDto } from "./dto/ask-aftersales-question.dto";
+import { ConvertFeedbackKnowledgeDraftDto } from "./dto/convert-feedback-knowledge-draft.dto";
 import { CreateAftersalesConversationDto } from "./dto/create-aftersales-conversation.dto";
 import { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
 import { QueryAftersalesFeedbacksDto } from "./dto/query-aftersales-feedbacks.dto";
@@ -149,6 +150,22 @@ export class AftersalesQaController {
     @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
     return this.service.getFeedback(id, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Post("feedbacks/:id/convert-to-knowledge-draft")
+  convertFeedbackToKnowledgeDraft(
+    @Param("id") id: string,
+    @Body(createValidationPipe(ConvertFeedbackKnowledgeDraftDto))
+    body: ConvertFeedbackKnowledgeDraftDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.convertFeedbackToKnowledgeDraft(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Patch("feedbacks/:id/status")

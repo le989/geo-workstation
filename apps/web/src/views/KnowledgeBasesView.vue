@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import {
@@ -54,6 +55,7 @@ import {
 import { canUseAction } from "@/utils/permission";
 
 const authStore = useAuthStore();
+const route = useRoute();
 const knowledgeBases = ref<KnowledgeBase[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -406,6 +408,53 @@ const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
   await refreshDetailResources();
 };
 
+const resetResourceFilters = () => {
+  Object.assign(chunkFilters, {
+    materialType: undefined,
+    productLine: undefined,
+    search: undefined,
+    sourceType: undefined,
+    tags: undefined
+  });
+  Object.assign(fileFilters, {
+    applicableModule: undefined,
+    fileType: undefined,
+    materialType: undefined,
+    materialTopic: undefined,
+    officialCitationStatus: undefined,
+    parseStatus: undefined,
+    reviewStatus: undefined,
+    search: undefined,
+    trustLevel: undefined
+  });
+};
+
+const openRoutedKnowledgeFile = async () => {
+  const knowledgeBaseId =
+    typeof route.query.knowledgeBaseId === "string" ? route.query.knowledgeBaseId : "";
+  const knowledgeFileId =
+    typeof route.query.knowledgeFileId === "string" ? route.query.knowledgeFileId : "";
+
+  if (!knowledgeBaseId) {
+    return;
+  }
+
+  selectedKnowledgeBaseId.value = knowledgeBaseId;
+  detail.value = null;
+  activeTab.value = "files";
+  chunksPage.value = 1;
+  filesPage.value = 1;
+  resetResourceFilters();
+  drawerVisible.value = true;
+  void loadDepartments();
+  await refreshDetailResources();
+
+  if (knowledgeFileId) {
+    const fileDetail = await getKnowledgeFile(knowledgeFileId);
+    await handleFileDetail(fileDetail.knowledgeFile);
+  }
+};
+
 const handleFormSubmit = async (
   payload: CreateKnowledgeBasePayload | UpdateKnowledgeBasePayload
 ) => {
@@ -715,8 +764,9 @@ const handleFilePageSizeChange = (nextPageSize: number) => {
   void loadFiles();
 };
 
-onMounted(() => {
-  void loadKnowledgeBases();
+onMounted(async () => {
+  await loadKnowledgeBases();
+  await openRoutedKnowledgeFile();
 });
 </script>
 
