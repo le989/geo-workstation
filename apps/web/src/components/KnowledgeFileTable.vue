@@ -4,6 +4,7 @@ import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   applicableModuleLabelMap,
   formatFileSize,
+  materialTopicLabelMap,
   materialTypeLabelMap,
   reviewStatusLabelMap,
   sourceTypeLabelMap,
@@ -30,7 +31,11 @@ const formatApplicableModules = (modules?: KnowledgeFile["applicableModules"]) =
     ? modules.map((item) => applicableModuleLabelMap[item] ?? item).join("、")
     : "--";
 
-const formatAllowedDepartments = (ids?: string[]) => (ids && ids.length > 0 ? `${ids.length} 个部门` : "--");
+const formatAllowedDepartments = (ids?: string[]) =>
+  ids && ids.length > 0 ? `${ids.length} 个部门` : "--";
+
+const formatMaterialTopic = (value?: string) =>
+  materialTopicLabelMap[value ?? ""] ?? formatOptional(value);
 </script>
 
 <template>
@@ -51,6 +56,10 @@ const formatAllowedDepartments = (ids?: string[]) => (ids && ids.length > 0 ? `$
               <div>
                 <dt>文件大小</dt>
                 <dd>{{ formatFileSize(row.fileSize) }}</dd>
+              </div>
+              <div>
+                <dt>资料主题</dt>
+                <dd>{{ formatMaterialTopic(row.materialTopic) }}</dd>
               </div>
               <div>
                 <dt>来源说明</dt>
@@ -101,6 +110,11 @@ const formatAllowedDepartments = (ids?: string[]) => (ids && ids.length > 0 ? `$
     <el-table-column prop="materialType" label="资料类型" min-width="142">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ materialTypeLabelMap[row.materialType] ?? row.materialType }}
+      </template>
+    </el-table-column>
+    <el-table-column prop="materialTopic" label="资料主题" min-width="126">
+      <template #default="{ row }: { row: KnowledgeFile }">
+        {{ formatMaterialTopic(row.materialTopic) }}
       </template>
     </el-table-column>
     <el-table-column prop="reviewStatus" label="审核状态" width="116">

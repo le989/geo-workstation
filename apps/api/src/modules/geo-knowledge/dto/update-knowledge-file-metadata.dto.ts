@@ -15,6 +15,11 @@ export class UpdateKnowledgeFileMetadataDto {
   materialType?: string;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  materialTopic?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @Transform(({ value }) => toTags(value))

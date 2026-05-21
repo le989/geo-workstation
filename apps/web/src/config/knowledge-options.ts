@@ -27,6 +27,21 @@ export const materialTypeOptions = [
   { label: "客户案例资料", value: "customer_case_material" }
 ];
 
+export const materialTopicOptions = [
+  { label: "公司新闻", value: "公司新闻" },
+  { label: "活动资讯", value: "活动资讯" },
+  { label: "资质证书", value: "资质证书" },
+  { label: "培训资料", value: "培训资料" },
+  { label: "行业动态", value: "行业动态" },
+  { label: "选型资料", value: "选型资料" },
+  { label: "故障排查", value: "故障排查" },
+  { label: "安装接线", value: "安装接线" },
+  { label: "应用案例", value: "应用案例" },
+  { label: "品牌介绍", value: "品牌介绍" },
+  { label: "产品参数", value: "产品参数" },
+  { label: "售后流程", value: "售后流程" }
+];
+
 export const reviewStatusOptions: Array<{ label: string; value: KnowledgeReviewStatus }> = [
   { label: "待审核", value: "pending" },
   { label: "已通过", value: "approved" },
@@ -45,6 +60,46 @@ export const applicableModuleOptions: Array<{ label: string; value: KnowledgeApp
   { label: "售后问答", value: "aftersales-qa" },
   { label: "GEO 分析", value: "geo-analysis" }
 ];
+
+export const materialTypeDefaults: Record<
+  string,
+  {
+    applicableModules: KnowledgeApplicableModule[];
+    reviewStatus: KnowledgeReviewStatus;
+    trustLevel: KnowledgeTrustLevel;
+  }
+> = {
+  aftersales_material: {
+    applicableModules: ["aftersales-qa", "internal-search"],
+    reviewStatus: "pending",
+    trustLevel: "medium"
+  },
+  product_material: {
+    applicableModules: ["aftersales-qa", "geo-content", "internal-search"],
+    reviewStatus: "pending",
+    trustLevel: "medium"
+  },
+  company_trust_material: {
+    applicableModules: ["geo-content", "internal-search"],
+    reviewStatus: "pending",
+    trustLevel: "high"
+  },
+  content_reference_material: {
+    applicableModules: ["geo-content", "internal-search"],
+    reviewStatus: "pending",
+    trustLevel: "medium"
+  },
+  internal_process_material: {
+    applicableModules: ["internal-search"],
+    reviewStatus: "pending",
+    trustLevel: "medium"
+  },
+  customer_case_material: {
+    applicableModules: ["geo-content", "internal-search"],
+    reviewStatus: "pending",
+    trustLevel: "medium"
+  }
+};
 
 export const parseStatusOptions: Array<{ label: string; value: ParseStatus }> = [
   { label: "待解析", value: "pending" },
@@ -65,6 +120,10 @@ export const sourceTypeLabelMap = Object.fromEntries(
 
 export const materialTypeLabelMap = Object.fromEntries(
   materialTypeOptions.map((item) => [item.value, item.label])
+) as Record<string, string>;
+
+export const materialTopicLabelMap = Object.fromEntries(
+  materialTopicOptions.map((item) => [item.value, item.label])
 ) as Record<string, string>;
 
 Object.assign(materialTypeLabelMap, {

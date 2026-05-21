@@ -72,6 +72,7 @@ type KnowledgeFileMetadataInput = Pick<
   UploadKnowledgeFileDto,
   | "title"
   | "materialType"
+  | "materialTopic"
   | "applicableModules"
   | "sourceDescription"
   | "trustLevel"
@@ -82,6 +83,7 @@ type KnowledgeFileMetadataInput = Pick<
 type NormalizedKnowledgeFileMetadata = {
   title?: string;
   materialType: KnowledgeMaterialType;
+  materialTopic?: string;
   applicableModules: string[];
   sourceDescription?: string;
   trustLevel: KnowledgeTrustLevel;
@@ -100,6 +102,7 @@ export type KnowledgeFileResponse = {
   companyId?: string;
   sourceType: string;
   materialType: KnowledgeMaterialType;
+  materialTopic?: string;
   applicableModules: string[];
   sourceDescription?: string;
   trustLevel: KnowledgeTrustLevel;
@@ -196,6 +199,7 @@ export class KnowledgeFilesService {
         storagePath,
         sourceType: "upload",
         materialType: metadata.materialType,
+        materialTopic: metadata.materialTopic,
         applicableModules: metadata.applicableModules,
         sourceDescription: metadata.sourceDescription,
         trustLevel: metadata.trustLevel,
@@ -250,6 +254,7 @@ export class KnowledgeFilesService {
           knowledgeBaseId,
           fileType,
           materialType: metadata.materialType,
+          materialTopic: metadata.materialTopic,
           reviewStatus: metadata.reviewStatus,
           trustLevel: metadata.trustLevel,
           createdChunksCount: result.createdChunksCount,
@@ -301,6 +306,7 @@ export class KnowledgeFilesService {
           storagePath: null,
           sourceType: "manual",
           materialType: metadata.materialType,
+          materialTopic: metadata.materialTopic,
           applicableModules: metadata.applicableModules,
           sourceDescription: metadata.sourceDescription,
           trustLevel: metadata.trustLevel,
@@ -387,6 +393,7 @@ export class KnowledgeFilesService {
         metadata: {
           knowledgeBaseId,
           materialType: metadata.materialType,
+          materialTopic: metadata.materialTopic,
           reviewStatus: metadata.reviewStatus,
           trustLevel: metadata.trustLevel,
           createdChunksCount: 1,
@@ -414,6 +421,10 @@ export class KnowledgeFilesService {
       {
         title: input.title ?? existing.title ?? existing.fileName,
         materialType: input.materialType ?? existing.materialType,
+        materialTopic:
+          input.materialTopic !== undefined
+            ? input.materialTopic
+            : (existing.materialTopic ?? undefined),
         applicableModules:
           input.applicableModules ?? this.jsonStringArrayToArray(existing.applicableModules),
         sourceDescription:
@@ -435,6 +446,7 @@ export class KnowledgeFilesService {
       data: {
         title: normalized.title,
         materialType: normalized.materialType,
+        materialTopic: normalized.materialTopic ?? null,
         applicableModules: normalized.applicableModules,
         sourceDescription: normalized.sourceDescription ?? null,
         trustLevel: normalized.trustLevel,
@@ -463,6 +475,7 @@ export class KnowledgeFilesService {
         metadata: {
           knowledgeBaseId: updated.knowledgeBaseId,
           materialType: updated.materialType,
+          materialTopic: updated.materialTopic,
           reviewStatus: updated.reviewStatus,
           trustLevel: updated.trustLevel,
           allowedDepartmentCount: this.jsonStringArrayToArray(
@@ -753,6 +766,12 @@ export class KnowledgeFilesService {
             contains: search,
             mode: "insensitive"
           }
+        },
+        {
+          materialTopic: {
+            contains: search,
+            mode: "insensitive"
+          }
         }
       ];
     }
@@ -928,6 +947,7 @@ export class KnowledgeFilesService {
     return {
       title,
       materialType,
+      materialTopic: trimOptional(input.materialTopic),
       applicableModules: this.normalizeApplicableModules(input.applicableModules),
       sourceDescription: trimOptional(input.sourceDescription),
       trustLevel: input.trustLevel ?? KnowledgeTrustLevel.medium,
@@ -1139,6 +1159,7 @@ export class KnowledgeFilesService {
       companyId: file.companyId ?? undefined,
       sourceType: file.sourceType,
       materialType: file.materialType,
+      materialTopic: file.materialTopic ?? undefined,
       applicableModules: this.jsonStringArrayToArray(file.applicableModules),
       sourceDescription: file.sourceDescription ?? undefined,
       trustLevel: file.trustLevel,

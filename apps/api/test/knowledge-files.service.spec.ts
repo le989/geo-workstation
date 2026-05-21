@@ -430,6 +430,7 @@ describe("KnowledgeFilesService", () => {
       uploadFile("product.txt", "产品资料正文包含产品能力、选型参数和 GEO 内容引用事实。"),
       {
         title: "产品资料标题",
+        materialTopic: "产品参数",
         materialType: KnowledgeMaterialType.product_material,
         applicableModules: ["geo-content", "internal-search"],
         sourceDescription: "官网产品资料",
@@ -442,6 +443,7 @@ describe("KnowledgeFilesService", () => {
 
     expect(uploaded.knowledgeFile).toMatchObject({
       title: "产品资料标题",
+      materialTopic: "产品参数",
       materialType: KnowledgeMaterialType.product_material,
       applicableModules: ["geo-content", "internal-search"],
       sourceDescription: "官网产品资料",
@@ -460,6 +462,7 @@ describe("KnowledgeFilesService", () => {
       companyBase.id,
       {
         title: "手动售后资料",
+        materialTopic: "故障排查",
         materialType: KnowledgeMaterialType.aftersales_material,
         applicableModules: ["aftersales-qa", "internal-search"],
         sourceDescription: "售后工程师整理",
@@ -476,6 +479,7 @@ describe("KnowledgeFilesService", () => {
       fileType: "manual",
       sourceType: "manual",
       title: "手动售后资料",
+      materialTopic: "故障排查",
       materialType: KnowledgeMaterialType.aftersales_material,
       reviewStatus: KnowledgeReviewStatus.pending,
       allowedDepartmentIds: [allowedDepartment.id]
@@ -496,11 +500,13 @@ describe("KnowledgeFilesService", () => {
     );
     expect(filtered.total).toBe(1);
     expect(filtered.items[0]?.id).toBe(uploaded.knowledgeFile.id);
+    expect(filtered.items[0]?.materialTopic).toBe("产品参数");
 
     const updated = await knowledgeFilesService.updateMetadata(
       uploaded.knowledgeFile.id,
       {
         title: "更新后的产品资料标题",
+        materialTopic: "选型资料",
         reviewStatus: KnowledgeReviewStatus.disabled,
         applicableModules: ["geo-analysis"]
       },
@@ -508,6 +514,7 @@ describe("KnowledgeFilesService", () => {
     );
     expect(updated).toMatchObject({
       title: "更新后的产品资料标题",
+      materialTopic: "选型资料",
       reviewStatus: KnowledgeReviewStatus.disabled,
       applicableModules: ["geo-analysis"]
     });
