@@ -18,14 +18,22 @@ import {
 import { formatKnowledgeSourceDescription } from "@/utils/knowledge-source";
 import KnowledgeParseStatusTag from "./KnowledgeParseStatusTag.vue";
 
-defineProps<{
+withDefaults(defineProps<{
   files: KnowledgeFile[];
   loading?: boolean;
   reparsingIds?: string[];
   deletingIds?: string[];
   canManage?: boolean;
   knowledgeBaseName?: string;
-}>();
+  displayMode?: "simple" | "management";
+}>(), {
+  canManage: false,
+  deletingIds: () => [],
+  displayMode: "simple",
+  knowledgeBaseName: "",
+  loading: false,
+  reparsingIds: () => []
+});
 
 const emit = defineEmits<{
   detail: [file: KnowledgeFile];
@@ -69,7 +77,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
           </el-tag>
         </div>
 
-        <div class="knowledge-file-card__tags">
+        <div v-if="displayMode === 'management'" class="knowledge-file-card__tags">
           <el-tag size="small" effect="plain">
             {{ materialTypeLabelMap[file.materialType] ?? file.materialType }}
           </el-tag>
@@ -80,7 +88,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
             {{ reviewStatusLabelMap[file.reviewStatus] ?? file.reviewStatus }}
           </el-tag>
           <el-tag size="small" type="info" effect="plain">
-            可信度 {{ trustLevelLabelMap[file.trustLevel] ?? file.trustLevel }}
+            可靠程度 {{ trustLevelLabelMap[file.trustLevel] ?? file.trustLevel }}
           </el-tag>
         </div>
 
@@ -100,21 +108,37 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
             </dd>
           </div>
           <div>
-            <dt>适用模块</dt>
-            <dd>{{ formatApplicableModules(file.applicableModules) }}</dd>
+            <dt>资料状态</dt>
+            <dd>{{ reviewStatusLabelMap[file.reviewStatus] ?? file.reviewStatus }}</dd>
           </div>
           <div>
-            <dt>正式引用状态</dt>
+            <dt>AI 可引用状态</dt>
             <dd>{{ getKnowledgeFileCitationDescription(file) }}</dd>
           </div>
-          <div>
+          <div v-if="displayMode === 'management'">
+            <dt>资料类型</dt>
+            <dd>{{ materialTypeLabelMap[file.materialType] ?? file.materialType }}</dd>
+          </div>
+          <div v-if="displayMode === 'management'">
+            <dt>资料主题</dt>
+            <dd>{{ formatMaterialTopic(file.materialTopic) }}</dd>
+          </div>
+          <div v-if="displayMode === 'management'">
+            <dt>可靠程度</dt>
+            <dd>{{ trustLevelLabelMap[file.trustLevel] ?? file.trustLevel }}</dd>
+          </div>
+          <div v-if="displayMode === 'management'">
+            <dt>可用场景</dt>
+            <dd>{{ formatApplicableModules(file.applicableModules) }}</dd>
+          </div>
+          <div v-if="displayMode === 'management'">
             <dt>来源</dt>
             <dd>
               {{ sourceTypeLabelMap[file.sourceType] ?? file.sourceType }} /
               {{ file.fileType }} / {{ formatFileSize(file.fileSize) }}
             </dd>
           </div>
-          <div>
+          <div v-if="displayMode === 'management'">
             <dt>来源说明</dt>
             <dd>{{ formatOptional(formatKnowledgeSourceDescription(file.sourceDescription)) }}</dd>
           </div>
@@ -126,12 +150,12 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
       </div>
 
       <div class="knowledge-file-card__side">
-        <KnowledgeParseStatusTag :status="file.parseStatus" />
+        <KnowledgeParseStatusTag v-if="displayMode === 'management'" :status="file.parseStatus" />
         <el-button link type="primary" @click="emit('detail', file)">查看详情</el-button>
         <template v-if="canManage">
           <el-button link type="primary" @click="emit('edit', file)">编辑资料</el-button>
           <el-button
-            v-if="file.fileType !== 'manual'"
+            v-if="displayMode === 'management' && file.fileType !== 'manual'"
             link
             :loading="reparsingIds?.includes(file.id)"
             @click="emit('reparse', file)"
@@ -139,6 +163,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
             重新解析
           </el-button>
           <el-button
+            v-if="displayMode === 'management'"
             link
             type="danger"
             :loading="deletingIds?.includes(file.id)"

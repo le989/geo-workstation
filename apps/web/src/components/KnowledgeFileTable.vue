@@ -18,14 +18,22 @@ import {
 import { formatKnowledgeSourceDescription } from "@/utils/knowledge-source";
 import KnowledgeParseStatusTag from "./KnowledgeParseStatusTag.vue";
 
-defineProps<{
+withDefaults(defineProps<{
   files: KnowledgeFile[];
   loading?: boolean;
   reparsingIds?: string[];
   deletingIds?: string[];
   canManage?: boolean;
   knowledgeBaseName?: string;
-}>();
+  displayMode?: "simple" | "management";
+}>(), {
+  canManage: false,
+  deletingIds: () => [],
+  displayMode: "simple",
+  knowledgeBaseName: "",
+  loading: false,
+  reparsingIds: () => []
+});
 
 const emit = defineEmits<{
   detail: [file: KnowledgeFile];
@@ -58,7 +66,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
     border
     empty-text="暂无文件资料，可上传 txt/md/csv/Excel/Word 或手动录入资料。"
   >
-    <el-table-column type="expand" width="44">
+    <el-table-column v-if="displayMode === 'management'" type="expand" width="44">
       <template #default="{ row }: { row: KnowledgeFile }">
         <div class="knowledge-file-detail">
           <section>
@@ -77,7 +85,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
                 <dd>{{ formatOptional(formatKnowledgeSourceDescription(row.sourceDescription)) }}</dd>
               </div>
               <div>
-                <dt>适用模块</dt>
+                <dt>可用场景</dt>
                 <dd>{{ formatApplicableModules(row.applicableModules) }}</dd>
               </div>
               <div>
@@ -113,17 +121,17 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
         <small v-if="row.errorMessage" class="knowledge-file-warning">解析异常，展开查看原因</small>
       </template>
     </el-table-column>
-    <el-table-column prop="fileType" label="来源类型" width="112">
+    <el-table-column v-if="displayMode === 'management'" prop="fileType" label="来源类型" width="112">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ sourceTypeLabelMap[row.sourceType] ?? row.sourceType }} / {{ row.fileType }}
       </template>
     </el-table-column>
-    <el-table-column prop="materialType" label="资料类型" min-width="142">
+    <el-table-column v-if="displayMode === 'management'" prop="materialType" label="资料类型" min-width="142">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ materialTypeLabelMap[row.materialType] ?? row.materialType }}
       </template>
     </el-table-column>
-    <el-table-column prop="materialTopic" label="资料主题" min-width="126">
+    <el-table-column v-if="displayMode === 'management'" prop="materialTopic" label="资料主题" min-width="126">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ formatMaterialTopic(row.materialTopic) }}
       </template>
@@ -143,31 +151,31 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
         </div>
       </template>
     </el-table-column>
-    <el-table-column prop="reviewStatus" label="审核状态" width="116">
+    <el-table-column prop="reviewStatus" label="资料状态" width="116">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ reviewStatusLabelMap[row.reviewStatus] ?? row.reviewStatus }}
       </template>
     </el-table-column>
-    <el-table-column prop="trustLevel" label="可信度" width="96">
+    <el-table-column v-if="displayMode === 'management'" prop="trustLevel" label="可靠程度" width="112">
       <template #default="{ row }: { row: KnowledgeFile }">
         <div class="knowledge-trust-cell">
           <span>{{ trustLevelLabelMap[row.trustLevel] ?? row.trustLevel }}</span>
           <el-tooltip
             v-if="row.trustLevel === 'low'"
-            content="低可信资料不会被售后问答 / GEO 内容正式引用"
+            content="低可靠资料不会被售后问答 / GEO 内容正式引用"
             placement="top"
           >
-            <el-tag size="small" type="warning" effect="plain">不正式引用</el-tag>
+            <el-tag size="small" type="warning" effect="plain">暂不可引用</el-tag>
           </el-tooltip>
         </div>
       </template>
     </el-table-column>
-    <el-table-column prop="applicableModules" label="适用模块" min-width="180">
+    <el-table-column v-if="displayMode === 'management'" prop="applicableModules" label="可用场景" min-width="180">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ formatApplicableModules(row.applicableModules) }}
       </template>
     </el-table-column>
-    <el-table-column label="正式引用状态" min-width="150">
+    <el-table-column label="AI 可引用状态" min-width="150">
       <template #default="{ row }: { row: KnowledgeFile }">
         <div class="knowledge-citation-cell">
           <el-tag
@@ -181,7 +189,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
         </div>
       </template>
     </el-table-column>
-    <el-table-column prop="parseStatus" label="解析状态" width="116">
+    <el-table-column v-if="displayMode === 'management'" prop="parseStatus" label="解析状态" width="116">
       <template #default="{ row }: { row: KnowledgeFile }">
         <KnowledgeParseStatusTag :status="row.parseStatus" />
       </template>
@@ -197,7 +205,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
         <template v-if="canManage">
           <el-button link type="primary" @click="emit('edit', row)">审核 / 编辑资料</el-button>
           <el-button
-            v-if="row.fileType !== 'manual'"
+            v-if="displayMode === 'management' && row.fileType !== 'manual'"
             link
             class="knowledge-secondary-action"
             :loading="reparsingIds?.includes(row.id)"
@@ -206,6 +214,7 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
             重新解析
           </el-button>
           <el-button
+            v-if="displayMode === 'management'"
             link
             class="knowledge-danger-action"
             :loading="deletingIds?.includes(row.id)"

@@ -182,18 +182,18 @@ const fileEditCitationPreview = computed(() => {
     reasons.push("已停用");
   }
   if (fileEditForm.trustLevel === "low") {
-    reasons.push("低可信");
+    reasons.push("低可靠");
   }
   if (fileEditForm.applicableModules.length === 0) {
     reasons.push("不适用当前模块");
   }
 
   return {
-    label: isKnowledgeFileOfficiallyCitable(previewFile) ? "正式可引用" : "不正式引用",
+    label: isKnowledgeFileOfficiallyCitable(previewFile) ? "可被 AI 引用" : "暂不可引用",
     reasons:
       reasons.length > 0
         ? reasons.join("、")
-        : "已通过且可信度为高 / 中；正式引用状态由系统规则自动推导。"
+        : "已通过且可靠程度为高 / 中；AI 可引用状态由系统规则自动推导。"
   };
 });
 const knowledgeAssetMetrics = computed(() => {
@@ -754,7 +754,7 @@ const handleFileDetail = async (file: KnowledgeFile) => {
     const sourceDescription =
       formatKnowledgeSourceDescription(fileDetail.knowledgeFile.sourceDescription) ?? "未设置";
     await ElMessageBox.alert(
-      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n所属目录：${directoryName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n正式引用状态：${citationStatus}\n适用模块：${applicableModules}\n来源说明：${sourceDescription}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
+      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n所属目录：${directoryName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n资料状态：${reviewStatusLabel}\n可靠程度：${trustLevelLabel}\nAI 可引用状态：${citationStatus}\n可用场景：${applicableModules}\n来源说明：${sourceDescription}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"
@@ -1224,133 +1224,155 @@ onMounted(async () => {
           :closable="false"
         />
         <el-alert
-          title="正式引用状态由审核状态、可信度和删除状态自动推导，不能手动编辑。"
+          title="AI 可引用状态由资料状态、可靠程度和删除状态自动推导，不能手动编辑。"
           type="info"
           show-icon
           :closable="false"
         />
-        <section class="file-edit-citation-preview">
-          <span>当前正式引用状态</span>
-          <el-tag
-            :type="fileEditCitationPreview.label === '正式可引用' ? 'success' : 'warning'"
-            effect="plain"
-          >
-            {{ fileEditCitationPreview.label }}
-          </el-tag>
-          <small>{{ fileEditCitationPreview.reasons }}</small>
-        </section>
         <el-form label-position="top">
-          <el-form-item label="资料标题" required>
-            <el-input v-model="fileEditForm.title" maxlength="120" show-word-limit />
-          </el-form-item>
-          <el-form-item label="所属目录">
-            <el-select
-              v-model="fileEditForm.directoryId"
-              class="full-width"
-              filterable
-              placeholder="默认根目录"
-            >
-              <el-option
-                v-for="directory in activeDirectoryOptions"
-                :key="directory.id"
-                :label="directory.name"
-                :value="directory.id"
-              />
-            </el-select>
-            <small class="form-hint">
-              只能选择启用目录；停用目录下已有资料仍可查看。
-            </small>
-          </el-form-item>
-          <div class="file-edit-grid">
-            <el-form-item label="资料类型">
-              <el-select v-model="fileEditForm.materialType" class="full-width">
-                <el-option
-                  v-for="option in materialTypeOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
+          <section class="file-edit-section">
+            <div class="file-edit-section__header">
+              <p class="section-kicker">基础信息</p>
+              <strong>资料归类</strong>
+            </div>
+            <el-form-item label="资料标题" required>
+              <el-input v-model="fileEditForm.title" maxlength="120" show-word-limit />
             </el-form-item>
-            <el-form-item label="资料主题">
+            <el-form-item label="所属目录">
               <el-select
-                v-model="fileEditForm.materialTopic"
+                v-model="fileEditForm.directoryId"
                 class="full-width"
-                clearable
                 filterable
-                allow-create
+                placeholder="默认根目录"
               >
                 <el-option
-                  v-for="option in materialTopicOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
+                  v-for="directory in activeDirectoryOptions"
+                  :key="directory.id"
+                  :label="directory.name"
+                  :value="directory.id"
                 />
               </el-select>
+              <small class="form-hint">
+                只能选择启用目录；停用目录下已有资料仍可查看。
+              </small>
             </el-form-item>
-            <el-form-item label="审核状态">
-              <el-select v-model="fileEditForm.reviewStatus" class="full-width">
+            <div class="file-edit-grid">
+              <el-form-item label="资料类型">
+                <el-select v-model="fileEditForm.materialType" class="full-width">
+                  <el-option
+                    v-for="option in materialTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="资料主题">
+                <el-select
+                  v-model="fileEditForm.materialTopic"
+                  class="full-width"
+                  clearable
+                  filterable
+                  allow-create
+                >
+                  <el-option
+                    v-for="option in materialTopicOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </div>
+          </section>
+
+          <section class="file-edit-section">
+            <div class="file-edit-section__header">
+              <p class="section-kicker">审核与引用</p>
+              <strong>状态由规则推导</strong>
+            </div>
+            <div class="file-edit-grid">
+              <el-form-item label="资料状态">
+                <el-select v-model="fileEditForm.reviewStatus" class="full-width">
+                  <el-option
+                    v-for="option in reviewStatusOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="可靠程度">
+                <el-select v-model="fileEditForm.trustLevel" class="full-width">
+                  <el-option
+                    v-for="option in trustLevelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </div>
+            <el-form-item label="可用场景">
+              <el-select
+                v-model="fileEditForm.applicableModules"
+                class="full-width"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+              >
                 <el-option
-                  v-for="option in reviewStatusOptions"
+                  v-for="option in applicableModuleOptions"
                   :key="option.value"
                   :label="option.label"
                   :value="option.value"
                 />
               </el-select>
             </el-form-item>
-            <el-form-item label="可信度">
-              <el-select v-model="fileEditForm.trustLevel" class="full-width">
-                <el-option
-                  v-for="option in trustLevelOptions"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-            </el-form-item>
-          </div>
-          <el-form-item label="适用模块">
-            <el-select
-              v-model="fileEditForm.applicableModules"
-              class="full-width"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-            >
-              <el-option
-                v-for="option in applicableModuleOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
+            <section class="file-edit-citation-preview">
+              <span>当前 AI 可引用状态</span>
+              <el-tag
+                :type="fileEditCitationPreview.label === '可被 AI 引用' ? 'success' : 'warning'"
+                effect="plain"
+              >
+                {{ fileEditCitationPreview.label }}
+              </el-tag>
+              <small>{{ fileEditCitationPreview.reasons }}</small>
+            </section>
+          </section>
+
+          <section class="file-edit-section">
+            <div class="file-edit-section__header">
+              <p class="section-kicker">正文内容</p>
+              <strong>资料正文与来源</strong>
+            </div>
+            <el-form-item label="整理后的正文内容">
+              <el-input
+                v-model="fileEditForm.content"
+                type="textarea"
+                :rows="8"
+                maxlength="8000"
+                show-word-limit
+                :disabled="!canEditFileContent"
               />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="来源说明">
-            <el-input
-              v-model="fileEditForm.sourceDescription"
-              type="textarea"
-              :rows="3"
-              maxlength="600"
-              show-word-limit
-            />
-          </el-form-item>
-          <el-form-item label="整理后的正文内容">
-            <el-input
-              v-model="fileEditForm.content"
-              type="textarea"
-              :rows="8"
-              maxlength="8000"
-              show-word-limit
-              :disabled="!canEditFileContent"
-            />
-            <small class="form-hint">
-              {{
-                canEditFileContent
-                  ? "手动录入资料会同步更新正文片段。"
-                  : "文件上传资料请编辑知识片段或重新解析，原文件正文不在此处直接修改。"
-              }}
-            </small>
-          </el-form-item>
+              <small class="form-hint">
+                {{
+                  canEditFileContent
+                    ? "手动录入资料会同步更新正文片段。"
+                    : "文件上传资料请编辑知识片段或重新解析，原文件正文不在此处直接修改。"
+                }}
+              </small>
+            </el-form-item>
+            <el-form-item label="来源说明">
+              <el-input
+                v-model="fileEditForm.sourceDescription"
+                type="textarea"
+                :rows="3"
+                maxlength="600"
+                show-word-limit
+              />
+            </el-form-item>
+          </section>
         </el-form>
       </div>
       <template #footer>
@@ -1381,6 +1403,28 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 14px;
+}
+
+.file-edit-section {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.file-edit-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.file-edit-section__header strong {
+  color: #334155;
+  font-size: 13px;
 }
 
 .file-edit-citation-preview {

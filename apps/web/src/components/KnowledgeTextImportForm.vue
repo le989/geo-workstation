@@ -125,8 +125,8 @@ const handleSubmit = () => {
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="适用模块">
-        <el-select v-model="form.applicableModules" multiple placeholder="选择适用模块">
+      <el-form-item label="可用场景">
+        <el-select v-model="form.applicableModules" multiple placeholder="选择可用场景">
           <el-option
             v-for="option in applicableModuleOptions"
             :key="option.value"
@@ -135,7 +135,7 @@ const handleSubmit = () => {
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="可信度">
+      <el-form-item label="可靠程度">
         <el-select v-model="form.trustLevel">
           <el-option
             v-for="option in trustLevelOptions"
@@ -145,7 +145,7 @@ const handleSubmit = () => {
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="审核状态">
+      <el-form-item label="资料状态">
         <el-select v-model="form.reviewStatus" :disabled="!props.canReview">
           <el-option
             v-for="option in reviewStatusOptions"

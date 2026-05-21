@@ -13,17 +13,17 @@ export const getKnowledgeFileCitationReasons = (file: KnowledgeFile) => {
   }
 
   if (file.trustLevel === "low") {
-    reasons.push("低可信");
+    reasons.push("低可靠");
   }
 
   return reasons;
 };
 
 export const getKnowledgeFileCitationLabel = (file: KnowledgeFile) =>
-  isKnowledgeFileOfficiallyCitable(file) ? "正式可引用" : "不正式引用";
+  isKnowledgeFileOfficiallyCitable(file) ? "可被 AI 引用" : "暂不可引用";
 
 export const getKnowledgeFileCitationDescription = (file: KnowledgeFile) => {
   const reasons = getKnowledgeFileCitationReasons(file);
 
-  return reasons.length > 0 ? reasons.join("、") : "已通过且可信度为高 / 中";
+  return reasons.length > 0 ? reasons.join("、") : "已通过且可靠程度为高 / 中";
 };
