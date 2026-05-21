@@ -5,16 +5,20 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import {
   createManualKnowledgeMaterial,
+  createKnowledgeDirectory,
   createKnowledgeBase,
+  disableKnowledgeDirectory,
   deleteKnowledgeBase,
   deleteKnowledgeChunk,
   deleteKnowledgeFile,
+  getKnowledgeDirectories,
   getKnowledgeBase,
   getKnowledgeBases,
   getKnowledgeChunks,
   getKnowledgeFile,
   getKnowledgeFiles,
   reparseKnowledgeFile,
+  updateKnowledgeDirectory,
   updateKnowledgeBase,
   updateKnowledgeChunk,
   updateKnowledgeFileMetadata,
@@ -26,6 +30,7 @@ import {
   type KnowledgeBaseQuery,
   type KnowledgeChunk,
   type KnowledgeChunkQuery,
+  type KnowledgeDirectory,
   type KnowledgeFile,
   type KnowledgeFileQuery,
   type KnowledgeMaterialMetadataPayload,
@@ -107,6 +112,8 @@ const filesPage = ref(1);
 const filesPageSize = ref(10);
 const filesLoading = ref(false);
 const fileFilters = reactive<KnowledgeFileQuery>({});
+const directories = ref<KnowledgeDirectory[]>([]);
+const directoriesLoading = ref(false);
 const departments = ref<Department[]>([]);
 const departmentsLoading = ref(false);
 
@@ -132,6 +139,7 @@ const fileEditForm = reactive<{
   reviewStatus: KnowledgeReviewStatus;
   trustLevel: KnowledgeTrustLevel;
   applicableModules: KnowledgeApplicableModule[];
+  directoryId: string;
   sourceDescription: string;
   content: string;
 }>({
@@ -141,6 +149,7 @@ const fileEditForm = reactive<{
   reviewStatus: "pending",
   trustLevel: "medium",
   applicableModules: [],
+  directoryId: "",
   sourceDescription: "",
   content: ""
 });
@@ -154,6 +163,9 @@ const selectedKnowledgeBase = computed(
     null
 );
 const canEditFileContent = computed(() => editingFile.value?.sourceType === "manual");
+const activeDirectoryOptions = computed(() =>
+  directories.value.filter((directory) => directory.status === "active")
+);
 const fileEditCitationPreview = computed(() => {
   const previewFile = {
     ...(editingFile.value ?? {}),
@@ -427,6 +439,24 @@ const loadFiles = async () => {
   }
 };
 
+const loadDirectories = async () => {
+  if (!selectedKnowledgeBaseId.value) {
+    return;
+  }
+
+  directoriesLoading.value = true;
+
+  try {
+    const result = await getKnowledgeDirectories(selectedKnowledgeBaseId.value);
+    directories.value = result.items;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "目录加载失败，请稍后重试。");
+    directories.value = [];
+  } finally {
+    directoriesLoading.value = false;
+  }
+};
+
 const loadDepartments = async () => {
   if (!canReviewMaterials.value || departmentsLoading.value) {
     return;
@@ -444,12 +474,13 @@ const loadDepartments = async () => {
 };
 
 const refreshDetailResources = async () => {
-  await Promise.all([loadDetail(), loadChunks(), loadFiles()]);
+  await Promise.all([loadDetail(), loadChunks(), loadFiles(), loadDirectories()]);
 };
 
 const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
   selectedKnowledgeBaseId.value = knowledgeBase.id;
   detail.value = null;
+  directories.value = [];
   activeTab.value = "chunks";
   chunksPage.value = 1;
   filesPage.value = 1;
@@ -462,6 +493,7 @@ const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
   });
   Object.assign(fileFilters, {
     applicableModule: undefined,
+    directoryId: undefined,
     fileType: undefined,
     materialType: undefined,
     materialTopic: undefined,
@@ -486,6 +518,7 @@ const resetResourceFilters = () => {
   });
   Object.assign(fileFilters, {
     applicableModule: undefined,
+    directoryId: undefined,
     fileType: undefined,
     materialType: undefined,
     materialTopic: undefined,
@@ -509,6 +542,7 @@ const openRoutedKnowledgeFile = async () => {
 
   selectedKnowledgeBaseId.value = knowledgeBaseId;
   detail.value = null;
+  directories.value = [];
   activeTab.value = "files";
   chunksPage.value = 1;
   filesPage.value = 1;
@@ -637,6 +671,51 @@ const handleUploadFile = async (payload: {
   }
 };
 
+const handleCreateDirectory = async (name: string) => {
+  if (!selectedKnowledgeBaseId.value) {
+    return;
+  }
+
+  try {
+    await createKnowledgeDirectory(selectedKnowledgeBaseId.value, { name });
+    ElMessage.success("目录已创建。");
+    await loadDirectories();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "目录创建失败，请稍后重试。");
+  }
+};
+
+const handleRenameDirectory = async (payload: { id: string; name: string }) => {
+  try {
+    await updateKnowledgeDirectory(payload.id, { name: payload.name });
+    ElMessage.success("目录名称已更新。");
+    await Promise.all([loadDirectories(), loadFiles()]);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "目录重命名失败，请稍后重试。");
+  }
+};
+
+const handleDisableDirectory = async (directory: KnowledgeDirectory) => {
+  try {
+    await ElMessageBox.confirm(
+      "停用后不再用于新资料归类，已有资料仍可查看。",
+      `停用目录：${directory.name}`,
+      {
+        cancelButtonText: "取消",
+        confirmButtonText: "停用",
+        type: "warning"
+      }
+    );
+    await disableKnowledgeDirectory(directory.id);
+    ElMessage.success("目录已停用。");
+    await Promise.all([loadDirectories(), loadFiles()]);
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error(error instanceof Error ? error.message : "目录停用失败，请稍后重试。");
+    }
+  }
+};
+
 const addRunningId = (target: { value: string[] }, id: string) => {
   target.value = Array.from(new Set([...target.value, id]));
 };
@@ -670,11 +749,12 @@ const handleFileDetail = async (file: KnowledgeFile) => {
       fileDetail.knowledgeFile.applicableModules
         .map((item) => applicableModuleLabelMap[item] ?? item)
         .join("、") || "未设置";
+    const directoryName = fileDetail.knowledgeFile.directoryName ?? "默认根目录";
     const citationStatus = `${getKnowledgeFileCitationLabel(fileDetail.knowledgeFile)}（${getKnowledgeFileCitationDescription(fileDetail.knowledgeFile)}）`;
     const sourceDescription =
       formatKnowledgeSourceDescription(fileDetail.knowledgeFile.sourceDescription) ?? "未设置";
     await ElMessageBox.alert(
-      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n正式引用状态：${citationStatus}\n适用模块：${applicableModules}\n来源说明：${sourceDescription}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
+      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n所属目录：${directoryName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n正式引用状态：${citationStatus}\n适用模块：${applicableModules}\n来源说明：${sourceDescription}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"
@@ -701,6 +781,7 @@ const openFileEditDialog = async (file: KnowledgeFile) => {
       reviewStatus: fileDetail.knowledgeFile.reviewStatus,
       trustLevel: fileDetail.knowledgeFile.trustLevel,
       applicableModules: [...fileDetail.knowledgeFile.applicableModules],
+      directoryId: fileDetail.knowledgeFile.directoryId ?? "",
       sourceDescription:
         formatKnowledgeSourceDescription(fileDetail.knowledgeFile.sourceDescription) ?? "",
       content: fileDetail.latestChunks[0]?.content ?? ""
@@ -735,6 +816,7 @@ const handleFileEditSubmit = async () => {
   try {
     const payload: KnowledgeMaterialMetadataPayload = {
       title,
+      directoryId: fileEditForm.directoryId || undefined,
       materialType: fileEditForm.materialType,
       materialTopic: fileEditForm.materialTopic.trim() || undefined,
       reviewStatus: fileEditForm.reviewStatus,
@@ -887,8 +969,11 @@ const handleFileSearch = (query: KnowledgeFileQuery) => {
 const handleFileReset = () => {
   Object.assign(fileFilters, {
     applicableModule: undefined,
+    directoryId: undefined,
     fileType: undefined,
     materialType: undefined,
+    materialTopic: undefined,
+    officialCitationStatus: undefined,
     parseStatus: undefined,
     reviewStatus: undefined,
     search: undefined,
@@ -1092,6 +1177,8 @@ onMounted(async () => {
       :files-page="filesPage"
       :files-page-size="filesPageSize"
       :files-loading="filesLoading"
+      :directories="directories"
+      :directories-loading="directoriesLoading"
       :text-import-submitting="textImportSubmitting"
       :uploading="uploading"
       :can-manage="canManageKnowledgeBase(selectedKnowledgeBase)"
@@ -1117,6 +1204,9 @@ onMounted(async () => {
       @file-edit="openFileEditDialog"
       @reparse-file="handleReparseFile"
       @delete-file="handleDeleteFile"
+      @create-directory="handleCreateDirectory"
+      @rename-directory="handleRenameDirectory"
+      @disable-directory="handleDisableDirectory"
     />
 
     <el-dialog
@@ -1152,6 +1242,24 @@ onMounted(async () => {
         <el-form label-position="top">
           <el-form-item label="资料标题" required>
             <el-input v-model="fileEditForm.title" maxlength="120" show-word-limit />
+          </el-form-item>
+          <el-form-item label="所属目录">
+            <el-select
+              v-model="fileEditForm.directoryId"
+              class="full-width"
+              filterable
+              placeholder="默认根目录"
+            >
+              <el-option
+                v-for="directory in activeDirectoryOptions"
+                :key="directory.id"
+                :label="directory.name"
+                :value="directory.id"
+              />
+            </el-select>
+            <small class="form-hint">
+              只能选择启用目录；停用目录下已有资料仍可查看。
+            </small>
           </el-form-item>
           <div class="file-edit-grid">
             <el-form-item label="资料类型">

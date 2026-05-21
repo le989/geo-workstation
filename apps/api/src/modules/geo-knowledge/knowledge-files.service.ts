@@ -17,6 +17,7 @@ import {
   UserStatus,
   type KnowledgeBase,
   type KnowledgeChunk,
+  type KnowledgeDirectory,
   type KnowledgeFile
 } from "@prisma/client";
 import type { ManualKnowledgeMaterialDto } from "./dto/manual-knowledge-material.dto";
@@ -35,6 +36,10 @@ import { resolveKnowledgeFileType } from "./utils/file-type.util";
 import { trimOptional } from "./utils/normalize-knowledge-base";
 import { jsonTagsToArray, normalizeTags } from "./utils/tags.util";
 import { normalizeUploadedFilename } from "./utils/uploaded-filename.util";
+import {
+  DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
+  KNOWLEDGE_DIRECTORY_ACTIVE_STATUS
+} from "./knowledge-directories.service";
 import {
   assertCanDeleteResource,
   assertCanUpdateResource,
@@ -67,11 +72,13 @@ type ParseOptions = {
 
 type KnowledgeFileWithBase = KnowledgeFile & {
   knowledgeBase: KnowledgeBase;
+  directory?: KnowledgeDirectory | null;
 };
 
 type KnowledgeFileMetadataInput = Pick<
   UploadKnowledgeFileDto,
   | "title"
+  | "directoryId"
   | "materialType"
   | "materialTopic"
   | "applicableModules"
@@ -96,6 +103,9 @@ type NormalizedKnowledgeFileMetadata = {
 export type KnowledgeFileResponse = {
   id: string;
   knowledgeBaseId: string;
+  directoryId?: string;
+  directoryName?: string;
+  directoryStatus?: string;
   title: string;
   fileName: string;
   fileType: string;
@@ -189,6 +199,11 @@ export class KnowledgeFilesService {
     const createdById = context?.user.id ?? (await this.resolveCreatedById(input.createdBy));
     const companyId = context ? getCurrentCompanyId(context) : undefined;
     const metadata = await this.normalizeMetadataInput(input, context);
+    const directory = await this.resolveTargetDirectory(
+      knowledgeBase,
+      input.directoryId,
+      context
+    );
     const storagePath = await this.storage.saveKnowledgeFile(knowledgeBaseId, fileForStorage);
 
     const knowledgeFile = await this.prisma.knowledgeFile.create({
@@ -196,6 +211,11 @@ export class KnowledgeFilesService {
         knowledgeBase: {
           connect: {
             id: knowledgeBase.id
+          }
+        },
+        directory: {
+          connect: {
+            id: directory.id
           }
         },
         title: metadata.title ?? displayFileName,
@@ -235,6 +255,9 @@ export class KnowledgeFilesService {
               }
             }
           : {})
+      },
+      include: {
+        directory: true
       }
     });
 
@@ -296,6 +319,11 @@ export class KnowledgeFilesService {
     const createdById = context?.user.id ?? (await this.resolveCreatedById(input.createdBy));
     const companyId = context ? getCurrentCompanyId(context) : undefined;
     const metadata = await this.normalizeMetadataInput(input, context);
+    const directory = await this.resolveTargetDirectory(
+      knowledgeBase,
+      input.directoryId,
+      context
+    );
     const fileName = `${title}.manual`;
     const created = await this.prisma.$transaction(async (tx) => {
       const knowledgeFile = await tx.knowledgeFile.create({
@@ -303,6 +331,11 @@ export class KnowledgeFilesService {
           knowledgeBase: {
             connect: {
               id: knowledgeBase.id
+            }
+          },
+          directory: {
+            connect: {
+              id: directory.id
             }
           },
           title,
@@ -343,6 +376,9 @@ export class KnowledgeFilesService {
                 }
               }
             : {})
+        },
+        include: {
+          directory: true
         }
       });
       const chunk = await tx.knowledgeChunk.create({
@@ -426,6 +462,7 @@ export class KnowledgeFilesService {
     const normalized = await this.normalizeMetadataInput(
       {
         title: input.title ?? existing.title ?? existing.fileName,
+        directoryId: input.directoryId ?? existing.directoryId ?? undefined,
         materialType: input.materialType ?? existing.materialType,
         materialTopic:
           input.materialTopic !== undefined
@@ -444,6 +481,10 @@ export class KnowledgeFilesService {
       },
       context
     );
+    const shouldUpdateDirectory = Object.prototype.hasOwnProperty.call(input, "directoryId");
+    const targetDirectory = shouldUpdateDirectory
+      ? await this.resolveTargetDirectory(existing.knowledgeBase, input.directoryId, context)
+      : undefined;
     const normalizedContent = this.normalizeManualMaterialContent(input.content);
     const shouldUpdateManualChunk =
       existing.sourceType === "manual" &&
@@ -478,6 +519,15 @@ export class KnowledgeFilesService {
         },
         data: {
           title: normalized.title,
+          ...(targetDirectory
+            ? {
+                directory: {
+                  connect: {
+                    id: targetDirectory.id
+                  }
+                }
+              }
+            : {}),
           fileSize:
             normalizedContent !== undefined
               ? Buffer.byteLength(normalizedContent, "utf8")
@@ -514,7 +564,14 @@ export class KnowledgeFilesService {
         });
       }
 
-      return knowledgeFile;
+      return tx.knowledgeFile.findUniqueOrThrow({
+        where: {
+          id: knowledgeFile.id
+        },
+        include: {
+          directory: true
+        }
+      });
     });
 
     await this.operationLogsService?.recordOperation(
@@ -531,6 +588,7 @@ export class KnowledgeFilesService {
           materialTopic: updated.materialTopic,
           reviewStatus: updated.reviewStatus,
           trustLevel: updated.trustLevel,
+          directoryId: updated.directoryId,
           contentUpdated: normalizedContent !== undefined,
           allowedDepartmentCount: this.jsonStringArrayToArray(
             updated.allowedDepartmentIds
@@ -556,6 +614,9 @@ export class KnowledgeFilesService {
     const [items, total] = await Promise.all([
       this.prisma.knowledgeFile.findMany({
         where,
+        include: {
+          directory: true
+        },
         orderBy: {
           createdAt: "desc"
         },
@@ -750,6 +811,9 @@ export class KnowledgeFilesService {
         data: {
           parseStatus: ParseStatus.succeeded,
           errorMessage: null
+        },
+        include: {
+          directory: true
         }
       });
 
@@ -768,6 +832,9 @@ export class KnowledgeFilesService {
         data: {
           parseStatus: ParseStatus.failed,
           errorMessage
+        },
+        include: {
+          directory: true
         }
       });
 
@@ -801,6 +868,9 @@ export class KnowledgeFilesService {
     }
     if (query.fileType) {
       baseWhere.fileType = query.fileType;
+    }
+    if (query.directoryId) {
+      baseWhere.directoryId = query.directoryId;
     }
     if (search) {
       andWhere.push({
@@ -926,6 +996,7 @@ export class KnowledgeFilesService {
         id
       },
       include: {
+        directory: true,
         knowledgeBase: true
       }
     });
@@ -947,6 +1018,7 @@ export class KnowledgeFilesService {
         deletedAt: null
       },
       include: {
+        directory: true,
         knowledgeBase: true
       }
     });
@@ -968,6 +1040,7 @@ export class KnowledgeFilesService {
         deletedAt: null
       },
       include: {
+        directory: true,
         knowledgeBase: true
       }
     });
@@ -1035,6 +1108,156 @@ export class KnowledgeFilesService {
       allowedDepartmentIds,
       chunkMaterialType
     };
+  }
+
+  private async resolveTargetDirectory(
+    knowledgeBase: KnowledgeBase,
+    requestedDirectoryId?: string,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeDirectory> {
+    const directoryId = trimOptional(requestedDirectoryId);
+
+    if (!directoryId) {
+      return this.ensureDefaultDirectory(knowledgeBase, context);
+    }
+
+    const directory = await this.prisma.knowledgeDirectory.findFirst({
+      where: {
+        id: directoryId
+      }
+    });
+
+    if (!directory) {
+      throw new BadRequestException(`知识库目录不存在：${directoryId}`);
+    }
+    if (directory.knowledgeBaseId !== knowledgeBase.id) {
+      throw new BadRequestException("目录必须属于当前知识库。");
+    }
+
+    const companyId = context
+      ? getCurrentCompanyId(context)
+      : (knowledgeBase.companyId ?? undefined);
+    if (companyId && directory.companyId && directory.companyId !== companyId) {
+      throw new BadRequestException("目录必须属于当前公司。");
+    }
+    if (directory.status !== KNOWLEDGE_DIRECTORY_ACTIVE_STATUS) {
+      throw new BadRequestException("停用目录不能作为资料移动目标。");
+    }
+
+    return directory;
+  }
+
+  private async ensureDefaultDirectory(
+    knowledgeBase: KnowledgeBase,
+    context?: ResourceAccessContext
+  ): Promise<KnowledgeDirectory> {
+    const existingDefault = await this.prisma.knowledgeDirectory.findFirst({
+      where: {
+        knowledgeBaseId: knowledgeBase.id,
+        isDefault: true
+      }
+    });
+
+    if (existingDefault) {
+      if (
+        existingDefault.name !== DEFAULT_KNOWLEDGE_DIRECTORY_NAME ||
+        existingDefault.status !== KNOWLEDGE_DIRECTORY_ACTIVE_STATUS ||
+        existingDefault.disabledAt
+      ) {
+        return this.prisma.knowledgeDirectory.update({
+          where: {
+            id: existingDefault.id
+          },
+          data: {
+            name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
+            status: KNOWLEDGE_DIRECTORY_ACTIVE_STATUS,
+            disabledAt: null,
+            ...(context
+              ? {
+                  updatedBy: {
+                    connect: {
+                      id: context.user.id
+                    }
+                  }
+                }
+              : {})
+          }
+        });
+      }
+
+      return existingDefault;
+    }
+
+    const existingByName = await this.prisma.knowledgeDirectory.findUnique({
+      where: {
+        knowledgeBaseId_name: {
+          knowledgeBaseId: knowledgeBase.id,
+          name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME
+        }
+      }
+    });
+
+    if (existingByName) {
+      return this.prisma.knowledgeDirectory.update({
+        where: {
+          id: existingByName.id
+        },
+        data: {
+          isDefault: true,
+          status: KNOWLEDGE_DIRECTORY_ACTIVE_STATUS,
+          disabledAt: null,
+          ...(context
+            ? {
+                updatedBy: {
+                  connect: {
+                    id: context.user.id
+                  }
+                }
+              }
+            : {})
+        }
+      });
+    }
+
+    const companyId = context
+      ? getCurrentCompanyId(context)
+      : (knowledgeBase.companyId ?? undefined);
+
+    return this.prisma.knowledgeDirectory.create({
+      data: {
+        name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
+        status: KNOWLEDGE_DIRECTORY_ACTIVE_STATUS,
+        isDefault: true,
+        ...(companyId
+          ? {
+              company: {
+                connect: {
+                  id: companyId
+                }
+              }
+            }
+          : {}),
+        knowledgeBase: {
+          connect: {
+            id: knowledgeBase.id
+          }
+        },
+        createdBy: {
+          connect: {
+            id: context?.user.id ?? knowledgeBase.createdById
+          }
+        },
+        ...(context
+          ? {
+              updatedBy: {
+                connect: {
+                  id: context.user.id
+                }
+              }
+            }
+          : {})
+      }
+    });
   }
 
   private normalizeMaterialType(value?: string | KnowledgeMaterialType): {
@@ -1242,10 +1465,15 @@ export class KnowledgeFilesService {
     return value.map((item) => String(item).trim()).filter(Boolean);
   }
 
-  private toFileResponse(file: KnowledgeFile): KnowledgeFileResponse {
+  private toFileResponse(
+    file: KnowledgeFile & { directory?: KnowledgeDirectory | null }
+  ): KnowledgeFileResponse {
     return {
       id: file.id,
       knowledgeBaseId: file.knowledgeBaseId,
+      directoryId: file.directoryId ?? undefined,
+      directoryName: file.directory?.name ?? undefined,
+      directoryStatus: file.directory?.status ?? undefined,
       title: file.title ?? file.fileName,
       fileName: file.fileName,
       fileType: file.fileType,

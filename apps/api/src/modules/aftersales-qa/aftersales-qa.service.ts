@@ -871,6 +871,7 @@ export class AftersalesQaService {
       {
         title: input.title,
         content,
+        directoryId: input.directoryId,
         materialType: input.materialType ?? KnowledgeMaterialType.aftersales_material,
         materialTopic: input.materialTopic,
         applicableModules:

@@ -21,6 +21,11 @@ export class ConvertFeedbackKnowledgeDraftDto {
   @Transform(({ value }) => trimRequiredString(value))
   title!: string;
 
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  directoryId?: string;
+
   @IsString()
   @IsNotEmpty()
   @MinLength(10)

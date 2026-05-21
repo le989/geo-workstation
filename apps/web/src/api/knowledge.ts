@@ -38,6 +38,18 @@ export type KnowledgeBase = {
   updatedAt: string;
 };
 
+export type KnowledgeDirectory = {
+  id: string;
+  knowledgeBaseId: string;
+  companyId?: string;
+  name: string;
+  status: string;
+  isDefault: boolean;
+  disabledAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type KnowledgeChunk = {
   id: string;
   knowledgeBaseId: string;
@@ -56,6 +68,9 @@ export type KnowledgeChunk = {
 export type KnowledgeFile = {
   id: string;
   knowledgeBaseId: string;
+  directoryId?: string;
+  directoryName?: string;
+  directoryStatus?: string;
   title: string;
   fileName: string;
   fileType: string;
@@ -113,6 +128,7 @@ export type KnowledgeFileQuery = {
   pageSize?: number;
   parseStatus?: ParseStatus;
   fileType?: string;
+  directoryId?: string;
   search?: string;
   materialType?: string;
   materialTopic?: string;
@@ -145,6 +161,7 @@ export type TextImportPayload = {
 export type KnowledgeMaterialMetadataPayload = {
   title?: string;
   content?: string;
+  directoryId?: string;
   materialType?: string;
   materialTopic?: string;
   applicableModules?: KnowledgeApplicableModule[];
@@ -172,6 +189,7 @@ export type UpdateKnowledgeChunkPayload = {
 
 export type UploadKnowledgeFileExtraFields = {
   title?: string;
+  directoryId?: string;
   materialType?: string;
   materialTopic?: string;
   applicableModules?: KnowledgeApplicableModule[];
@@ -205,6 +223,16 @@ export type DeleteKnowledgeBaseResult = {
 
 export type DeleteKnowledgeChunkResult = DeleteKnowledgeBaseResult;
 export type DeleteKnowledgeFileResult = DeleteKnowledgeBaseResult;
+
+export type KnowledgeDirectoryListResult = {
+  items: KnowledgeDirectory[];
+};
+
+export type CreateKnowledgeDirectoryPayload = {
+  name: string;
+};
+
+export type UpdateKnowledgeDirectoryPayload = Partial<CreateKnowledgeDirectoryPayload>;
 
 const toQueryString = (
   params: Record<string, string | number | boolean | string[] | undefined>
@@ -251,6 +279,34 @@ export const deleteKnowledgeBase = (id: string) =>
     method: "DELETE"
   });
 
+export const getKnowledgeDirectories = (knowledgeBaseId: string) =>
+  apiRequest<KnowledgeDirectoryListResult>(
+    `/api/knowledge-bases/${knowledgeBaseId}/directories`
+  );
+
+export const createKnowledgeDirectory = (
+  knowledgeBaseId: string,
+  payload: CreateKnowledgeDirectoryPayload
+) =>
+  apiRequest<KnowledgeDirectory>(`/api/knowledge-bases/${knowledgeBaseId}/directories`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const updateKnowledgeDirectory = (
+  id: string,
+  payload: UpdateKnowledgeDirectoryPayload
+) =>
+  apiRequest<KnowledgeDirectory>(`/api/knowledge-directories/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+export const disableKnowledgeDirectory = (id: string) =>
+  apiRequest<KnowledgeDirectory>(`/api/knowledge-directories/${id}/disable`, {
+    method: "PATCH"
+  });
+
 export const textImportKnowledge = (id: string, payload: TextImportPayload) =>
   apiRequest<KnowledgeChunk>(`/api/knowledge-bases/${id}/text-import`, {
     method: "POST",
@@ -292,6 +348,10 @@ export const uploadKnowledgeFile = (
 
   if (extraFields.title) {
     formData.set("title", extraFields.title);
+  }
+
+  if (extraFields.directoryId) {
+    formData.set("directoryId", extraFields.directoryId);
   }
 
   if (extraFields.materialType) {

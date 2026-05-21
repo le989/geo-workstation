@@ -18,6 +18,11 @@ export class UpdateKnowledgeFileMetadataDto {
   @IsOptional()
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
+  directoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
   materialType?: string;
 
   @IsOptional()

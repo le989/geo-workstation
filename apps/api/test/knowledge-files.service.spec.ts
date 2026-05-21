@@ -720,6 +720,125 @@ describe("KnowledgeFilesService", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it("assigns default directories, moves files by metadata, and filters by directory", async () => {
+    const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const otherCompanyContext = contextFor(operatorB, companyB, MembershipRole.operator);
+    const companyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        name: `KB-DIR-1 File Directory Base ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const otherCompanyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyB.id,
+        visibility: Visibility.COMPANY,
+        name: `KB-DIR-1 Other Directory Base ${runId}`,
+        status: "active",
+        createdById: operatorB.id
+      }
+    });
+
+    const manual = await knowledgeFilesService.createManualMaterial(
+      companyBase.id,
+      {
+        title: "默认目录资料",
+        materialType: KnowledgeMaterialType.product_material,
+        applicableModules: ["internal-search"],
+        reviewStatus: KnowledgeReviewStatus.pending,
+        content: "默认目录资料会自动归入默认根目录，避免资料没有可筛选的目录归属。"
+      },
+      companyAdminContext
+    );
+    expect(manual.knowledgeFile.directoryId).toBeTruthy();
+    expect(manual.knowledgeFile.directoryName).toBe("默认根目录");
+    expect(manual.knowledgeFile.directoryStatus).toBe("active");
+
+    const targetDirectory = await prisma.knowledgeDirectory.create({
+      data: {
+        companyId: companyA.id,
+        knowledgeBaseId: companyBase.id,
+        name: `售后资料 ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const disabledDirectory = await prisma.knowledgeDirectory.create({
+      data: {
+        companyId: companyA.id,
+        knowledgeBaseId: companyBase.id,
+        name: `停用目录 ${runId}`,
+        status: "disabled",
+        disabledAt: new Date(),
+        createdById: companyAdmin.id
+      }
+    });
+    const otherCompanyDirectory = await prisma.knowledgeDirectory.create({
+      data: {
+        companyId: companyB.id,
+        knowledgeBaseId: otherCompanyBase.id,
+        name: `其他公司目录 ${runId}`,
+        status: "active",
+        createdById: operatorB.id
+      }
+    });
+
+    const moved = await knowledgeFilesService.updateMetadata(
+      manual.knowledgeFile.id,
+      {
+        directoryId: targetDirectory.id
+      } as Parameters<typeof knowledgeFilesService.updateMetadata>[1] & { directoryId: string },
+      companyAdminContext
+    );
+    expect(moved).toMatchObject({
+      id: manual.knowledgeFile.id,
+      directoryId: targetDirectory.id,
+      directoryName: targetDirectory.name,
+      directoryStatus: "active"
+    });
+
+    const filtered = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        directoryId: targetDirectory.id
+      } as Parameters<typeof knowledgeFilesService.findMany>[1] & { directoryId: string },
+      companyAdminContext
+    );
+    expect(filtered.total).toBe(1);
+    expect(filtered.items[0]?.id).toBe(manual.knowledgeFile.id);
+
+    await expect(
+      knowledgeFilesService.updateMetadata(
+        manual.knowledgeFile.id,
+        {
+          directoryId: disabledDirectory.id
+        } as Parameters<typeof knowledgeFilesService.updateMetadata>[1] & { directoryId: string },
+        companyAdminContext
+      )
+    ).rejects.toThrow("停用目录不能作为资料移动目标");
+    await expect(
+      knowledgeFilesService.updateMetadata(
+        manual.knowledgeFile.id,
+        {
+          directoryId: otherCompanyDirectory.id
+        } as Parameters<typeof knowledgeFilesService.updateMetadata>[1] & { directoryId: string },
+        companyAdminContext
+      )
+    ).rejects.toThrow("目录必须属于当前知识库");
+    await expect(
+      knowledgeFilesService.updateMetadata(
+        manual.knowledgeFile.id,
+        {
+          directoryId: targetDirectory.id
+        } as Parameters<typeof knowledgeFilesService.updateMetadata>[1] & { directoryId: string },
+        otherCompanyContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it("limits aftersales materials by allowed departments while keeping admin bypass", async () => {
     const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
     const allowedOperatorContext = contextFor(
