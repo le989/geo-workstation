@@ -10,10 +10,13 @@ import {
 import {
   AftersalesAnswerStatus,
   AftersalesConversationStatus,
+  AftersalesFeedbackErrorType,
+  AftersalesFeedbackStatus,
   DepartmentStatus,
   KnowledgeMaterialType,
   KnowledgeReviewStatus,
   Prisma,
+  type AftersalesAnswerFeedback,
   type AftersalesConversation,
   type AftersalesQuestionRecord,
   type KnowledgeBase,
@@ -31,9 +34,12 @@ import { OperationLogsService } from "../usage/operation-logs.service";
 import type { AskAftersalesQuestionDto } from "./dto/ask-aftersales-question.dto";
 import type { CreateAftersalesConversationDto } from "./dto/create-aftersales-conversation.dto";
 import type { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
+import type { QueryAftersalesFeedbacksDto } from "./dto/query-aftersales-feedbacks.dto";
 import type { QueryAftersalesRecordsDto } from "./dto/query-aftersales-records.dto";
+import type { SubmitAftersalesFeedbackDto } from "./dto/submit-aftersales-feedback.dto";
 import type { UpdateAftersalesConversationDto } from "./dto/update-aftersales-conversation.dto";
 import type { UpdateAftersalesConversationStatusDto } from "./dto/update-aftersales-conversation-status.dto";
+import type { UpdateAftersalesFeedbackStatusDto } from "./dto/update-aftersales-feedback-status.dto";
 
 const AFTERSALES_MODULE_KEY = "aftersales-qa";
 const DEFAULT_CONVERSATION_TITLE = "新售后会话";
@@ -53,6 +59,8 @@ const MAX_RETRIEVED_CHUNKS = 50;
 const MAX_CITED_SOURCES = 3;
 const MAX_SNIPPET_LENGTH = 180;
 const MAX_QUESTION_PREVIEW_LENGTH = 80;
+const MAX_ANSWER_PREVIEW_LENGTH = 120;
+const MAX_FEEDBACK_PREVIEW_LENGTH = 120;
 const MAX_GENERATED_TITLE_LENGTH = 18;
 
 type CandidateChunk = KnowledgeChunk & {
@@ -155,6 +163,58 @@ export type AftersalesQuestionRecordListResponse = {
   pageSize: number;
 };
 
+export type AftersalesFeedbackListItemResponse = {
+  feedbackId: string;
+  status: AftersalesFeedbackStatus;
+  errorType: AftersalesFeedbackErrorType;
+  correctionTextPreview: string;
+  descriptionPreview?: string | null;
+  questionPreview: string;
+  answerPreview: string;
+  conversationId?: string | null;
+  conversationTitle?: string | null;
+  questionRecordId: string;
+  userId: string;
+  userName?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  handledAt?: Date | null;
+  citedSourcesSummary?: {
+    count: number;
+    chunkIds: string[];
+    fileIds: string[];
+  };
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AftersalesFeedbackListResponse = {
+  items: AftersalesFeedbackListItemResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type AftersalesFeedbackDetailResponse = AftersalesFeedbackListItemResponse & {
+  correctionText: string;
+  description?: string | null;
+  question: string;
+  answer: string;
+  citedSources: AftersalesCitedSource[];
+  handleNote?: string | null;
+  handledById?: string | null;
+  handledByName?: string | null;
+};
+
+export type SubmitAftersalesFeedbackResponse = {
+  feedbackId: string;
+  status: AftersalesFeedbackStatus;
+  recordId: string;
+  feedbackStatus: AftersalesFeedbackStatus;
+};
+
+export type UpdateAftersalesFeedbackStatusResponse = SubmitAftersalesFeedbackResponse;
+
 type AnswerDraft = {
   answer: string;
   answerStatus: AftersalesAnswerStatus;
@@ -167,6 +227,14 @@ type AnswerDraft = {
 type RankedCandidate = {
   chunk: CandidateChunk;
   score: number;
+};
+
+type FeedbackWithRelations = AftersalesAnswerFeedback & {
+  questionRecord: AftersalesQuestionRecord;
+  conversation?: { title: string } | null;
+  user?: { name: string } | null;
+  department?: { name: string } | null;
+  handledBy?: { name: string } | null;
 };
 
 @Injectable()
@@ -639,6 +707,144 @@ export class AftersalesQaService {
     return this.toRecordResponse(record);
   }
 
+  async submitFeedback(
+    recordId: string,
+    input: SubmitAftersalesFeedbackDto,
+    context: ResourceAccessContext
+  ): Promise<SubmitAftersalesFeedbackResponse> {
+    this.assertCanUseAftersalesQa(context);
+    const record = await this.findRecordForFeedback(recordId, context);
+    const departmentId = this.getContextDepartmentId(context);
+    const feedback = await this.prisma.aftersalesAnswerFeedback.upsert({
+      where: {
+        questionRecordId_userId: {
+          questionRecordId: record.id,
+          userId: context.user.id
+        }
+      },
+      create: {
+        companyId: record.companyId,
+        conversationId: record.conversationId,
+        questionRecordId: record.id,
+        userId: context.user.id,
+        departmentId,
+        errorType: input.errorType,
+        correctionText: input.correctionText,
+        description: input.description ?? null,
+        status: AftersalesFeedbackStatus.pending
+      },
+      update: {
+        errorType: input.errorType,
+        correctionText: input.correctionText,
+        description: input.description ?? null,
+        status: AftersalesFeedbackStatus.pending,
+        handledById: null,
+        handledAt: null,
+        handleNote: null
+      },
+      include: this.feedbackInclude()
+    });
+
+    await this.prisma.aftersalesQuestionRecord.update({
+      where: {
+        id: record.id
+      },
+      data: {
+        feedbackStatus: AftersalesFeedbackStatus.pending
+      }
+    });
+    await this.recordFeedbackSubmitOperation(feedback, context);
+
+    return {
+      feedbackId: feedback.id,
+      status: feedback.status,
+      recordId: record.id,
+      feedbackStatus: AftersalesFeedbackStatus.pending
+    };
+  }
+
+  async findFeedbacks(
+    query: QueryAftersalesFeedbacksDto,
+    context: ResourceAccessContext
+  ): Promise<AftersalesFeedbackListResponse> {
+    this.assertCanUseAftersalesQa(context);
+    const page = Math.max(query.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(query.pageSize ?? 20, 1), 100);
+    const where = this.buildFeedbackWhere(query, context);
+    const [total, feedbacks] = await this.prisma.$transaction([
+      this.prisma.aftersalesAnswerFeedback.count({ where }),
+      this.prisma.aftersalesAnswerFeedback.findMany({
+        where,
+        include: this.feedbackInclude(),
+        orderBy: {
+          createdAt: "desc"
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+
+    return {
+      items: feedbacks.map((feedback) => this.toFeedbackListItem(feedback)),
+      total,
+      page,
+      pageSize
+    };
+  }
+
+  async getFeedback(
+    id: string,
+    context: ResourceAccessContext
+  ): Promise<AftersalesFeedbackDetailResponse> {
+    this.assertCanUseAftersalesQa(context);
+    const feedback = await this.findFeedbackForAccess(id, context);
+
+    return this.toFeedbackDetail(feedback);
+  }
+
+  async updateFeedbackStatus(
+    id: string,
+    input: UpdateAftersalesFeedbackStatusDto,
+    context: ResourceAccessContext
+  ): Promise<UpdateAftersalesFeedbackStatusResponse> {
+    this.assertCanUseAftersalesQa(context);
+    this.assertCanHandleFeedback(context);
+    const current = await this.findFeedbackForAccess(id, context);
+    const nextStatus = input.status as AftersalesFeedbackStatus;
+    const feedback = await this.prisma.aftersalesAnswerFeedback.update({
+      where: {
+        id
+      },
+      data: {
+        status: nextStatus,
+        handledById:
+          nextStatus === AftersalesFeedbackStatus.pending ? null : context.user.id,
+        handledAt:
+          nextStatus === AftersalesFeedbackStatus.pending ? null : new Date(),
+        handleNote:
+          nextStatus === AftersalesFeedbackStatus.pending ? null : input.handleNote ?? null
+      },
+      include: this.feedbackInclude()
+    });
+
+    await this.prisma.aftersalesQuestionRecord.update({
+      where: {
+        id: feedback.questionRecordId
+      },
+      data: {
+        feedbackStatus: nextStatus
+      }
+    });
+    await this.recordFeedbackStatusOperation(current, feedback, context);
+
+    return {
+      feedbackId: feedback.id,
+      status: feedback.status,
+      recordId: feedback.questionRecordId,
+      feedbackStatus: nextStatus
+    };
+  }
+
   private async composeAnswer(
     question: string,
     context: ResourceAccessContext
@@ -858,6 +1064,60 @@ export class AftersalesQaService {
           conversationId: conversation.id,
           fromStatus: conversation.status,
           toStatus: nextStatus
+        }
+      },
+      context
+    );
+  }
+
+  private async recordFeedbackSubmitOperation(
+    feedback: FeedbackWithRelations,
+    context: ResourceAccessContext
+  ): Promise<void> {
+    await this.operationLogsService?.recordOperation(
+      {
+        companyId: feedback.companyId,
+        userId: context.user.id,
+        departmentId: this.getContextDepartmentId(context),
+        moduleKey: AFTERSALES_MODULE_KEY,
+        action: "feedback_submit",
+        targetType: "aftersales_answer_feedback",
+        targetId: feedback.id,
+        targetTitle: this.truncate(feedback.questionRecord.question, MAX_QUESTION_PREVIEW_LENGTH),
+        success: true,
+        metadata: {
+          questionRecordId: feedback.questionRecordId,
+          conversationId: feedback.conversationId,
+          errorType: feedback.errorType,
+          status: feedback.status
+        }
+      },
+      context
+    );
+  }
+
+  private async recordFeedbackStatusOperation(
+    previous: FeedbackWithRelations,
+    next: FeedbackWithRelations,
+    context: ResourceAccessContext
+  ): Promise<void> {
+    await this.operationLogsService?.recordOperation(
+      {
+        companyId: next.companyId,
+        userId: context.user.id,
+        departmentId: this.getContextDepartmentId(context),
+        moduleKey: AFTERSALES_MODULE_KEY,
+        action: "feedback_update_status",
+        targetType: "aftersales_answer_feedback",
+        targetId: next.id,
+        targetTitle: this.truncate(next.questionRecord.question, MAX_QUESTION_PREVIEW_LENGTH),
+        success: true,
+        metadata: {
+          questionRecordId: next.questionRecordId,
+          conversationId: next.conversationId,
+          previousStatus: previous.status,
+          nextStatus: next.status,
+          errorType: next.errorType
         }
       },
       context
@@ -1107,6 +1367,115 @@ export class AftersalesQaService {
     return where;
   }
 
+  private buildFeedbackWhere(
+    query: QueryAftersalesFeedbacksDto,
+    context: ResourceAccessContext
+  ): Prisma.AftersalesAnswerFeedbackWhereInput {
+    const role = getEffectiveRole(context);
+    const where: Prisma.AftersalesAnswerFeedbackWhereInput = {
+      companyId: getCurrentCompanyId(context)
+    };
+
+    if (query.status) {
+      where.status = query.status as AftersalesFeedbackStatus;
+    }
+    if (query.errorType) {
+      where.errorType = query.errorType as AftersalesFeedbackErrorType;
+    }
+    if (role === "platform_admin" || role === "company_admin") {
+      if (query.userId) {
+        where.userId = query.userId;
+      }
+      if (query.departmentId) {
+        where.departmentId = query.departmentId;
+      }
+    } else {
+      where.userId = context.user.id;
+    }
+
+    const createdAt = this.buildDateRange(query.startDate, query.endDate);
+    if (createdAt) {
+      where.createdAt = createdAt;
+    }
+
+    return where;
+  }
+
+  private async findRecordForFeedback(
+    id: string,
+    context: ResourceAccessContext
+  ): Promise<AftersalesQuestionRecord> {
+    const record = await this.prisma.aftersalesQuestionRecord.findFirst({
+      where: this.buildRecordWhere({ id } as QueryAftersalesRecordsDto & { id: string }, context)
+    });
+
+    if (!record) {
+      throw new NotFoundException(`Aftersales question record not found: ${id}`);
+    }
+
+    return record;
+  }
+
+  private async findFeedbackForAccess(
+    id: string,
+    context: ResourceAccessContext
+  ): Promise<FeedbackWithRelations> {
+    const role = getEffectiveRole(context);
+    const where: Prisma.AftersalesAnswerFeedbackWhereInput = {
+      id,
+      companyId: getCurrentCompanyId(context)
+    };
+
+    if (role !== "platform_admin" && role !== "company_admin") {
+      where.userId = context.user.id;
+    }
+
+    const feedback = await this.prisma.aftersalesAnswerFeedback.findFirst({
+      where,
+      include: this.feedbackInclude()
+    });
+
+    if (!feedback) {
+      throw new NotFoundException(`Aftersales answer feedback not found: ${id}`);
+    }
+
+    return feedback;
+  }
+
+  private feedbackInclude() {
+    return {
+      questionRecord: true,
+      conversation: {
+        select: {
+          title: true
+        }
+      },
+      user: {
+        select: {
+          name: true
+        }
+      },
+      department: {
+        select: {
+          name: true
+        }
+      },
+      handledBy: {
+        select: {
+          name: true
+        }
+      }
+    } satisfies Prisma.AftersalesAnswerFeedbackInclude;
+  }
+
+  private assertCanHandleFeedback(context: ResourceAccessContext): void {
+    const role = getEffectiveRole(context);
+
+    if (role !== "platform_admin" && role !== "company_admin") {
+      throw new ForbiddenException("当前账号无权处理售后问答反馈");
+    }
+  }
+
   private assertCanUseAftersalesQa(context: ResourceAccessContext): void {
     const role = getEffectiveRole(context);
 
@@ -1257,6 +1626,51 @@ export class AftersalesQaService {
       updatedAt: conversation.updatedAt,
       lastMessageAt: conversation.lastMessageAt,
       messageCount: conversation._count?.records ?? 0
+    };
+  }
+
+  private toFeedbackListItem(feedback: FeedbackWithRelations): AftersalesFeedbackListItemResponse {
+    const citedSources = this.jsonCitedSourcesToArray(feedback.questionRecord.citedSources);
+
+    return {
+      feedbackId: feedback.id,
+      status: feedback.status,
+      errorType: feedback.errorType,
+      correctionTextPreview: this.truncate(feedback.correctionText, MAX_FEEDBACK_PREVIEW_LENGTH),
+      descriptionPreview: feedback.description
+        ? this.truncate(feedback.description, MAX_FEEDBACK_PREVIEW_LENGTH)
+        : null,
+      questionPreview: this.truncate(feedback.questionRecord.question, MAX_QUESTION_PREVIEW_LENGTH),
+      answerPreview: this.truncate(feedback.questionRecord.answer, MAX_ANSWER_PREVIEW_LENGTH),
+      conversationId: feedback.conversationId,
+      conversationTitle: feedback.conversation?.title ?? null,
+      questionRecordId: feedback.questionRecordId,
+      userId: feedback.userId,
+      userName: feedback.user?.name ?? null,
+      departmentId: feedback.departmentId,
+      departmentName: feedback.department?.name ?? null,
+      handledAt: feedback.handledAt,
+      citedSourcesSummary: {
+        count: citedSources.length,
+        chunkIds: citedSources.map((source) => source.chunkId),
+        fileIds: citedSources.map((source) => source.fileId)
+      },
+      createdAt: feedback.createdAt,
+      updatedAt: feedback.updatedAt
+    };
+  }
+
+  private toFeedbackDetail(feedback: FeedbackWithRelations): AftersalesFeedbackDetailResponse {
+    return {
+      ...this.toFeedbackListItem(feedback),
+      correctionText: feedback.correctionText,
+      description: feedback.description,
+      question: feedback.questionRecord.question,
+      answer: feedback.questionRecord.answer,
+      citedSources: this.jsonCitedSourcesToArray(feedback.questionRecord.citedSources),
+      handleNote: feedback.handleNote,
+      handledById: feedback.handledById,
+      handledByName: feedback.handledBy?.name ?? null
     };
   }
 

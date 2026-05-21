@@ -127,6 +127,18 @@ enum AftersalesAnswerStatus {
 
 enum AftersalesFeedbackStatus {
   none
+  pending
+  handled
+  no_action
+}
+
+enum AftersalesFeedbackErrorType {
+  citation_wrong
+  answer_incomplete
+  answer_wrong
+  knowledge_missing
+  question_unclear
+  other
 }
 
 enum AftersalesConversationStatus {
@@ -179,6 +191,8 @@ model User {
   operationLogs         OperationLog[]          @relation("OperationLogUser")
   aftersalesConversations AftersalesConversation[] @relation("AftersalesConversationUser")
   aftersalesQuestionRecords AftersalesQuestionRecord[] @relation("AftersalesQuestionRecordUser")
+  aftersalesAnswerFeedbacks AftersalesAnswerFeedback[] @relation("AftersalesAnswerFeedbackUser")
+  handledAftersalesAnswerFeedbacks AftersalesAnswerFeedback[] @relation("AftersalesAnswerFeedbackHandledBy")
 
   @@map("users")
 }
@@ -211,6 +225,7 @@ model Company {
   operationLogs         OperationLog[]
   aftersalesConversations AftersalesConversation[]
   aftersalesQuestionRecords AftersalesQuestionRecord[]
+  aftersalesAnswerFeedbacks AftersalesAnswerFeedback[]
 
   @@map("companies")
 }
@@ -249,6 +264,7 @@ model Department {
   operationLogs     OperationLog[]
   aftersalesConversations AftersalesConversation[]
   aftersalesQuestionRecords AftersalesQuestionRecord[]
+  aftersalesAnswerFeedbacks AftersalesAnswerFeedback[]
   createdAt         DateTime                     @default(now()) @map("created_at")
   updatedAt         DateTime                     @updatedAt @map("updated_at")
 
@@ -813,6 +829,7 @@ model AftersalesQuestionRecord {
   aiUsageRecordId   String?                   @map("ai_usage_record_id")
   aiUsageRecord     AiUsageRecord?            @relation(fields: [aiUsageRecordId], references: [id], onDelete: SetNull)
   feedbackStatus    AftersalesFeedbackStatus  @default(none) @map("feedback_status")
+  feedbacks         AftersalesAnswerFeedback[]
   createdAt         DateTime                  @default(now()) @map("created_at")
   updatedAt         DateTime                  @updatedAt @map("updated_at")
 
@@ -840,6 +857,7 @@ model AftersalesConversation {
   title          String
   status         AftersalesConversationStatus @default(active)
   records        AftersalesQuestionRecord[]
+  feedbacks      AftersalesAnswerFeedback[]
   createdAt      DateTime                     @default(now()) @map("created_at")
   updatedAt      DateTime                     @updatedAt @map("updated_at")
   lastMessageAt  DateTime                     @default(now()) @map("last_message_at")
@@ -850,6 +868,42 @@ model AftersalesConversation {
   @@index([status])
   @@index([lastMessageAt])
   @@map("aftersales_conversations")
+}
+
+model AftersalesAnswerFeedback {
+  id               String                       @id @default(cuid())
+  companyId        String                       @map("company_id")
+  company          Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  conversationId   String?                      @map("conversation_id")
+  conversation     AftersalesConversation?      @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  questionRecordId String                       @map("question_record_id")
+  questionRecord   AftersalesQuestionRecord     @relation(fields: [questionRecordId], references: [id], onDelete: Cascade)
+  userId           String                       @map("user_id")
+  user             User                         @relation("AftersalesAnswerFeedbackUser", fields: [userId], references: [id], onDelete: Restrict)
+  departmentId     String?                      @map("department_id")
+  department       Department?                  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  errorType        AftersalesFeedbackErrorType  @map("error_type")
+  correctionText   String                       @map("correction_text") @db.Text
+  description      String?                      @db.Text
+  status           AftersalesFeedbackStatus     @default(pending)
+  handledById      String?                      @map("handled_by_id")
+  handledBy        User?                        @relation("AftersalesAnswerFeedbackHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt        DateTime?                    @map("handled_at")
+  handleNote       String?                      @map("handle_note") @db.Text
+  createdAt        DateTime                     @default(now()) @map("created_at")
+  updatedAt        DateTime                     @updatedAt @map("updated_at")
+
+  @@unique([questionRecordId, userId])
+  @@index([companyId])
+  @@index([conversationId])
+  @@index([questionRecordId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([errorType])
+  @@index([status])
+  @@index([handledById])
+  @@index([createdAt])
+  @@map("aftersales_answer_feedbacks")
 }
 
 model OperationLog {

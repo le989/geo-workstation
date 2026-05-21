@@ -7,6 +7,14 @@ export type AftersalesAnswerStatus =
   | "needs_clarification"
   | "failed";
 export type AftersalesConversationStatus = "active" | "archived";
+export type AftersalesFeedbackStatus = "none" | "pending" | "handled" | "no_action";
+export type AftersalesFeedbackErrorType =
+  | "citation_wrong"
+  | "answer_incomplete"
+  | "answer_wrong"
+  | "knowledge_missing"
+  | "question_unclear"
+  | "other";
 
 export type AftersalesCitedSource = {
   knowledgeBaseId: string;
@@ -36,7 +44,7 @@ export type AftersalesQuestionRecord = {
   hasReliableSource: boolean;
   isMock: boolean;
   aiUsageRecordId?: string | null;
-  feedbackStatus: string;
+  feedbackStatus: AftersalesFeedbackStatus;
   createdAt: string;
   updatedAt: string;
 };
@@ -127,6 +135,73 @@ export type AftersalesQuestionRecordListResponse = {
   pageSize: number;
 };
 
+export type SubmitAftersalesFeedbackPayload = {
+  errorType: AftersalesFeedbackErrorType;
+  correctionText: string;
+  description?: string;
+};
+
+export type SubmitAftersalesFeedbackResult = {
+  feedbackId: string;
+  status: AftersalesFeedbackStatus;
+  recordId: string;
+  feedbackStatus: AftersalesFeedbackStatus;
+};
+
+export type AftersalesFeedbackQuery = {
+  status?: Exclude<AftersalesFeedbackStatus, "none">;
+  errorType?: AftersalesFeedbackErrorType;
+  startDate?: string;
+  endDate?: string;
+  userId?: string;
+  departmentId?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type AftersalesFeedbackListItem = {
+  feedbackId: string;
+  status: Exclude<AftersalesFeedbackStatus, "none">;
+  errorType: AftersalesFeedbackErrorType;
+  correctionTextPreview: string;
+  descriptionPreview?: string | null;
+  questionPreview: string;
+  answerPreview: string;
+  conversationId?: string | null;
+  conversationTitle?: string | null;
+  questionRecordId: string;
+  userId: string;
+  userName?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  handledAt?: string | null;
+  citedSourcesSummary?: {
+    count: number;
+    chunkIds: string[];
+    fileIds: string[];
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AftersalesFeedbackListResponse = {
+  items: AftersalesFeedbackListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type AftersalesFeedbackDetail = AftersalesFeedbackListItem & {
+  correctionText: string;
+  description?: string | null;
+  question: string;
+  answer: string;
+  citedSources: AftersalesCitedSource[];
+  handleNote?: string | null;
+  handledById?: string | null;
+  handledByName?: string | null;
+};
+
 const toQueryString = (query: Record<string, string | number | boolean | undefined>) => {
   const searchParams = new URLSearchParams();
 
@@ -208,3 +283,41 @@ export const getAftersalesQuestionRecords = (
 
 export const getAftersalesQuestionRecord = (id: string) =>
   apiGet<AftersalesQuestionRecord>(`/api/aftersales-qa/records/${id}`);
+
+export const submitAftersalesFeedback = (
+  recordId: string,
+  payload: SubmitAftersalesFeedbackPayload
+) =>
+  apiRequest<SubmitAftersalesFeedbackResult>(`/api/aftersales-qa/records/${recordId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const getAftersalesFeedbacks = (query: AftersalesFeedbackQuery = {}) =>
+  apiGet<AftersalesFeedbackListResponse>(
+    `/api/aftersales-qa/feedbacks${toQueryString({
+      status: query.status,
+      errorType: query.errorType,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      userId: query.userId,
+      departmentId: query.departmentId,
+      page: query.page,
+      pageSize: query.pageSize
+    })}`
+  );
+
+export const getAftersalesFeedback = (id: string) =>
+  apiGet<AftersalesFeedbackDetail>(`/api/aftersales-qa/feedbacks/${id}`);
+
+export const updateAftersalesFeedbackStatus = (
+  id: string,
+  payload: {
+    status: Exclude<AftersalesFeedbackStatus, "none">;
+    handleNote?: string;
+  }
+) =>
+  apiRequest<SubmitAftersalesFeedbackResult>(`/api/aftersales-qa/feedbacks/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });

@@ -22,6 +22,86 @@ import type { PrismaService } from "../src/prisma/prisma.service";
 const databaseUrl = process.env.DATABASE_URL;
 const runId = `${Date.now()}-${crypto.randomUUID()}`;
 
+type AftersalesFeedbackErrorType =
+  | "citation_wrong"
+  | "answer_incomplete"
+  | "answer_wrong"
+  | "knowledge_missing"
+  | "question_unclear"
+  | "other";
+
+type SubmitFeedbackPayload = {
+  errorType: AftersalesFeedbackErrorType;
+  correctionText: string;
+  description?: string;
+};
+
+type QueryFeedbacksPayload = {
+  status?: "pending" | "handled" | "no_action";
+  errorType?: AftersalesFeedbackErrorType;
+  userId?: string;
+  departmentId?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+type UpdateFeedbackStatusPayload = {
+  status: "pending" | "handled" | "no_action";
+  handleNote?: string;
+};
+
+type AftersalesFeedbackMethods = {
+  submitFeedback: (
+    recordId: string,
+    input: SubmitFeedbackPayload,
+    context: ResourceAccessContext
+  ) => Promise<{
+    feedbackId: string;
+    status: string;
+    recordId: string;
+    feedbackStatus: string;
+  }>;
+  findFeedbacks: (
+    query: QueryFeedbacksPayload,
+    context: ResourceAccessContext
+  ) => Promise<{
+    items: Array<{
+      feedbackId: string;
+      status: string;
+      errorType: string;
+      correctionTextPreview: string;
+      questionPreview: string;
+      answerPreview: string;
+      userName?: string | null;
+      departmentName?: string | null;
+    }>;
+    total: number;
+    page: number;
+    pageSize: number;
+  }>;
+  getFeedback: (
+    id: string,
+    context: ResourceAccessContext
+  ) => Promise<{
+    feedbackId: string;
+    status: string;
+    errorType: string;
+    correctionText: string;
+    question: string;
+    answer: string;
+    citedSources: unknown[];
+  }>;
+  updateFeedbackStatus: (
+    id: string,
+    input: UpdateFeedbackStatusPayload,
+    context: ResourceAccessContext
+  ) => Promise<{
+    feedbackId: string;
+    status: string;
+    feedbackStatus: string;
+  }>;
+};
+
 describe("AftersalesQaService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let service: AftersalesQaService;
@@ -256,6 +336,10 @@ describe("AftersalesQaService", () => {
     });
 
     return { knowledgeBase, knowledgeFile, chunk };
+  }
+
+  function feedbackService() {
+    return service as unknown as AftersalesFeedbackMethods;
   }
 
   it("returns a no-reliable-source answer when there is no approved售后 or product material", async () => {
@@ -899,5 +983,220 @@ describe("AftersalesQaService", () => {
         context
       )
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("lets a user submit and update feedback for their own answer without leaking sensitive metadata", async () => {
+    const context = contextFor(allowedOperator, MembershipRole.operator);
+    const conversation = await service.createConversation({ title: "反馈提交会话" }, context);
+    const answer = await service.askInConversation(
+      conversation.id,
+      {
+        question: "反馈测试：资料库缺资料时如何处理？"
+      },
+      context
+    );
+
+    const submitted = await feedbackService().submitFeedback(
+      answer.recordId,
+      {
+        errorType: "knowledge_missing",
+        correctionText: "应补充该型号的售后排查资料后再回答。",
+        description: "当前回答只提示转人工，缺少对应知识库资料。"
+      },
+      context
+    );
+    const updated = await feedbackService().submitFeedback(
+      answer.recordId,
+      {
+        errorType: "answer_incomplete",
+        correctionText: "请补充产品型号、输出方式和现场接线后再处理。"
+      },
+      context
+    );
+
+    expect(updated.feedbackId).toBe(submitted.feedbackId);
+    expect(updated).toMatchObject({
+      status: "pending",
+      recordId: answer.recordId,
+      feedbackStatus: "pending"
+    });
+
+    const record = await service.getRecord(answer.recordId, context);
+    expect(record.feedbackStatus).toBe("pending");
+
+    const logs = await prisma.operationLog.findMany({
+      where: {
+        moduleKey: "aftersales-qa",
+        action: "feedback_submit",
+        targetId: submitted.feedbackId
+      }
+    });
+
+    expect(logs.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("storagePath");
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("DATABASE_URL");
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("应补充该型号");
+  });
+
+  it("prevents users and other companies from submitting or reading feedback across access boundaries", async () => {
+    const ownerContext = contextFor(allowedOperator, MembershipRole.operator);
+    const viewerContext = contextFor(viewer, MembershipRole.viewer);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const otherCompanyContext = contextFor(otherCompanyAdmin, MembershipRole.company_admin, {
+      company: companyB,
+      department: null
+    });
+    const conversation = await service.createConversation({ title: "反馈权限会话" }, ownerContext);
+    const answer = await service.askInConversation(
+      conversation.id,
+      {
+        question: "反馈权限测试问题"
+      },
+      ownerContext
+    );
+
+    const submitted = await feedbackService().submitFeedback(
+      answer.recordId,
+      {
+        errorType: "answer_wrong",
+        correctionText: "这条回答需要管理员复核。"
+      },
+      ownerContext
+    );
+
+    await expect(
+      feedbackService().submitFeedback(
+        answer.recordId,
+        {
+          errorType: "other",
+          correctionText: "尝试反馈别人记录。"
+        },
+        viewerContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      feedbackService().submitFeedback(
+        answer.recordId,
+        {
+          errorType: "other",
+          correctionText: "尝试跨公司反馈。"
+        },
+        otherCompanyContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      feedbackService().getFeedback(submitted.feedbackId, viewerContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      feedbackService().getFeedback(submitted.feedbackId, otherCompanyContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const adminList = await feedbackService().findFeedbacks({}, adminContext);
+    const viewerList = await feedbackService().findFeedbacks({}, viewerContext);
+    const otherCompanyList = await feedbackService().findFeedbacks({}, otherCompanyContext);
+
+    expect(adminList.items.some((item) => item.feedbackId === submitted.feedbackId)).toBe(true);
+    expect(viewerList.items.some((item) => item.feedbackId === submitted.feedbackId)).toBe(false);
+    expect(otherCompanyList.items.some((item) => item.feedbackId === submitted.feedbackId)).toBe(false);
+  });
+
+  it("lets admins handle feedback, synchronizes the record feedback status, and logs status changes", async () => {
+    const ownerContext = contextFor(allowedOperator, MembershipRole.operator);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const viewerContext = contextFor(viewer, MembershipRole.viewer);
+    const conversation = await service.createConversation({ title: "反馈处理会话" }, ownerContext);
+    const answer = await service.askInConversation(
+      conversation.id,
+      {
+        question: "反馈处理测试问题"
+      },
+      ownerContext
+    );
+    const submitted = await feedbackService().submitFeedback(
+      answer.recordId,
+      {
+        errorType: "citation_wrong",
+        correctionText: "引用来源需要更换为正确产品资料。"
+      },
+      ownerContext
+    );
+
+    await expect(
+      feedbackService().updateFeedbackStatus(
+        submitted.feedbackId,
+        {
+          status: "handled",
+          handleNote: "普通用户不允许处理"
+        },
+        viewerContext
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const handled = await feedbackService().updateFeedbackStatus(
+      submitted.feedbackId,
+      {
+        status: "handled",
+        handleNote: "已线下确认并安排补充资料。"
+      },
+      adminContext
+    );
+    const detail = await feedbackService().getFeedback(submitted.feedbackId, adminContext);
+    const record = await service.getRecord(answer.recordId, adminContext);
+
+    expect(handled).toMatchObject({
+      feedbackId: submitted.feedbackId,
+      status: "handled",
+      feedbackStatus: "handled"
+    });
+    expect(detail).toMatchObject({
+      feedbackId: submitted.feedbackId,
+      status: "handled",
+      errorType: "citation_wrong",
+      correctionText: "引用来源需要更换为正确产品资料。"
+    });
+    expect(record.feedbackStatus).toBe("handled");
+
+    const noAction = await feedbackService().updateFeedbackStatus(
+      submitted.feedbackId,
+      {
+        status: "no_action",
+        handleNote: "复核后确认无需处理。"
+      },
+      adminContext
+    );
+    const noActionRecord = await service.getRecord(answer.recordId, adminContext);
+
+    expect(noAction.status).toBe("no_action");
+    expect(noActionRecord.feedbackStatus).toBe("no_action");
+
+    const logs = await prisma.operationLog.findMany({
+      where: {
+        moduleKey: "aftersales-qa",
+        action: "feedback_update_status",
+        targetId: submitted.feedbackId
+      },
+      orderBy: {
+        createdAt: "asc"
+      }
+    });
+
+    expect(logs.length).toBeGreaterThanOrEqual(2);
+    expect(logs.map((log) => log.metadata)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          previousStatus: "pending",
+          nextStatus: "handled",
+          errorType: "citation_wrong"
+        }),
+        expect.objectContaining({
+          previousStatus: "handled",
+          nextStatus: "no_action",
+          errorType: "citation_wrong"
+        })
+      ])
+    );
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("storagePath");
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("DATABASE_URL");
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("引用来源需要更换");
   });
 });

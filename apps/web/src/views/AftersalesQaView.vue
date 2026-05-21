@@ -5,14 +5,22 @@ import { ChatDotRound, MoreFilled, Plus, Refresh, Search } from "@element-plus/i
 import {
   askAftersalesConversation,
   createAftersalesConversation,
+  getAftersalesFeedback,
+  getAftersalesFeedbacks,
   getAftersalesConversation,
   getAftersalesConversations,
+  submitAftersalesFeedback,
+  updateAftersalesFeedbackStatus,
   updateAftersalesConversation,
   updateAftersalesConversationStatus,
   type AftersalesAnswerStatus,
   type AftersalesCitedSource,
   type AftersalesConversation,
   type AftersalesConversationStatus,
+  type AftersalesFeedbackDetail,
+  type AftersalesFeedbackErrorType,
+  type AftersalesFeedbackListItem,
+  type AftersalesFeedbackStatus,
   type AftersalesQuestionRecord
 } from "@/api/aftersales-qa";
 import AppErrorState from "@/components/AppErrorState.vue";
@@ -25,7 +33,11 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  recordId?: string;
+  question?: string;
+  answer?: string;
   status?: AftersalesAnswerStatus;
+  feedbackStatus?: AftersalesFeedbackStatus;
   citedSources?: AftersalesCitedSource[];
   isLoading?: boolean;
   createdAt?: string;
@@ -52,8 +64,32 @@ const answerStatusTagType: Record<AftersalesAnswerStatus, "success" | "warning" 
   needs_clarification: "info",
   failed: "danger"
 };
+const feedbackErrorTypeLabels: Record<AftersalesFeedbackErrorType, string> = {
+  citation_wrong: "引用错了",
+  answer_incomplete: "答案不完整",
+  answer_wrong: "答案错误",
+  knowledge_missing: "知识库缺资料",
+  question_unclear: "问题描述不清",
+  other: "其他"
+};
+const feedbackStatusLabels: Record<AftersalesFeedbackStatus, string> = {
+  none: "未反馈",
+  pending: "待处理",
+  handled: "已处理",
+  no_action: "无需处理"
+};
+const feedbackStatusTagType: Record<
+  AftersalesFeedbackStatus,
+  "success" | "warning" | "danger" | "info"
+> = {
+  none: "info",
+  pending: "warning",
+  handled: "success",
+  no_action: "info"
+};
 
 const authStore = useAuthStore();
+const activePanel = ref<"chat" | "feedbacks">("chat");
 const conversations = ref<AftersalesConversation[]>([]);
 const activeConversation = ref<AftersalesConversation | null>(null);
 const records = ref<AftersalesQuestionRecord[]>([]);
@@ -72,6 +108,30 @@ const creatingConversation = ref(false);
 const asking = ref(false);
 const errorMessage = ref("");
 const messageListRef = ref<HTMLElement | null>(null);
+const feedbackDialogVisible = ref(false);
+const feedbackSubmitting = ref(false);
+const selectedFeedbackMessage = ref<ChatMessage | null>(null);
+const feedbackForm = ref<{
+  errorType: AftersalesFeedbackErrorType;
+  correctionText: string;
+  description: string;
+}>({
+  errorType: "answer_wrong",
+  correctionText: "",
+  description: ""
+});
+const feedbacks = ref<AftersalesFeedbackListItem[]>([]);
+const feedbackStatusFilter = ref<Exclude<AftersalesFeedbackStatus, "none"> | "all">("pending");
+const feedbackErrorTypeFilter = ref<AftersalesFeedbackErrorType | "all">("all");
+const feedbackPage = ref(1);
+const feedbackPageSize = 20;
+const feedbackTotal = ref(0);
+const loadingFeedbacks = ref(false);
+const feedbackDetailVisible = ref(false);
+const feedbackDetail = ref<AftersalesFeedbackDetail | null>(null);
+const loadingFeedbackDetail = ref(false);
+const feedbackHandleNote = ref("");
+const updatingFeedbackStatus = ref(false);
 
 const userName = computed(() => authStore.currentUser?.name ?? "我");
 const normalizedRole = computed(() =>
@@ -118,7 +178,11 @@ const messages = computed<ChatMessage[]>(() => {
       id: `${record.id}-answer`,
       role: "assistant",
       content: record.answer,
+      recordId: record.id,
+      question: record.question,
+      answer: record.answer,
       status: record.answerStatus,
+      feedbackStatus: record.feedbackStatus,
       citedSources: record.citedSources,
       createdAt: record.createdAt
     });
@@ -175,6 +239,12 @@ const materialTypeLabel = (value: KnowledgeMaterialType) => materialTypeLabelMap
 const getAnswerStatusLabel = (value: AftersalesAnswerStatus) => answerStatusLabels[value] ?? value;
 const getAnswerStatusType = (value: AftersalesAnswerStatus) =>
   answerStatusTagType[value] ?? "info";
+const getFeedbackStatusLabel = (value?: AftersalesFeedbackStatus) =>
+  feedbackStatusLabels[value ?? "none"] ?? "未反馈";
+const getFeedbackStatusType = (value?: AftersalesFeedbackStatus) =>
+  feedbackStatusTagType[value ?? "none"] ?? "info";
+const getFeedbackErrorTypeLabel = (value: AftersalesFeedbackErrorType) =>
+  feedbackErrorTypeLabels[value] ?? value;
 const getSourceCollapseTitle = (count: number) => `引用来源 ${count} 条`;
 const getMessageBubbleClass = (message: ChatMessage) => ({
   "is-loading": message.isLoading,
@@ -242,10 +312,45 @@ const loadConversations = async (options: { reset?: boolean; keepActive?: boolea
   }
 };
 
+const loadFeedbacks = async () => {
+  if (!isAdmin.value) {
+    return;
+  }
+  loadingFeedbacks.value = true;
+
+  try {
+    const result = await getAftersalesFeedbacks({
+      status: feedbackStatusFilter.value === "all" ? undefined : feedbackStatusFilter.value,
+      errorType: feedbackErrorTypeFilter.value === "all" ? undefined : feedbackErrorTypeFilter.value,
+      page: feedbackPage.value,
+      pageSize: feedbackPageSize
+    });
+    feedbacks.value = result.items;
+    feedbackTotal.value = result.total;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "反馈列表加载失败";
+    ElMessage.error(message);
+  } finally {
+    loadingFeedbacks.value = false;
+  }
+};
+
 const refreshConversationList = () => loadConversations({ reset: true, keepActive: true });
 
 const handleConversationFilterChange = async () => {
   await loadConversations({ reset: true, keepActive: false });
+};
+
+const handlePanelChange = async (panel: "chat" | "feedbacks") => {
+  if (panel === "feedbacks") {
+    feedbackPage.value = 1;
+    await loadFeedbacks();
+  }
+};
+
+const handleFeedbackFilterChange = async () => {
+  feedbackPage.value = 1;
+  await loadFeedbacks();
 };
 
 const handleLoadMoreConversations = async () => {
@@ -460,6 +565,102 @@ const handleAsk = async () => {
   }
 };
 
+const openFeedbackDialog = (message: ChatMessage) => {
+  if (!message.recordId) {
+    return;
+  }
+
+  selectedFeedbackMessage.value = message;
+  feedbackForm.value = {
+    errorType: "answer_wrong",
+    correctionText: "",
+    description: ""
+  };
+  feedbackDialogVisible.value = true;
+};
+
+const handleSubmitFeedback = async () => {
+  const message = selectedFeedbackMessage.value;
+  const correctionText = feedbackForm.value.correctionText.trim();
+
+  if (!message?.recordId) {
+    return;
+  }
+  if (correctionText.length < 2) {
+    ElMessage.warning("请填写正确答案或补充说明");
+    return;
+  }
+
+  feedbackSubmitting.value = true;
+
+  try {
+    const result = await submitAftersalesFeedback(message.recordId, {
+      errorType: feedbackForm.value.errorType,
+      correctionText,
+      description: feedbackForm.value.description.trim() || undefined
+    });
+    records.value = records.value.map((record) =>
+      record.id === result.recordId
+        ? {
+            ...record,
+            feedbackStatus: result.feedbackStatus
+          }
+        : record
+    );
+    feedbackDialogVisible.value = false;
+    selectedFeedbackMessage.value = null;
+    ElMessage.success("反馈已提交，管理员处理后可用于后续优化。");
+  } catch (error) {
+    const errorMessageText = error instanceof Error ? error.message : "反馈提交失败";
+    ElMessage.error(errorMessageText);
+  } finally {
+    feedbackSubmitting.value = false;
+  }
+};
+
+const openFeedbackDetail = async (feedback: AftersalesFeedbackListItem) => {
+  loadingFeedbackDetail.value = true;
+  feedbackDetailVisible.value = true;
+  feedbackHandleNote.value = "";
+
+  try {
+    feedbackDetail.value = await getAftersalesFeedback(feedback.feedbackId);
+    feedbackHandleNote.value = feedbackDetail.value.handleNote ?? "";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "反馈详情加载失败";
+    ElMessage.error(message);
+    feedbackDetailVisible.value = false;
+  } finally {
+    loadingFeedbackDetail.value = false;
+  }
+};
+
+const handleUpdateFeedbackStatus = async (
+  status: Exclude<AftersalesFeedbackStatus, "none">
+) => {
+  if (!feedbackDetail.value) {
+    return;
+  }
+
+  updatingFeedbackStatus.value = true;
+
+  try {
+    await updateAftersalesFeedbackStatus(feedbackDetail.value.feedbackId, {
+      status,
+      handleNote: feedbackHandleNote.value.trim() || undefined
+    });
+    ElMessage.success(status === "handled" ? "反馈已标记为已处理" : "反馈已标记为无需处理");
+    await loadFeedbacks();
+    feedbackDetail.value = await getAftersalesFeedback(feedbackDetail.value.feedbackId);
+    feedbackHandleNote.value = feedbackDetail.value.handleNote ?? "";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "反馈状态更新失败";
+    ElMessage.error(message);
+  } finally {
+    updatingFeedbackStatus.value = false;
+  }
+};
+
 onMounted(() => {
   if (isAdmin.value) {
     conversationScope.value = "all";
@@ -469,238 +670,488 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="aftersales-chat-page">
-    <aside class="conversation-sidebar">
-      <div class="sidebar-header">
-        <div>
-          <h3>会话记录</h3>
-          <span>售后排查历史</span>
-        </div>
-        <el-button
-          :icon="Plus"
-          :loading="creatingConversation"
-          class="new-conversation-button"
-          type="primary"
-          @click="handleCreateConversation"
-        >
-          新建会话
-        </el-button>
-      </div>
-
-      <el-input
-        v-model="keyword"
-        :prefix-icon="Search"
-        clearable
-        placeholder="搜索会话标题"
-        @change="handleConversationFilterChange"
-        @clear="handleConversationFilterChange"
-      />
-
+  <div class="aftersales-page-shell">
+    <div v-if="isAdmin" class="aftersales-mode-switch">
       <el-segmented
-        v-if="isAdmin"
-        v-model="conversationScope"
+        v-model="activePanel"
         :options="[
-          { label: '我的会话', value: 'mine' },
-          { label: '全部会话', value: 'all' }
+          { label: '售后对话', value: 'chat' },
+          { label: '反馈待处理', value: 'feedbacks' }
         ]"
-        @change="handleConversationFilterChange"
+        @change="handlePanelChange"
       />
+    </div>
 
-      <el-segmented
-        v-model="conversationStatus"
-        :options="[
-          { label: '进行中', value: 'active' },
-          { label: '已归档', value: 'archived' },
-          { label: '全部', value: 'all' }
-        ]"
-        @change="handleConversationFilterChange"
-      />
-
-      <AppErrorState v-if="errorMessage && conversations.length === 0" :message="errorMessage" @retry="refreshConversationList" />
-
-      <el-scrollbar v-else v-loading="loadingConversations" class="conversation-list">
-        <article
-          v-for="conversation in conversations"
-          :key="conversation.id"
-          class="conversation-item"
-          :class="{ 'is-active': activeConversation?.id === conversation.id }"
-          role="button"
-          tabindex="0"
-          @click="selectConversation(conversation)"
-          @keydown.enter.prevent="selectConversation(conversation)"
-          @keydown.space.prevent="selectConversation(conversation)"
-        >
-          <div class="conversation-item__content">
-            <span class="conversation-title">{{ conversation.title || DEFAULT_CONVERSATION_TITLE }}</span>
-            <small>{{ formatConversationMeta(conversation) }}</small>
-            <span class="conversation-meta">
-              <el-tag v-if="conversation.status === 'archived'" size="small" type="info" effect="plain">
-                已归档
-              </el-tag>
-              <span v-if="isAdmin && conversationScope === 'all'">
-                {{ conversation.userName ?? "未知用户" }}
-              </span>
-            </span>
+    <section v-if="activePanel === 'chat'" class="aftersales-chat-page">
+      <aside class="conversation-sidebar">
+        <div class="sidebar-header">
+          <div>
+            <h3>会话记录</h3>
+            <span>售后排查历史</span>
           </div>
-          <el-dropdown
-            class="conversation-actions"
-            trigger="click"
-            @click.stop
-            @command="handleConversationCommand"
-          >
-            <el-button
-              :icon="MoreFilled"
-              aria-label="会话操作"
-              class="conversation-action-button"
-              text
-              @click.stop
-            />
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item :command="{ action: 'rename', conversation }">
-                  重命名
-                </el-dropdown-item>
-                <el-dropdown-item
-                  v-if="conversation.status === 'active'"
-                  :command="{ action: 'archive', conversation }"
-                >
-                  归档
-                </el-dropdown-item>
-                <el-dropdown-item v-else :command="{ action: 'restore', conversation }">
-                  恢复
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </article>
-
-        <div v-if="conversations.length > 0" class="load-more-row">
           <el-button
-            v-if="hasMoreConversations"
-            :loading="loadingConversations"
-            plain
-            @click="handleLoadMoreConversations"
+            :icon="Plus"
+            :loading="creatingConversation"
+            class="new-conversation-button"
+            type="primary"
+            @click="handleCreateConversation"
           >
-            加载更多
+            新建会话
           </el-button>
-          <span v-else>没有更多会话</span>
         </div>
 
-        <el-empty
-          v-if="!loadingConversations && conversations.length === 0"
-          :description="emptyConversationDescription"
-          :image-size="82"
+        <el-input
+          v-model="keyword"
+          :prefix-icon="Search"
+          clearable
+          placeholder="搜索会话标题"
+          @change="handleConversationFilterChange"
+          @clear="handleConversationFilterChange"
         />
-      </el-scrollbar>
-    </aside>
 
-    <main class="chat-main">
-      <header class="chat-header">
+        <el-segmented
+          v-if="isAdmin"
+          v-model="conversationScope"
+          :options="[
+            { label: '我的会话', value: 'mine' },
+            { label: '全部会话', value: 'all' }
+          ]"
+          @change="handleConversationFilterChange"
+        />
+
+        <el-segmented
+          v-model="conversationStatus"
+          :options="[
+            { label: '进行中', value: 'active' },
+            { label: '已归档', value: 'archived' },
+            { label: '全部', value: 'all' }
+          ]"
+          @change="handleConversationFilterChange"
+        />
+
+        <AppErrorState v-if="errorMessage && conversations.length === 0" :message="errorMessage" @retry="refreshConversationList" />
+
+        <el-scrollbar v-else v-loading="loadingConversations" class="conversation-list">
+          <article
+            v-for="conversation in conversations"
+            :key="conversation.id"
+            class="conversation-item"
+            :class="{ 'is-active': activeConversation?.id === conversation.id }"
+            role="button"
+            tabindex="0"
+            @click="selectConversation(conversation)"
+            @keydown.enter.prevent="selectConversation(conversation)"
+            @keydown.space.prevent="selectConversation(conversation)"
+          >
+            <div class="conversation-item__content">
+              <span class="conversation-title">{{ conversation.title || DEFAULT_CONVERSATION_TITLE }}</span>
+              <small>{{ formatConversationMeta(conversation) }}</small>
+              <span class="conversation-meta">
+                <el-tag v-if="conversation.status === 'archived'" size="small" type="info" effect="plain">
+                  已归档
+                </el-tag>
+                <span v-if="isAdmin && conversationScope === 'all'">
+                  {{ conversation.userName ?? "未知用户" }}
+                </span>
+              </span>
+            </div>
+            <el-dropdown
+              class="conversation-actions"
+              trigger="click"
+              @click.stop
+              @command="handleConversationCommand"
+            >
+              <el-button
+                :icon="MoreFilled"
+                aria-label="会话操作"
+                class="conversation-action-button"
+                text
+                @click.stop
+              />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item :command="{ action: 'rename', conversation }">
+                    重命名
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="conversation.status === 'active'"
+                    :command="{ action: 'archive', conversation }"
+                  >
+                    归档
+                  </el-dropdown-item>
+                  <el-dropdown-item v-else :command="{ action: 'restore', conversation }">
+                    恢复
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </article>
+
+          <div v-if="conversations.length > 0" class="load-more-row">
+            <el-button
+              v-if="hasMoreConversations"
+              :loading="loadingConversations"
+              plain
+              @click="handleLoadMoreConversations"
+            >
+              加载更多
+            </el-button>
+            <span v-else>没有更多会话</span>
+          </div>
+
+          <el-empty
+            v-if="!loadingConversations && conversations.length === 0"
+            :description="emptyConversationDescription"
+            :image-size="82"
+          />
+        </el-scrollbar>
+      </aside>
+
+      <main class="chat-main">
+        <header class="chat-header">
+          <div>
+            <h2>{{ activeConversation?.title ?? "售后知识助手" }}</h2>
+            <p>{{ conversationHint }}</p>
+          </div>
+          <div class="chat-header__actions">
+            <el-tag v-if="activeConversation?.status === 'archived'" type="info" effect="plain">
+              已归档
+            </el-tag>
+            <el-button :icon="Refresh" :disabled="!activeConversation" @click="activeConversation && selectConversation(activeConversation)">
+              刷新
+            </el-button>
+          </div>
+        </header>
+
+        <section ref="messageListRef" v-loading="loadingDetail" class="message-list">
+          <template v-if="messages.length > 0">
+            <article
+              v-for="message in messages"
+              :key="message.id"
+              class="chat-message"
+              :class="`is-${message.role}`"
+            >
+              <div class="message-avatar">{{ message.role === "user" ? userName.slice(0, 1) : "售" }}</div>
+              <div class="message-body">
+                <div class="message-meta">
+                  <strong>{{ message.role === "user" ? userName : "售后知识助手" }}</strong>
+                  <span v-if="message.createdAt">{{ formatTime(message.createdAt) }}</span>
+                  <el-tag
+                    v-if="message.role === 'assistant' && message.status"
+                    :type="getAnswerStatusType(message.status)"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ getAnswerStatusLabel(message.status) }}
+                  </el-tag>
+                </div>
+                <div class="message-bubble" :class="getMessageBubbleClass(message)">
+                  <el-icon v-if="message.isLoading" class="loading-icon"><ChatDotRound /></el-icon>
+                  <p>{{ getMessageContent(message) }}</p>
+                </div>
+
+                <el-collapse
+                  v-if="message.role === 'assistant' && message.citedSources?.length"
+                  class="source-collapse"
+                >
+                  <el-collapse-item :title="getSourceCollapseTitle(message.citedSources.length)" name="sources">
+                    <article
+                      v-for="source in message.citedSources"
+                      :key="source.chunkId"
+                      class="source-item"
+                    >
+                      <div class="source-title">
+                        <strong>{{ source.knowledgeBaseName }} / {{ source.fileTitle }}</strong>
+                        <el-tag effect="plain" size="small">
+                          {{ materialTypeLabel(source.materialType) }}
+                        </el-tag>
+                      </div>
+                      <p>{{ source.snippet }}</p>
+                      <span>片段 {{ source.chunkId }}</span>
+                    </article>
+                  </el-collapse-item>
+                </el-collapse>
+
+                <div
+                  v-if="message.role === 'assistant' && !message.isLoading && message.recordId"
+                  class="message-feedback-row"
+                >
+                  <el-tag
+                    v-if="message.feedbackStatus && message.feedbackStatus !== 'none'"
+                    :type="getFeedbackStatusType(message.feedbackStatus)"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ getFeedbackStatusLabel(message.feedbackStatus) }}
+                  </el-tag>
+                  <el-button
+                    v-else
+                    size="small"
+                    text
+                    type="info"
+                    @click="openFeedbackDialog(message)"
+                  >
+                    回答有误
+                  </el-button>
+                </div>
+              </div>
+            </article>
+          </template>
+
+          <el-empty
+            v-else
+            description="先描述产品型号、现场现象、输出方式或接线情况，系统会优先依据已审核资料回答。"
+            :image-size="110"
+          />
+        </section>
+
+        <footer class="composer">
+          <el-alert
+            v-if="isActiveConversationArchived"
+            title="该会话已归档，恢复后可继续提问。"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+          <el-input
+            v-model="question"
+            type="textarea"
+            :rows="3"
+            maxlength="1000"
+            show-word-limit
+            resize="none"
+            :disabled="isActiveConversationArchived"
+            placeholder="输入内部售后问题，例如：某型号无输出、现场不亮、接线异常等"
+            @keydown.meta.enter.prevent="handleAsk"
+            @keydown.ctrl.enter.prevent="handleAsk"
+          />
+          <div class="composer-actions">
+            <span>仅依据已审核资料辅助排查；未命中资料时，将提示补充资料或转人工确认。</span>
+            <el-button :loading="asking" type="primary" :disabled="!canSend" @click="handleAsk">
+              发送
+            </el-button>
+          </div>
+        </footer>
+      </main>
+    </section>
+
+    <section v-else class="feedback-workbench">
+      <header class="feedback-workbench__header">
         <div>
-          <h2>{{ activeConversation?.title ?? "售后知识助手" }}</h2>
-          <p>{{ conversationHint }}</p>
+          <h2>反馈待处理</h2>
+          <p>查看售后问答纠错意见，仅用于复盘和后续知识库优化线索。</p>
         </div>
-        <div class="chat-header__actions">
-          <el-tag v-if="activeConversation?.status === 'archived'" type="info" effect="plain">
-            已归档
-          </el-tag>
-          <el-button :icon="Refresh" :disabled="!activeConversation" @click="activeConversation && selectConversation(activeConversation)">
-            刷新
-          </el-button>
-        </div>
+        <el-button :loading="loadingFeedbacks" @click="loadFeedbacks">刷新</el-button>
       </header>
 
-      <section ref="messageListRef" v-loading="loadingDetail" class="message-list">
-        <template v-if="messages.length > 0">
-          <article
-            v-for="message in messages"
-            :key="message.id"
-            class="chat-message"
-            :class="`is-${message.role}`"
-          >
-            <div class="message-avatar">{{ message.role === "user" ? userName.slice(0, 1) : "售" }}</div>
-            <div class="message-body">
-              <div class="message-meta">
-                <strong>{{ message.role === "user" ? userName : "售后知识助手" }}</strong>
-                <span v-if="message.createdAt">{{ formatTime(message.createdAt) }}</span>
-                <el-tag
-                  v-if="message.role === 'assistant' && message.status"
-                  :type="getAnswerStatusType(message.status)"
-                  effect="plain"
-                  size="small"
-                >
-                  {{ getAnswerStatusLabel(message.status) }}
-                </el-tag>
-              </div>
-              <div class="message-bubble" :class="getMessageBubbleClass(message)">
-                <el-icon v-if="message.isLoading" class="loading-icon"><ChatDotRound /></el-icon>
-                <p>{{ getMessageContent(message) }}</p>
-              </div>
+      <div class="feedback-filters">
+        <el-select
+          v-model="feedbackStatusFilter"
+          placeholder="处理状态"
+          @change="handleFeedbackFilterChange"
+        >
+          <el-option label="待处理" value="pending" />
+          <el-option label="已处理" value="handled" />
+          <el-option label="无需处理" value="no_action" />
+          <el-option label="全部" value="all" />
+        </el-select>
+        <el-select
+          v-model="feedbackErrorTypeFilter"
+          placeholder="错误类型"
+          @change="handleFeedbackFilterChange"
+        >
+          <el-option label="全部类型" value="all" />
+          <el-option
+            v-for="(label, value) in feedbackErrorTypeLabels"
+            :key="value"
+            :label="label"
+            :value="value"
+          />
+        </el-select>
+      </div>
 
-              <el-collapse
-                v-if="message.role === 'assistant' && message.citedSources?.length"
-                class="source-collapse"
-              >
-                <el-collapse-item :title="getSourceCollapseTitle(message.citedSources.length)" name="sources">
-                  <article
-                    v-for="source in message.citedSources"
-                    :key="source.chunkId"
-                    class="source-item"
-                  >
-                    <div class="source-title">
-                      <strong>{{ source.knowledgeBaseName }} / {{ source.fileTitle }}</strong>
-                      <el-tag effect="plain" size="small">
-                        {{ materialTypeLabel(source.materialType) }}
-                      </el-tag>
-                    </div>
-                    <p>{{ source.snippet }}</p>
-                    <span>片段 {{ source.chunkId }}</span>
-                  </article>
-                </el-collapse-item>
-              </el-collapse>
-            </div>
-          </article>
-        </template>
+      <el-table
+        v-loading="loadingFeedbacks"
+        :data="feedbacks"
+        class="feedback-table"
+        empty-text="暂无反馈记录"
+      >
+        <el-table-column label="提交时间" width="170">
+          <template #default="{ row }">
+            {{ formatTime(row.createdAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="提交人" width="140">
+          <template #default="{ row }">
+            {{ row.userName ?? "未知用户" }}
+          </template>
+        </el-table-column>
+        <el-table-column label="错误类型" width="130">
+          <template #default="{ row }">
+            {{ getFeedbackErrorTypeLabel(row.errorType) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="原问题" prop="questionPreview" min-width="180" show-overflow-tooltip />
+        <el-table-column label="AI 回答摘要" prop="answerPreview" min-width="220" show-overflow-tooltip />
+        <el-table-column label="用户补充说明" prop="correctionTextPreview" min-width="220" show-overflow-tooltip />
+        <el-table-column label="状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="getFeedbackStatusType(row.status)" effect="plain">
+              {{ getFeedbackStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" fixed="right" width="110">
+          <template #default="{ row }">
+            <el-button size="small" text type="primary" @click="openFeedbackDetail(row)">
+              查看详情
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-        <el-empty
-          v-else
-          description="先描述产品型号、现场现象、输出方式或接线情况，系统会优先依据已审核资料回答。"
-          :image-size="110"
+      <div class="feedback-pagination">
+        <el-pagination
+          v-model:current-page="feedbackPage"
+          :page-size="feedbackPageSize"
+          :total="feedbackTotal"
+          layout="prev, pager, next, total"
+          @current-change="loadFeedbacks"
         />
-      </section>
+      </div>
+    </section>
 
-      <footer class="composer">
-        <el-alert
-          v-if="isActiveConversationArchived"
-          title="该会话已归档，恢复后可继续提问。"
-          type="info"
-          :closable="false"
-          show-icon
-        />
-        <el-input
-          v-model="question"
-          type="textarea"
-          :rows="3"
-          maxlength="1000"
-          show-word-limit
-          resize="none"
-          :disabled="isActiveConversationArchived"
-          placeholder="输入内部售后问题，例如：某型号无输出、现场不亮、接线异常等"
-          @keydown.meta.enter.prevent="handleAsk"
-          @keydown.ctrl.enter.prevent="handleAsk"
-        />
-        <div class="composer-actions">
-          <span>仅依据已审核资料辅助排查；未命中资料时，将提示补充资料或转人工确认。</span>
-          <el-button :loading="asking" type="primary" :disabled="!canSend" @click="handleAsk">
-            发送
-          </el-button>
+    <el-dialog v-model="feedbackDialogVisible" title="提交回答纠错反馈" width="560px">
+      <div v-if="selectedFeedbackMessage" class="feedback-dialog-content">
+        <div class="feedback-preview">
+          <strong>原问题</strong>
+          <p>{{ selectedFeedbackMessage.question }}</p>
+          <strong>当前回答摘要</strong>
+          <p>{{ selectedFeedbackMessage.answer }}</p>
+          <span>引用来源：{{ selectedFeedbackMessage.citedSources?.length ?? 0 }} 条</span>
         </div>
-      </footer>
-    </main>
-  </section>
+        <el-form label-position="top">
+          <el-form-item label="错误类型">
+            <el-select v-model="feedbackForm.errorType" class="full-width">
+              <el-option
+                v-for="(label, value) in feedbackErrorTypeLabels"
+                :key="value"
+                :label="label"
+                :value="value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="正确答案 / 补充说明">
+            <el-input
+              v-model="feedbackForm.correctionText"
+              type="textarea"
+              :rows="5"
+              maxlength="2000"
+              show-word-limit
+              placeholder="请填写你认为正确的答案、需要补充的资料线索或复核建议"
+            />
+          </el-form-item>
+          <el-form-item label="备注（可选）">
+            <el-input
+              v-model="feedbackForm.description"
+              type="textarea"
+              :rows="3"
+              maxlength="1000"
+              show-word-limit
+              placeholder="可补充现场背景、客户描述或其他说明"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="feedbackDialogVisible = false">取消</el-button>
+        <el-button :loading="feedbackSubmitting" type="primary" @click="handleSubmitFeedback">
+          提交反馈
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="feedbackDetailVisible" title="反馈详情" width="720px">
+      <div v-loading="loadingFeedbackDetail" class="feedback-detail">
+        <template v-if="feedbackDetail">
+          <div class="feedback-detail-grid">
+            <section>
+              <strong>原问题</strong>
+              <p>{{ feedbackDetail.question }}</p>
+            </section>
+            <section>
+              <strong>AI 回答</strong>
+              <p>{{ feedbackDetail.answer }}</p>
+            </section>
+            <section>
+              <strong>用户反馈</strong>
+              <p>{{ getFeedbackErrorTypeLabel(feedbackDetail.errorType) }}</p>
+              <p>{{ feedbackDetail.correctionText }}</p>
+              <p v-if="feedbackDetail.description">{{ feedbackDetail.description }}</p>
+            </section>
+            <section v-if="feedbackDetail.citedSources.length">
+              <strong>引用来源</strong>
+              <article
+                v-for="source in feedbackDetail.citedSources"
+                :key="source.chunkId"
+                class="source-item"
+              >
+                <div class="source-title">
+                  <strong>{{ source.knowledgeBaseName }} / {{ source.fileTitle }}</strong>
+                  <el-tag effect="plain" size="small">
+                    {{ materialTypeLabel(source.materialType) }}
+                  </el-tag>
+                </div>
+                <p>{{ source.snippet }}</p>
+              </article>
+            </section>
+            <section>
+              <strong>处理备注</strong>
+              <el-input
+                v-model="feedbackHandleNote"
+                type="textarea"
+                :rows="3"
+                maxlength="1000"
+                show-word-limit
+                placeholder="记录本次处理说明，不会自动写入知识库"
+              />
+            </section>
+          </div>
+        </template>
+      </div>
+      <template #footer>
+        <el-button @click="feedbackDetailVisible = false">关闭</el-button>
+        <el-button
+          :loading="updatingFeedbackStatus"
+          @click="handleUpdateFeedbackStatus('no_action')"
+        >
+          无需处理
+        </el-button>
+        <el-button
+          :loading="updatingFeedbackStatus"
+          type="primary"
+          @click="handleUpdateFeedbackStatus('handled')"
+        >
+          标记已处理
+        </el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <style scoped>
+.aftersales-page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.aftersales-mode-switch {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .aftersales-chat-page {
   display: flex;
   height: calc(100vh - 132px);
@@ -1017,6 +1468,115 @@ onMounted(() => {
 .composer-actions {
   align-items: center;
   flex-wrap: wrap;
+}
+
+.message-feedback-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 7px;
+}
+
+.feedback-workbench {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 172px);
+  min-height: 540px;
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgb(15 23 42 / 7%);
+}
+
+.feedback-workbench__header,
+.feedback-filters,
+.feedback-pagination {
+  display: flex;
+  align-items: center;
+}
+
+.feedback-workbench__header {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.feedback-workbench__header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.feedback-workbench__header p {
+  margin: 4px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.feedback-filters {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.feedback-filters .el-select {
+  width: 180px;
+}
+
+.feedback-table {
+  flex: 1;
+  min-height: 0;
+}
+
+.feedback-pagination {
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+.feedback-dialog-content,
+.feedback-detail-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.feedback-preview {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.feedback-preview p,
+.feedback-detail p {
+  margin: 6px 0 10px;
+  color: var(--el-text-color-regular);
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+.feedback-preview p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.feedback-preview span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.feedback-detail {
+  min-height: 220px;
+}
+
+.feedback-detail-grid section {
+  padding: 12px;
+  border: 1px solid #eef1f5;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.full-width {
+  width: 100%;
 }
 
 @keyframes pulse {

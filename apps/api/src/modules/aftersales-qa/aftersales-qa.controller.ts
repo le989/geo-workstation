@@ -26,9 +26,12 @@ import { AftersalesQaService } from "./aftersales-qa.service";
 import { AskAftersalesQuestionDto } from "./dto/ask-aftersales-question.dto";
 import { CreateAftersalesConversationDto } from "./dto/create-aftersales-conversation.dto";
 import { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
+import { QueryAftersalesFeedbacksDto } from "./dto/query-aftersales-feedbacks.dto";
 import { QueryAftersalesRecordsDto } from "./dto/query-aftersales-records.dto";
+import { SubmitAftersalesFeedbackDto } from "./dto/submit-aftersales-feedback.dto";
 import { UpdateAftersalesConversationDto } from "./dto/update-aftersales-conversation.dto";
 import { UpdateAftersalesConversationStatusDto } from "./dto/update-aftersales-conversation-status.dto";
+import { UpdateAftersalesFeedbackStatusDto } from "./dto/update-aftersales-feedback-status.dto";
 
 @Controller("api/aftersales-qa")
 export class AftersalesQaController {
@@ -113,6 +116,55 @@ export class AftersalesQaController {
     @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
     return this.service.ask(body, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Post("records/:id/feedback")
+  submitFeedback(
+    @Param("id") id: string,
+    @Body(createValidationPipe(SubmitAftersalesFeedbackDto))
+    body: SubmitAftersalesFeedbackDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.submitFeedback(id, body, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Get("feedbacks")
+  findFeedbacks(
+    @Query(createValidationPipe(QueryAftersalesFeedbacksDto))
+    query: QueryAftersalesFeedbacksDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.findFeedbacks(query, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Get("feedbacks/:id")
+  getFeedback(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.getFeedback(id, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Patch("feedbacks/:id/status")
+  updateFeedbackStatus(
+    @Param("id") id: string,
+    @Body(createValidationPipe(UpdateAftersalesFeedbackStatusDto))
+    body: UpdateAftersalesFeedbackStatusDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.updateFeedbackStatus(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
   }
 
   @Get("records")
