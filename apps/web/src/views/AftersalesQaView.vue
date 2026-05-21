@@ -126,7 +126,9 @@ const feedbackErrorTypeFilter = ref<AftersalesFeedbackErrorType | "all">("all");
 const feedbackPage = ref(1);
 const feedbackPageSize = 20;
 const feedbackTotal = ref(0);
+const pendingFeedbackTotal = ref(0);
 const loadingFeedbacks = ref(false);
+const feedbackErrorMessage = ref("");
 const feedbackDetailVisible = ref(false);
 const feedbackDetail = ref<AftersalesFeedbackDetail | null>(null);
 const loadingFeedbackDetail = ref(false);
@@ -163,6 +165,11 @@ const emptyConversationDescription = computed(() => {
 
   return "还没有售后对话，点击新建会话开始提问。";
 });
+const feedbackEmptyText = computed(() =>
+  feedbackStatusFilter.value === "pending" && feedbackErrorTypeFilter.value === "all"
+    ? "暂无待处理反馈"
+    : "暂无符合条件的反馈"
+);
 
 const messages = computed<ChatMessage[]>(() => {
   const items: ChatMessage[] = [];
@@ -317,6 +324,7 @@ const loadFeedbacks = async () => {
     return;
   }
   loadingFeedbacks.value = true;
+  feedbackErrorMessage.value = "";
 
   try {
     const result = await getAftersalesFeedbacks({
@@ -327,11 +335,34 @@ const loadFeedbacks = async () => {
     });
     feedbacks.value = result.items;
     feedbackTotal.value = result.total;
+    if (feedbackStatusFilter.value === "pending" && feedbackErrorTypeFilter.value === "all") {
+      pendingFeedbackTotal.value = result.total;
+    } else {
+      void loadPendingFeedbackCount();
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "反馈列表加载失败";
+    feedbackErrorMessage.value = message;
     ElMessage.error(message);
   } finally {
     loadingFeedbacks.value = false;
+  }
+};
+
+const loadPendingFeedbackCount = async () => {
+  if (!isAdmin.value) {
+    return;
+  }
+
+  try {
+    const result = await getAftersalesFeedbacks({
+      status: "pending",
+      page: 1,
+      pageSize: 1
+    });
+    pendingFeedbackTotal.value = result.total;
+  } catch {
+    pendingFeedbackTotal.value = 0;
   }
 };
 
@@ -346,6 +377,11 @@ const handlePanelChange = async (panel: "chat" | "feedbacks") => {
     feedbackPage.value = 1;
     await loadFeedbacks();
   }
+};
+
+const switchPanel = async (panel: "chat" | "feedbacks") => {
+  activePanel.value = panel;
+  await handlePanelChange(panel);
 };
 
 const handleFeedbackFilterChange = async () => {
@@ -570,6 +606,10 @@ const openFeedbackDialog = (message: ChatMessage) => {
     return;
   }
 
+  if (message.feedbackStatus && message.feedbackStatus !== "none") {
+    ElMessage.info("你已提交过反馈，再次提交会更新原反馈。");
+  }
+
   selectedFeedbackMessage.value = message;
   feedbackForm.value = {
     errorType: "answer_wrong",
@@ -609,7 +649,13 @@ const handleSubmitFeedback = async () => {
     );
     feedbackDialogVisible.value = false;
     selectedFeedbackMessage.value = null;
-    ElMessage.success("反馈已提交，管理员处理后可用于后续优化。");
+    if (isAdmin.value) {
+      void loadPendingFeedbackCount();
+      if (activePanel.value === "feedbacks") {
+        void loadFeedbacks();
+      }
+    }
+    ElMessage.success("反馈已提交，管理员可在「反馈待处理」中查看和处理。");
   } catch (error) {
     const errorMessageText = error instanceof Error ? error.message : "反馈提交失败";
     ElMessage.error(errorMessageText);
@@ -653,6 +699,16 @@ const handleUpdateFeedbackStatus = async (
     await loadFeedbacks();
     feedbackDetail.value = await getAftersalesFeedback(feedbackDetail.value.feedbackId);
     feedbackHandleNote.value = feedbackDetail.value.handleNote ?? "";
+    const updatedFeedback = feedbackDetail.value;
+    records.value = records.value.map((record) =>
+      record.id === updatedFeedback.questionRecordId
+        ? {
+            ...record,
+            feedbackStatus: updatedFeedback.status
+          }
+        : record
+    );
+    void loadPendingFeedbackCount();
   } catch (error) {
     const message = error instanceof Error ? error.message : "反馈状态更新失败";
     ElMessage.error(message);
@@ -664,6 +720,7 @@ const handleUpdateFeedbackStatus = async (
 onMounted(() => {
   if (isAdmin.value) {
     conversationScope.value = "all";
+    void loadPendingFeedbackCount();
   }
   void loadConversations();
 });
@@ -671,16 +728,29 @@ onMounted(() => {
 
 <template>
   <div class="aftersales-page-shell">
-    <div v-if="isAdmin" class="aftersales-mode-switch">
-      <el-segmented
-        v-model="activePanel"
-        :options="[
-          { label: '售后对话', value: 'chat' },
-          { label: '反馈待处理', value: 'feedbacks' }
-        ]"
-        @change="handlePanelChange"
-      />
-    </div>
+    <nav v-if="isAdmin" class="aftersales-panel-tabs" aria-label="售后问答工作台">
+      <button
+        type="button"
+        class="panel-tab"
+        :class="{ 'is-active': activePanel === 'chat' }"
+        @click="switchPanel('chat')"
+      >
+        <span>售后对话</span>
+        <small>提问、查看引用来源与回答反馈</small>
+      </button>
+      <button
+        type="button"
+        class="panel-tab"
+        :class="{ 'is-active': activePanel === 'feedbacks' }"
+        @click="switchPanel('feedbacks')"
+      >
+        <span>
+          反馈待处理
+          <em v-if="pendingFeedbackTotal > 0">{{ pendingFeedbackTotal }}</em>
+        </span>
+        <small>查看用户纠错意见并标记处理结果</small>
+      </button>
+    </nav>
 
     <section v-if="activePanel === 'chat'" class="aftersales-chat-page">
       <aside class="conversation-sidebar">
@@ -876,21 +946,20 @@ onMounted(() => {
                   v-if="message.role === 'assistant' && !message.isLoading && message.recordId"
                   class="message-feedback-row"
                 >
-                  <el-tag
-                    v-if="message.feedbackStatus && message.feedbackStatus !== 'none'"
-                    :type="getFeedbackStatusType(message.feedbackStatus)"
-                    effect="plain"
-                    size="small"
-                  >
-                    {{ getFeedbackStatusLabel(message.feedbackStatus) }}
-                  </el-tag>
-                  <el-button
-                    v-else
-                    size="small"
-                    text
-                    type="info"
-                    @click="openFeedbackDialog(message)"
-                  >
+                  <template v-if="message.feedbackStatus && message.feedbackStatus !== 'none'">
+                    <el-tag
+                      :type="getFeedbackStatusType(message.feedbackStatus)"
+                      class="feedback-status-tag"
+                      effect="plain"
+                      size="small"
+                    >
+                      已反馈 · {{ getFeedbackStatusLabel(message.feedbackStatus) }}
+                    </el-tag>
+                    <el-button size="small" text type="info" @click="openFeedbackDialog(message)">
+                      补充反馈
+                    </el-button>
+                  </template>
+                  <el-button v-else size="small" text type="info" @click="openFeedbackDialog(message)">
                     回答有误
                   </el-button>
                 </div>
@@ -939,10 +1008,19 @@ onMounted(() => {
       <header class="feedback-workbench__header">
         <div>
           <h2>反馈待处理</h2>
-          <p>查看售后问答纠错意见，仅用于复盘和后续知识库优化线索。</p>
+          <p>管理员在这里查看用户提交的回答纠错，当前仅用于复盘和知识库优化线索。</p>
         </div>
         <el-button :loading="loadingFeedbacks" @click="loadFeedbacks">刷新</el-button>
       </header>
+
+      <el-alert
+        v-if="feedbackErrorMessage"
+        :title="feedbackErrorMessage"
+        class="feedback-error"
+        type="warning"
+        show-icon
+        :closable="false"
+      />
 
       <div class="feedback-filters">
         <el-select
@@ -974,7 +1052,7 @@ onMounted(() => {
         v-loading="loadingFeedbacks"
         :data="feedbacks"
         class="feedback-table"
-        empty-text="暂无反馈记录"
+        :empty-text="feedbackEmptyText"
       >
         <el-table-column label="提交时间" width="170">
           <template #default="{ row }">
@@ -1048,7 +1126,7 @@ onMounted(() => {
               :rows="5"
               maxlength="2000"
               show-word-limit
-              placeholder="请填写你认为正确的答案、需要补充的资料线索或复核建议"
+              placeholder="请填写你认为正确的答案、应补充的资料线索，或需要人工复核的原因。"
             />
           </el-form-item>
           <el-form-item label="备注（可选）">
@@ -1075,6 +1153,22 @@ onMounted(() => {
       <div v-loading="loadingFeedbackDetail" class="feedback-detail">
         <template v-if="feedbackDetail">
           <div class="feedback-detail-grid">
+            <section>
+              <strong>处理状态</strong>
+              <p>
+                <el-tag :type="getFeedbackStatusType(feedbackDetail.status)" effect="plain">
+                  {{ getFeedbackStatusLabel(feedbackDetail.status) }}
+                </el-tag>
+              </p>
+              <p>
+                提交人：{{ feedbackDetail.userName ?? "未知用户" }} ·
+                {{ formatTime(feedbackDetail.createdAt) }}
+              </p>
+              <p v-if="feedbackDetail.handledAt">
+                处理人：{{ feedbackDetail.handledByName ?? "未知管理员" }} ·
+                {{ formatTime(feedbackDetail.handledAt) }}
+              </p>
+            </section>
             <section>
               <strong>原问题</strong>
               <p>{{ feedbackDetail.question }}</p>
@@ -1147,9 +1241,60 @@ onMounted(() => {
   min-height: 0;
 }
 
-.aftersales-mode-switch {
+.aftersales-panel-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 260px));
+  gap: 10px;
+}
+
+.panel-tab {
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  color: #334155;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.panel-tab:hover {
+  border-color: #aebbe8;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 6%);
+}
+
+.panel-tab.is-active {
+  border-color: #7c8cf8;
+  background: #f8f9ff;
+  box-shadow: inset 3px 0 0 #6f7df5;
+}
+
+.panel-tab span {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.panel-tab small {
+  color: var(--el-text-color-secondary);
+  line-height: 1.45;
+}
+
+.panel-tab em {
+  min-width: 22px;
+  padding: 1px 7px;
+  color: #fff;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 999px;
+  background: #c2410c;
 }
 
 .aftersales-chat-page {
@@ -1472,8 +1617,14 @@ onMounted(() => {
 
 .message-feedback-row {
   display: flex;
+  gap: 8px;
+  align-items: center;
   justify-content: flex-start;
   margin-top: 7px;
+}
+
+.feedback-status-tag {
+  flex: 0 0 auto;
 }
 
 .feedback-workbench {
@@ -1514,6 +1665,10 @@ onMounted(() => {
 
 .feedback-filters {
   gap: 10px;
+  margin-bottom: 12px;
+}
+
+.feedback-error {
   margin-bottom: 12px;
 }
 
@@ -1591,6 +1746,10 @@ onMounted(() => {
 }
 
 @media (max-width: 960px) {
+  .aftersales-panel-tabs {
+    grid-template-columns: 1fr;
+  }
+
   .aftersales-chat-page {
     flex-direction: column;
     height: auto;
