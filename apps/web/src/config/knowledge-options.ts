@@ -61,6 +61,11 @@ export const applicableModuleOptions: Array<{ label: string; value: KnowledgeApp
   { label: "GEO 分析", value: "geo-analysis" }
 ];
 
+export const officialCitationStatusOptions = [
+  { label: "可正式引用", value: "citable" },
+  { label: "不正式引用", value: "not_citable" }
+];
+
 export const materialTypeDefaults: Record<
   string,
   {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import type { Department } from "@/api/departments";
 import type {
   KnowledgeApplicableModule,
@@ -8,6 +8,7 @@ import type {
   KnowledgeChunkQuery,
   KnowledgeFile,
   KnowledgeFileQuery,
+  KnowledgeOfficialCitationStatus,
   KnowledgeReviewStatus,
   KnowledgeTrustLevel,
   ManualKnowledgeMaterialPayload,
@@ -18,13 +19,16 @@ import { formatDateTime, formatOptional, splitCommaValues } from "@/config/geo-p
 import {
   applicableModuleOptions,
   knowledgeBaseStatusLabelMap,
+  materialTopicOptions,
   materialTypeOptions,
+  officialCitationStatusOptions,
   parseStatusOptions,
   reviewStatusOptions,
   sourceTypeOptions,
   trustLevelOptions
 } from "@/config/knowledge-options";
 import KnowledgeChunkTable from "./KnowledgeChunkTable.vue";
+import KnowledgeFileCards from "./KnowledgeFileCards.vue";
 import KnowledgeFileTable from "./KnowledgeFileTable.vue";
 import KnowledgeMaterialIngestWizard from "./KnowledgeMaterialIngestWizard.vue";
 
@@ -88,11 +92,14 @@ const fileFilters = reactive({
   applicableModule: "" as KnowledgeApplicableModule | "",
   fileType: "",
   materialType: "",
+  materialTopic: "",
+  officialCitationStatus: "" as KnowledgeOfficialCitationStatus | "",
   parseStatus: "" as ParseStatus | "",
   reviewStatus: "" as KnowledgeReviewStatus | "",
   search: "",
   trustLevel: "" as KnowledgeTrustLevel | ""
 });
+const fileViewMode = ref<"card" | "table">("table");
 
 watch(
   () => props.detail?.knowledgeBase.id,
@@ -105,6 +112,8 @@ watch(
     showChunkAdvancedFilters.value = false;
     fileFilters.fileType = "";
     fileFilters.materialType = "";
+    fileFilters.materialTopic = "";
+    fileFilters.officialCitationStatus = "";
     fileFilters.parseStatus = "";
     fileFilters.reviewStatus = "";
     fileFilters.search = "";
@@ -142,6 +151,8 @@ const handleFileSearch = () => {
     applicableModule: fileFilters.applicableModule || undefined,
     fileType: fileFilters.fileType.trim() || undefined,
     materialType: fileFilters.materialType || undefined,
+    materialTopic: fileFilters.materialTopic || undefined,
+    officialCitationStatus: fileFilters.officialCitationStatus || undefined,
     parseStatus: fileFilters.parseStatus || undefined,
     reviewStatus: fileFilters.reviewStatus || undefined,
     search: fileFilters.search.trim() || undefined,
@@ -153,6 +164,8 @@ const handleFileReset = () => {
   fileFilters.applicableModule = "";
   fileFilters.fileType = "";
   fileFilters.materialType = "";
+  fileFilters.materialTopic = "";
+  fileFilters.officialCitationStatus = "";
   fileFilters.parseStatus = "";
   fileFilters.reviewStatus = "";
   fileFilters.search = "";
@@ -162,6 +175,20 @@ const handleFileReset = () => {
 
 const getKnowledgeBaseStatusLabel = (status: string) =>
   knowledgeBaseStatusLabelMap[status] ?? status;
+
+const hasFileFilters = computed(() =>
+  Boolean(
+    fileFilters.applicableModule ||
+      fileFilters.fileType ||
+      fileFilters.materialType ||
+      fileFilters.materialTopic ||
+      fileFilters.officialCitationStatus ||
+      fileFilters.parseStatus ||
+      fileFilters.reviewStatus ||
+      fileFilters.search.trim() ||
+      fileFilters.trustLevel
+  )
+);
 </script>
 
 <template>
@@ -369,45 +396,38 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
               <div class="knowledge-tab-header">
                 <div>
                   <p class="section-kicker">资料文件</p>
-                  <h3>文件解析状态</h3>
-                  <p>解析失败会保留错误信息，可重新解析；删除文件会同步软删除关联知识片段。</p>
+                  <h3>资料列表管理</h3>
+                  <p>搜索资料标题、主题、来源说明，判断哪些资料可被售后问答 / GEO 内容正式引用。</p>
                 </div>
+                <el-radio-group v-model="fileViewMode" size="small" class="knowledge-view-toggle">
+                  <el-radio-button label="card">卡片视图</el-radio-button>
+                  <el-radio-button label="table">表格视图</el-radio-button>
+                </el-radio-group>
               </div>
 
               <el-form class="knowledge-inner-filters" label-position="top">
-                <el-form-item label="搜索文件名">
+                <el-form-item label="搜索资料">
                   <el-input
                     v-model="fileFilters.search"
                     clearable
-                    placeholder="搜索文件名"
+                    placeholder="搜索资料标题、主题、来源说明"
                     @keyup.enter="handleFileSearch"
                   />
                 </el-form-item>
-                <el-form-item label="解析状态">
-                  <el-select v-model="fileFilters.parseStatus" clearable placeholder="全部状态">
+                <el-form-item label="资料类型">
+                  <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
                     <el-option
-                      v-for="option in parseStatusOptions"
+                      v-for="option in materialTypeOptions"
                       :key="option.value"
                       :label="option.label"
                       :value="option.value"
                     />
                   </el-select>
                 </el-form-item>
-                <el-form-item label="文件类型">
-                  <el-select v-model="fileFilters.fileType" clearable placeholder="全部类型">
-                    <el-option label="txt" value="txt" />
-                    <el-option label="md" value="md" />
-                    <el-option label="csv" value="csv" />
-                    <el-option label="xlsx" value="xlsx" />
-                    <el-option label="xls" value="xls" />
-                    <el-option label="docx" value="docx" />
-                    <el-option label="manual" value="manual" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="资料类型">
-                  <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
+                <el-form-item label="资料主题">
+                  <el-select v-model="fileFilters.materialTopic" clearable placeholder="全部主题">
                     <el-option
-                      v-for="option in materialTypeOptions"
+                      v-for="option in materialTopicOptions"
                       :key="option.value"
                       :label="option.label"
                       :value="option.value"
@@ -444,21 +464,80 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                     />
                   </el-select>
                 </el-form-item>
+                <el-form-item label="正式引用状态">
+                  <el-select
+                    v-model="fileFilters.officialCitationStatus"
+                    clearable
+                    placeholder="全部状态"
+                  >
+                    <el-option
+                      v-for="option in officialCitationStatusOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="解析状态">
+                  <el-select v-model="fileFilters.parseStatus" clearable placeholder="全部状态">
+                    <el-option
+                      v-for="option in parseStatusOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="文件类型">
+                  <el-select v-model="fileFilters.fileType" clearable placeholder="全部类型">
+                    <el-option label="txt" value="txt" />
+                    <el-option label="md" value="md" />
+                    <el-option label="csv" value="csv" />
+                    <el-option label="xlsx" value="xlsx" />
+                    <el-option label="xls" value="xls" />
+                    <el-option label="docx" value="docx" />
+                    <el-option label="manual" value="manual" />
+                  </el-select>
+                </el-form-item>
               </el-form>
 
               <div class="knowledge-actions">
                 <el-button type="primary" :loading="filesLoading" @click="handleFileSearch">
-                  查询文件
+                  查询资料
                 </el-button>
-                <el-button @click="handleFileReset">重置</el-button>
+                <el-button @click="handleFileReset">清空筛选</el-button>
               </div>
 
-              <KnowledgeFileTable
+              <el-alert
+                v-if="!filesLoading && filesTotal === 0 && hasFileFilters"
+                title="没有符合条件的资料"
+                description="可以清空筛选后重新查看。"
+                type="info"
+                show-icon
+                :closable="false"
+                class="knowledge-empty-alert"
+              />
+
+              <KnowledgeFileCards
+                v-if="fileViewMode === 'card'"
                 :files="files"
                 :loading="filesLoading"
                 :reparsing-ids="reparsingIds"
                 :deleting-ids="deletingFileIds"
                 :can-manage="canManage"
+                :knowledge-base-name="detail.knowledgeBase.name"
+                @detail="emit('file-detail', $event)"
+                @reparse="emit('reparse-file', $event)"
+                @delete="emit('delete-file', $event)"
+              />
+              <KnowledgeFileTable
+                v-else
+                :files="files"
+                :loading="filesLoading"
+                :reparsing-ids="reparsingIds"
+                :deleting-ids="deletingFileIds"
+                :can-manage="canManage"
+                :knowledge-base-name="detail.knowledgeBase.name"
                 @detail="emit('file-detail', $event)"
                 @reparse="emit('reparse-file', $event)"
                 @delete="emit('delete-file', $event)"

@@ -1,7 +1,10 @@
 import { KnowledgeReviewStatus, KnowledgeTrustLevel, ParseStatus } from "@prisma/client";
 import { Transform } from "class-transformer";
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 import { toOptionalInt, trimOptionalString } from "./knowledge-dto-transforms";
+
+export const officialCitationStatusValues = ["citable", "not_citable"] as const;
+export type OfficialCitationStatus = (typeof officialCitationStatusValues)[number];
 
 export class QueryKnowledgeFilesDto {
   @IsOptional()
@@ -37,6 +40,11 @@ export class QueryKnowledgeFilesDto {
   materialType?: string;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => trimOptionalString(value))
+  materialTopic?: string;
+
+  @IsOptional()
   @IsEnum(KnowledgeReviewStatus)
   reviewStatus?: KnowledgeReviewStatus;
 
@@ -48,4 +56,8 @@ export class QueryKnowledgeFilesDto {
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
   applicableModule?: string;
+
+  @IsOptional()
+  @IsIn(officialCitationStatusValues)
+  officialCitationStatus?: OfficialCitationStatus;
 }

@@ -738,72 +738,98 @@ export class KnowledgeFilesService {
     query: QueryKnowledgeFilesDto,
     context?: ResourceAccessContext
   ): Prisma.KnowledgeFileWhereInput {
-    const where: Prisma.KnowledgeFileWhereInput = {
+    const baseWhere: Prisma.KnowledgeFileWhereInput = {
       knowledgeBaseId,
       deletedAt: null
     };
     if (context) {
-      where.companyId = getCurrentCompanyId(context);
+      baseWhere.companyId = getCurrentCompanyId(context);
     }
     const search = trimOptional(query.search);
+    const andWhere: Prisma.KnowledgeFileWhereInput[] = [baseWhere];
 
     if (query.parseStatus) {
-      where.parseStatus = query.parseStatus;
+      baseWhere.parseStatus = query.parseStatus;
     }
     if (query.fileType) {
-      where.fileType = query.fileType;
+      baseWhere.fileType = query.fileType;
     }
     if (search) {
-      where.OR = [
-        {
-          title: {
-            contains: search,
-            mode: "insensitive"
+      andWhere.push({
+        OR: [
+          {
+            title: {
+              contains: search,
+              mode: "insensitive"
+            }
+          },
+          {
+            fileName: {
+              contains: search,
+              mode: "insensitive"
+            }
+          },
+          {
+            sourceDescription: {
+              contains: search,
+              mode: "insensitive"
+            }
+          },
+          {
+            materialTopic: {
+              contains: search,
+              mode: "insensitive"
+            }
           }
-        },
-        {
-          fileName: {
-            contains: search,
-            mode: "insensitive"
-          }
-        },
-        {
-          sourceDescription: {
-            contains: search,
-            mode: "insensitive"
-          }
-        },
-        {
-          materialTopic: {
-            contains: search,
-            mode: "insensitive"
-          }
-        }
-      ];
+        ]
+      });
     }
     if (this.isKnowledgeMaterialType(query.materialType)) {
-      where.materialType = query.materialType;
+      baseWhere.materialType = query.materialType;
+    }
+    if (query.materialTopic) {
+      baseWhere.materialTopic = query.materialTopic;
     }
     if (query.reviewStatus) {
-      where.reviewStatus = query.reviewStatus;
+      baseWhere.reviewStatus = query.reviewStatus;
     }
     if (query.trustLevel) {
-      where.trustLevel = query.trustLevel;
+      baseWhere.trustLevel = query.trustLevel;
     }
     if (query.applicableModule) {
-      where.applicableModules = {
+      baseWhere.applicableModules = {
         array_contains: [query.applicableModule]
       };
+    }
+    if (query.officialCitationStatus === "citable") {
+      andWhere.push({
+        reviewStatus: KnowledgeReviewStatus.approved,
+        trustLevel: {
+          not: KnowledgeTrustLevel.low
+        }
+      });
+    }
+    if (query.officialCitationStatus === "not_citable") {
+      andWhere.push({
+        OR: [
+          {
+            reviewStatus: {
+              not: KnowledgeReviewStatus.approved
+            }
+          },
+          {
+            trustLevel: KnowledgeTrustLevel.low
+          }
+        ]
+      });
     }
     const aftersalesWhere = this.buildAfterSalesFileAccessWhere(context);
 
     if (aftersalesWhere) {
-      return {
-        AND: [where, aftersalesWhere]
-      };
+      andWhere.push(aftersalesWhere);
     }
 
-    return where;
+    return andWhere.length > 1 ? { AND: andWhere } : baseWhere;
   }
 
   private async findKnowledgeBaseForFileImport(
