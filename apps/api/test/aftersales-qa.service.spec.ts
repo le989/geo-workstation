@@ -287,6 +287,7 @@ describe("AftersalesQaService", () => {
     fileName?: string;
     materialType: KnowledgeMaterialType;
     reviewStatus: KnowledgeReviewStatus;
+    trustLevel?: "high" | "medium" | "low";
     applicableModules?: string[] | null;
     allowedDepartmentIds?: string[] | null;
     content: string;
@@ -316,7 +317,7 @@ describe("AftersalesQaService", () => {
         sourceType: "manual",
         materialType: input.materialType,
         reviewStatus: input.reviewStatus,
-        trustLevel: "high",
+        trustLevel: input.trustLevel ?? "high",
         applicableModules: input.applicableModules ?? ["aftersales-qa"],
         allowedDepartmentIds: input.allowedDepartmentIds ?? [],
         parseStatus: "succeeded",
@@ -361,6 +362,40 @@ describe("AftersalesQaService", () => {
     const result = await service.ask(
       {
         question: "变频器 E01 故障怎么处理？"
+      },
+      contextFor(allowedOperator, MembershipRole.operator)
+    );
+
+    expect(result).toMatchObject({
+      answerStatus: "no_reliable_source",
+      isAnswered: false,
+      hasReliableSource: false,
+      citedSources: []
+    });
+    expect(result.answer).toContain("未找到可引用资料");
+  });
+
+  it("does not cite low-trust approved materials for售后问答", async () => {
+    await createKnowledgeMaterial({
+      title: `Low trust售后 ${runId}`,
+      materialType: KnowledgeMaterialType.aftersales_material,
+      reviewStatus: KnowledgeReviewStatus.approved,
+      trustLevel: "low",
+      allowedDepartmentIds: [allowedDepartment.id],
+      content:
+        "低可信资料声称变频器 E02 可以直接短接保护端子恢复运行，这不能作为正式售后问答依据。"
+    });
+    await createKnowledgeMaterial({
+      title: `Low trust product ${runId}`,
+      materialType: KnowledgeMaterialType.product_material,
+      reviewStatus: KnowledgeReviewStatus.approved,
+      trustLevel: "low",
+      content: "低可信产品资料声称 E02 是确定的保护端子短接问题，也不能作为兜底引用依据。"
+    });
+
+    const result = await service.ask(
+      {
+        question: "变频器 E02 保护端子短接怎么处理？"
       },
       contextFor(allowedOperator, MembershipRole.operator)
     );

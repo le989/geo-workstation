@@ -3,6 +3,9 @@ import {
   CompanyStatus,
   CompanyType,
   GeoPromptType,
+  KnowledgeMaterialType,
+  KnowledgeReviewStatus,
+  KnowledgeTrustLevel,
   MembershipRole,
   TaskStatus,
   UserIntent,
@@ -184,6 +187,79 @@ describe("ContentTasksService", () => {
     return knowledgeBase;
   }
 
+  async function createKnowledgeBaseWithTrustedAndLowMaterials(label: string) {
+    const knowledgeBase = await prisma.knowledgeBase.create({
+      data: {
+        name: unique(label),
+        productLine: "激光测距传感器",
+        description: "用于验证正式引用规则的知识库。",
+        createdBy: {
+          connect: {
+            id: createdBy
+          }
+        }
+      }
+    });
+
+    const trustedFile = await prisma.knowledgeFile.create({
+      data: {
+        knowledgeBaseId: knowledgeBase.id,
+        title: unique("高可信产品资料"),
+        fileName: "trusted-product.txt",
+        fileType: "txt",
+        fileSize: 120,
+        sourceType: "manual",
+        materialType: KnowledgeMaterialType.product_material,
+        trustLevel: KnowledgeTrustLevel.medium,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        applicableModules: ["geo-content"],
+        parseStatus: "succeeded",
+        createdById: createdBy
+      }
+    });
+    const lowTrustFile = await prisma.knowledgeFile.create({
+      data: {
+        knowledgeBaseId: knowledgeBase.id,
+        title: unique("低可信产品资料"),
+        fileName: "low-trust-product.txt",
+        fileType: "txt",
+        fileSize: 120,
+        sourceType: "manual",
+        materialType: KnowledgeMaterialType.product_material,
+        trustLevel: KnowledgeTrustLevel.low,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        applicableModules: ["geo-content"],
+        parseStatus: "succeeded",
+        createdById: createdBy
+      }
+    });
+
+    await prisma.knowledgeChunk.createMany({
+      data: [
+        {
+          knowledgeBaseId: knowledgeBase.id,
+          fileId: trustedFile.id,
+          title: "正式可引用资料",
+          content: "正式可引用资料说明：ZX900 激光测距传感器适合行车防撞场景。",
+          sourceType: "manual",
+          productLine: "激光测距传感器",
+          materialType: KnowledgeMaterialType.product_material
+        },
+        {
+          knowledgeBaseId: knowledgeBase.id,
+          fileId: lowTrustFile.id,
+          title: "低可信资料",
+          content: "低可信资料声称：ZX900 可保证所有行车防撞项目零误触发。",
+          sourceType: "manual",
+          productLine: "激光测距传感器",
+          materialType: KnowledgeMaterialType.product_material
+        }
+      ]
+    });
+
+    return knowledgeBase;
+  }
+
   async function createInstructionTemplate(label: string) {
     return prisma.instructionTemplate.create({
       data: {
@@ -339,6 +415,26 @@ describe("ContentTasksService", () => {
       }
     });
     expect(aiCallLog?.status).toBe("succeeded");
+  });
+
+  it("excludes low-trust materials from GEO content generation references", async () => {
+    const prompt = await createGeoPrompt("低可信过滤内容提示词");
+    const knowledgeBase = await createKnowledgeBaseWithTrustedAndLowMaterials("低可信过滤知识库");
+
+    const result = await service.create({
+      name: unique("低可信过滤任务"),
+      productLine: "激光测距传感器",
+      knowledgeBaseId: knowledgeBase.id,
+      generationType: "selection_guide",
+      targetModel: "deepseek-chat",
+      geoPromptIds: [prompt.id],
+      createdBy
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.body).toContain("正式可引用资料说明");
+    expect(result.items[0]?.body).not.toContain("低可信资料声称");
+    expect(result.items[0]?.body).not.toContain("零误触发");
   });
 
   it("isolates content task lists, details, and retry by company and owner", async () => {

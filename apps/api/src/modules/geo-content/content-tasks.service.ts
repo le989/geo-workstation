@@ -51,6 +51,7 @@ import {
 } from "../auth/owner-company-policy";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
+import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const AI_CALL_PURPOSE = "content_generation";
@@ -1067,6 +1068,15 @@ export class ContentTasksService {
       where: {
         knowledgeBaseId,
         deletedAt: null,
+        file: {
+          is: buildOfficialCitableKnowledgeFileWhere({
+            ...(context
+              ? {
+                  companyId: getCurrentCompanyId(context)
+                }
+              : {})
+          })
+        },
         ...(context
           ? {
               companyId: getCurrentCompanyId(context)

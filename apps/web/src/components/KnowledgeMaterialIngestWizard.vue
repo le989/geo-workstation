@@ -478,7 +478,7 @@ const submit = () => {
                 :value="option.value"
               />
             </el-select>
-            <p class="knowledge-field-help">低可信资料仅用于内部查询。</p>
+            <p class="knowledge-field-help">低可信资料不会被售后问答 / GEO 内容正式引用。</p>
           </el-form-item>
 
           <el-form-item label="来源说明">
