@@ -1,6 +1,6 @@
 import { KnowledgeReviewStatus, KnowledgeTrustLevel } from "@prisma/client";
 import { Transform } from "class-transformer";
-import { IsArray, IsEnum, IsOptional, IsString } from "class-validator";
+import { IsArray, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
 import { toTags, trimOptionalString } from "./knowledge-dto-transforms";
 
 export class UpdateKnowledgeFileMetadataDto {
@@ -8,6 +8,12 @@ export class UpdateKnowledgeFileMetadataDto {
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
   title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @Transform(({ value }) => trimOptionalString(value))
+  content?: string;
 
   @IsOptional()
   @IsString()

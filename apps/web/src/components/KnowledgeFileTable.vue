@@ -15,6 +15,7 @@ import {
   getKnowledgeFileCitationLabel,
   isKnowledgeFileOfficiallyCitable
 } from "@/utils/knowledge-citation";
+import { formatKnowledgeSourceDescription } from "@/utils/knowledge-source";
 import KnowledgeParseStatusTag from "./KnowledgeParseStatusTag.vue";
 
 defineProps<{
@@ -28,6 +29,7 @@ defineProps<{
 
 const emit = defineEmits<{
   detail: [file: KnowledgeFile];
+  edit: [file: KnowledgeFile];
   reparse: [file: KnowledgeFile];
   delete: [file: KnowledgeFile];
 }>();
@@ -69,7 +71,7 @@ const formatMaterialTopic = (value?: string) =>
               </div>
               <div>
                 <dt>来源说明</dt>
-                <dd>{{ formatOptional(row.sourceDescription) }}</dd>
+                <dd>{{ formatOptional(formatKnowledgeSourceDescription(row.sourceDescription)) }}</dd>
               </div>
               <div>
                 <dt>适用模块</dt>
@@ -176,10 +178,11 @@ const formatMaterialTopic = (value?: string) =>
         {{ formatDateTime(row.updatedAt) }}
       </template>
     </el-table-column>
-    <el-table-column label="操作" width="190" fixed="right">
+    <el-table-column label="操作" width="220" fixed="right">
       <template #default="{ row }: { row: KnowledgeFile }">
         <el-button link type="primary" @click="emit('detail', row)">查看详情</el-button>
         <template v-if="canManage">
+          <el-button link type="primary" @click="emit('edit', row)">审核 / 编辑资料</el-button>
           <el-button
             v-if="row.fileType !== 'manual'"
             link

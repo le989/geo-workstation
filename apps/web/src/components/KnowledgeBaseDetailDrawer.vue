@@ -74,6 +74,7 @@ const emit = defineEmits<{
   "page-files": [page: number];
   "size-files": [pageSize: number];
   "file-detail": [file: KnowledgeFile];
+  "file-edit": [file: KnowledgeFile];
   "reparse-file": [file: KnowledgeFile];
   "delete-file": [file: KnowledgeFile];
 }>();
@@ -527,6 +528,7 @@ const hasFileFilters = computed(() =>
                 :can-manage="canManage"
                 :knowledge-base-name="detail.knowledgeBase.name"
                 @detail="emit('file-detail', $event)"
+                @edit="emit('file-edit', $event)"
                 @reparse="emit('reparse-file', $event)"
                 @delete="emit('delete-file', $event)"
               />
@@ -539,6 +541,7 @@ const hasFileFilters = computed(() =>
                 :can-manage="canManage"
                 :knowledge-base-name="detail.knowledgeBase.name"
                 @detail="emit('file-detail', $event)"
+                @edit="emit('file-edit', $event)"
                 @reparse="emit('reparse-file', $event)"
                 @delete="emit('delete-file', $event)"
               />

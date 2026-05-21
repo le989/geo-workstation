@@ -144,6 +144,7 @@ export type TextImportPayload = {
 
 export type KnowledgeMaterialMetadataPayload = {
   title?: string;
+  content?: string;
   materialType?: string;
   materialTopic?: string;
   applicableModules?: KnowledgeApplicableModule[];

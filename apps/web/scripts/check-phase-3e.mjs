@@ -65,6 +65,15 @@ const pageRequiredSnippets = [
   "不正式引用",
   "没有符合条件的资料",
   "排查信息",
+  "编辑资料",
+  "审核 / 编辑资料",
+  "保存资料属性",
+  "当前正式引用状态",
+  "正式引用状态由审核状态、可信度和删除状态自动推导，不能手动编辑。",
+  "整理后的正文内容",
+  "updateKnowledgeFileMetadata",
+  "file-edit",
+  "formatKnowledgeSourceDescription",
   "KnowledgeBaseDetailDrawer",
   "KnowledgeMaterialIngestWizard",
   "KnowledgeChunkTable",
@@ -116,11 +125,13 @@ const pageSource = [
   await readSource("src/components/KnowledgeBaseFormDialog.vue"),
   await readSource("src/components/KnowledgeChunkFormDialog.vue"),
   await readSource("src/components/KnowledgeChunkTable.vue"),
+  await readSource("src/components/KnowledgeFileCards.vue"),
   await readSource("src/components/KnowledgeFileTable.vue"),
   await readSource("src/components/KnowledgeFileUpload.vue"),
   await readSource("src/components/KnowledgeMaterialIngestWizard.vue"),
   await readSource("src/components/KnowledgeTextImportForm.vue"),
-  await readSource("src/utils/knowledge-citation.ts")
+  await readSource("src/utils/knowledge-citation.ts"),
+  await readSource("src/utils/knowledge-source.ts")
 ].join("\n");
 
 for (const snippet of pageRequiredSnippets) {

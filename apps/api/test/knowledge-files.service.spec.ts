@@ -635,6 +635,91 @@ describe("KnowledgeFilesService", () => {
     ).rejects.toThrow("allowedDepartmentIds must belong to current company");
   });
 
+  it("updates draft review metadata and manual content without breaking company isolation", async () => {
+    const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const otherCompanyContext = contextFor(operatorB, companyB, MembershipRole.operator);
+    const companyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        name: `KB-1 Review Draft Base ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const manual = await knowledgeFilesService.createManualMaterial(
+      companyBase.id,
+      {
+        title: "待审核售后草稿",
+        materialTopic: "故障排查",
+        materialType: KnowledgeMaterialType.aftersales_material,
+        applicableModules: ["aftersales-qa"],
+        sourceDescription: "来源：售后问答反馈",
+        trustLevel: KnowledgeTrustLevel.medium,
+        reviewStatus: KnowledgeReviewStatus.pending,
+        content: "待审核草稿正文说明 M300 无输出时应先确认供电、输出类型和负载接线。"
+      },
+      companyAdminContext
+    );
+
+    const pendingCitable = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        officialCitationStatus: "citable"
+      } as Parameters<typeof knowledgeFilesService.findMany>[1],
+      companyAdminContext
+    );
+    expect(pendingCitable.items.map((item) => item.id)).not.toContain(manual.knowledgeFile.id);
+
+    const updated = await knowledgeFilesService.updateMetadata(
+      manual.knowledgeFile.id,
+      {
+        title: "已审核售后知识",
+        materialTopic: "安装接线",
+        materialType: KnowledgeMaterialType.aftersales_material,
+        applicableModules: ["aftersales-qa", "geo-content"],
+        sourceDescription: "来源：售后问答反馈；说明：管理员已整理为标准售后知识。",
+        reviewStatus: KnowledgeReviewStatus.approved,
+        trustLevel: KnowledgeTrustLevel.high,
+        content: "已审核正文：M300 无输出时，先确认供电电压，再确认 NPN/PNP 输出类型和负载接线。"
+      } as Parameters<typeof knowledgeFilesService.updateMetadata>[1] & { content: string },
+      companyAdminContext
+    );
+    const detail = await knowledgeFilesService.getDetail(manual.knowledgeFile.id, companyAdminContext);
+    const approvedCitable = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        officialCitationStatus: "citable"
+      } as Parameters<typeof knowledgeFilesService.findMany>[1],
+      companyAdminContext
+    );
+
+    expect(updated).toMatchObject({
+      title: "已审核售后知识",
+      materialTopic: "安装接线",
+      materialType: KnowledgeMaterialType.aftersales_material,
+      applicableModules: ["aftersales-qa", "geo-content"],
+      sourceDescription: "来源：售后问答反馈；说明：管理员已整理为标准售后知识。",
+      reviewStatus: KnowledgeReviewStatus.approved,
+      trustLevel: KnowledgeTrustLevel.high
+    });
+    expect(detail.latestChunks[0]).toMatchObject({
+      title: "已审核售后知识",
+      content: "已审核正文：M300 无输出时，先确认供电电压，再确认 NPN/PNP 输出类型和负载接线。",
+      materialType: KnowledgeMaterialType.aftersales_material
+    });
+    expect(approvedCitable.items.map((item) => item.id)).toContain(manual.knowledgeFile.id);
+    await expect(
+      knowledgeFilesService.updateMetadata(
+        manual.knowledgeFile.id,
+        {
+          reviewStatus: KnowledgeReviewStatus.disabled
+        },
+        otherCompanyContext
+      )
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it("limits aftersales materials by allowed departments while keeping admin bypass", async () => {
     const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
     const allowedOperatorContext = contextFor(

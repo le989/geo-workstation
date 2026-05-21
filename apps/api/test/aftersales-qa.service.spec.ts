@@ -1351,7 +1351,9 @@ describe("AftersalesQaService", () => {
     expect(knowledgeFile.trustLevel).toBe(KnowledgeTrustLevel.medium);
     expect(knowledgeFile.materialType).toBe(KnowledgeMaterialType.aftersales_material);
     expect(knowledgeFile.sourceDescription).toContain("来源：售后问答反馈");
-    expect(knowledgeFile.sourceDescription).toContain(submitted.feedbackId);
+    expect(knowledgeFile.sourceDescription).toContain("由管理员从售后问答反馈转入知识库草稿");
+    expect(knowledgeFile.sourceDescription).not.toContain(submitted.feedbackId);
+    expect(knowledgeFile.sourceDescription).not.toContain(answer.recordId);
     expect(knowledgeFile.allowedDepartmentIds).toEqual([allowedDepartment.id]);
     expect(isKnowledgeFileOfficiallyCitable(knowledgeFile)).toBe(false);
     expect(chunk.content).toContain("【建议沉淀为知识】");

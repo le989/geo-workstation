@@ -15,6 +15,7 @@ import {
   getKnowledgeFileCitationLabel,
   isKnowledgeFileOfficiallyCitable
 } from "@/utils/knowledge-citation";
+import { formatKnowledgeSourceDescription } from "@/utils/knowledge-source";
 import KnowledgeParseStatusTag from "./KnowledgeParseStatusTag.vue";
 
 defineProps<{
@@ -28,6 +29,7 @@ defineProps<{
 
 const emit = defineEmits<{
   detail: [file: KnowledgeFile];
+  edit: [file: KnowledgeFile];
   reparse: [file: KnowledgeFile];
   delete: [file: KnowledgeFile];
 }>();
@@ -100,6 +102,10 @@ const formatMaterialTopic = (value?: string) =>
             </dd>
           </div>
           <div>
+            <dt>来源说明</dt>
+            <dd>{{ formatOptional(formatKnowledgeSourceDescription(file.sourceDescription)) }}</dd>
+          </div>
+          <div>
             <dt>更新时间</dt>
             <dd>{{ formatDateTime(file.updatedAt) }}</dd>
           </div>
@@ -110,6 +116,7 @@ const formatMaterialTopic = (value?: string) =>
         <KnowledgeParseStatusTag :status="file.parseStatus" />
         <el-button link type="primary" @click="emit('detail', file)">查看详情</el-button>
         <template v-if="canManage">
+          <el-button link type="primary" @click="emit('edit', file)">编辑资料</el-button>
           <el-button
             v-if="file.fileType !== 'manual'"
             link

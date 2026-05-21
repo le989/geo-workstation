@@ -1621,8 +1621,8 @@ export class AftersalesQaService {
     feedback: FeedbackWithRelations,
     sourceDescription?: string
   ): string {
-    const source = `来源：售后问答反馈 ${feedback.id}`;
-    const record = `原问答记录：${feedback.questionRecordId}`;
+    const source = "来源：售后问答反馈";
+    const record = "说明：由管理员从售后问答反馈转入知识库草稿，待审核后进入正式知识库。";
     const extra = sourceDescription?.trim();
 
     return extra ? `${source}；${record}；${extra}` : `${source}；${record}`;
