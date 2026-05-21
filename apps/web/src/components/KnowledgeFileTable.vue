@@ -44,6 +44,9 @@ const formatAllowedDepartments = (ids?: string[]) =>
 
 const formatMaterialTopic = (value?: string) =>
   materialTopicLabelMap[value ?? ""] ?? formatOptional(value);
+
+const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
+  formatOptional(file.directoryName ?? fallbackName);
 </script>
 
 <template>
@@ -126,8 +129,18 @@ const formatMaterialTopic = (value?: string) =>
       </template>
     </el-table-column>
     <el-table-column label="所属目录" min-width="150">
-      <template #default>
-        {{ formatOptional(knowledgeBaseName) }}
+      <template #default="{ row }: { row: KnowledgeFile }">
+        <div class="knowledge-directory-cell">
+          <span>{{ formatDirectoryName(row, knowledgeBaseName) }}</span>
+          <el-tag
+            v-if="row.directoryStatus === 'disabled'"
+            size="small"
+            type="info"
+            effect="plain"
+          >
+            已停用
+          </el-tag>
+        </div>
       </template>
     </el-table-column>
     <el-table-column prop="reviewStatus" label="审核状态" width="116">
@@ -232,5 +245,12 @@ const formatMaterialTopic = (value?: string) =>
 .knowledge-citation-cell small {
   color: #6b7280;
   line-height: 1.25;
+}
+
+.knowledge-directory-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 </style>

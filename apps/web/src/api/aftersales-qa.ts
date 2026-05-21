@@ -222,6 +222,7 @@ export type AftersalesFeedbackDetail = AftersalesFeedbackListItem & {
 export type ConvertFeedbackKnowledgeDraftPayload = {
   knowledgeBaseId: string;
   title: string;
+  directoryId?: string;
   materialType?: KnowledgeMaterialType;
   materialTopic?: string;
   content: string;

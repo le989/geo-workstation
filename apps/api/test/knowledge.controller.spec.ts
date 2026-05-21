@@ -86,6 +86,44 @@ describe("GeoKnowledgeController", () => {
       .expect(200);
     expect(detailBeforeImport.body.data.chunksCount).toBe(0);
 
+    const directoriesBeforeCreate = await request(app.getHttpServer())
+      .get(`/api/knowledge-bases/${createResponse.body.data.id}/directories`)
+      .expect(200);
+    expect(directoriesBeforeCreate.body.data.items).toHaveLength(1);
+    expect(directoriesBeforeCreate.body.data.items[0]).toMatchObject({
+      name: "默认根目录",
+      status: "active",
+      isDefault: true
+    });
+
+    const createdDirectory = await request(app.getHttpServer())
+      .post(`/api/knowledge-bases/${createResponse.body.data.id}/directories`)
+      .send({
+        name: "FAQ 目录"
+      })
+      .expect(201);
+    expect(createdDirectory.body.data).toMatchObject({
+      name: "FAQ 目录",
+      status: "active",
+      isDefault: false
+    });
+
+    const renamedDirectory = await request(app.getHttpServer())
+      .patch(`/api/knowledge-directories/${createdDirectory.body.data.id}`)
+      .send({
+        name: "售后 FAQ"
+      })
+      .expect(200);
+    expect(renamedDirectory.body.data.name).toBe("售后 FAQ");
+
+    const disabledDirectory = await request(app.getHttpServer())
+      .patch(`/api/knowledge-directories/${createdDirectory.body.data.id}/disable`)
+      .expect(200);
+    expect(disabledDirectory.body.data).toMatchObject({
+      id: createdDirectory.body.data.id,
+      status: "disabled"
+    });
+
     const updateResponse = await request(app.getHttpServer())
       .patch(`/api/knowledge-bases/${createResponse.body.data.id}`)
       .send({

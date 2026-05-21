@@ -13,6 +13,10 @@ import type { CreateKnowledgeBaseDto } from "./dto/create-knowledge-base.dto";
 import type { QueryKnowledgeBasesDto } from "./dto/query-knowledge-bases.dto";
 import type { TextImportKnowledgeDto } from "./dto/text-import-knowledge.dto";
 import type { UpdateKnowledgeBaseDto } from "./dto/update-knowledge-base.dto";
+import {
+  DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
+  KNOWLEDGE_DIRECTORY_ACTIVE_STATUS
+} from "./knowledge-directories.service";
 import { toOptionalInt } from "./dto/knowledge-dto-transforms";
 import {
   normalizeCreateKnowledgeBase,
@@ -130,41 +134,57 @@ export class KnowledgeBasesService {
     const companyId = context ? getCurrentCompanyId(context) : undefined;
     const visibility = context ? resolveCreateVisibility(context) : undefined;
 
-    const created = await this.prisma.knowledgeBase.create({
-      data: {
-        name: normalized.name,
-        productLine: normalized.productLine,
-        description: normalized.description,
-        status: normalized.status,
-        ...(companyId
-          ? {
-              company: {
-                connect: {
-                  id: companyId
+    const created = await this.prisma.$transaction(async (tx) => {
+      const knowledgeBase = await tx.knowledgeBase.create({
+        data: {
+          name: normalized.name,
+          productLine: normalized.productLine,
+          description: normalized.description,
+          status: normalized.status,
+          ...(companyId
+            ? {
+                company: {
+                  connect: {
+                    id: companyId
+                  }
                 }
               }
+            : {}),
+          ...(visibility
+            ? {
+                visibility
+              }
+            : {}),
+          createdBy: {
+            connect: {
+              id: createdById
             }
-          : {}),
-        ...(visibility
-          ? {
-              visibility
-            }
-          : {}),
-        createdBy: {
-          connect: {
-            id: createdById
-          }
-        },
-        ...(context
-          ? {
-              updatedBy: {
-                connect: {
-                  id: context.user.id
+          },
+          ...(context
+            ? {
+                updatedBy: {
+                  connect: {
+                    id: context.user.id
+                  }
                 }
               }
-            }
-          : {})
-      }
+            : {})
+        }
+      });
+
+      await tx.knowledgeDirectory.create({
+        data: {
+          knowledgeBaseId: knowledgeBase.id,
+          companyId: companyId ?? null,
+          name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
+          status: KNOWLEDGE_DIRECTORY_ACTIVE_STATUS,
+          isDefault: true,
+          createdById,
+          updatedById: context?.user.id ?? null
+        }
+      });
+
+      return knowledgeBase;
     });
 
     return this.toKnowledgeBaseResponse(created);

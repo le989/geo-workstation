@@ -41,6 +41,9 @@ const formatApplicableModules = (modules?: KnowledgeFile["applicableModules"]) =
 
 const formatMaterialTopic = (value?: string) =>
   materialTopicLabelMap[value ?? ""] ?? formatOptional(value);
+
+const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
+  formatOptional(file.directoryName ?? fallbackName);
 </script>
 
 <template>
@@ -84,7 +87,17 @@ const formatMaterialTopic = (value?: string) =>
         <dl class="knowledge-file-card__meta">
           <div>
             <dt>所属目录</dt>
-            <dd>{{ formatOptional(knowledgeBaseName) }}</dd>
+            <dd>
+              {{ formatDirectoryName(file, knowledgeBaseName) }}
+              <el-tag
+                v-if="file.directoryStatus === 'disabled'"
+                size="small"
+                type="info"
+                effect="plain"
+              >
+                已停用
+              </el-tag>
+            </dd>
           </div>
           <div>
             <dt>适用模块</dt>

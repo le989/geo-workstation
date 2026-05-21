@@ -6,6 +6,7 @@ import type {
   KnowledgeBaseDetail,
   KnowledgeChunk,
   KnowledgeChunkQuery,
+  KnowledgeDirectory,
   KnowledgeFile,
   KnowledgeFileQuery,
   KnowledgeOfficialCitationStatus,
@@ -47,6 +48,8 @@ const props = defineProps<{
   filesPage: number;
   filesPageSize: number;
   filesLoading?: boolean;
+  directories?: KnowledgeDirectory[];
+  directoriesLoading?: boolean;
   textImportSubmitting?: boolean;
   uploading?: boolean;
   canManage?: boolean;
@@ -77,6 +80,9 @@ const emit = defineEmits<{
   "file-edit": [file: KnowledgeFile];
   "reparse-file": [file: KnowledgeFile];
   "delete-file": [file: KnowledgeFile];
+  "create-directory": [name: string];
+  "rename-directory": [payload: { id: string; name: string }];
+  "disable-directory": [directory: KnowledgeDirectory];
 }>();
 
 const chunkFilters = reactive({
@@ -91,6 +97,7 @@ const showChunkAdvancedFilters = ref(false);
 
 const fileFilters = reactive({
   applicableModule: "" as KnowledgeApplicableModule | "",
+  directoryId: "",
   fileType: "",
   materialType: "",
   materialTopic: "",
@@ -101,6 +108,11 @@ const fileFilters = reactive({
   trustLevel: "" as KnowledgeTrustLevel | ""
 });
 const fileViewMode = ref<"card" | "table">("table");
+const directoryManageVisible = ref(false);
+const directoryFormName = ref("");
+const editingDirectoryId = ref("");
+const directoryFormError = ref("");
+const directoryItems = computed(() => props.directories ?? []);
 
 watch(
   () => props.detail?.knowledgeBase.id,
@@ -112,6 +124,7 @@ watch(
     chunkFilters.tagsText = "";
     showChunkAdvancedFilters.value = false;
     fileFilters.fileType = "";
+    fileFilters.directoryId = "";
     fileFilters.materialType = "";
     fileFilters.materialTopic = "";
     fileFilters.officialCitationStatus = "";
@@ -150,6 +163,7 @@ const handleChunkReset = () => {
 const handleFileSearch = () => {
   emit("search-files", {
     applicableModule: fileFilters.applicableModule || undefined,
+    directoryId: fileFilters.directoryId || undefined,
     fileType: fileFilters.fileType.trim() || undefined,
     materialType: fileFilters.materialType || undefined,
     materialTopic: fileFilters.materialTopic || undefined,
@@ -163,6 +177,7 @@ const handleFileSearch = () => {
 
 const handleFileReset = () => {
   fileFilters.applicableModule = "";
+  fileFilters.directoryId = "";
   fileFilters.fileType = "";
   fileFilters.materialType = "";
   fileFilters.materialTopic = "";
@@ -179,7 +194,8 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
 
 const hasFileFilters = computed(() =>
   Boolean(
-    fileFilters.applicableModule ||
+      fileFilters.applicableModule ||
+      fileFilters.directoryId ||
       fileFilters.fileType ||
       fileFilters.materialType ||
       fileFilters.materialTopic ||
@@ -190,6 +206,55 @@ const hasFileFilters = computed(() =>
       fileFilters.trustLevel
   )
 );
+
+const getDirectoryStatusLabel = (directory: KnowledgeDirectory) =>
+  directory.status === "active" ? "启用" : "已停用";
+
+const resetDirectoryForm = () => {
+  directoryFormName.value = "";
+  editingDirectoryId.value = "";
+  directoryFormError.value = "";
+};
+
+const openDirectoryManager = () => {
+  resetDirectoryForm();
+  directoryManageVisible.value = true;
+};
+
+const startCreateDirectory = () => {
+  resetDirectoryForm();
+};
+
+const startRenameDirectory = (directory: KnowledgeDirectory) => {
+  if (directory.isDefault) {
+    directoryFormError.value = "默认根目录不能重命名。";
+    return;
+  }
+
+  editingDirectoryId.value = directory.id;
+  directoryFormName.value = directory.name;
+  directoryFormError.value = "";
+};
+
+const submitDirectoryForm = () => {
+  const name = directoryFormName.value.trim();
+
+  if (!name) {
+    directoryFormError.value = "请填写目录名称。";
+    return;
+  }
+
+  if (editingDirectoryId.value) {
+    emit("rename-directory", {
+      id: editingDirectoryId.value,
+      name
+    });
+  } else {
+    emit("create-directory", name);
+  }
+
+  resetDirectoryForm();
+};
 </script>
 
 <template>
@@ -400,10 +465,15 @@ const hasFileFilters = computed(() =>
                   <h3>资料列表管理</h3>
                   <p>搜索资料标题、主题、来源说明，判断哪些资料可被售后问答 / GEO 内容正式引用。</p>
                 </div>
-                <el-radio-group v-model="fileViewMode" size="small" class="knowledge-view-toggle">
-                  <el-radio-button label="card">卡片视图</el-radio-button>
-                  <el-radio-button label="table">表格视图</el-radio-button>
-                </el-radio-group>
+                <div class="knowledge-file-toolbar">
+                  <el-button v-if="canManage" @click="openDirectoryManager">
+                    目录管理
+                  </el-button>
+                  <el-radio-group v-model="fileViewMode" size="small" class="knowledge-view-toggle">
+                    <el-radio-button label="card">卡片视图</el-radio-button>
+                    <el-radio-button label="table">表格视图</el-radio-button>
+                  </el-radio-group>
+                </div>
               </div>
 
               <el-form class="knowledge-inner-filters" label-position="top">
@@ -414,6 +484,26 @@ const hasFileFilters = computed(() =>
                     placeholder="搜索资料标题、主题、来源说明"
                     @keyup.enter="handleFileSearch"
                   />
+                </el-form-item>
+                <el-form-item label="所属目录">
+                  <el-select
+                    v-model="fileFilters.directoryId"
+                    clearable
+                    filterable
+                    placeholder="全部目录"
+                    :loading="directoriesLoading"
+                  >
+                    <el-option
+                      v-for="directory in directoryItems"
+                      :key="directory.id"
+                      :label="
+                        directory.status === 'disabled'
+                          ? `${directory.name}（已停用）`
+                          : directory.name
+                      "
+                      :value="directory.id"
+                    />
+                  </el-select>
                 </el-form-item>
                 <el-form-item label="资料类型">
                   <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
@@ -577,6 +667,7 @@ const hasFileFilters = computed(() =>
                 :uploading="uploading"
                 :can-review="canReview"
                 :departments="departments"
+                :directories="directories"
                 @submit="emit('text-import', $event)"
                 @upload="emit('upload-file', $event)"
               />
@@ -602,6 +693,93 @@ const hasFileFilters = computed(() =>
             </el-descriptions>
           </el-collapse-item>
         </el-collapse>
+
+        <el-dialog
+          v-model="directoryManageVisible"
+          title="目录管理"
+          width="640px"
+          append-to-body
+        >
+          <section v-loading="directoriesLoading" class="knowledge-directory-manager">
+            <el-alert
+              v-if="directoryFormError"
+              :title="directoryFormError"
+              type="error"
+              show-icon
+              :closable="false"
+            />
+            <el-alert
+              v-if="directoryItems.filter((directory) => !directory.isDefault).length === 0"
+              title="当前没有自定义目录，可以先使用默认根目录。"
+              type="info"
+              show-icon
+              :closable="false"
+            />
+            <div class="knowledge-directory-form">
+              <el-input
+                v-model="directoryFormName"
+                maxlength="40"
+                show-word-limit
+                placeholder="目录名称，例如 FAQ、客户案例、售后资料"
+                @keyup.enter="submitDirectoryForm"
+              />
+              <el-button type="primary" @click="submitDirectoryForm">
+                {{ editingDirectoryId ? "保存名称" : "新增目录" }}
+              </el-button>
+              <el-button v-if="editingDirectoryId" @click="startCreateDirectory">
+                取消编辑
+              </el-button>
+            </div>
+            <el-table
+              :data="directoryItems"
+              row-key="id"
+              border
+              empty-text="暂无目录，系统会提供默认根目录。"
+            >
+              <el-table-column prop="name" label="目录名称" min-width="180">
+                <template #default="{ row }: { row: KnowledgeDirectory }">
+                  <strong>{{ row.name }}</strong>
+                  <el-tag v-if="row.isDefault" size="small" type="success" effect="plain">
+                    默认根目录
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="110">
+                <template #default="{ row }: { row: KnowledgeDirectory }">
+                  <el-tag
+                    :type="row.status === 'active' ? 'success' : 'info'"
+                    effect="plain"
+                  >
+                    {{ getDirectoryStatusLabel(row) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="176">
+                <template #default="{ row }: { row: KnowledgeDirectory }">
+                  <el-button
+                    link
+                    type="primary"
+                    :disabled="row.isDefault || row.status !== 'active'"
+                    @click="startRenameDirectory(row)"
+                  >
+                    重命名
+                  </el-button>
+                  <el-button
+                    link
+                    type="danger"
+                    :disabled="row.isDefault || row.status !== 'active'"
+                    @click="emit('disable-directory', row)"
+                  >
+                    停用
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <p class="knowledge-directory-note">
+              停用后不再用于新资料归类，已有资料仍可查看。
+            </p>
+          </section>
+        </el-dialog>
       </template>
     </section>
   </el-drawer>

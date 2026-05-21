@@ -3,6 +3,7 @@ import { computed, reactive, ref } from "vue";
 import { ElMessageBox } from "element-plus";
 import type { Department } from "@/api/departments";
 import type {
+  KnowledgeDirectory,
   KnowledgeApplicableModule,
   ManualKnowledgeMaterialPayload,
   UploadKnowledgeFileExtraFields
@@ -31,6 +32,7 @@ const props = defineProps<{
   uploading?: boolean;
   canReview?: boolean;
   departments?: Department[];
+  directories?: KnowledgeDirectory[];
 }>();
 
 const emit = defineEmits<{
@@ -54,6 +56,7 @@ const form = reactive({
   allowedDepartmentIds: [] as string[],
   applicableModules: [...productDefaults.applicableModules] as KnowledgeApplicableModule[],
   content: "",
+  directoryId: "",
   materialTopic: "",
   materialType: "product_material",
   method: "manual" as IngestMethod,
@@ -79,6 +82,13 @@ const selectedModuleLabels = computed(() =>
   form.applicableModules.map((item) => applicableModuleLabelMap[item] ?? item).join("、")
 );
 const selectedFileName = computed(() => selectedFile.value?.name ?? "");
+const activeDirectoryOptions = computed(() =>
+  (props.directories ?? []).filter((directory) => directory.status === "active")
+);
+const selectedDirectoryLabel = computed(() => {
+  const directory = activeDirectoryOptions.value.find((item) => item.id === form.directoryId);
+  return directory?.name ?? "默认根目录";
+});
 const shouldSuggestWordSplit = computed(() => {
   const file = selectedFile.value;
   if (!file || !file.name.toLowerCase().endsWith(".docx")) {
@@ -118,6 +128,7 @@ const isDirty = computed(
     Boolean(
       form.title.trim() ||
         form.content.trim() ||
+        form.directoryId ||
         form.materialTopic ||
         form.sourceDescription.trim() ||
         form.tagsText.trim() ||
@@ -231,6 +242,7 @@ const resetWizard = () => {
     allowedDepartmentIds: [],
     applicableModules: [...productDefaults.applicableModules],
     content: "",
+    directoryId: "",
     materialTopic: "",
     materialType: "product_material",
     method: "manual",
@@ -267,6 +279,7 @@ const buildMetadata = (): UploadKnowledgeFileExtraFields => ({
   allowedDepartmentIds:
     form.materialType === "aftersales_material" ? form.allowedDepartmentIds : [],
   applicableModules: form.applicableModules,
+  directoryId: form.directoryId || undefined,
   materialTopic: form.materialTopic || undefined,
   materialType: form.materialType || "content_reference_material",
   reviewStatus: props.canReview ? form.reviewStatus : "pending",
@@ -394,7 +407,22 @@ const submit = () => {
         </el-form-item>
 
         <el-form-item label="所属目录" required>
-          <el-input :model-value="props.knowledgeBaseName || '当前知识库'" disabled />
+          <el-select
+            v-model="form.directoryId"
+            placeholder="默认根目录"
+            clearable
+            filterable
+          >
+            <el-option
+              v-for="directory in activeDirectoryOptions"
+              :key="directory.id"
+              :label="directory.name"
+              :value="directory.id"
+            />
+          </el-select>
+          <p class="knowledge-field-help">
+            不选择时归入默认根目录；不需要先建目录也能入库。
+          </p>
         </el-form-item>
 
         <el-form-item v-if="isManual" label="正文内容" required class="form-span-2">
@@ -523,6 +551,7 @@ const submit = () => {
         <strong>{{ selectedMaterialTypeLabel }}</strong>
         <strong>{{ selectedReviewStatusLabel }}</strong>
         <strong>{{ selectedTrustLevelLabel }}可信</strong>
+        <strong>{{ selectedDirectoryLabel }}</strong>
         <small>{{ selectedModuleLabels || "未设置适用模块" }}</small>
         <small v-if="selectedDepartmentNames">售后可见部门：{{ selectedDepartmentNames }}</small>
       </div>

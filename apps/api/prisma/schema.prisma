@@ -178,6 +178,8 @@ model User {
   updatedExpansionJobs  ExpansionJob[]          @relation("ExpansionJobUpdatedBy")
   knowledgeBases        KnowledgeBase[]         @relation("KnowledgeBaseCreatedBy")
   updatedKnowledgeBases KnowledgeBase[]         @relation("KnowledgeBaseUpdatedBy")
+  knowledgeDirectories  KnowledgeDirectory[]    @relation("KnowledgeDirectoryCreatedBy")
+  updatedKnowledgeDirectories KnowledgeDirectory[] @relation("KnowledgeDirectoryUpdatedBy")
   knowledgeFiles        KnowledgeFile[]         @relation("KnowledgeFileCreatedBy")
   updatedKnowledgeFiles KnowledgeFile[]         @relation("KnowledgeFileUpdatedBy")
   instructionTemplates  InstructionTemplate[]   @relation("InstructionTemplateCreatedBy")
@@ -215,6 +217,7 @@ model Company {
   geoPrompts            GeoPrompt[]
   expansionJobs         ExpansionJob[]
   knowledgeBases        KnowledgeBase[]
+  knowledgeDirectories  KnowledgeDirectory[]
   knowledgeFiles        KnowledgeFile[]
   knowledgeChunks       KnowledgeChunk[]
   instructionTemplates  InstructionTemplate[]
@@ -415,6 +418,7 @@ model KnowledgeBase {
   updatedAt    DateTime         @updatedAt @map("updated_at")
   deletedAt    DateTime?        @map("deleted_at")
   files        KnowledgeFile[]
+  directories  KnowledgeDirectory[]
   chunks       KnowledgeChunk[]
   contentTasks ContentTask[]
 
@@ -435,6 +439,8 @@ model KnowledgeFile {
   company         Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   knowledgeBaseId String           @map("knowledge_base_id")
   knowledgeBase   KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  directoryId     String?          @map("directory_id")
+  directory       KnowledgeDirectory? @relation(fields: [directoryId], references: [id], onDelete: SetNull)
   title           String?
   fileName        String           @map("file_name")
   fileType        String           @map("file_type")
@@ -462,6 +468,7 @@ model KnowledgeFile {
 
   @@index([companyId])
   @@index([knowledgeBaseId])
+  @@index([directoryId])
   @@index([createdById])
   @@index([updatedById])
   @@index([parseStatus])
@@ -471,6 +478,32 @@ model KnowledgeFile {
   @@index([reviewStatus])
   @@index([deletedAt])
   @@map("knowledge_files")
+}
+
+model KnowledgeDirectory {
+  id              String         @id @default(cuid())
+  companyId       String?        @map("company_id")
+  company         Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  knowledgeBaseId String         @map("knowledge_base_id")
+  knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  name            String
+  status          String         @default("active")
+  isDefault       Boolean        @default(false) @map("is_default")
+  createdById     String         @map("created_by")
+  createdBy       User           @relation("KnowledgeDirectoryCreatedBy", fields: [createdById], references: [id])
+  updatedById     String?        @map("updated_by")
+  updatedBy       User?          @relation("KnowledgeDirectoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  disabledAt      DateTime?      @map("disabled_at")
+  files           KnowledgeFile[]
+
+  @@index([companyId])
+  @@index([knowledgeBaseId])
+  @@index([status])
+  @@index([isDefault])
+  @@unique([knowledgeBaseId, name])
+  @@map("knowledge_directories")
 }
 
 model KnowledgeChunk {
