@@ -4,6 +4,7 @@ import {
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   UnauthorizedException
@@ -23,11 +24,86 @@ import type {
 } from "../auth/auth.types";
 import { AftersalesQaService } from "./aftersales-qa.service";
 import { AskAftersalesQuestionDto } from "./dto/ask-aftersales-question.dto";
+import { CreateAftersalesConversationDto } from "./dto/create-aftersales-conversation.dto";
+import { QueryAftersalesConversationsDto } from "./dto/query-aftersales-conversations.dto";
 import { QueryAftersalesRecordsDto } from "./dto/query-aftersales-records.dto";
+import { UpdateAftersalesConversationDto } from "./dto/update-aftersales-conversation.dto";
+import { UpdateAftersalesConversationStatusDto } from "./dto/update-aftersales-conversation-status.dto";
 
 @Controller("api/aftersales-qa")
 export class AftersalesQaController {
   constructor(@Inject(AftersalesQaService) private readonly service: AftersalesQaService) {}
+
+  @Get("conversations")
+  findConversations(
+    @Query(createValidationPipe(QueryAftersalesConversationsDto))
+    query: QueryAftersalesConversationsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.findConversations(query, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Post("conversations")
+  createConversation(
+    @Body(createValidationPipe(CreateAftersalesConversationDto))
+    body: CreateAftersalesConversationDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.createConversation(body, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Get("conversations/:id")
+  getConversation(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.getConversation(id, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Patch("conversations/:id")
+  updateConversation(
+    @Param("id") id: string,
+    @Body(createValidationPipe(UpdateAftersalesConversationDto))
+    body: UpdateAftersalesConversationDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.updateConversation(id, body, this.buildContext(user, currentCompany, currentMembership));
+  }
+
+  @Patch("conversations/:id/status")
+  updateConversationStatus(
+    @Param("id") id: string,
+    @Body(createValidationPipe(UpdateAftersalesConversationStatusDto))
+    body: UpdateAftersalesConversationStatusDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.updateConversationStatus(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Post("conversations/:id/ask")
+  askInConversation(
+    @Param("id") id: string,
+    @Body(createValidationPipe(AskAftersalesQuestionDto)) body: AskAftersalesQuestionDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.service.askInConversation(id, body, this.buildContext(user, currentCompany, currentMembership));
+  }
 
   @Post("ask")
   ask(

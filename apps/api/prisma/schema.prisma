@@ -121,11 +121,17 @@ enum KnowledgeTrustLevel {
 enum AftersalesAnswerStatus {
   answered
   no_reliable_source
+  needs_clarification
   failed
 }
 
 enum AftersalesFeedbackStatus {
   none
+}
+
+enum AftersalesConversationStatus {
+  active
+  archived
 }
 
 enum RecordMethod {
@@ -171,6 +177,7 @@ model User {
   aiCallLogs            AiCallLog[]             @relation("AiCallLogCreatedBy")
   aiUsageRecords        AiUsageRecord[]         @relation("AiUsageRecordUser")
   operationLogs         OperationLog[]          @relation("OperationLogUser")
+  aftersalesConversations AftersalesConversation[] @relation("AftersalesConversationUser")
   aftersalesQuestionRecords AftersalesQuestionRecord[] @relation("AftersalesQuestionRecordUser")
 
   @@map("users")
@@ -202,6 +209,7 @@ model Company {
   aiCallLogs            AiCallLog[]
   aiUsageRecords        AiUsageRecord[]
   operationLogs         OperationLog[]
+  aftersalesConversations AftersalesConversation[]
   aftersalesQuestionRecords AftersalesQuestionRecord[]
 
   @@map("companies")
@@ -239,6 +247,7 @@ model Department {
   modulePermissions DepartmentModulePermission[]
   aiUsageRecords    AiUsageRecord[]
   operationLogs     OperationLog[]
+  aftersalesConversations AftersalesConversation[]
   aftersalesQuestionRecords AftersalesQuestionRecord[]
   createdAt         DateTime                     @default(now()) @map("created_at")
   updatedAt         DateTime                     @updatedAt @map("updated_at")
@@ -782,6 +791,9 @@ model AiUsageRecord {
 
 model AftersalesQuestionRecord {
   id                String                    @id @default(cuid())
+  conversationId    String?                   @map("conversation_id")
+  conversation      AftersalesConversation?   @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  sequence          Int?
   companyId         String                    @map("company_id")
   company           Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   userId            String                    @map("user_id")
@@ -803,6 +815,8 @@ model AftersalesQuestionRecord {
   updatedAt         DateTime                  @updatedAt @map("updated_at")
 
   @@index([companyId])
+  @@index([conversationId])
+  @@index([conversationId, sequence])
   @@index([userId])
   @@index([departmentId])
   @@index([answerStatus])
@@ -811,6 +825,29 @@ model AftersalesQuestionRecord {
   @@index([aiUsageRecordId])
   @@index([createdAt])
   @@map("aftersales_question_records")
+}
+
+model AftersalesConversation {
+  id             String                       @id @default(cuid())
+  companyId      String                       @map("company_id")
+  company        Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId         String                       @map("user_id")
+  user           User                         @relation("AftersalesConversationUser", fields: [userId], references: [id], onDelete: Restrict)
+  departmentId   String?                      @map("department_id")
+  department     Department?                  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  title          String
+  status         AftersalesConversationStatus @default(active)
+  records        AftersalesQuestionRecord[]
+  createdAt      DateTime                     @default(now()) @map("created_at")
+  updatedAt      DateTime                     @updatedAt @map("updated_at")
+  lastMessageAt  DateTime                     @default(now()) @map("last_message_at")
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([status])
+  @@index([lastMessageAt])
+  @@map("aftersales_conversations")
 }
 
 model OperationLog {

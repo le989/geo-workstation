@@ -1,7 +1,12 @@
 import { apiGet, apiRequest } from "./http";
 import type { KnowledgeMaterialType } from "./knowledge";
 
-export type AftersalesAnswerStatus = "answered" | "no_reliable_source" | "failed";
+export type AftersalesAnswerStatus =
+  | "answered"
+  | "no_reliable_source"
+  | "needs_clarification"
+  | "failed";
+export type AftersalesConversationStatus = "active" | "archived";
 
 export type AftersalesCitedSource = {
   knowledgeBaseId: string;
@@ -20,6 +25,8 @@ export type AftersalesQuestionRecord = {
   userName?: string | null;
   departmentId?: string | null;
   departmentName?: string | null;
+  conversationId?: string | null;
+  sequence?: number | null;
   question: string;
   answer: string;
   answerStatus: AftersalesAnswerStatus;
@@ -58,6 +65,50 @@ export type AskAftersalesQuestionResult = {
   };
 };
 
+export type AftersalesConversation = {
+  id: string;
+  companyId: string;
+  userId: string;
+  userName?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  title: string;
+  status: AftersalesConversationStatus;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
+  messageCount: number;
+};
+
+export type AftersalesConversationListQuery = {
+  keyword?: string;
+  mineOnly?: boolean;
+  status?: AftersalesConversationStatus | "all";
+  scope?: "mine" | "all";
+  page?: number;
+  pageSize?: number;
+};
+
+export type AftersalesConversationListResponse = {
+  items: AftersalesConversation[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+};
+
+export type AftersalesConversationDetail = {
+  conversation: AftersalesConversation;
+  records: AftersalesQuestionRecord[];
+};
+
+export type AskAftersalesConversationResult = AskAftersalesQuestionResult & {
+  conversationId: string;
+  question: string;
+  createdAt: string;
+  sequence?: number | null;
+};
+
 export type AftersalesQuestionRecordQuery = {
   answerStatus?: AftersalesAnswerStatus;
   hasReliableSource?: boolean;
@@ -91,6 +142,50 @@ const toQueryString = (query: Record<string, string | number | boolean | undefin
 
 export const askAftersalesQuestion = (payload: AskAftersalesQuestionPayload) =>
   apiRequest<AskAftersalesQuestionResult>("/api/aftersales-qa/ask", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const getAftersalesConversations = (
+  query: AftersalesConversationListQuery = {}
+) =>
+  apiGet<AftersalesConversationListResponse>(
+    `/api/aftersales-qa/conversations${toQueryString({
+      keyword: query.keyword,
+      mineOnly: query.mineOnly,
+      status: query.status,
+      scope: query.scope,
+      page: query.page,
+      pageSize: query.pageSize
+    })}`
+  );
+
+export const createAftersalesConversation = (payload: { title?: string } = {}) =>
+  apiRequest<AftersalesConversation>("/api/aftersales-qa/conversations", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+export const getAftersalesConversation = (id: string) =>
+  apiGet<AftersalesConversationDetail>(`/api/aftersales-qa/conversations/${id}`);
+
+export const updateAftersalesConversation = (id: string, payload: { title: string }) =>
+  apiRequest<AftersalesConversation>(`/api/aftersales-qa/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+export const updateAftersalesConversationStatus = (
+  id: string,
+  payload: { status: AftersalesConversationStatus }
+) =>
+  apiRequest<AftersalesConversation>(`/api/aftersales-qa/conversations/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+export const askAftersalesConversation = (id: string, payload: AskAftersalesQuestionPayload) =>
+  apiRequest<AskAftersalesConversationResult>(`/api/aftersales-qa/conversations/${id}/ask`, {
     method: "POST",
     body: JSON.stringify(payload)
   });

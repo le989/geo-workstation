@@ -287,7 +287,35 @@ describe("AftersalesQaService", () => {
       hasReliableSource: false,
       citedSources: []
     });
-    expect(result.answer).toContain("知识库中未找到可靠依据");
+    expect(result.answer).toContain("未找到可引用资料");
+  });
+
+  it("answers system usage guide questions without citing knowledge material", async () => {
+    const result = await service.ask(
+      {
+        question: "怎么补充资料？"
+      },
+      contextFor(allowedOperator, MembershipRole.operator)
+    );
+    const operations = await prisma.operationLog.findMany({
+      where: {
+        moduleKey: "aftersales-qa",
+        action: "ai_question",
+        targetId: result.recordId
+      }
+    });
+
+    expect(result).toMatchObject({
+      answerStatus: "answered",
+      isAnswered: true,
+      hasReliableSource: false,
+      citedSources: [],
+      usedMaterialTypes: []
+    });
+    expect(result.answer).toContain("知识库");
+    expect(result.answer).toContain("审核通过后");
+    expect(operations).toHaveLength(1);
+    expect(JSON.stringify(operations[0]?.metadata)).not.toContain("storagePath");
   });
 
   it("answers from approved售后 materials only when department access is valid", async () => {
@@ -476,6 +504,399 @@ describe("AftersalesQaService", () => {
         contextFor(allowedOperator, MembershipRole.operator, {
           accessibleModules: ["dashboard"]
         })
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("creates a conversation, auto-generates title after the first question, and supports renaming", async () => {
+    await createKnowledgeMaterial({
+      title: `LD30 会话售后资料 ${runId}`,
+      materialType: KnowledgeMaterialType.aftersales_material,
+      reviewStatus: KnowledgeReviewStatus.approved,
+      allowedDepartmentIds: [allowedDepartment.id],
+      content:
+        "LD30 激光测距传感器没有输出时，应先确认供电电压，再检查输出线是否接反，最后复位控制器。"
+    });
+
+    const context = contextFor(allowedOperator, MembershipRole.operator);
+    const conversation = await service.createConversation({}, context);
+
+    expect(conversation).toMatchObject({
+      companyId: companyA.id,
+      userId: allowedOperator.id,
+      departmentId: allowedDepartment.id,
+      title: "新售后会话",
+      status: "active"
+    });
+
+    const answer = await service.askInConversation(
+      conversation.id,
+      {
+        question: "LD30 激光测距传感器没有输出怎么办？"
+      },
+      context
+    );
+
+    expect(answer).toMatchObject({
+      conversationId: conversation.id,
+      question: "LD30 激光测距传感器没有输出怎么办？",
+      answerStatus: "answered",
+      isAnswered: true,
+      hasReliableSource: true
+    });
+    expect(answer.aiUsage).toMatchObject({
+      provider: "mock",
+      model: "internal-rule-based",
+      isMock: true,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      requestCount: 1
+    });
+
+    const detail = await service.getConversation(conversation.id, context);
+    expect(detail.conversation.title).toBe("LD30 激光测距传感器无输出排查");
+    expect(detail.records).toHaveLength(1);
+    expect(detail.records[0]).toMatchObject({
+      id: answer.recordId,
+      conversationId: conversation.id,
+      sequence: 1
+    });
+
+    const renamed = await service.updateConversation(
+      conversation.id,
+      {
+        title: "LD30 无输出排查"
+      },
+      context
+    );
+
+    expect(renamed.title).toBe("LD30 无输出排查");
+  });
+
+  it("uses previous question plus current question for the second turn retrieval", async () => {
+    await createKnowledgeMaterial({
+      title: `CTX123 连续追问资料 ${runId}`,
+      materialType: KnowledgeMaterialType.product_material,
+      reviewStatus: KnowledgeReviewStatus.approved,
+      applicableModules: ["aftersales-qa"],
+      content:
+        "CTX123 设备故障时应先检查电源模块和端子排，再复位控制器；若仍异常，需要记录现场指示灯状态。"
+    });
+
+    const context = contextFor(companyAdmin, MembershipRole.company_admin);
+    const conversation = await service.createConversation({ title: "CTX123 排查" }, context);
+
+    await service.askInConversation(
+      conversation.id,
+      {
+        question: "CTX123 设备故障应该先看什么？"
+      },
+      context
+    );
+
+    const followUp = await service.askInConversation(
+      conversation.id,
+      {
+        question: "继续怎么办？"
+      },
+      context
+    );
+
+    expect(followUp.answerStatus).toBe("answered");
+    expect(followUp.citedSources).toHaveLength(1);
+    expect(followUp.citedSources[0].fileTitle).toContain("CTX123");
+    expect(followUp.sequence).toBe(2);
+  });
+
+  it("returns a clarification answer for vague questions without useful context", async () => {
+    const context = contextFor(companyAdmin, MembershipRole.company_admin);
+    const conversation = await service.createConversation({}, context);
+
+    const result = await service.askInConversation(
+      conversation.id,
+      {
+        question: "没反应怎么办"
+      },
+      context
+    );
+
+    expect(result).toMatchObject({
+      answerStatus: "needs_clarification",
+      isAnswered: false,
+      hasReliableSource: false,
+      citedSources: []
+    });
+    expect(result.answer).toContain("需要补充信息后才能继续排查");
+    expect(result.answer).toContain("1. 产品型号");
+    expect(result.answer).toContain("4. 接线情况或供电电压");
+  });
+
+  it("limits cited sources to three and keeps old records API compatible", async () => {
+    for (let index = 0; index < 4; index += 1) {
+      await createKnowledgeMaterial({
+        title: `E77 多引用资料 ${index} ${runId}`,
+        materialType: KnowledgeMaterialType.aftersales_material,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        allowedDepartmentIds: [allowedDepartment.id],
+        content: `E77 故障表示安全回路断开，第 ${index} 条资料建议检查安全门、急停按钮和复位回路。`
+      });
+    }
+
+    const context = contextFor(allowedOperator, MembershipRole.operator);
+    const conversation = await service.createConversation({}, context);
+    const result = await service.askInConversation(
+      conversation.id,
+      {
+        question: "E77 故障安全回路断开怎么处理？"
+      },
+      context
+    );
+
+    expect(result.citedSources).toHaveLength(3);
+    expect(JSON.stringify(result.citedSources)).not.toContain("storagePath");
+    expect(JSON.stringify(result.citedSources)).not.toContain("/Users/a9527");
+
+    const records = await service.findRecords({}, context);
+    expect(records.items.some((record) => record.id === result.recordId)).toBe(true);
+
+    const oldRecord = await service.ask(
+      {
+        question: "旧接口仍然可以提问吗？"
+      },
+      context
+    );
+    const oldRecordDetail = await service.getRecord(oldRecord.recordId, context);
+    expect(oldRecordDetail.conversationId).toBeNull();
+  });
+
+  it("scopes conversations by role and company and logs conversation id", async () => {
+    const operatorContext = contextFor(allowedOperator, MembershipRole.operator);
+    const viewerContext = contextFor(viewer, MembershipRole.viewer);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const otherCompanyContext = contextFor(otherCompanyAdmin, MembershipRole.company_admin, {
+      company: companyB,
+      department: null
+    });
+    const conversation = await service.createConversation({ title: "权限边界会话" }, operatorContext);
+    const result = await service.askInConversation(
+      conversation.id,
+      {
+        question: "权限边界会话没有资料时怎么回答？"
+      },
+      operatorContext
+    );
+
+    const operatorList = await service.findConversations({}, operatorContext);
+    const viewerList = await service.findConversations({}, viewerContext);
+    const adminList = await service.findConversations({}, adminContext);
+
+    expect(operatorList.items.some((item) => item.id === conversation.id)).toBe(true);
+    expect(viewerList.items.some((item) => item.id === conversation.id)).toBe(false);
+    expect(adminList.items.some((item) => item.id === conversation.id)).toBe(true);
+    await expect(service.getConversation(conversation.id, viewerContext)).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+    await expect(
+      service.getConversation(conversation.id, otherCompanyContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const operation = await prisma.operationLog.findFirstOrThrow({
+      where: {
+        targetId: result.recordId,
+        action: "ai_question"
+      }
+    });
+    expect(operation.metadata).toMatchObject({
+      conversationId: conversation.id
+    });
+    expect(JSON.stringify(operation.metadata)).not.toContain("storagePath");
+  });
+
+  it("filters conversations by status, keyword, scope, and pagination metadata", async () => {
+    const context = contextFor(allowedOperator, MembershipRole.operator);
+    const keyword = `UX ${runId}`;
+    const activeOne = await service.createConversation({ title: `${keyword} Active LD30 会话` }, context);
+    const activeTwo = await service.createConversation({ title: `${keyword} Active E77 会话` }, context);
+    const archived = await service.createConversation({ title: `${keyword} Archived LD30 会话` }, context);
+    await prisma.aftersalesConversation.update({
+      where: {
+        id: archived.id
+      },
+      data: {
+        status: "archived"
+      }
+    });
+
+    const defaultList = await service.findConversations(
+      {
+        keyword,
+        page: 1,
+        pageSize: 10
+      },
+      context
+    );
+    const archivedList = await service.findConversations(
+      {
+        keyword,
+        status: "archived",
+        page: 1,
+        pageSize: 10
+      },
+      context
+    );
+    const allFirstPage = await service.findConversations(
+      {
+        keyword,
+        status: "all",
+        page: 1,
+        pageSize: 2
+      },
+      context
+    );
+
+    expect(defaultList.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([activeOne.id, activeTwo.id])
+    );
+    expect(defaultList.items.some((item) => item.id === archived.id)).toBe(false);
+    expect(archivedList.items.map((item) => item.id)).toEqual([archived.id]);
+    expect(allFirstPage.total).toBeGreaterThanOrEqual(3);
+    expect(allFirstPage.items).toHaveLength(2);
+    expect(allFirstPage.hasMore).toBe(true);
+    expect(allFirstPage.items.every((item) => typeof item.messageCount === "number")).toBe(true);
+  });
+
+  it("lets admins switch all and mine scope while regular users remain scoped to themselves", async () => {
+    const operatorContext = contextFor(allowedOperator, MembershipRole.operator);
+    const viewerContext = contextFor(viewer, MembershipRole.viewer);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const keyword = `UX Scope ${runId}`;
+    const operatorConversation = await service.createConversation(
+      { title: `${keyword} Operator 会话` },
+      operatorContext
+    );
+    const viewerConversation = await service.createConversation(
+      { title: `${keyword} Viewer 会话` },
+      viewerContext
+    );
+
+    const adminAll = await service.findConversations(
+      {
+        keyword,
+        scope: "all"
+      },
+      adminContext
+    );
+    const adminMine = await service.findConversations(
+      {
+        keyword,
+        scope: "mine"
+      },
+      adminContext
+    );
+    const operatorAllAttempt = await service.findConversations(
+      {
+        keyword,
+        scope: "all"
+      },
+      operatorContext
+    );
+
+    expect(adminAll.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([operatorConversation.id, viewerConversation.id])
+    );
+    expect(adminMine.items.some((item) => item.id === operatorConversation.id)).toBe(false);
+    expect(operatorAllAttempt.items.map((item) => item.id)).toContain(operatorConversation.id);
+    expect(operatorAllAttempt.items.some((item) => item.id === viewerConversation.id)).toBe(false);
+  });
+
+  it("archives and restores conversations with permission checks and operation logs", async () => {
+    const operatorContext = contextFor(allowedOperator, MembershipRole.operator);
+    const viewerContext = contextFor(viewer, MembershipRole.viewer);
+    const adminContext = contextFor(companyAdmin, MembershipRole.company_admin);
+    const otherCompanyContext = contextFor(otherCompanyAdmin, MembershipRole.company_admin, {
+      company: companyB,
+      department: null
+    });
+    const conversation = await service.createConversation(
+      { title: "UX Archive 权限会话" },
+      operatorContext
+    );
+
+    await expect(
+      service.updateConversationStatus(conversation.id, { status: "archived" }, viewerContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.updateConversationStatus(conversation.id, { status: "archived" }, otherCompanyContext)
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const archived = await service.updateConversationStatus(
+      conversation.id,
+      {
+        status: "archived"
+      },
+      adminContext
+    );
+    const restored = await service.updateConversationStatus(
+      conversation.id,
+      {
+        status: "active"
+      },
+      operatorContext
+    );
+
+    expect(archived.status).toBe("archived");
+    expect(restored.status).toBe("active");
+
+    const logs = await prisma.operationLog.findMany({
+      where: {
+        targetType: "aftersales_conversation",
+        targetId: conversation.id
+      },
+      orderBy: {
+        createdAt: "asc"
+      }
+    });
+
+    expect(logs.map((log) => log.action)).toEqual(
+      expect.arrayContaining(["archive_conversation", "restore_conversation"])
+    );
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("storagePath");
+    expect(JSON.stringify(logs.map((log) => log.metadata))).not.toContain("DATABASE_URL");
+  });
+
+  it("keeps archived conversations readable but blocks asking until restored", async () => {
+    const context = contextFor(allowedOperator, MembershipRole.operator);
+    const conversation = await service.createConversation(
+      { title: "UX Archived Readonly 会话" },
+      context
+    );
+    await service.askInConversation(
+      conversation.id,
+      {
+        question: "E77 故障安全回路断开怎么处理？"
+      },
+      context
+    );
+    await prisma.aftersalesConversation.update({
+      where: {
+        id: conversation.id
+      },
+      data: {
+        status: "archived"
+      }
+    });
+
+    const detail = await service.getConversation(conversation.id, context);
+    expect(detail.conversation.status).toBe("archived");
+    expect(detail.records.length).toBeGreaterThan(0);
+    await expect(
+      service.askInConversation(
+        conversation.id,
+        {
+          question: "继续怎么办？"
+        },
+        context
       )
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
