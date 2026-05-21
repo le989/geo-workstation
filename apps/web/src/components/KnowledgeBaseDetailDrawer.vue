@@ -485,7 +485,7 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
                 <div>
                   <p class="section-kicker">新增资料</p>
                   <h3>资料入库向导</h3>
-                  <p>按入库方式、资料属性、内容文件和确认保存四步补充资料。</p>
+                  <p>先填写标题、资料类型、目录和内容；需要细分主题或调整引用范围时再展开高级资料属性。</p>
                 </div>
               </div>
               <KnowledgeMaterialIngestWizard

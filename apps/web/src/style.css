@@ -3088,72 +3088,47 @@ a {
 
 .knowledge-ingest-wizard {
   display: grid;
-  gap: 18px;
-}
-
-.knowledge-ingest-rules {
-  border-color: #cbd9e6;
-}
-
-.knowledge-ingest-rules p {
-  margin: 0;
-  color: #465669;
-  line-height: 1.7;
-}
-
-.knowledge-ingest-steps {
-  padding: 16px;
-  border: 1px solid #dde6ef;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.knowledge-ingest-methods {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.knowledge-ingest-methods button {
-  display: grid;
-  gap: 8px;
-  min-height: 136px;
-  padding: 20px;
-  text-align: left;
+.knowledge-ingest-method-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 120px));
+  gap: 4px;
+  justify-self: start;
+  padding: 4px;
   border: 1px solid #d7e2ee;
   border-radius: 8px;
-  background: #ffffff;
+  background: #f6f9fc;
+}
+
+.knowledge-ingest-method-tabs button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #475569;
+  font-weight: 700;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
 }
 
-.knowledge-ingest-methods button:hover,
-.knowledge-ingest-methods button.is-selected {
-  border-color: #3b82f6;
-  box-shadow: 0 10px 24px rgba(36, 76, 126, 0.12);
-  transform: translateY(-1px);
-}
-
-.knowledge-ingest-methods strong {
+.knowledge-ingest-method-tabs button.is-selected {
+  background: #ffffff;
   color: #172436;
-  font-size: 17px;
-}
-
-.knowledge-ingest-methods span {
-  color: var(--geo-muted);
-  line-height: 1.7;
+  box-shadow: 0 6px 14px rgba(36, 76, 126, 0.1);
 }
 
 .knowledge-ingest-panel {
   display: grid;
-  gap: 16px;
-  padding: 18px;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid #d7e2ee;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.knowledge-ingest-panel--simple {
+  background: #fbfcfe;
 }
 
 .knowledge-ingest-form {
@@ -3173,47 +3148,77 @@ a {
   line-height: 1.55;
 }
 
-.knowledge-ingest-content {
-  display: grid;
-  gap: 12px;
-}
-
-.knowledge-ingest-content h4 {
-  margin: 0;
-  color: #172436;
-  font-size: 17px;
-}
-
-.knowledge-ingest-content p {
-  margin: 0;
-  color: var(--geo-muted);
-  line-height: 1.7;
-}
-
-.knowledge-ingest-confirm {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.knowledge-ingest-confirm article {
-  display: grid;
-  gap: 5px;
-  padding: 12px;
-  border: 1px solid #e0e8f0;
+.knowledge-ingest-advanced {
+  overflow: hidden;
+  border: 1px solid #d7e2ee;
   border-radius: 8px;
-  background: #f8fbfe;
+  background: #ffffff;
 }
 
-.knowledge-ingest-confirm span {
+.knowledge-ingest-advanced__toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 0;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.knowledge-ingest-advanced__toggle span {
+  display: grid;
+  gap: 4px;
+}
+
+.knowledge-ingest-advanced__toggle strong {
+  color: #172436;
+  font-size: 15px;
+}
+
+.knowledge-ingest-advanced__toggle small {
+  color: var(--geo-muted);
+  line-height: 1.55;
+}
+
+.knowledge-ingest-advanced__toggle em {
+  flex: 0 0 auto;
+  color: #2563eb;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.knowledge-ingest-advanced__body {
+  padding: 0 16px 16px;
+}
+
+.knowledge-ingest-default-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.knowledge-ingest-default-summary span {
   color: var(--geo-muted);
   font-size: 12px;
 }
 
-.knowledge-ingest-confirm strong {
-  color: #172436;
-  line-height: 1.55;
-  word-break: break-word;
+.knowledge-ingest-default-summary strong,
+.knowledge-ingest-default-summary small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid #d7e2ee;
+  border-radius: 999px;
+  background: #f8fbfe;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .knowledge-ingest-actions {
@@ -3231,6 +3236,11 @@ a {
   border: 1px dashed #aecac3;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.knowledge-upload-box--compact {
+  width: 100%;
+  padding: 14px;
 }
 
 .knowledge-upload-input {
