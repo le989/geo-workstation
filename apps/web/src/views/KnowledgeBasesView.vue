@@ -47,6 +47,10 @@ import {
   trustLevelLabelMap
 } from "@/config/knowledge-options";
 import { useAuthStore } from "@/stores/auth";
+import {
+  getKnowledgeFileCitationDescription,
+  getKnowledgeFileCitationLabel
+} from "@/utils/knowledge-citation";
 import { canUseAction } from "@/utils/permission";
 
 const authStore = useAuthStore();
@@ -390,6 +394,8 @@ const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
     applicableModule: undefined,
     fileType: undefined,
     materialType: undefined,
+    materialTopic: undefined,
+    officialCitationStatus: undefined,
     parseStatus: undefined,
     reviewStatus: undefined,
     search: undefined,
@@ -547,8 +553,9 @@ const handleFileDetail = async (file: KnowledgeFile) => {
       fileDetail.knowledgeFile.applicableModules
         .map((item) => applicableModuleLabelMap[item] ?? item)
         .join("、") || "未设置";
+    const citationStatus = `${getKnowledgeFileCitationLabel(fileDetail.knowledgeFile)}（${getKnowledgeFileCitationDescription(fileDetail.knowledgeFile)}）`;
     await ElMessageBox.alert(
-      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n适用模块：${applicableModules}\n来源说明：${fileDetail.knowledgeFile.sourceDescription ?? "未设置"}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
+      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n正式引用状态：${citationStatus}\n适用模块：${applicableModules}\n来源说明：${fileDetail.knowledgeFile.sourceDescription ?? "未设置"}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"

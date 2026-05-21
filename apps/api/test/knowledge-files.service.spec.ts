@@ -544,6 +544,21 @@ describe("KnowledgeFilesService", () => {
     expect(manual.createdChunksCount).toBe(1);
     expect(manual.createdChunks[0]?.fileId).toBe(manual.knowledgeFile.id);
 
+    const lowTrust = await knowledgeFilesService.createManualMaterial(
+      companyBase.id,
+      {
+        title: "低可信产品资料",
+        materialTopic: "行业动态",
+        materialType: KnowledgeMaterialType.product_material,
+        applicableModules: ["geo-content", "internal-search"],
+        sourceDescription: "来源待复核",
+        trustLevel: KnowledgeTrustLevel.low,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        content: "低可信产品资料仍然应该在列表中可见，但不能作为售后问答或 GEO 内容正式引用。"
+      },
+      companyAdminContext
+    );
+
     const filtered = await knowledgeFilesService.findMany(
       companyBase.id,
       {
@@ -557,6 +572,39 @@ describe("KnowledgeFilesService", () => {
     expect(filtered.total).toBe(1);
     expect(filtered.items[0]?.id).toBe(uploaded.knowledgeFile.id);
     expect(filtered.items[0]?.materialTopic).toBe("产品参数");
+
+    const topicFiltered = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        materialTopic: "行业动态"
+      } as Parameters<typeof knowledgeFilesService.findMany>[1],
+      companyAdminContext
+    );
+    expect(topicFiltered.total).toBe(1);
+    expect(topicFiltered.items[0]?.id).toBe(lowTrust.knowledgeFile.id);
+
+    const citable = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        officialCitationStatus: "citable"
+      } as Parameters<typeof knowledgeFilesService.findMany>[1],
+      companyAdminContext
+    );
+    expect(citable.items.map((item) => item.id)).toContain(uploaded.knowledgeFile.id);
+    expect(citable.items.map((item) => item.id)).not.toContain(manual.knowledgeFile.id);
+    expect(citable.items.map((item) => item.id)).not.toContain(lowTrust.knowledgeFile.id);
+
+    const notCitable = await knowledgeFilesService.findMany(
+      companyBase.id,
+      {
+        officialCitationStatus: "not_citable"
+      } as Parameters<typeof knowledgeFilesService.findMany>[1],
+      companyAdminContext
+    );
+    expect(notCitable.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([manual.knowledgeFile.id, lowTrust.knowledgeFile.id])
+    );
+    expect(notCitable.items.map((item) => item.id)).not.toContain(uploaded.knowledgeFile.id);
 
     const updated = await knowledgeFilesService.updateMetadata(
       uploaded.knowledgeFile.id,

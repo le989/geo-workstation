@@ -12,11 +12,13 @@ const requiredFiles = [
   "src/components/KnowledgeBaseFormDialog.vue",
   "src/components/KnowledgeChunkFormDialog.vue",
   "src/components/KnowledgeChunkTable.vue",
+  "src/components/KnowledgeFileCards.vue",
   "src/components/KnowledgeFileTable.vue",
   "src/components/KnowledgeFileUpload.vue",
   "src/components/KnowledgeMaterialIngestWizard.vue",
   "src/components/KnowledgeParseStatusTag.vue",
   "src/components/KnowledgeTextImportForm.vue",
+  "src/utils/knowledge-citation.ts",
   "src/views/KnowledgeBasesView.vue"
 ];
 
@@ -56,10 +58,17 @@ const pageRequiredSnippets = [
   "用于内容生成",
   "资料筛选",
   "高级筛选",
+  "卡片视图",
+  "表格视图",
+  "搜索资料标题、主题、来源说明",
+  "正式可引用",
+  "不正式引用",
+  "没有符合条件的资料",
   "排查信息",
   "KnowledgeBaseDetailDrawer",
   "KnowledgeMaterialIngestWizard",
   "KnowledgeChunkTable",
+  "KnowledgeFileCards",
   "reparseKnowledgeFile"
 ];
 
@@ -110,7 +119,8 @@ const pageSource = [
   await readSource("src/components/KnowledgeFileTable.vue"),
   await readSource("src/components/KnowledgeFileUpload.vue"),
   await readSource("src/components/KnowledgeMaterialIngestWizard.vue"),
-  await readSource("src/components/KnowledgeTextImportForm.vue")
+  await readSource("src/components/KnowledgeTextImportForm.vue"),
+  await readSource("src/utils/knowledge-citation.ts")
 ].join("\n");
 
 for (const snippet of pageRequiredSnippets) {

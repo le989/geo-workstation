@@ -10,6 +10,11 @@ import {
   sourceTypeLabelMap,
   trustLevelLabelMap
 } from "@/config/knowledge-options";
+import {
+  getKnowledgeFileCitationDescription,
+  getKnowledgeFileCitationLabel,
+  isKnowledgeFileOfficiallyCitable
+} from "@/utils/knowledge-citation";
 import KnowledgeParseStatusTag from "./KnowledgeParseStatusTag.vue";
 
 defineProps<{
@@ -18,6 +23,7 @@ defineProps<{
   reparsingIds?: string[];
   deletingIds?: string[];
   canManage?: boolean;
+  knowledgeBaseName?: string;
 }>();
 
 const emit = defineEmits<{
@@ -117,6 +123,11 @@ const formatMaterialTopic = (value?: string) =>
         {{ formatMaterialTopic(row.materialTopic) }}
       </template>
     </el-table-column>
+    <el-table-column label="所属目录" min-width="150">
+      <template #default>
+        {{ formatOptional(knowledgeBaseName) }}
+      </template>
+    </el-table-column>
     <el-table-column prop="reviewStatus" label="审核状态" width="116">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ reviewStatusLabelMap[row.reviewStatus] ?? row.reviewStatus }}
@@ -133,6 +144,25 @@ const formatMaterialTopic = (value?: string) =>
           >
             <el-tag size="small" type="warning" effect="plain">不正式引用</el-tag>
           </el-tooltip>
+        </div>
+      </template>
+    </el-table-column>
+    <el-table-column prop="applicableModules" label="适用模块" min-width="180">
+      <template #default="{ row }: { row: KnowledgeFile }">
+        {{ formatApplicableModules(row.applicableModules) }}
+      </template>
+    </el-table-column>
+    <el-table-column label="正式引用状态" min-width="150">
+      <template #default="{ row }: { row: KnowledgeFile }">
+        <div class="knowledge-citation-cell">
+          <el-tag
+            size="small"
+            :type="isKnowledgeFileOfficiallyCitable(row) ? 'success' : 'warning'"
+            effect="plain"
+          >
+            {{ getKnowledgeFileCitationLabel(row) }}
+          </el-tag>
+          <small>{{ getKnowledgeFileCitationDescription(row) }}</small>
         </div>
       </template>
     </el-table-column>
@@ -186,6 +216,18 @@ const formatMaterialTopic = (value?: string) =>
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  line-height: 1.25;
+}
+
+.knowledge-citation-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.knowledge-citation-cell small {
+  color: #6b7280;
   line-height: 1.25;
 }
 </style>

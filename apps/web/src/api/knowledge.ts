@@ -11,6 +11,7 @@ export type KnowledgeMaterialType =
   | "customer_case_material";
 export type KnowledgeReviewStatus = "pending" | "approved" | "disabled";
 export type KnowledgeTrustLevel = "high" | "medium" | "low";
+export type KnowledgeOfficialCitationStatus = "citable" | "not_citable";
 export type KnowledgeApplicableModule =
   | "internal-search"
   | "geo-content"
@@ -114,9 +115,11 @@ export type KnowledgeFileQuery = {
   fileType?: string;
   search?: string;
   materialType?: string;
+  materialTopic?: string;
   reviewStatus?: KnowledgeReviewStatus;
   trustLevel?: KnowledgeTrustLevel;
   applicableModule?: KnowledgeApplicableModule;
+  officialCitationStatus?: KnowledgeOfficialCitationStatus;
 };
 
 export type CreateKnowledgeBasePayload = {
