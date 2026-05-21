@@ -34,6 +34,7 @@ import { LocalFileStorageService, type UploadedKnowledgeFile } from "./local-fil
 import { resolveKnowledgeFileType } from "./utils/file-type.util";
 import { trimOptional } from "./utils/normalize-knowledge-base";
 import { jsonTagsToArray, normalizeTags } from "./utils/tags.util";
+import { normalizeUploadedFilename } from "./utils/uploaded-filename.util";
 import {
   assertCanDeleteResource,
   assertCanUpdateResource,
@@ -72,6 +73,7 @@ type KnowledgeFileMetadataInput = Pick<
   UploadKnowledgeFileDto,
   | "title"
   | "materialType"
+  | "materialTopic"
   | "applicableModules"
   | "sourceDescription"
   | "trustLevel"
@@ -82,6 +84,7 @@ type KnowledgeFileMetadataInput = Pick<
 type NormalizedKnowledgeFileMetadata = {
   title?: string;
   materialType: KnowledgeMaterialType;
+  materialTopic?: string;
   applicableModules: string[];
   sourceDescription?: string;
   trustLevel: KnowledgeTrustLevel;
@@ -100,6 +103,7 @@ export type KnowledgeFileResponse = {
   companyId?: string;
   sourceType: string;
   materialType: KnowledgeMaterialType;
+  materialTopic?: string;
   applicableModules: string[];
   sourceDescription?: string;
   trustLevel: KnowledgeTrustLevel;
@@ -176,11 +180,16 @@ export class KnowledgeFilesService {
       assertCanUpdateResource(context, knowledgeBase);
     }
     this.assertUploadFile(file);
-    const fileType = this.resolveFileType(file.originalname);
+    const displayFileName = normalizeUploadedFilename(file.originalname);
+    const fileForStorage = {
+      ...file,
+      originalname: displayFileName
+    };
+    const fileType = this.resolveFileType(displayFileName);
     const createdById = context?.user.id ?? (await this.resolveCreatedById(input.createdBy));
     const companyId = context ? getCurrentCompanyId(context) : undefined;
     const metadata = await this.normalizeMetadataInput(input, context);
-    const storagePath = await this.storage.saveKnowledgeFile(knowledgeBaseId, file);
+    const storagePath = await this.storage.saveKnowledgeFile(knowledgeBaseId, fileForStorage);
 
     const knowledgeFile = await this.prisma.knowledgeFile.create({
       data: {
@@ -189,13 +198,14 @@ export class KnowledgeFilesService {
             id: knowledgeBase.id
           }
         },
-        title: metadata.title ?? file.originalname,
-        fileName: file.originalname,
+        title: metadata.title ?? displayFileName,
+        fileName: displayFileName,
         fileType,
         fileSize: file.size,
         storagePath,
         sourceType: "upload",
         materialType: metadata.materialType,
+        materialTopic: metadata.materialTopic,
         applicableModules: metadata.applicableModules,
         sourceDescription: metadata.sourceDescription,
         trustLevel: metadata.trustLevel,
@@ -250,6 +260,7 @@ export class KnowledgeFilesService {
           knowledgeBaseId,
           fileType,
           materialType: metadata.materialType,
+          materialTopic: metadata.materialTopic,
           reviewStatus: metadata.reviewStatus,
           trustLevel: metadata.trustLevel,
           createdChunksCount: result.createdChunksCount,
@@ -301,6 +312,7 @@ export class KnowledgeFilesService {
           storagePath: null,
           sourceType: "manual",
           materialType: metadata.materialType,
+          materialTopic: metadata.materialTopic,
           applicableModules: metadata.applicableModules,
           sourceDescription: metadata.sourceDescription,
           trustLevel: metadata.trustLevel,
@@ -387,6 +399,7 @@ export class KnowledgeFilesService {
         metadata: {
           knowledgeBaseId,
           materialType: metadata.materialType,
+          materialTopic: metadata.materialTopic,
           reviewStatus: metadata.reviewStatus,
           trustLevel: metadata.trustLevel,
           createdChunksCount: 1,
@@ -414,6 +427,10 @@ export class KnowledgeFilesService {
       {
         title: input.title ?? existing.title ?? existing.fileName,
         materialType: input.materialType ?? existing.materialType,
+        materialTopic:
+          input.materialTopic !== undefined
+            ? input.materialTopic
+            : (existing.materialTopic ?? undefined),
         applicableModules:
           input.applicableModules ?? this.jsonStringArrayToArray(existing.applicableModules),
         sourceDescription:
@@ -435,6 +452,7 @@ export class KnowledgeFilesService {
       data: {
         title: normalized.title,
         materialType: normalized.materialType,
+        materialTopic: normalized.materialTopic ?? null,
         applicableModules: normalized.applicableModules,
         sourceDescription: normalized.sourceDescription ?? null,
         trustLevel: normalized.trustLevel,
@@ -463,6 +481,7 @@ export class KnowledgeFilesService {
         metadata: {
           knowledgeBaseId: updated.knowledgeBaseId,
           materialType: updated.materialType,
+          materialTopic: updated.materialTopic,
           reviewStatus: updated.reviewStatus,
           trustLevel: updated.trustLevel,
           allowedDepartmentCount: this.jsonStringArrayToArray(
@@ -753,6 +772,12 @@ export class KnowledgeFilesService {
             contains: search,
             mode: "insensitive"
           }
+        },
+        {
+          materialTopic: {
+            contains: search,
+            mode: "insensitive"
+          }
         }
       ];
     }
@@ -928,6 +953,7 @@ export class KnowledgeFilesService {
     return {
       title,
       materialType,
+      materialTopic: trimOptional(input.materialTopic),
       applicableModules: this.normalizeApplicableModules(input.applicableModules),
       sourceDescription: trimOptional(input.sourceDescription),
       trustLevel: input.trustLevel ?? KnowledgeTrustLevel.medium,
@@ -1139,6 +1165,7 @@ export class KnowledgeFilesService {
       companyId: file.companyId ?? undefined,
       sourceType: file.sourceType,
       materialType: file.materialType,
+      materialTopic: file.materialTopic ?? undefined,
       applicableModules: this.jsonStringArrayToArray(file.applicableModules),
       sourceDescription: file.sourceDescription ?? undefined,
       trustLevel: file.trustLevel,

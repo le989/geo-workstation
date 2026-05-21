@@ -26,8 +26,7 @@ import {
 } from "@/config/knowledge-options";
 import KnowledgeChunkTable from "./KnowledgeChunkTable.vue";
 import KnowledgeFileTable from "./KnowledgeFileTable.vue";
-import KnowledgeFileUpload from "./KnowledgeFileUpload.vue";
-import KnowledgeTextImportForm from "./KnowledgeTextImportForm.vue";
+import KnowledgeMaterialIngestWizard from "./KnowledgeMaterialIngestWizard.vue";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -485,25 +484,20 @@ const getKnowledgeBaseStatusLabel = (status: string) =>
               <div class="knowledge-tab-header">
                 <div>
                   <p class="section-kicker">新增资料</p>
-                  <h3>上传文件或粘贴文本</h3>
-                  <p>把产品能力、应用场景、FAQ 和选型规则补进知识库。</p>
+                  <h3>资料入库向导</h3>
+                  <p>先填写标题、资料类型、目录和内容；需要细分主题或调整引用范围时再展开高级资料属性。</p>
                 </div>
               </div>
-              <div class="knowledge-add-source-grid">
-                <KnowledgeFileUpload
-                  :uploading="uploading"
-                  :can-review="canReview"
-                  :departments="departments"
-                  @upload="emit('upload-file', $event)"
-                />
-                <KnowledgeTextImportForm
-                  :default-product-line="detail.knowledgeBase.productLine"
-                  :submitting="textImportSubmitting"
-                  :can-review="canReview"
-                  :departments="departments"
-                  @submit="emit('text-import', $event)"
-                />
-              </div>
+              <KnowledgeMaterialIngestWizard
+                :knowledge-base-name="detail.knowledgeBase.name"
+                :default-product-line="detail.knowledgeBase.productLine"
+                :submitting="textImportSubmitting"
+                :uploading="uploading"
+                :can-review="canReview"
+                :departments="departments"
+                @submit="emit('text-import', $event)"
+                @upload="emit('upload-file', $event)"
+              />
             </section>
           </el-tab-pane>
         </el-tabs>

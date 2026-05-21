@@ -72,6 +72,7 @@ describe("KnowledgeFilesController", () => {
     const uploadResponse = await request(app.getHttpServer())
       .post(`/api/knowledge-bases/${knowledgeBaseId}/files`)
       .field("materialType", "faq")
+      .field("materialTopic", "故障排查")
       .field("tags", "FAQ,GEO素材")
       .field("createdBy", createdBy)
       .attach(
@@ -90,6 +91,7 @@ describe("KnowledgeFilesController", () => {
         knowledgeFile: {
           fileName: "faq.md",
           fileType: "md",
+          materialTopic: "故障排查",
           parseStatus: ParseStatus.succeeded
         }
       }

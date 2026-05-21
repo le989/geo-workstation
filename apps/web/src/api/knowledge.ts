@@ -46,6 +46,7 @@ export type KnowledgeChunk = {
   sourceType: string;
   productLine?: string;
   materialType?: string;
+  materialTopic?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;
@@ -61,6 +62,7 @@ export type KnowledgeFile = {
   companyId?: string;
   sourceType: string;
   materialType: KnowledgeMaterialType;
+  materialTopic?: string;
   applicableModules: KnowledgeApplicableModule[];
   sourceDescription?: string;
   trustLevel: KnowledgeTrustLevel;
@@ -140,6 +142,7 @@ export type TextImportPayload = {
 export type KnowledgeMaterialMetadataPayload = {
   title?: string;
   materialType?: string;
+  materialTopic?: string;
   applicableModules?: KnowledgeApplicableModule[];
   sourceDescription?: string;
   trustLevel?: KnowledgeTrustLevel;
@@ -166,6 +169,7 @@ export type UpdateKnowledgeChunkPayload = {
 export type UploadKnowledgeFileExtraFields = {
   title?: string;
   materialType?: string;
+  materialTopic?: string;
   applicableModules?: KnowledgeApplicableModule[];
   sourceDescription?: string;
   trustLevel?: KnowledgeTrustLevel;
@@ -288,6 +292,10 @@ export const uploadKnowledgeFile = (
 
   if (extraFields.materialType) {
     formData.set("materialType", extraFields.materialType);
+  }
+
+  if (extraFields.materialTopic) {
+    formData.set("materialTopic", extraFields.materialTopic);
   }
 
   if (extraFields.applicableModules && extraFields.applicableModules.length > 0) {

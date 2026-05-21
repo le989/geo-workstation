@@ -40,6 +40,7 @@ import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   applicableModuleLabelMap,
   knowledgeBaseStatusLabelMap,
+  materialTopicLabelMap,
   materialTypeLabelMap,
   parseStatusLabelMap,
   reviewStatusLabelMap,
@@ -462,8 +463,12 @@ const handleTextImport = async (payload: ManualKnowledgeMaterialPayload) => {
 
   try {
     await createManualKnowledgeMaterial(selectedKnowledgeBaseId.value, payload);
-    ElMessage.success("手动资料已保存，并生成知识片段。");
-    activeTab.value = "chunks";
+    ElMessage.success(
+      payload.reviewStatus === "pending"
+        ? "资料已保存。待审核资料不会被售后问答或 GEO 内容正式引用。"
+        : "资料已保存，并生成知识片段。"
+    );
+    activeTab.value = "files";
     chunksPage.value = 1;
     await Promise.all([loadDetail(), loadChunks(), loadFiles()]);
   } catch (error) {
@@ -494,8 +499,13 @@ const handleUploadFile = async (payload: {
         result.errorMessage || "文件已保存，但解析失败，请查看错误信息后重新解析。"
       );
     } else {
-      ElMessage.success(`文件解析成功，生成 ${result.createdChunksCount} 条知识片段。`);
+      ElMessage.success(
+        payload.extraFields.reviewStatus === "pending"
+          ? `资料已保存，生成 ${result.createdChunksCount} 条知识片段；待审核资料不会被正式引用。`
+          : `文件解析成功，生成 ${result.createdChunksCount} 条知识片段。`
+      );
     }
+    activeTab.value = "files";
     await Promise.all([loadDetail(), loadFiles(), loadChunks()]);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "文件上传失败，请稍后重试。");
@@ -523,6 +533,10 @@ const handleFileDetail = async (file: KnowledgeFile) => {
     const materialTypeLabel =
       materialTypeLabelMap[fileDetail.knowledgeFile.materialType] ??
       fileDetail.knowledgeFile.materialType;
+    const materialTopicLabel =
+      materialTopicLabelMap[fileDetail.knowledgeFile.materialTopic ?? ""] ??
+      fileDetail.knowledgeFile.materialTopic ??
+      "未设置";
     const reviewStatusLabel =
       reviewStatusLabelMap[fileDetail.knowledgeFile.reviewStatus] ??
       fileDetail.knowledgeFile.reviewStatus;
@@ -534,7 +548,7 @@ const handleFileDetail = async (file: KnowledgeFile) => {
         .map((item) => applicableModuleLabelMap[item] ?? item)
         .join("、") || "未设置";
     await ElMessageBox.alert(
-      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n适用模块：${applicableModules}\n来源说明：${fileDetail.knowledgeFile.sourceDescription ?? "未设置"}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
+      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n审核状态：${reviewStatusLabel}\n可信度：${trustLevelLabel}\n适用模块：${applicableModules}\n来源说明：${fileDetail.knowledgeFile.sourceDescription ?? "未设置"}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"

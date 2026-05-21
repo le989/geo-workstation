@@ -14,6 +14,7 @@ const requiredFiles = [
   "src/components/KnowledgeChunkTable.vue",
   "src/components/KnowledgeFileTable.vue",
   "src/components/KnowledgeFileUpload.vue",
+  "src/components/KnowledgeMaterialIngestWizard.vue",
   "src/components/KnowledgeParseStatusTag.vue",
   "src/components/KnowledgeTextImportForm.vue",
   "src/views/KnowledgeBasesView.vue"
@@ -48,6 +49,8 @@ const pageRequiredSnippets = [
   "知识片段",
   "txt/md/csv",
   "新建知识库",
+  "资料入库向导",
+  "建议拆分",
   "上传 / 粘贴资料",
   "解析为知识片段",
   "用于内容生成",
@@ -55,7 +58,7 @@ const pageRequiredSnippets = [
   "高级筛选",
   "排查信息",
   "KnowledgeBaseDetailDrawer",
-  "KnowledgeFileUpload",
+  "KnowledgeMaterialIngestWizard",
   "KnowledgeChunkTable",
   "reparseKnowledgeFile"
 ];
@@ -76,6 +79,7 @@ const knowledgeFields = [
   "content",
   "sourceType",
   "materialType",
+  "materialTopic",
   "tags"
 ];
 
@@ -105,6 +109,7 @@ const pageSource = [
   await readSource("src/components/KnowledgeChunkTable.vue"),
   await readSource("src/components/KnowledgeFileTable.vue"),
   await readSource("src/components/KnowledgeFileUpload.vue"),
+  await readSource("src/components/KnowledgeMaterialIngestWizard.vue"),
   await readSource("src/components/KnowledgeTextImportForm.vue")
 ].join("\n");
 

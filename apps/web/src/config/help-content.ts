@@ -287,12 +287,27 @@ export const sopSections: HelpSection[] = [
     id: "knowledge-governance",
     title: "知识库资料治理",
     summary:
-      "知识库不只是文件库。资料需要标记类型、可信度、适用模块和审核状态，售后资料还可以限制可见部门。",
+      "知识库不只是文件库。资料入库时需要区分目录、资料类型、资料主题、适用模块和审核状态，售后资料还可以限制可见部门。",
     steps: [
+      {
+        title: "轻量入库",
+        description:
+          "新增资料默认只需填写标题、资料类型、所属目录和正文内容，或选择文件、资料类型和所属目录。"
+      },
+      {
+        title: "展开高级资料属性",
+        description:
+          "需要细分主题、调整适用模块、审核状态、可信度、来源说明或售后可见部门时，再展开高级资料属性。"
+      },
       {
         title: "选择资料类型",
         description:
           "资料类型包括产品资料、售后资料、公司可信信息、内容引用资料、内部制度 / 流程资料和客户案例资料。"
+      },
+      {
+        title: "选择资料主题",
+        description:
+          "公司新闻、活动资讯、资质证书、培训资料、行业动态、故障排查、安装接线等放在资料主题中，不新增为资料类型。"
       },
       {
         title: "设置审核状态",
@@ -308,7 +323,8 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "上传或手动录入",
-        description: "支持 TXT、Markdown、CSV、Excel 和 Word；手动录入会生成资料记录和片段。"
+        description:
+          "支持 TXT、Markdown、CSV、Excel 和 Word；手动录入会生成资料记录和片段。大 Word 综合资料建议拆成资料卡片后分别入库。"
       },
       {
         title: "编辑片段",
@@ -318,7 +334,9 @@ export const sopSections: HelpSection[] = [
     reminders: [
       "PDF / OCR 后置，当前不要写成已支持能力。",
       "本地 storagePath 不对前端展示。",
-      "待审核和已停用资料不能作为售后问答依据。"
+      "待审核和已停用资料不能作为售后问答依据。",
+      "低可信资料只用于内部查询；统一 AI 引用规则后续单独收口。",
+      "Word 自动拆分章节、自动推荐资料类型 / 资料主题后置。"
     ]
   },
   {
@@ -569,10 +587,10 @@ export const versionNotes: VersionNote[] = [
   {
     name: "知识库资料治理",
     capabilities: [
-      "知识库资料支持资料类型、审核状态、可信度、适用模块、售后资料可见部门、文件上传、手动录入和片段编辑。"
+      "知识库资料支持轻量入库、高级资料属性折叠、资料类型、资料主题、审核状态、可信度、适用模块、售后资料可见部门、文件上传、手动录入和片段编辑。"
     ],
     usage: "适合把企业资料从普通文件库升级为可引用、可审核、可用于售后问答的事实底座。",
-    notes: "支持 TXT、Markdown、CSV、Excel、Word；PDF / OCR 后置；storagePath 不对前端展示。"
+    notes: "资料主题用于承载公司新闻、活动资讯、资质证书、培训资料、行业动态等细分内容；支持 TXT、Markdown、CSV、Excel、Word；PDF / OCR、Word 自动拆分和自动推荐主题后置。"
   },
   {
     name: "售后问答",
