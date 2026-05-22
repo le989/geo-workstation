@@ -196,6 +196,8 @@ const handleSubmit = () => {
             {{ formatEntryPoint(record.entryPoint) }} /
             {{ formatDetectionMethod(record.detectionMethod) }}
           </strong>
+          <span>创建人</span>
+          <strong>{{ formatOptional(record.createdBy) }}</strong>
           <span>创建时间</span>
           <strong>{{ formatDateTime(record.createdAt) }}</strong>
         </div>
