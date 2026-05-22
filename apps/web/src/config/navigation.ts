@@ -210,7 +210,7 @@ export const navigationItems: GeoPageMeta[] = [
     description:
       "维护公司、产品线、项目档案、品牌上下文和表达边界，让 clean 库能从 0 搭建正式基础数据。",
     phaseNote:
-      "公司和产品线复用现有 Company / ProductLine 模型，不提供物理删除；产品线说明字段后续如需使用，可单独扩展数据库模型。",
+      "公司和产品线复用现有 Company / ProductLine 模型，不提供物理删除；产品线说明用于补充用途、适用场景和内部识别信息。",
     nextSteps: ["维护公司和产品线", "配置项目档案", "确认 AI 接口配置边界"],
     apiFocus: "已联调 /api/companies、/api/product-lines 和 /api/project-profile",
     icon: Setting,

@@ -242,6 +242,7 @@ model ProductLine {
   company               Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
   name                  String
   code                  String
+  description           String?
   status                ProductLineStatus      @default(active)
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")

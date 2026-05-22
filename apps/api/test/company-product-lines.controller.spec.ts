@@ -242,11 +242,13 @@ describe("Company and product line management", () => {
       .set(authorized(companyAdminToken))
       .send({
         name: `Company Admin Product Line ${runId}`,
-        code: `company-admin-product-line-${runId}`
+        code: `company-admin-product-line-${runId}`,
+        description: "用于检测物体距离、位置或有无，适合自动化产线和仓储物流。"
       })
       .expect(201);
     expect(createResponse.body.data).toMatchObject({
       companyId: company.id,
+      description: "用于检测物体距离、位置或有无，适合自动化产线和仓储物流。",
       status: ProductLineStatus.active
     });
 
@@ -256,14 +258,29 @@ describe("Company and product line management", () => {
       .set(authorized(platformToken))
       .send({
         name: `Updated Product Line ${runId}`,
-        code: `updated-product-line-${runId}`
+        code: `updated-product-line-${runId}`,
+        description: "更新后用于设备防护、距离检测和位置识别场景。"
       })
       .expect(200);
     expect(updateResponse.body.data).toMatchObject({
       id: productLineId,
       name: `Updated Product Line ${runId}`,
-      code: `updated-product-line-${runId}`
+      code: `updated-product-line-${runId}`,
+      description: "更新后用于设备防护、距离检测和位置识别场景。"
     });
+
+    const listResponse = await request(app.getHttpServer())
+      .get("/api/product-lines")
+      .set(authorized(companyAdminToken))
+      .expect(200);
+    expect(listResponse.body.data.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: productLineId,
+          description: "更新后用于设备防护、距离检测和位置识别场景。"
+        })
+      ])
+    );
 
     const statusResponse = await request(app.getHttpServer())
       .patch(`/api/product-lines/${productLineId}/status`)
@@ -277,7 +294,46 @@ describe("Company and product line management", () => {
         id: productLineId
       }
     });
+    expect(stored.description).toBe("更新后用于设备防护、距离检测和位置识别场景。");
     expect(stored.status).toBe(ProductLineStatus.disabled);
+  });
+
+  it("keeps product line descriptions optional and allows clearing them", async () => {
+    const createResponse = await request(app.getHttpServer())
+      .post("/api/product-lines")
+      .set(authorized(companyAdminToken))
+      .send({
+        name: `Optional Description Product Line ${runId}`,
+        code: `optional-description-product-line-${runId}`
+      })
+      .expect(201);
+    expect(createResponse.body.data.description).toBeUndefined();
+
+    const productLineId = createResponse.body.data.id as string;
+    const updatedResponse = await request(app.getHttpServer())
+      .patch(`/api/product-lines/${productLineId}`)
+      .set(authorized(companyAdminToken))
+      .send({
+        description: "临时说明"
+      })
+      .expect(200);
+    expect(updatedResponse.body.data.description).toBe("临时说明");
+
+    const clearedResponse = await request(app.getHttpServer())
+      .patch(`/api/product-lines/${productLineId}`)
+      .set(authorized(companyAdminToken))
+      .send({
+        description: ""
+      })
+      .expect(200);
+    expect(clearedResponse.body.data.description).toBeUndefined();
+
+    const stored = await prisma.productLine.findUniqueOrThrow({
+      where: {
+        id: productLineId
+      }
+    });
+    expect(stored.description).toBeNull();
   });
 
   it("rejects product line writes from operators and viewers", async () => {

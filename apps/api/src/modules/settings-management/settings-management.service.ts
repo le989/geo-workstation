@@ -48,6 +48,7 @@ export type ProductLineResponse = {
   companyId: string;
   name: string;
   code: string;
+  description?: string;
   status: ProductLineStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -206,6 +207,7 @@ export class SettingsManagementService {
         companyId,
         name: input.name,
         code: input.code,
+        description: input.description ?? null,
         status: ProductLineStatus.active
       }
     });
@@ -240,6 +242,10 @@ export class SettingsManagementService {
         throw new BadRequestException("产品线编码不能为空");
       }
       data.code = input.code;
+    }
+
+    if (input.description !== undefined) {
+      data.description = input.description ?? null;
     }
 
     const productLine = await this.prisma.productLine.update({
@@ -391,6 +397,7 @@ export class SettingsManagementService {
       companyId: productLine.companyId,
       name: productLine.name,
       code: productLine.code,
+      description: productLine.description ?? undefined,
       status: productLine.status,
       createdAt: productLine.createdAt,
       updatedAt: productLine.updatedAt
