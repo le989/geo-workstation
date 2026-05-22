@@ -139,8 +139,8 @@ describe("UsersController", () => {
     await prisma.$disconnect();
   });
 
-  it("allows only platform admins to list users without leaking password hashes", async () => {
-    const forbiddenTokens = [companyAdminToken, operatorToken, viewerToken];
+  it("allows platform and company admins to list scoped users without leaking password hashes", async () => {
+    const forbiddenTokens = [operatorToken, viewerToken];
 
     for (const token of forbiddenTokens) {
       await request(app.getHttpServer())
@@ -171,6 +171,28 @@ describe("UsersController", () => {
       ])
     );
     expect(JSON.stringify(response.body.data)).not.toContain("passwordHash");
+
+    const companyAdminResponse = await request(app.getHttpServer())
+      .get("/api/users")
+      .query({ keyword: "users-", companyId: disabledCompany.id })
+      .set(authorized(companyAdminToken))
+      .expect(200);
+
+    expect(companyAdminResponse.body.data.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          email: operator.email,
+          memberships: expect.arrayContaining([
+            expect.objectContaining({
+              companyId: company.id,
+              role: MembershipRole.operator
+            })
+          ])
+        })
+      ])
+    );
+    expect(JSON.stringify(companyAdminResponse.body.data)).not.toContain(disabledCompany.id);
+    expect(JSON.stringify(companyAdminResponse.body.data)).not.toContain("passwordHash");
   });
 
   it("creates users with passwordHash and active default membership", async () => {
