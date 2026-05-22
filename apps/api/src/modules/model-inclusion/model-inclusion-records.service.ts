@@ -489,6 +489,7 @@ export class ModelInclusionRecordsService {
     context?: ResourceAccessContext
   ): Promise<WebSearchCheckResponse> {
     this.assertCanRunWebSearch(context);
+    const startedAt = Date.now();
     const uniquePromptIds = [...new Set(input.geoPromptIds)].slice(0, input.limit ?? 20);
     const providerRuntime = this.resolveWebSearchProvider(input);
     const profile = await this.resolveProjectProfileContext(context);
@@ -622,7 +623,13 @@ export class ModelInclusionRecordsService {
       }
     }
 
-    await this.recordWebSearchCheckLogs(providerRuntime, createdItems, failedItems, context);
+    await this.recordWebSearchCheckLogs(
+      providerRuntime,
+      createdItems,
+      failedItems,
+      Date.now() - startedAt,
+      context
+    );
 
     return {
       provider: providerRuntime.provider,
@@ -707,6 +714,7 @@ export class ModelInclusionRecordsService {
     providerRuntime: WebSearchProviderRuntime,
     createdItems: ModelInclusionRecordResponse[],
     failedItems: FailedWebSearchCheckItem[],
+    latencyMs: number,
     context?: ResourceAccessContext
   ): Promise<void> {
     if (createdItems.length > 0) {
@@ -717,11 +725,11 @@ export class ModelInclusionRecordsService {
           provider: providerRuntime.provider,
           model: providerRuntime.model,
           isMock: false,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
           requestCount: 1,
           success: true,
+          latencyMs,
+          providerReturnedUsage: false,
+          usageUnknown: true,
           metadata: {
             successCount: createdItems.length,
             failedCount: failedItems.length
@@ -739,12 +747,13 @@ export class ModelInclusionRecordsService {
           provider: providerRuntime.provider,
           model: providerRuntime.model,
           isMock: false,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
           requestCount: 1,
           success: false,
           errorMessage: failedItems[0]?.errorMessage,
+          latencyMs,
+          errorType: failedItems[0]?.errorCategory,
+          providerReturnedUsage: false,
+          usageUnknown: true,
           metadata: {
             successCount: createdItems.length,
             failedCount: failedItems.length,
@@ -1227,8 +1236,12 @@ export class ModelInclusionRecordsService {
   }
 
   private assertCanRunWebSearch(context?: ResourceAccessContext): void {
-    if (context && getEffectiveRole(context) === "viewer") {
-      throw new ForbiddenException("当前角色无权发起 AI 收录检测");
+    if (context) {
+      const role = getEffectiveRole(context);
+
+      if (role !== "platform_admin" && role !== "company_admin") {
+        throw new ForbiddenException("当前角色无权发起 AI 收录检测");
+      }
     }
   }
 

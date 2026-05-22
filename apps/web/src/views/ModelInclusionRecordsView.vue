@@ -103,7 +103,9 @@ const normalizedRole = computed(() => {
 });
 const isOperator = computed(() => normalizedRole.value === "operator");
 const canCreateRecord = computed(() => canUseAction("create", normalizedRole.value));
-const canRunWebSearch = computed(() => canUseAction("detect", normalizedRole.value));
+const canRunWebSearch = computed(() =>
+  ["platform_admin", "company_admin"].includes(normalizedRole.value)
+);
 const canImportRecords = computed(() => canUseAction("import", normalizedRole.value));
 const canExportRecords = computed(() => canUseAction("export", normalizedRole.value));
 const canManageRecords = computed(() =>

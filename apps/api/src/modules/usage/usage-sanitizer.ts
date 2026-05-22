@@ -9,7 +9,7 @@ const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 const API_KEY_PATTERN = /\b(?:sk|pk|rk|ak)[-_][A-Za-z0-9._-]{8,}\b/g;
 const SENSITIVE_ASSIGNMENT_PATTERN =
-  /\b(?:api[_ -]?key|jwt|token|secret|database_url|databaseurl)\s*[:=]\s*[^\s,;]+/gi;
+  /\b(?:api[_ -]?key|jwt(?:[_ -]?secret)?|token|secret|database[_ -]?url|databaseurl|password|authorization)\s*[:=]\s*(?:"[^"]+"|'[^']+'|[^\s,;]+)/gi;
 const MAX_STRING_LENGTH = 500;
 const MAX_ARRAY_ITEMS = 20;
 const MAX_OBJECT_KEYS = 40;
@@ -23,6 +23,18 @@ export function sanitizeErrorMessage(value: unknown): string | undefined {
   const sanitized = sanitizeString(message);
 
   return sanitized || undefined;
+}
+
+export function redactSensitiveValue(value: unknown): string | undefined {
+  return sanitizeErrorMessage(value);
+}
+
+export function sanitizeProviderErrorMessage(value: unknown): string {
+  return sanitizeErrorMessage(value) ?? "Provider error";
+}
+
+export function sanitizeAiProviderError(value: unknown): string {
+  return sanitizeProviderErrorMessage(value);
 }
 
 export function sanitizeMetadata(value: unknown): Prisma.InputJsonValue | undefined {

@@ -57,6 +57,11 @@ const contentGenerationModeOptions = [
   { label: "基础生成模式", value: "mock" },
   { label: "AI 生成模式", value: "openai_compatible" }
 ];
+const providerSafetyText = computed(() =>
+  form.provider === "openai_compatible"
+    ? "真实 AI 接口：会调用外部模型，可能产生额度消耗。"
+    : "基础生成模式：不调用真实模型。"
+);
 
 const selectedKnowledgeBase = computed(() =>
   knowledgeBases.value.find((item) => item.id === form.knowledgeBaseId)
@@ -363,6 +368,7 @@ const handleSubmit = () => {
                     :value="option.value"
                   />
                 </el-select>
+                <p class="form-help">{{ providerSafetyText }}</p>
               </el-form-item>
               <el-form-item label="模型名称">
                 <el-select

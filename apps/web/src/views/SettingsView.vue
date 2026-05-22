@@ -836,7 +836,7 @@ watch(
         <div>
           <p class="section-kicker">模型与接口配置</p>
           <h2>Provider 状态</h2>
-          <span>这里只展示接入状态和使用边界，不展示、复制或保存任何密钥。</span>
+          <span>当前页面不显示密钥，密钥仅由后端环境变量读取。</span>
         </div>
         <el-tag type="info" effect="plain">前端只读说明</el-tag>
       </div>

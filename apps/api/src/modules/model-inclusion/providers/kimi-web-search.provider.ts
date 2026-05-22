@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { sanitizeProviderErrorMessage } from "../../usage/usage-sanitizer";
 
 export type ProviderErrorCategory =
   | "network_timeout"
@@ -28,7 +29,7 @@ export class KimiProviderError extends Error {
     readonly retryCount = 0,
     readonly status?: number
   ) {
-    super(message);
+    super(sanitizeProviderErrorMessage(message));
     this.name = "KimiProviderError";
   }
 }
@@ -183,7 +184,7 @@ export const getProviderRetryCount = (error: unknown): number =>
 
 export const formatProviderError = (error: unknown): string => {
   const category = classifyProviderError(error);
-  const message = getErrorMessage(error);
+  const message = sanitizeProviderErrorMessage(getErrorMessage(error));
   return `[${category}] ${message}`;
 };
 

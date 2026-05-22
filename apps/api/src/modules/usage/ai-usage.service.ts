@@ -21,6 +21,10 @@ export type RecordAiUsageInput = {
   success?: boolean;
   errorMessage?: unknown;
   metadata?: unknown;
+  latencyMs?: number | null;
+  errorType?: string | null;
+  providerReturnedUsage?: boolean | null;
+  usageUnknown?: boolean | null;
   createdAt?: Date;
 };
 
@@ -82,6 +86,7 @@ export class AiUsageService {
       const totalTokens = isMock
         ? 0
         : this.toNonNegativeInt(input.totalTokens ?? promptTokens + completionTokens);
+      const metadata = this.buildUsageMetadata(input, isMock);
 
       return await this.prisma.aiUsageRecord.create({
         data: {
@@ -103,14 +108,12 @@ export class AiUsageService {
           requestCount: Math.max(this.toNonNegativeInt(input.requestCount ?? 1), 1),
           success: input.success ?? true,
           errorMessage: sanitizeErrorMessage(input.errorMessage) ?? null,
-          metadata: sanitizeMetadata(input.metadata),
+          metadata: sanitizeMetadata(metadata),
           ...(input.createdAt ? { createdAt: input.createdAt } : {})
         }
       });
     } catch (error) {
-      this.logger.warn(
-        `Failed to record AI usage: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.warn(`Failed to record AI usage: ${sanitizeErrorMessage(error) ?? "unknown"}`);
       return null;
     }
   }
@@ -363,6 +366,39 @@ export class AiUsageService {
     const firstDay = Date.UTC(date.getUTCFullYear(), 0, 1);
     const currentDay = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
     return Math.ceil(((currentDay - firstDay) / 86400000 + 1) / 7);
+  }
+
+  private buildUsageMetadata(
+    input: RecordAiUsageInput,
+    isMock: boolean
+  ): Record<string, unknown> | undefined {
+    const base: Record<string, unknown> =
+      input.metadata && typeof input.metadata === "object" && !Array.isArray(input.metadata)
+        ? { ...(input.metadata as Record<string, unknown>) }
+        : input.metadata === undefined
+          ? {}
+          : { details: input.metadata };
+
+    if (input.latencyMs !== undefined && input.latencyMs !== null) {
+      base.latencyMs = this.toNonNegativeInt(input.latencyMs);
+    }
+    if (input.errorType) {
+      base.errorType = input.errorType;
+    }
+
+    if (!isMock) {
+      const hasUsageInput =
+        input.promptTokens !== undefined ||
+        input.completionTokens !== undefined ||
+        input.totalTokens !== undefined;
+      const providerReturnedUsage = input.providerReturnedUsage ?? hasUsageInput;
+      const usageUnknown = input.usageUnknown ?? !providerReturnedUsage;
+
+      base.providerReturnedUsage = providerReturnedUsage;
+      base.usageUnknown = usageUnknown;
+    }
+
+    return Object.keys(base).length > 0 ? base : undefined;
   }
 
   private toNonNegativeInt(value: number | null | undefined): number {

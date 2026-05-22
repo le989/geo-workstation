@@ -1678,7 +1678,7 @@ describe("ModelInclusionRecordsService", () => {
     const companyB = await createCompany("web-search-b");
     const operatorA = await createUser("web-search-operator-a", UserRole.operator);
     const operatorB = await createUser("web-search-operator-b", UserRole.operator);
-    const operatorAContext = buildContext(operatorA, companyA, MembershipRole.operator);
+    const companyAdminAContext = buildContext(operatorA, companyA, MembershipRole.company_admin);
     const promptA = await createCompanyGeoPrompt("web-search prompt a", companyA.id, operatorA.id);
     const promptB = await createCompanyGeoPrompt("web-search prompt b", companyB.id, operatorB.id);
     kimiProvider.search.mockResolvedValue({
@@ -1695,7 +1695,7 @@ describe("ModelInclusionRecordsService", () => {
         provider: "kimi_web_search",
         brandName: "凯基特"
       },
-      operatorAContext
+      companyAdminAContext
     );
     const successId = success.createdItems[0]?.id;
     expect(successId).toBeTruthy();
@@ -1716,7 +1716,7 @@ describe("ModelInclusionRecordsService", () => {
         provider: "kimi_web_search",
         brandName: "凯基特"
       },
-      operatorAContext
+      companyAdminAContext
     );
     const leakedRecords = await prisma.modelInclusionRecord.count({
       where: {

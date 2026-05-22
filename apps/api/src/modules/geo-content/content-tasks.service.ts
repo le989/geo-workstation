@@ -164,6 +164,8 @@ type GeneratedContentResult = MockContentGenerationResult & {
   model: string;
   tokenInput?: number;
   tokenOutput?: number;
+  providerReturnedUsage?: boolean;
+  latencyMs?: number;
 };
 
 type AiUsageSummary = {
@@ -171,6 +173,8 @@ type AiUsageSummary = {
   model?: string;
   tokenInput?: number;
   tokenOutput?: number;
+  providerReturnedUsage?: boolean;
+  latencyMs?: number;
 };
 
 @Injectable()
@@ -752,6 +756,7 @@ export class ContentTasksService {
       };
     }
 
+    const aiStartedAt = Date.now();
     const result = await this.requireAiProviderService().generateText({
       provider: input.provider,
       model: input.model,
@@ -771,7 +776,9 @@ export class ContentTasksService {
       provider: result.provider,
       model: result.model,
       tokenInput: result.tokenInput,
-      tokenOutput: result.tokenOutput
+      tokenOutput: result.tokenOutput,
+      providerReturnedUsage: result.tokenInput !== undefined || result.tokenOutput !== undefined,
+      latencyMs: Date.now() - aiStartedAt
     };
   }
 
@@ -1200,6 +1207,12 @@ export class ContentTasksService {
         totalTokens: promptTokens + completionTokens,
         requestCount: 1,
         success: status !== TaskStatus.failed,
+        latencyMs: usage?.latencyMs,
+        providerReturnedUsage: isMockAiProvider(provider)
+          ? undefined
+          : (usage?.providerReturnedUsage ?? false),
+        usageUnknown:
+          isMockAiProvider(provider) ? undefined : !(usage?.providerReturnedUsage ?? false),
         metadata: {
           taskId,
           promptCount: prompts.length,
@@ -1218,6 +1231,9 @@ export class ContentTasksService {
   private mergeAiUsage(usage: AiUsageSummary, result: GeneratedContentResult): void {
     usage.provider = result.provider;
     usage.model = result.model;
+    usage.providerReturnedUsage =
+      usage.providerReturnedUsage === false ? false : result.providerReturnedUsage;
+    usage.latencyMs = (usage.latencyMs ?? 0) + (result.latencyMs ?? 0);
 
     if (result.tokenInput !== undefined) {
       usage.tokenInput = (usage.tokenInput ?? 0) + result.tokenInput;
