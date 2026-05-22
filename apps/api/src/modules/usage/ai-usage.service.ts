@@ -69,6 +69,69 @@ type AiUsageRecordWithDepartment = AiUsageRecord & {
   department?: { name: string } | null;
 };
 
+type AiUsageRecordForAiSummary = AiUsageRecord & {
+  company?: { name: string } | null;
+  user?: { name: string; email: string } | null;
+  department?: { name: string } | null;
+};
+
+export type AiUsageTokenSummary = {
+  totalCalls: number;
+  successCount: number;
+  failureCount: number;
+  successRate: number;
+  tokenKnownCalls: number;
+  tokenUnknownCalls: number;
+  usageUnknownCount: number;
+  knownPromptTokens: number;
+  knownCompletionTokens: number;
+  knownTotalTokens: number;
+};
+
+export type AiUsageCompanySummaryItem = AiUsageTokenSummary & {
+  key: string;
+  companyId: string | null;
+  companyName: string | null;
+};
+
+export type AiUsageProviderSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  provider: string;
+  model: string | null;
+};
+
+export type AiUsageModuleSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  moduleKey: string;
+  action: string;
+};
+
+export type AiUsageUserSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+};
+
+export type AiUsageDepartmentSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  departmentId: string | null;
+  departmentName: string | null;
+};
+
+export type AiUsageSummaryResponse = {
+  range: {
+    startDate: string;
+    endDate: string | null;
+  };
+  overview: AiUsageTokenSummary;
+  byCompany: AiUsageCompanySummaryItem[];
+  byProvider: AiUsageProviderSummaryItem[];
+  byModule: AiUsageModuleSummaryItem[];
+  byUser: AiUsageUserSummaryItem[];
+  byDepartment: AiUsageDepartmentSummaryItem[];
+};
+
 @Injectable()
 export class AiUsageService {
   private readonly logger = new Logger(AiUsageService.name);
@@ -224,6 +287,94 @@ export class AiUsageService {
     };
   }
 
+  async queryAiSummary(
+    query: QueryUsageDto,
+    context: ResourceAccessContext
+  ): Promise<AiUsageSummaryResponse> {
+    const range = this.resolveAiSummaryRange(query);
+    const records = (await this.prisma.aiUsageRecord.findMany({
+      where: this.buildWhere(
+        {
+          ...query,
+          isMock: false,
+          startDate: range.startDate,
+          endDate: range.endDate ?? undefined
+        },
+        context
+      ),
+      include: {
+        company: {
+          select: {
+            name: true
+          }
+        },
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        department: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "asc"
+      }
+    })) as AiUsageRecordForAiSummary[];
+
+    return {
+      range,
+      overview: this.summarizeAiUsage(records),
+      byCompany: this.groupRecords(records, (record) => record.companyId ?? "unknown-company").map(
+        ([key, items]) => ({
+          key,
+          companyId: items[0]?.companyId ?? null,
+          companyName: items[0]?.company?.name ?? (items[0]?.companyId ? null : "未知公司"),
+          ...this.summarizeAiUsage(items)
+        })
+      ),
+      byProvider: this.groupRecords(
+        records,
+        (record) => `${record.provider}::${record.model ?? "unknown-model"}`
+      ).map(([key, items]) => ({
+        key,
+        provider: items[0]?.provider ?? "unknown",
+        model: items[0]?.model ?? null,
+        ...this.summarizeAiUsage(items)
+      })),
+      byModule: this.groupRecords(
+        records,
+        (record) => `${record.moduleKey}::${record.action}`
+      ).map(([key, items]) => ({
+        key,
+        moduleKey: items[0]?.moduleKey ?? "unknown",
+        action: items[0]?.action ?? "unknown",
+        ...this.summarizeAiUsage(items)
+      })),
+      byUser: this.groupRecords(records, (record) => record.userId ?? "system").map(
+        ([key, items]) => ({
+          key,
+          userId: items[0]?.userId ?? null,
+          userName: items[0]?.user?.name ?? (items[0]?.userId ? null : "系统任务"),
+          userEmail: items[0]?.user?.email ?? null,
+          ...this.summarizeAiUsage(items)
+        })
+      ),
+      byDepartment: this.groupRecords(
+        records,
+        (record) => record.departmentId ?? "unassigned"
+      ).map(([key, items]) => ({
+        key,
+        departmentId: items[0]?.departmentId ?? null,
+        departmentName: items[0]?.department?.name ?? (items[0]?.departmentId ? null : "未绑定部门"),
+        ...this.summarizeAiUsage(items)
+      }))
+    };
+  }
+
   private async findVisibleRecords(
     query: QueryUsageDto,
     context: ResourceAccessContext,
@@ -312,6 +463,95 @@ export class AiUsageService {
         failureCount: 0
       }
     );
+  }
+
+  private summarizeAiUsage(records: AiUsageRecord[]): AiUsageTokenSummary {
+    const summary = records.reduce<AiUsageTokenSummary>(
+      (result, record) => {
+        const requestCount = record.requestCount;
+        const usageUnknown = this.isUsageUnknown(record);
+
+        result.totalCalls += requestCount;
+        if (record.success) {
+          result.successCount += requestCount;
+        } else {
+          result.failureCount += requestCount;
+        }
+
+        if (usageUnknown) {
+          result.tokenUnknownCalls += requestCount;
+          result.usageUnknownCount += requestCount;
+        } else {
+          result.tokenKnownCalls += requestCount;
+          result.knownPromptTokens += record.promptTokens;
+          result.knownCompletionTokens += record.completionTokens;
+          result.knownTotalTokens += record.totalTokens;
+        }
+
+        return result;
+      },
+      {
+        totalCalls: 0,
+        successCount: 0,
+        failureCount: 0,
+        successRate: 0,
+        tokenKnownCalls: 0,
+        tokenUnknownCalls: 0,
+        usageUnknownCount: 0,
+        knownPromptTokens: 0,
+        knownCompletionTokens: 0,
+        knownTotalTokens: 0
+      }
+    );
+
+    summary.successRate = summary.totalCalls > 0 ? summary.successCount / summary.totalCalls : 0;
+
+    return summary;
+  }
+
+  private isUsageUnknown(record: AiUsageRecord): boolean {
+    const metadata =
+      record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
+        ? (record.metadata as Record<string, unknown>)
+        : {};
+
+    if (metadata.usageUnknown === true || metadata.providerReturnedUsage === false) {
+      return true;
+    }
+    if (metadata.usageUnknown === false || metadata.providerReturnedUsage === true) {
+      return false;
+    }
+
+    return record.promptTokens + record.completionTokens + record.totalTokens === 0;
+  }
+
+  private resolveAiSummaryRange(query: QueryUsageDto): { startDate: string; endDate: string | null } {
+    if (query.startDate || query.endDate) {
+      return {
+        startDate: query.startDate ?? this.toDateString(this.daysAgo(30)),
+        endDate: query.endDate ?? null
+      };
+    }
+
+    return {
+      startDate: this.toDateString(this.daysAgo(30)),
+      endDate: null
+    };
+  }
+
+  private daysAgo(days: number): Date {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  private toDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
   }
 
   private groupRecords<T extends AiUsageRecord>(
