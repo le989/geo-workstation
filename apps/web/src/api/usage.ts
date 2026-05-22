@@ -46,6 +46,63 @@ export type UsageTrendResponse = {
   items: UsageTrendItem[];
 };
 
+export type AiUsageTokenSummary = {
+  totalCalls: number;
+  successCount: number;
+  failureCount: number;
+  successRate: number;
+  tokenKnownCalls: number;
+  tokenUnknownCalls: number;
+  usageUnknownCount: number;
+  knownPromptTokens: number;
+  knownCompletionTokens: number;
+  knownTotalTokens: number;
+};
+
+export type AiUsageCompanySummaryItem = AiUsageTokenSummary & {
+  key: string;
+  companyId: string | null;
+  companyName: string | null;
+};
+
+export type AiUsageProviderSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  provider: string;
+  model: string | null;
+};
+
+export type AiUsageModuleSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  moduleKey: string;
+  action: string;
+};
+
+export type AiUsageUserSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+};
+
+export type AiUsageDepartmentSummaryItem = AiUsageTokenSummary & {
+  key: string;
+  departmentId: string | null;
+  departmentName: string | null;
+};
+
+export type AiUsageSummary = {
+  range: {
+    startDate: string;
+    endDate: string | null;
+  };
+  overview: AiUsageTokenSummary;
+  byCompany: AiUsageCompanySummaryItem[];
+  byProvider: AiUsageProviderSummaryItem[];
+  byModule: AiUsageModuleSummaryItem[];
+  byUser: AiUsageUserSummaryItem[];
+  byDepartment: AiUsageDepartmentSummaryItem[];
+};
+
 export type OperationLogQuery = {
   moduleKey?: string;
   action?: string;
@@ -131,6 +188,9 @@ export const getUsageByDepartment = (query: UsageQuery = {}) =>
 
 export const getUsageByModule = (query: UsageQuery = {}) =>
   apiGet<UsageBreakdownResponse>(`/api/usage/by-module${buildUsageQuery(query)}`);
+
+export const getAiUsageSummary = (query: UsageQuery = {}) =>
+  apiGet<AiUsageSummary>(`/api/usage/ai-summary${buildUsageQuery(query)}`);
 
 export const getOperationLogs = (query: OperationLogQuery = {}) =>
   apiGet<OperationLogListResponse>(

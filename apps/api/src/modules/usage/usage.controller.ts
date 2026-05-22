@@ -32,6 +32,19 @@ export class UsageController {
     );
   }
 
+  @Get("ai-summary")
+  getAiSummary(
+    @Query(createValidationPipe(QueryUsageDto)) query: QueryUsageDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.aiUsageService.queryAiSummary(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
   @Get("trends")
   getTrends(
     @Query(createValidationPipe(QueryUsageTrendDto)) query: QueryUsageTrendDto,
