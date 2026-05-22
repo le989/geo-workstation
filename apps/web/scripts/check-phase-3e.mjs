@@ -18,6 +18,7 @@ const requiredFiles = [
   "src/components/KnowledgeMaterialIngestWizard.vue",
   "src/components/KnowledgeParseStatusTag.vue",
   "src/components/KnowledgeTextImportForm.vue",
+  "src/utils/knowledge-material-suggest.ts",
   "src/utils/knowledge-citation.ts",
   "src/views/KnowledgeBasesView.vue"
 ];
@@ -104,9 +105,47 @@ const pageRequiredSnippets = [
   "formatKnowledgeSourceDescription",
   "KnowledgeBaseDetailDrawer",
   "KnowledgeMaterialIngestWizard",
+  "suggestKnowledgeMaterial",
+  "applyMaterialSuggestion",
+  "refreshMaterialSuggestion",
+  "touched.materialType",
+  "!touched.materialType",
+  "touched.materialTopic",
+  "!touched.materialTopic",
+  "系统推荐，可修改",
+  "系统根据文件名推荐，可修改",
+  "系统根据标题和正文推荐，可修改",
+  "未识别到合适类型，可手动选择",
   "KnowledgeChunkTable",
   "KnowledgeFileCards",
   "reparseKnowledgeFile"
+];
+
+const suggestRequiredSnippets = [
+  "规格书",
+  "技术参数",
+  "datasheet",
+  "说明书",
+  "安装",
+  "接线",
+  "故障",
+  "常见问题",
+  "FAQ",
+  "产品参数",
+  "安装接线",
+  "故障排查",
+  "aftersales_material",
+  "product_material",
+  "customer_case_material",
+  "company_trust_material"
+];
+
+const forbiddenRecommendationSnippets = [
+  ["AI", "推荐"].join(""),
+  "智能分类",
+  "自动审核",
+  "自动学习",
+  "自动正式引用"
 ];
 
 const knowledgeFields = [
@@ -158,6 +197,7 @@ const pageSource = [
   await readSource("src/components/KnowledgeFileUpload.vue"),
   await readSource("src/components/KnowledgeMaterialIngestWizard.vue"),
   await readSource("src/components/KnowledgeTextImportForm.vue"),
+  await readSource("src/utils/knowledge-material-suggest.ts"),
   await readSource("src/utils/knowledge-citation.ts"),
   await readSource("src/utils/knowledge-source.ts")
 ].join("\n");
@@ -168,6 +208,15 @@ for (const snippet of pageRequiredSnippets) {
 
 for (const field of knowledgeFields) {
   assert(pageSource.includes(field), `Knowledge page missing field ${field}`);
+}
+
+const suggestSource = await readSource("src/utils/knowledge-material-suggest.ts");
+for (const snippet of suggestRequiredSnippets) {
+  assert(suggestSource.includes(snippet), `Knowledge material suggestion missing ${snippet}`);
+}
+
+for (const snippet of forbiddenRecommendationSnippets) {
+  assert(!pageSource.includes(snippet), `Knowledge recommendation should not use wording ${snippet}`);
 }
 
 const routesSource = await readSource("src/router/routes.ts");

@@ -22,6 +22,10 @@ import {
   trustLevelLabelMap,
   trustLevelOptions
 } from "@/config/knowledge-options";
+import {
+  suggestKnowledgeMaterial,
+  type KnowledgeMaterialSuggestion
+} from "@/utils/knowledge-material-suggest";
 
 type IngestMethod = "manual" | "upload";
 
@@ -47,9 +51,12 @@ const selectedFile = ref<File | null>(null);
 const advancedOpen = ref(false);
 const touched = reactive({
   applicableModules: false,
+  materialTopic: false,
+  materialType: false,
   reviewStatus: false,
   trustLevel: false
 });
+const materialSuggestion = ref<KnowledgeMaterialSuggestion | null>(null);
 
 const productDefaults = materialTypeDefaults.product_material;
 
@@ -123,6 +130,42 @@ const selectedDepartmentNames = computed(() => {
     .map((id) => props.departments?.find((department) => department.id === id)?.name ?? id)
     .join("、");
 });
+const materialSuggestionLabel = computed(() => {
+  const suggestion = materialSuggestion.value;
+  if (!suggestion) {
+    return "";
+  }
+
+  return suggestion.source === "filename"
+    ? "系统根据文件名推荐，可修改"
+    : "系统根据标题和正文推荐，可修改";
+});
+const materialTypeSuggestionHint = computed(() => {
+  const suggestion = materialSuggestion.value;
+  return suggestion?.materialType && form.materialType === suggestion.materialType
+    ? materialSuggestionLabel.value
+    : "";
+});
+const materialTopicSuggestionHint = computed(() => {
+  const suggestion = materialSuggestion.value;
+  return suggestion?.materialTopic && form.materialTopic === suggestion.materialTopic
+    ? "系统推荐，可修改"
+    : "";
+});
+const materialSuggestionHint = computed(
+  () => materialTypeSuggestionHint.value || materialTopicSuggestionHint.value
+);
+const shouldShowNoSuggestionHint = computed(() => {
+  if (materialSuggestion.value || form.materialType !== "product_material" || form.materialTopic) {
+    return false;
+  }
+
+  if (isManual.value) {
+    return Boolean(form.title.trim() || form.content.trim());
+  }
+
+  return Boolean(selectedFile.value?.name || form.title.trim());
+});
 const saveButtonText = computed(() => (isManual.value ? "保存资料" : "上传并保存"));
 const isDirty = computed(
   () =>
@@ -164,12 +207,39 @@ const applyMaterialTypeDefaults = () => {
   }
 };
 
+const applyMaterialSuggestion = (suggestion: KnowledgeMaterialSuggestion | null) => {
+  if (!suggestion) {
+    return;
+  }
+
+  if (suggestion.materialType && !touched.materialType) {
+    form.materialType = suggestion.materialType;
+    applyMaterialTypeDefaults();
+  }
+
+  if (suggestion.materialTopic && !touched.materialTopic) {
+    form.materialTopic = suggestion.materialTopic;
+  }
+};
+
+const refreshMaterialSuggestion = () => {
+  const suggestion = suggestKnowledgeMaterial({
+    content: isManual.value ? form.content : undefined,
+    fileName: selectedFile.value?.name,
+    title: form.title
+  });
+
+  materialSuggestion.value = suggestion;
+  applyMaterialSuggestion(suggestion);
+};
+
 const selectMethod = (method: IngestMethod) => {
   form.method = method;
   formError.value = "";
   if (!form.sourceDescription && props.defaultProductLine) {
     form.sourceDescription = `知识库产品线：${props.defaultProductLine}`;
   }
+  refreshMaterialSuggestion();
 };
 
 watch(
@@ -183,7 +253,12 @@ watch(
 );
 
 const handleMaterialTypeChange = () => {
+  touched.materialType = true;
   applyMaterialTypeDefaults();
+};
+
+const handleMaterialTopicChange = () => {
+  touched.materialTopic = true;
 };
 
 const validateForm = () => {
@@ -240,6 +315,7 @@ const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement;
   selectedFile.value = target.files?.[0] ?? null;
   formError.value = "";
+  refreshMaterialSuggestion();
 };
 
 const resetWizard = () => {
@@ -247,8 +323,11 @@ const resetWizard = () => {
   selectedFile.value = null;
   advancedOpen.value = false;
   touched.applicableModules = false;
+  touched.materialTopic = false;
+  touched.materialType = false;
   touched.reviewStatus = false;
   touched.trustLevel = false;
+  materialSuggestion.value = null;
   Object.assign(form, {
     allowedDepartmentIds: [],
     applicableModules: [...productDefaults.applicableModules],
@@ -267,6 +346,10 @@ const resetWizard = () => {
     fileInput.value.value = "";
   }
 };
+
+watch([() => form.title, () => form.content], () => {
+  refreshMaterialSuggestion();
+});
 
 const cancelWizard = async () => {
   if (!isDirty.value) {
@@ -415,6 +498,12 @@ const submit = () => {
               :value="option.value"
             />
           </el-select>
+          <p v-if="materialTypeSuggestionHint" class="knowledge-field-help">
+            {{ materialTypeSuggestionHint }}
+          </p>
+          <p v-else-if="shouldShowNoSuggestionHint" class="knowledge-field-help">
+            未识别到合适类型，可手动选择
+          </p>
         </el-form-item>
 
         <el-form-item label="所属目录" required>
@@ -464,7 +553,13 @@ const submit = () => {
           </el-form-item>
 
           <el-form-item label="资料主题">
-            <el-select v-model="form.materialTopic" filterable clearable placeholder="选择更细的内容主题">
+            <el-select
+              v-model="form.materialTopic"
+              filterable
+              clearable
+              placeholder="选择更细的内容主题"
+              @change="handleMaterialTopicChange"
+            >
               <el-option
                 v-for="option in materialTopicOptions"
                 :key="option.value"
@@ -472,6 +567,9 @@ const submit = () => {
                 :value="option.value"
               />
             </el-select>
+            <p v-if="materialTopicSuggestionHint" class="knowledge-field-help">
+              {{ materialTopicSuggestionHint }}
+            </p>
             <p class="knowledge-field-help">用于细分资料内容，例如资质证书、故障排查、行业动态。</p>
           </el-form-item>
 
@@ -563,6 +661,7 @@ const submit = () => {
         <strong>{{ selectedReviewStatusLabel }}</strong>
         <strong>{{ selectedTrustLevelLabel }}</strong>
         <strong>{{ selectedDirectoryLabel }}</strong>
+        <small v-if="materialSuggestionHint">{{ materialSuggestionHint }}</small>
         <small>{{ selectedModuleLabels || "未设置可用场景" }}</small>
         <small v-if="selectedDepartmentNames">售后可见部门：{{ selectedDepartmentNames }}</small>
       </div>
