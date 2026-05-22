@@ -58,6 +58,7 @@ type CompanyFormState = {
 type ProductLineFormState = {
   name: string;
   code: string;
+  description: string;
 };
 
 const profile = ref<ProjectProfile | null>(null);
@@ -105,7 +106,8 @@ const companyForm = reactive<CompanyFormState>({
 
 const productLineForm = reactive<ProductLineFormState>({
   name: "",
-  code: ""
+  code: "",
+  description: ""
 });
 
 const trimOptional = (value: string) => {
@@ -317,6 +319,7 @@ const openEditCompany = (company: ManagedCompany) => {
 const resetProductLineForm = (productLine?: ManagedProductLine) => {
   productLineForm.name = productLine?.name ?? "";
   productLineForm.code = productLine?.code ?? "";
+  productLineForm.description = productLine?.description ?? "";
   productLineFormError.value = "";
 };
 
@@ -447,7 +450,8 @@ const changeCompanyStatus = async (company: ManagedCompany) => {
 
 const buildProductLinePayload = (): ProductLinePayload => ({
   name: productLineForm.name.trim(),
-  code: productLineForm.code.trim()
+  code: productLineForm.code.trim(),
+  description: productLineForm.description.trim()
 });
 
 const submitProductLine = async () => {
@@ -655,7 +659,7 @@ watch(
             <div>
               <p class="section-kicker">Product Line</p>
               <h2>当前公司产品线</h2>
-              <span>本轮不改数据库 schema；产品线说明字段后续如需使用，可单独扩展数据库模型。</span>
+              <span>产品线说明用于补充用途、适用场景和内部识别信息，方便后续内容生成和知识引用。</span>
             </div>
           </div>
         </template>
@@ -674,6 +678,11 @@ watch(
         >
           <el-table-column prop="name" label="产品线名称" min-width="200" />
           <el-table-column prop="code" label="产品线编码" min-width="180" />
+          <el-table-column label="产品线说明" min-width="240">
+            <template #default="{ row }">
+              <span class="table-subtext">{{ row.description || "未填写" }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.status)" effect="plain">
@@ -1087,6 +1096,19 @@ watch(
         </el-form-item>
         <el-form-item label="产品线编码" required>
           <el-input v-model="productLineForm.code" placeholder="例如：core-product-line" />
+        </el-form-item>
+        <el-form-item label="产品线说明">
+          <el-input
+            v-model="productLineForm.description"
+            type="textarea"
+            :rows="4"
+            maxlength="1000"
+            show-word-limit
+            placeholder="例如：用于检测物体距离、位置或有无，常见于自动化产线、仓储物流、设备防护等场景。"
+          />
+          <p class="form-helper-text">
+            用一两句话说明这个产品线是什么，主要适合哪些现场或问题。
+          </p>
         </el-form-item>
       </el-form>
 

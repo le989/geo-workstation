@@ -102,7 +102,7 @@ export const sopSections: HelpSection[] = [
       {
         title: "维护产品线",
         description:
-          "为当前公司新增正式产品线，支持新增、编辑、启用 / 停用；产品线暂不支持说明字段。"
+          "为当前公司新增正式产品线，支持新增、编辑、启用 / 停用，并用产品线说明补充用途、适用场景和内部识别信息。"
       },
       {
         title: "建立部门和模块权限",
@@ -482,7 +482,8 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "产品线管理",
-        description: "支持新增、编辑、启用 / 停用，当前暂不支持说明字段。"
+        description:
+          "支持新增、编辑、启用 / 停用；产品线说明用于补充这个产品线的用途、适用场景和内部识别信息。"
       }
     ],
     reminders: [
@@ -543,7 +544,8 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "产品线说明字段",
-        description: "产品线暂不支持说明字段，详细说明可先写入项目档案或知识库。"
+        description:
+          "产品线说明用于补充这个产品线的用途、适用场景和内部识别信息，方便后续内容生成和知识引用。"
       },
       {
         title: "真实 AI Provider",

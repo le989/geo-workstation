@@ -19,6 +19,7 @@ export type ManagedProductLine = {
   companyId: string;
   name: string;
   code: string;
+  description?: string;
   status: ProductLineStatus;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,7 @@ export type CompanyPayload = {
 export type ProductLinePayload = {
   name: string;
   code: string;
+  description?: string;
 };
 
 export const listCompanies = () => apiGet<ListCompaniesResult>("/api/companies");

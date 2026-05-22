@@ -6937,6 +6937,13 @@ a {
   margin-bottom: 0;
 }
 
+.form-helper-text {
+  margin: 6px 0 0;
+  color: var(--geo-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .settings-form-control {
   width: 100%;
 }

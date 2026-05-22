@@ -49,6 +49,13 @@ for (const snippet of [
   );
 }
 
+for (const snippet of ["description?: string", "ProductLinePayload"]) {
+  assert(
+    settingsManagementApiSource.includes(snippet),
+    `Settings management API missing product line description snippet: ${snippet}`
+  );
+}
+
 const settingsSource = await readSource("src/views/SettingsView.vue");
 for (const snippet of [
   "公司管理",
@@ -56,7 +63,9 @@ for (const snippet of [
   "公司类型",
   "产品线管理",
   "新增产品线",
-  "产品线说明字段后续如需使用，可单独扩展数据库模型",
+  "产品线说明",
+  "用一两句话说明这个产品线是什么",
+  "未填写",
   "项目档案",
   "不绑定某个固定行业",
   "产品、服务、课程、门店、本地生活、个人品牌",
