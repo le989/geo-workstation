@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { Connection, Download, Plus, Refresh, Upload } from "@element-plus/icons-vue";
 import {
   createModelInclusionRecord,
@@ -8,13 +8,17 @@ import {
   getModelInclusionRecords,
   getUncoveredPrompts,
   importModelInclusionRecords,
+  restoreModelInclusionRecord,
   runWebSearchCheck,
+  updateModelInclusionRecord,
+  voidModelInclusionRecord,
   type CreateModelInclusionRecordPayload,
   type ImportModelInclusionRecordRow,
   type ImportModelInclusionRecordsResult,
   type ModelInclusionRecord,
   type ModelInclusionRecordQuery,
   type ModelInclusionSummary,
+  type UpdateModelInclusionRecordPayload,
   type UncoveredPrompt,
   type UncoveredPromptsQuery,
   type WebSearchCheckPayload,
@@ -23,6 +27,7 @@ import {
 import AppErrorState from "@/components/AppErrorState.vue";
 import ModelInclusionFilters from "@/components/ModelInclusionFilters.vue";
 import ModelInclusionImportDialog from "@/components/ModelInclusionImportDialog.vue";
+import ModelInclusionRecordEditDialog from "@/components/ModelInclusionRecordEditDialog.vue";
 import ModelInclusionRecordFormDialog from "@/components/ModelInclusionRecordFormDialog.vue";
 import ModelInclusionRecordTable from "@/components/ModelInclusionRecordTable.vue";
 import ModelInclusionSummaryCards from "@/components/ModelInclusionSummaryCards.vue";
@@ -49,7 +54,8 @@ const lastLoadedAt = ref("");
 
 const filters = reactive<ModelInclusionRecordQuery>({
   page: 1,
-  pageSize: 20
+  pageSize: 20,
+  voidStatus: "normal"
 });
 const uncoveredPromptHint =
   "这些提示词在当前筛选条件下暂无模型覆盖记录，适合优先进行人工检测或补充内容。";
@@ -57,6 +63,10 @@ const uncoveredPromptHint =
 const formVisible = ref(false);
 const formSubmitting = ref(false);
 const formError = ref("");
+const editingRecord = ref<ModelInclusionRecord | null>(null);
+const editDialogVisible = ref(false);
+const editSubmitting = ref(false);
+const editError = ref("");
 
 const importVisible = ref(false);
 const importSubmitting = ref(false);
@@ -96,6 +106,9 @@ const canCreateRecord = computed(() => canUseAction("create", normalizedRole.val
 const canRunWebSearch = computed(() => canUseAction("detect", normalizedRole.value));
 const canImportRecords = computed(() => canUseAction("import", normalizedRole.value));
 const canExportRecords = computed(() => canUseAction("export", normalizedRole.value));
+const canManageRecords = computed(() =>
+  ["platform_admin", "company_admin"].includes(normalizedRole.value)
+);
 const inclusionScopeLabel = computed(() => {
   const companyName = authStore.currentCompany?.name ?? "当前公司";
 
@@ -207,7 +220,8 @@ const buildRecordQuery = (): ModelInclusionRecordQuery => ({
   promptType: filters.promptType,
   recordMethod: filters.recordMethod,
   search: trimOptional(filters.search),
-  userIntent: filters.userIntent
+  userIntent: filters.userIntent,
+  voidStatus: filters.voidStatus ?? "normal"
 });
 
 const buildUncoveredQuery = (): UncoveredPromptsQuery => ({
@@ -294,10 +308,102 @@ const handleReset = () => {
     promptType: undefined,
     recordMethod: undefined,
     search: undefined,
-    userIntent: undefined
+    userIntent: undefined,
+    voidStatus: "normal"
   });
   page.value = 1;
   void loadRecords();
+};
+
+const openEditDialog = (record: ModelInclusionRecord) => {
+  if (!canManageRecords.value && !record.voidedAt) {
+    ElMessage.warning("当前角色无权编辑 AI 模型覆盖记录。");
+    return;
+  }
+
+  editingRecord.value = record;
+  editError.value = "";
+  editDialogVisible.value = true;
+};
+
+const handleUpdateRecord = async (payload: UpdateModelInclusionRecordPayload) => {
+  if (!editingRecord.value) {
+    return;
+  }
+
+  editSubmitting.value = true;
+  editError.value = "";
+
+  try {
+    await updateModelInclusionRecord(editingRecord.value.id, payload);
+    editDialogVisible.value = false;
+    editingRecord.value = null;
+    ElMessage.success("模型覆盖记录结果字段已更新。");
+    await refreshAll();
+  } catch (error) {
+    editError.value = error instanceof Error ? error.message : "模型覆盖记录更新失败。";
+  } finally {
+    editSubmitting.value = false;
+  }
+};
+
+const handleVoidRecord = async (record: ModelInclusionRecord) => {
+  if (!canManageRecords.value) {
+    ElMessage.warning("当前角色无权作废 AI 模型覆盖记录。");
+    return;
+  }
+
+  try {
+    const { value } = await ElMessageBox.prompt(
+      "作废后默认不进入报表统计。请填写作废原因：",
+      "作废模型覆盖记录",
+      {
+        confirmButtonText: "确认作废",
+        cancelButtonText: "取消",
+        inputType: "textarea",
+        inputPlaceholder: "例如：人工复查发现该回答来源错误",
+        inputValidator: (value) => Boolean(value?.trim()) || "作废原因不能为空",
+        type: "warning"
+      }
+    );
+    await voidModelInclusionRecord(record.id, {
+      voidReason: value.trim()
+    });
+    ElMessage.success("模型覆盖记录已作废，默认不再进入报表统计。");
+    await refreshAll();
+  } catch (error) {
+    if (error === "cancel" || error === "close") {
+      return;
+    }
+    ElMessage.error(error instanceof Error ? error.message : "作废失败。");
+  }
+};
+
+const handleRestoreRecord = async (record: ModelInclusionRecord) => {
+  if (!canManageRecords.value) {
+    ElMessage.warning("当前角色无权恢复 AI 模型覆盖记录。");
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      "恢复后该记录会重新进入默认列表和报表统计。",
+      "恢复模型覆盖记录",
+      {
+        confirmButtonText: "确认恢复",
+        cancelButtonText: "取消",
+        type: "warning"
+      }
+    );
+    await restoreModelInclusionRecord(record.id);
+    ElMessage.success("模型覆盖记录已恢复。");
+    await refreshAll();
+  } catch (error) {
+    if (error === "cancel" || error === "close") {
+      return;
+    }
+    ElMessage.error(error instanceof Error ? error.message : "恢复失败。");
+  }
 };
 
 const handlePageChange = (nextPage: number) => {
@@ -563,7 +669,14 @@ onMounted(() => {
         class="model-active-filter-alert"
       />
 
-      <ModelInclusionRecordTable :records="enabledRecords" :loading="recordsLoading" />
+      <ModelInclusionRecordTable
+        :records="enabledRecords"
+        :loading="recordsLoading"
+        :can-manage-records="canManageRecords"
+        @edit="openEditDialog"
+        @void="handleVoidRecord"
+        @restore="handleRestoreRecord"
+      />
 
       <el-empty
         v-if="isRecordsEmpty && !hasRecordsError"
@@ -682,6 +795,15 @@ onMounted(() => {
       :submitting="formSubmitting"
       :error-message="formError"
       @submit="handleCreateRecord"
+    />
+
+    <ModelInclusionRecordEditDialog
+      v-model="editDialogVisible"
+      :record="editingRecord"
+      :submitting="editSubmitting"
+      :error-message="editError"
+      :readonly="Boolean(editingRecord?.voidedAt)"
+      @submit="handleUpdateRecord"
     />
 
     <ModelInclusionImportDialog

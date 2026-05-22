@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
 import {
   buildResourceAccessContext,
@@ -17,6 +17,8 @@ import { ImportModelInclusionRecordsDto } from "./dto/import-model-inclusion-rec
 import { QueryModelInclusionRecordsDto } from "./dto/query-model-inclusion-records.dto";
 import { QueryModelInclusionSummaryDto } from "./dto/query-model-inclusion-summary.dto";
 import { QueryUncoveredPromptsDto } from "./dto/query-uncovered-prompts.dto";
+import { UpdateModelInclusionRecordDto } from "./dto/update-model-inclusion-record.dto";
+import { VoidModelInclusionRecordDto } from "./dto/void-model-inclusion-record.dto";
 import { WebSearchCheckDto } from "./dto/web-search-check.dto";
 import { ModelInclusionRecordsService } from "./model-inclusion-records.service";
 
@@ -51,6 +53,51 @@ export class ModelInclusionRecordsController {
   ) {
     return this.modelInclusionRecordsService.create(
       body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Patch(":id")
+  updateRecord(
+    @Param("id") id: string,
+    @Body(createValidationPipe(UpdateModelInclusionRecordDto))
+    body: UpdateModelInclusionRecordDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.modelInclusionRecordsService.updateRecord(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Patch(":id/void")
+  voidRecord(
+    @Param("id") id: string,
+    @Body(createValidationPipe(VoidModelInclusionRecordDto))
+    body: VoidModelInclusionRecordDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.modelInclusionRecordsService.voidRecord(
+      id,
+      body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Patch(":id/restore")
+  restoreRecord(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.modelInclusionRecordsService.restoreRecord(
+      id,
       this.buildContext(user, currentCompany, currentMembership)
     );
   }

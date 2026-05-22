@@ -18,6 +18,13 @@ import {
 defineProps<{
   records: ModelInclusionRecord[];
   loading?: boolean;
+  canManageRecords?: boolean;
+}>();
+
+const emit = defineEmits<{
+  edit: [record: ModelInclusionRecord];
+  void: [record: ModelInclusionRecord];
+  restore: [record: ModelInclusionRecord];
 }>();
 
 const getUserIntentLabel = (record: ModelInclusionRecord) =>
@@ -64,7 +71,9 @@ const formatBrandSignals = (record: ModelInclusionRecord) => {
 };
 
 const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
-  ["not_mentioned", "competitor_only", "unclear"].includes(String(row.hitLevel))
+  row.voidedAt
+    ? "model-record-row--voided"
+    : ["not_mentioned", "competitor_only", "unclear"].includes(String(row.hitLevel))
     ? "model-record-row--risk"
     : "";
 </script>
@@ -102,6 +111,12 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
               <strong>
                 <RecordMethodTag :method="row.recordMethod" />
               </strong>
+              <span>记录状态</span>
+              <strong>{{ row.voidedAt ? "已作废" : "正常" }}</strong>
+              <span v-if="row.voidedAt">作废原因</span>
+              <strong v-if="row.voidedAt">{{ row.voidReason || "--" }}</strong>
+              <span v-if="row.restoredAt">最近恢复</span>
+              <strong v-if="row.restoredAt">{{ formatDateTime(row.restoredAt) }}</strong>
             </div>
           </section>
 
@@ -250,6 +265,30 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
         <p class="table-subtext">
           <RecordMethodTag :method="row.recordMethod" />
         </p>
+        <el-tag v-if="row.voidedAt" type="danger" effect="plain">已作废</el-tag>
+        <el-tag v-else type="success" effect="plain">正常</el-tag>
+      </template>
+    </el-table-column>
+
+    <el-table-column v-if="canManageRecords" label="操作" width="180" fixed="right">
+      <template #default="{ row }">
+        <div class="model-record-actions">
+          <el-button size="small" text type="primary" @click="emit('edit', row)">
+            {{ row.voidedAt ? "查看" : "编辑" }}
+          </el-button>
+          <el-button
+            v-if="!row.voidedAt"
+            size="small"
+            text
+            type="danger"
+            @click="emit('void', row)"
+          >
+            作废
+          </el-button>
+          <el-button v-else size="small" text type="success" @click="emit('restore', row)">
+            恢复
+          </el-button>
+        </div>
       </template>
     </el-table-column>
   </el-table>

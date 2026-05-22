@@ -24,6 +24,7 @@
     "test:geo-instructions": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/instruction-templates.service.spec.ts test/instruction-templates.controller.spec.ts",
     "test:geo-content": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/content-tasks.service.spec.ts test/content-items.service.spec.ts test/content.controller.spec.ts",
     "test:model-inclusion": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/model-inclusion-records.service.spec.ts test/model-inclusion-records.controller.spec.ts",
+    "test:model-inclusion-scope": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/model-inclusion-scope.spec.ts",
     "test:geo-reports": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/reports.service.spec.ts test/reports.controller.spec.ts",
     "test:geo-analysis": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/geo-analysis-tasks.service.spec.ts test/geo-analysis-tasks.controller.spec.ts",
     "test:usage": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/usage-operation-logs.service.spec.ts",

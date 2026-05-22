@@ -10,6 +10,7 @@ import {
 import type { QueryModelInclusionRecordsDto } from "../dto/query-model-inclusion-records.dto";
 import type { QueryModelInclusionSummaryDto } from "../dto/query-model-inclusion-summary.dto";
 import type { QueryUncoveredPromptsDto } from "../dto/query-uncovered-prompts.dto";
+import type { UpdateModelInclusionRecordDto } from "../dto/update-model-inclusion-record.dto";
 import { deriveHitLevel, normalizeHitLevel, type GeoHitLevel } from "./derive-hit-level.util";
 import { parseImportBoolean } from "./parse-import-bool.util";
 
@@ -74,6 +75,25 @@ export type NormalizedQueryModelInclusionRecords = {
   productLine?: string;
   promptType?: GeoPromptType;
   userIntent?: UserIntent;
+  voidStatus: "normal" | "voided" | "all";
+};
+
+export type NormalizedUpdateModelInclusionRecord = {
+  checkedAt?: Date;
+  brandMentioned?: boolean;
+  brandRecommended?: boolean;
+  rankingPosition?: number | null;
+  citedOfficialSite?: boolean;
+  citedContentAsset?: boolean;
+  competitorMentioned?: boolean;
+  hitLevel?: GeoHitLevel | null;
+  answerSummary?: string | null;
+  rawAnswer?: string | null;
+  citations?: Prisma.InputJsonValue;
+  searchResults?: Prisma.InputJsonValue;
+  screenshotPath?: string | null;
+  errorMessage?: string | null;
+  competitors?: string[];
 };
 
 export type NormalizedQueryUncoveredPrompts = {
@@ -229,8 +249,74 @@ export function normalizeQueryModelInclusionRecords(
     checkedTo: normalizeDate(input.checkedTo),
     productLine: trimOptional(input.productLine),
     promptType: normalizeGeoPromptType(input.promptType),
-    userIntent: normalizeUserIntent(input.userIntent)
+    userIntent: normalizeUserIntent(input.userIntent),
+    voidStatus: input.voidStatus ?? "normal"
   };
+}
+
+export function normalizeUpdateModelInclusionRecord(
+  input: UpdateModelInclusionRecordDto | Record<string, unknown>
+): NormalizedUpdateModelInclusionRecord {
+  const normalized: NormalizedUpdateModelInclusionRecord = {};
+
+  if (hasOwn(input, "checkedAt")) {
+    normalized.checkedAt = normalizeDate(input.checkedAt);
+  }
+  if (hasOwn(input, "brandMentioned")) {
+    normalized.brandMentioned = Boolean(input.brandMentioned);
+  }
+  if (hasOwn(input, "brandRecommended")) {
+    normalized.brandRecommended = Boolean(input.brandRecommended);
+  }
+  if (hasOwn(input, "rankingPosition")) {
+    normalized.rankingPosition =
+      input.rankingPosition === undefined || input.rankingPosition === null
+        ? null
+        : normalizeRankingPosition(toOptionalInt(input.rankingPosition)) ?? null;
+  }
+  if (hasOwn(input, "citedOfficialSite")) {
+    normalized.citedOfficialSite = Boolean(input.citedOfficialSite);
+  }
+  if (hasOwn(input, "citedContentAsset")) {
+    normalized.citedContentAsset = Boolean(input.citedContentAsset);
+  }
+  if (hasOwn(input, "competitorMentioned")) {
+    normalized.competitorMentioned = Boolean(input.competitorMentioned);
+  }
+  if (hasOwn(input, "hitLevel")) {
+    normalized.hitLevel = normalizeHitLevel(input.hitLevel) ?? null;
+  }
+  if (hasOwn(input, "answerSummary")) {
+    normalized.answerSummary = trimOptional(input.answerSummary) ?? null;
+  }
+  if (hasOwn(input, "rawAnswer")) {
+    normalized.rawAnswer = trimOptional(input.rawAnswer) ?? null;
+  }
+  if (hasOwn(input, "citations")) {
+    const citations = normalizeJsonField(input.citations, "citations");
+
+    if (citations !== undefined) {
+      normalized.citations = citations;
+    }
+  }
+  if (hasOwn(input, "searchResults")) {
+    const searchResults = normalizeJsonField(input.searchResults, "searchResults");
+
+    if (searchResults !== undefined) {
+      normalized.searchResults = searchResults;
+    }
+  }
+  if (hasOwn(input, "screenshotPath")) {
+    normalized.screenshotPath = trimOptional(input.screenshotPath) ?? null;
+  }
+  if (hasOwn(input, "errorMessage")) {
+    normalized.errorMessage = trimOptional(input.errorMessage) ?? null;
+  }
+  if (hasOwn(input, "competitors")) {
+    normalized.competitors = toStringArray(input.competitors);
+  }
+
+  return normalized;
 }
 
 export function normalizeQueryUncoveredPrompts(
@@ -379,4 +465,8 @@ function normalizeUserIntent(value: unknown): UserIntent | undefined {
   }
 
   throw new BadRequestException(`Unsupported userIntent: ${normalized}`);
+}
+
+function hasOwn<T extends object>(value: T, key: string): value is T & Record<string, unknown> {
+  return Object.prototype.hasOwnProperty.call(value, key);
 }

@@ -9,6 +9,7 @@ import {
   enabledMonitoringModelOptions,
   entryPointOptions,
   hitLevelOptions,
+  modelInclusionVoidStatusOptions,
   recordMethodOptions
 } from "@/config/model-inclusion-options";
 
@@ -97,6 +98,20 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
         >
           <el-option
             v-for="option in hitLevelOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="记录状态">
+        <el-select
+          :model-value="modelValue.voidStatus ?? 'normal'"
+          placeholder="正常"
+          @update:model-value="updateField('voidStatus', $event)"
+        >
+          <el-option
+            v-for="option in modelInclusionVoidStatusOptions"
             :key="option.value"
             :label="option.label"
             :value="option.value"

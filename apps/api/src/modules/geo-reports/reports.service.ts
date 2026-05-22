@@ -923,6 +923,7 @@ export class ReportsService {
         ...(query.productLine ? { productLine: query.productLine } : {}),
         ...(query.promptType ? { type: query.promptType as GeoPromptType } : {})
       },
+      voidedAt: null,
       ...(query.model ? { model: query.model } : {}),
       ...(query.platform ? { platform: query.platform } : {}),
       ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
@@ -942,6 +943,7 @@ export class ReportsService {
     const checkedAt = buildDateRangeFilter(query);
 
     const baseWhere: Prisma.ModelInclusionRecordWhereInput = {
+      voidedAt: null,
       ...(query.model ? { model: query.model } : {}),
       ...(query.platform ? { platform: query.platform } : {}),
       ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
@@ -1047,6 +1049,7 @@ export class ReportsService {
 
     const baseWhere: Prisma.ModelInclusionRecordWhereInput = {
       geoPrompt: this.buildGeoHitSummaryPromptWhere(query, context),
+      voidedAt: null,
       ...(query.platform ? { platform: query.platform } : {}),
       ...(query.entryPoint ? { entryPoint: query.entryPoint } : {}),
       ...(checkedAt ? { checkedAt } : {})
