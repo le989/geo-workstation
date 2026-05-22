@@ -3,6 +3,7 @@ import type {
   GeoHitDeviceType,
   GeoHitEntryPoint,
   GeoHitLevel,
+  ModelInclusionVoidStatus,
   RecordMethod
 } from "@/api/model-inclusion";
 
@@ -15,6 +16,15 @@ export const recordMethodOptions: Array<{ label: string; value: RecordMethod }> 
 export const booleanFilterOptions = [
   { label: "是", value: true },
   { label: "否", value: false }
+];
+
+export const modelInclusionVoidStatusOptions: Array<{
+  label: string;
+  value: ModelInclusionVoidStatus;
+}> = [
+  { label: "正常", value: "normal" },
+  { label: "已作废", value: "voided" },
+  { label: "全部", value: "all" }
 ];
 
 export const enabledMonitoringModelOptions = [

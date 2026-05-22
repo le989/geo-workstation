@@ -23,6 +23,9 @@ import {
   trimOptionalString
 } from "./model-inclusion-dto-transforms";
 
+export const MODEL_INCLUSION_VOID_STATUS_VALUES = ["normal", "voided", "all"] as const;
+export type ModelInclusionVoidStatus = (typeof MODEL_INCLUSION_VOID_STATUS_VALUES)[number];
+
 export class QueryModelInclusionRecordsDto {
   @IsOptional()
   @IsInt()
@@ -121,6 +124,11 @@ export class QueryModelInclusionRecordsDto {
   @IsString()
   @Transform(({ value }) => trimOptionalString(value))
   createdBy?: string;
+
+  @IsOptional()
+  @IsEnum(MODEL_INCLUSION_VOID_STATUS_VALUES)
+  @Transform(({ value }) => trimOptionalString(value))
+  voidStatus?: ModelInclusionVoidStatus;
 
   @IsOptional()
   @IsDate()

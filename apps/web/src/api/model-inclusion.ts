@@ -25,6 +25,7 @@ export type GeoHitLevel =
   | "competitor_only"
   | "not_mentioned"
   | "unclear";
+export type ModelInclusionVoidStatus = "normal" | "voided" | "all";
 export type ProviderErrorCategory =
   | "network_timeout"
   | "network_fetch_failed"
@@ -81,6 +82,12 @@ export type ModelInclusionRecord = {
   competitors: string[];
   recordMethod: RecordMethod;
   createdBy: string;
+  updatedBy?: string;
+  voidedAt?: string;
+  voidedByUserId?: string;
+  voidReason?: string;
+  restoredAt?: string;
+  restoredByUserId?: string;
   createdAt: string;
   geoPrompt: ModelInclusionGeoPrompt;
   retryCount?: number;
@@ -107,11 +114,34 @@ export type ModelInclusionRecordQuery = {
   hitLevel?: GeoHitLevel;
   recordMethod?: RecordMethod;
   createdBy?: string;
+  voidStatus?: ModelInclusionVoidStatus;
   checkedFrom?: string;
   checkedTo?: string;
   productLine?: string;
   promptType?: GeoPromptType;
   userIntent?: UserIntent;
+};
+
+export type UpdateModelInclusionRecordPayload = {
+  checkedAt?: string;
+  brandMentioned?: boolean;
+  brandRecommended?: boolean;
+  rankingPosition?: number | null;
+  citedOfficialSite?: boolean;
+  citedContentAsset?: boolean;
+  competitorMentioned?: boolean;
+  hitLevel?: GeoHitLevel;
+  answerSummary?: string;
+  rawAnswer?: string;
+  citations?: unknown;
+  searchResults?: unknown;
+  screenshotPath?: string;
+  errorMessage?: string;
+  competitors?: string[];
+};
+
+export type VoidModelInclusionRecordPayload = {
+  voidReason: string;
 };
 
 export type CreateModelInclusionRecordPayload = {
@@ -273,6 +303,26 @@ export const createModelInclusionRecord = (payload: CreateModelInclusionRecordPa
   apiRequest<ModelInclusionRecord>("/api/model-inclusion-records", {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+
+export const updateModelInclusionRecord = (
+  id: string,
+  payload: UpdateModelInclusionRecordPayload
+) =>
+  apiRequest<ModelInclusionRecord>(`/api/model-inclusion-records/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+export const voidModelInclusionRecord = (id: string, payload: VoidModelInclusionRecordPayload) =>
+  apiRequest<ModelInclusionRecord>(`/api/model-inclusion-records/${id}/void`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+
+export const restoreModelInclusionRecord = (id: string) =>
+  apiRequest<ModelInclusionRecord>(`/api/model-inclusion-records/${id}/restore`, {
+    method: "PATCH"
   });
 
 export const importModelInclusionRecords = (payload: ImportModelInclusionRecordsPayload) =>

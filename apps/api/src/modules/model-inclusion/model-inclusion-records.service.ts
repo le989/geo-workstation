@@ -17,6 +17,8 @@ import type {
 import type { QueryModelInclusionRecordsDto } from "./dto/query-model-inclusion-records.dto";
 import type { QueryModelInclusionSummaryDto } from "./dto/query-model-inclusion-summary.dto";
 import type { QueryUncoveredPromptsDto } from "./dto/query-uncovered-prompts.dto";
+import type { UpdateModelInclusionRecordDto } from "./dto/update-model-inclusion-record.dto";
+import type { VoidModelInclusionRecordDto } from "./dto/void-model-inclusion-record.dto";
 import type { WebSearchCheckDto } from "./dto/web-search-check.dto";
 import { buildModelInclusionRecordsCsv } from "./utils/csv-export.util";
 import { deriveHitLevel, type GeoHitLevel } from "./utils/derive-hit-level.util";
@@ -27,12 +29,14 @@ import {
   normalizeQueryModelInclusionRecords,
   normalizeQueryModelInclusionSummary,
   normalizeQueryUncoveredPrompts,
+  normalizeUpdateModelInclusionRecord,
   trimOptional,
   type NormalizedCreateModelInclusionRecord,
   type NormalizedImportModelInclusionRecord,
   type NormalizedQueryModelInclusionRecords,
   type NormalizedQueryModelInclusionSummary,
-  type NormalizedQueryUncoveredPrompts
+  type NormalizedQueryUncoveredPrompts,
+  type NormalizedUpdateModelInclusionRecord
 } from "./utils/normalize-model-inclusion-record";
 import { calculateRate } from "./utils/summary-rate.util";
 import {
@@ -103,6 +107,12 @@ export type ModelInclusionRecordResponse = {
   competitors: string[];
   recordMethod: RecordMethod;
   createdBy: string;
+  updatedBy?: string;
+  voidedAt?: Date;
+  voidedByUserId?: string;
+  voidReason?: string;
+  restoredAt?: Date;
+  restoredByUserId?: string;
   createdAt: Date;
   geoPrompt: ModelInclusionGeoPromptResponse;
   retryCount?: number;
@@ -296,6 +306,140 @@ export class ModelInclusionRecordsService {
       ...created,
       geoPrompt
     });
+  }
+
+  async updateRecord(
+    id: string,
+    input: UpdateModelInclusionRecordDto | Record<string, unknown>,
+    context?: ResourceAccessContext
+  ): Promise<ModelInclusionRecordResponse> {
+    const record = await this.findRecordForManageById(id, context);
+
+    if (record.voidedAt) {
+      throw new BadRequestException("已作废记录需恢复后再编辑");
+    }
+
+    const normalized = normalizeUpdateModelInclusionRecord(input);
+
+    if (!this.hasUpdateRecordFields(normalized)) {
+      throw new BadRequestException("至少需要提交一个可编辑结果字段");
+    }
+
+    const data = this.buildUpdateRecordData(normalized, context);
+    const updated = await this.prisma.modelInclusionRecord.update({
+      where: {
+        id
+      },
+      data,
+      include: {
+        geoPrompt: true
+      }
+    });
+    await this.refreshLatestCoverageStatus(updated.geoPromptId, context);
+
+    return this.toRecordResponse(updated);
+  }
+
+  async voidRecord(
+    id: string,
+    input: VoidModelInclusionRecordDto | Record<string, unknown>,
+    context?: ResourceAccessContext
+  ): Promise<ModelInclusionRecordResponse> {
+    const record = await this.findRecordForManageById(id, context);
+    const voidReason = trimOptional(input.voidReason);
+
+    if (!voidReason) {
+      throw new BadRequestException("作废原因不能为空");
+    }
+
+    if (record.voidedAt) {
+      throw new BadRequestException("当前记录已作废，不能重复作废");
+    }
+
+    if (!context) {
+      throw new ForbiddenException("当前登录态无权维护 AI 模型覆盖记录");
+    }
+
+    const actorId = context.user.id;
+    const updated = await this.prisma.modelInclusionRecord.update({
+      where: {
+        id
+      },
+      data: {
+        voidedAt: new Date(),
+        voidReason,
+        voidedBy: {
+          connect: {
+            id: actorId
+          }
+        },
+        restoredAt: null,
+        restoredBy: {
+          disconnect: true
+        },
+        updatedBy: context
+          ? {
+              connect: {
+                id: context.user.id
+              }
+            }
+          : undefined
+      },
+      include: {
+        geoPrompt: true
+      }
+    });
+    await this.refreshLatestCoverageStatus(updated.geoPromptId, context);
+
+    return this.toRecordResponse(updated);
+  }
+
+  async restoreRecord(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<ModelInclusionRecordResponse> {
+    const record = await this.findRecordForManageById(id, context);
+
+    if (!record.voidedAt) {
+      throw new BadRequestException("当前记录未作废，无需恢复");
+    }
+
+    if (!context) {
+      throw new ForbiddenException("当前登录态无权维护 AI 模型覆盖记录");
+    }
+
+    const actorId = context.user.id;
+    const updated = await this.prisma.modelInclusionRecord.update({
+      where: {
+        id
+      },
+      data: {
+        voidedAt: null,
+        voidReason: null,
+        voidedBy: {
+          disconnect: true
+        },
+        restoredAt: new Date(),
+        restoredBy: {
+          connect: {
+            id: actorId
+          }
+        },
+        updatedBy: context
+          ? {
+              connect: {
+                id: context.user.id
+              }
+            }
+          : undefined
+      },
+      include: {
+        geoPrompt: true
+      }
+    });
+    await this.refreshLatestCoverageStatus(updated.geoPromptId, context);
+
+    return this.toRecordResponse(updated);
   }
 
   async importRecords(
@@ -771,6 +915,72 @@ export class ModelInclusionRecordsService {
     });
   }
 
+  private buildUpdateRecordData(
+    input: NormalizedUpdateModelInclusionRecord,
+    context?: ResourceAccessContext
+  ): Prisma.ModelInclusionRecordUpdateInput {
+    const data: Prisma.ModelInclusionRecordUpdateInput = {};
+
+    if (input.checkedAt !== undefined) {
+      data.checkedAt = input.checkedAt;
+    }
+    if (input.brandMentioned !== undefined) {
+      data.brandMentioned = input.brandMentioned;
+    }
+    if (input.brandRecommended !== undefined) {
+      data.brandRecommended = input.brandRecommended;
+    }
+    if (input.rankingPosition !== undefined) {
+      data.rankingPosition = input.rankingPosition;
+    }
+    if (input.citedOfficialSite !== undefined) {
+      data.citedOfficialSite = input.citedOfficialSite;
+    }
+    if (input.citedContentAsset !== undefined) {
+      data.citedContentAsset = input.citedContentAsset;
+    }
+    if (input.competitorMentioned !== undefined) {
+      data.competitorMentioned = input.competitorMentioned;
+    }
+    if (input.hitLevel !== undefined) {
+      data.hitLevel = input.hitLevel;
+    }
+    if (input.answerSummary !== undefined) {
+      data.answerSummary = input.answerSummary;
+    }
+    if (input.rawAnswer !== undefined) {
+      data.rawAnswer = input.rawAnswer;
+    }
+    if (input.citations !== undefined) {
+      data.citations = input.citations;
+    }
+    if (input.searchResults !== undefined) {
+      data.searchResults = input.searchResults;
+    }
+    if (input.screenshotPath !== undefined) {
+      data.screenshotPath = input.screenshotPath;
+    }
+    if (input.errorMessage !== undefined) {
+      data.errorMessage = input.errorMessage;
+    }
+    if (input.competitors !== undefined) {
+      data.competitors = input.competitors as Prisma.InputJsonValue;
+    }
+    if (context) {
+      data.updatedBy = {
+        connect: {
+          id: context.user.id
+        }
+      };
+    }
+
+    return data;
+  }
+
+  private hasUpdateRecordFields(input: NormalizedUpdateModelInclusionRecord): boolean {
+    return Object.keys(input).length > 0;
+  }
+
   private buildRecordWhere(
     query: NormalizedQueryModelInclusionRecords,
     context?: ResourceAccessContext
@@ -841,6 +1051,7 @@ export class ModelInclusionRecordsService {
     if (query.createdBy) {
       where.createdById = query.createdBy;
     }
+    this.applyVoidStatusFilter(where, query.voidStatus);
     if (query.checkedFrom || query.checkedTo) {
       where.checkedAt = {
         ...(query.checkedFrom ? { gte: query.checkedFrom } : {}),
@@ -856,7 +1067,9 @@ export class ModelInclusionRecordsService {
     context?: ResourceAccessContext
   ): Prisma.GeoPromptWhereInput {
     const inclusionWhere: Prisma.ModelInclusionRecordWhereInput = this.withRecordScope(
-      {},
+      {
+        voidedAt: null
+      },
       context
     );
 
@@ -902,6 +1115,7 @@ export class ModelInclusionRecordsService {
           ...(query.productLine ? { productLine: query.productLine } : {})
         },
         ...(query.model ? { model: query.model } : {}),
+        voidedAt: null,
         ...(query.checkedFrom || query.checkedTo
           ? {
               checkedAt: {
@@ -929,6 +1143,63 @@ export class ModelInclusionRecordsService {
         where
       ]
     };
+  }
+
+  private applyVoidStatusFilter(
+    where: Prisma.ModelInclusionRecordWhereInput,
+    voidStatus: "normal" | "voided" | "all"
+  ): void {
+    if (voidStatus === "normal") {
+      where.voidedAt = null;
+      return;
+    }
+
+    if (voidStatus === "voided") {
+      where.voidedAt = {
+        not: null
+      };
+    }
+  }
+
+  private async findRecordForManageById(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<ModelInclusionRecordWithPrompt> {
+    if (!context) {
+      throw new ForbiddenException("当前登录态无权维护 AI 模型覆盖记录");
+    }
+
+    const record = await this.prisma.modelInclusionRecord.findUnique({
+      where: {
+        id
+      },
+      include: {
+        geoPrompt: true
+      }
+    });
+
+    if (!record) {
+      throw new BadRequestException("AI 模型覆盖记录不存在");
+    }
+
+    this.assertCanManageRecord(context, record);
+
+    return record;
+  }
+
+  private assertCanManageRecord(
+    context: ResourceAccessContext,
+    record: Pick<ModelInclusionRecord, "companyId">
+  ): void {
+    const role = getEffectiveRole(context);
+
+    if (role !== "platform_admin" && role !== "company_admin") {
+      throw new ForbiddenException("当前角色无权维护 AI 模型覆盖记录");
+    }
+
+    if (role === "company_admin" && record.companyId !== getCurrentCompanyId(context)) {
+      throw new ForbiddenException("无权操作其他公司的 AI 模型覆盖记录");
+    }
   }
 
   private assertCanCreate(context?: ResourceAccessContext): void {
@@ -1098,6 +1369,7 @@ export class ModelInclusionRecordsService {
       where: this.withRecordScope(
         {
           geoPromptId,
+          voidedAt: null,
           geoPrompt: {
             deletedAt: null
           }
@@ -1115,6 +1387,14 @@ export class ModelInclusionRecordsService {
     });
 
     if (!latestRecord) {
+      await this.prisma.geoPrompt.update({
+        where: {
+          id: geoPromptId
+        },
+        data: {
+          latestCoverageStatus: null
+        }
+      });
       return;
     }
 
@@ -1168,6 +1448,12 @@ export class ModelInclusionRecordsService {
       competitors: this.jsonArrayToStringArray(record.competitors),
       recordMethod: record.recordMethod,
       createdBy: record.createdById,
+      updatedBy: record.updatedById ?? undefined,
+      voidedAt: record.voidedAt ?? undefined,
+      voidedByUserId: record.voidedByUserId ?? undefined,
+      voidReason: record.voidReason ?? undefined,
+      restoredAt: record.restoredAt ?? undefined,
+      restoredByUserId: record.restoredByUserId ?? undefined,
       createdAt: record.createdAt,
       geoPrompt: {
         id: record.geoPrompt.id,
