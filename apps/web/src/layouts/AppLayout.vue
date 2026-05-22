@@ -117,7 +117,7 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
   },
   "/users": {
     title: "用户管理",
-    subtitle: "管理系统账号、所属公司与角色"
+    subtitle: "管理本公司用户、角色与部门绑定"
   },
   "/departments": {
     title: "部门管理",

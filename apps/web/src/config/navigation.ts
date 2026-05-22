@@ -183,12 +183,12 @@ export const navigationItems: GeoPageMeta[] = [
     label: "用户管理",
     title: "用户管理",
     question: "谁可以进入 GEO 工作站并操作哪些公司？",
-    description: "管理系统账号、所属公司与角色，仅平台管理员可使用。",
-    phaseNote: "已支持用户列表、新增用户、重置密码、启用禁用和默认公司角色分配。",
-    nextSteps: ["查看账号状态", "创建运营账号", "重置密码或调整公司角色"],
+    description: "管理本公司用户、普通角色、部门绑定和账号状态。",
+    phaseNote: "已支持平台管理员全局管理，以及公司管理员管理本公司 operator / viewer。",
+    nextSteps: ["查看本公司账号状态", "创建运营或只读账号", "重置密码或调整部门绑定"],
     apiFocus: "已联调 /api/users；密码只写入 passwordHash，不返回明文或哈希。",
     icon: User,
-    allowedRoles: ["platform_admin"]
+    allowedRoles: ["platform_admin", "company_admin"]
   },
   {
     path: "/departments",

@@ -15,7 +15,12 @@ import {
   UserStatus
 } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import type { AuthUser } from "../auth/auth.types";
+import {
+  getCurrentCompanyId,
+  getEffectiveRole,
+  type NormalizedAuthRole,
+  type ResourceAccessContext
+} from "../auth/auth-policy";
 import { hashPassword } from "../auth/utils/password-hash.util";
 import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ListUsersDto } from "./dto/list-users.dto";
@@ -30,6 +35,8 @@ const NEW_USER_ROLES = [
   UserRole.viewer
 ] as const;
 
+const COMPANY_ADMIN_MANAGED_ROLES = [MembershipRole.operator, MembershipRole.viewer] as const;
+
 type UserWithMemberships = Prisma.UserGetPayload<{
   include: {
     memberships: {
@@ -40,6 +47,12 @@ type UserWithMemberships = Prisma.UserGetPayload<{
     };
   };
 }>;
+
+type UserManagementAccess = {
+  context: ResourceAccessContext;
+  role: Extract<NormalizedAuthRole, "platform_admin" | "company_admin">;
+  companyId: string;
+};
 
 export type UserMembershipResponse = {
   id: string;
@@ -77,11 +90,14 @@ export type ListUsersResponse = {
 export class UsersService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async listUsers(query: ListUsersDto, currentUser?: AuthUser): Promise<ListUsersResponse> {
-    this.assertPlatformAdmin(currentUser);
+  async listUsers(
+    query: ListUsersDto,
+    context?: ResourceAccessContext
+  ): Promise<ListUsersResponse> {
+    const access = this.assertCanManageUsers(context);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const where = this.buildListWhere(query);
+    const where = this.buildListWhere(query, access);
 
     const [total, users] = await this.prisma.$transaction([
       this.prisma.user.count({ where }),
@@ -95,18 +111,26 @@ export class UsersService {
     ]);
 
     return {
-      items: users.map((user) => this.toUserResponse(user)),
+      items: users.map((user) =>
+        this.toUserResponse(user, access.role === "company_admin" ? access.companyId : undefined)
+      ),
       total,
       page,
       pageSize
     };
   }
 
-  async createUser(input: CreateUserDto, currentUser?: AuthUser): Promise<UserResponse> {
-    this.assertPlatformAdmin(currentUser);
+  async createUser(input: CreateUserDto, context?: ResourceAccessContext): Promise<UserResponse> {
+    const access = this.assertCanManageUsers(context);
     this.assertNewRole(input.role);
     this.assertRoleMatchesMembership(input.role, input.membershipRole);
-    const company = await this.getActiveCompany(input.companyId);
+    if (access.role === "company_admin") {
+      this.assertCompanyAdminManagedRole(input.membershipRole);
+      this.assertCompanyAdminManagedUserRole(input.role);
+    }
+
+    const companyId = access.role === "company_admin" ? access.companyId : input.companyId;
+    const company = await this.getActiveCompany(companyId);
     const departmentId = await this.resolveDepartmentId(input.departmentId ?? null, company.id);
     const existing = await this.prisma.user.findUnique({
       where: {
@@ -126,7 +150,10 @@ export class UsersService {
         name: input.name,
         email: input.email,
         role: input.role,
-        status: input.status ?? UserStatus.active,
+        status:
+          access.role === "company_admin"
+            ? UserStatus.active
+            : (input.status ?? UserStatus.active),
         passwordHash: await hashPassword(input.initialPassword),
         memberships: {
           create: {
@@ -141,16 +168,22 @@ export class UsersService {
       include: this.userInclude()
     });
 
-    return this.toUserResponse(user);
+    return this.toUserResponse(
+      user,
+      access.role === "company_admin" ? access.companyId : undefined
+    );
   }
 
   async resetPassword(
     userId: string,
     input: ResetPasswordDto,
-    currentUser?: AuthUser
+    context?: ResourceAccessContext
   ): Promise<UserResponse> {
-    this.assertPlatformAdmin(currentUser);
-    await this.getUserOrThrow(userId);
+    const access = this.assertCanManageUsers(context);
+    const target = await this.getUserOrThrow(userId);
+    if (access.role === "company_admin") {
+      this.assertCompanyAdminCanManageOrdinaryUser(target, access, "reset");
+    }
 
     const user = await this.prisma.user.update({
       where: {
@@ -162,16 +195,22 @@ export class UsersService {
       include: this.userInclude()
     });
 
-    return this.toUserResponse(user);
+    return this.toUserResponse(
+      user,
+      access.role === "company_admin" ? access.companyId : undefined
+    );
   }
 
   async updateStatus(
     userId: string,
     input: UpdateUserStatusDto,
-    currentUser?: AuthUser
+    context?: ResourceAccessContext
   ): Promise<UserResponse> {
-    this.assertPlatformAdmin(currentUser);
+    const access = this.assertCanManageUsers(context);
     const user = await this.getUserOrThrow(userId);
+    if (access.role === "company_admin") {
+      this.assertCompanyAdminCanManageOrdinaryUser(user, access, "status");
+    }
 
     if (input.status === UserStatus.disabled) {
       await this.assertCanDisableUser(user);
@@ -187,24 +226,48 @@ export class UsersService {
       include: this.userInclude()
     });
 
-    return this.toUserResponse(updated);
+    return this.toUserResponse(
+      updated,
+      access.role === "company_admin" ? access.companyId : undefined
+    );
   }
 
   async updateMembership(
     userId: string,
     input: UpdateUserMembershipDto,
-    currentUser?: AuthUser
+    context?: ResourceAccessContext
   ): Promise<UserResponse> {
-    this.assertPlatformAdmin(currentUser);
+    const access = this.assertCanManageUsers(context);
     this.assertNewMembershipRole(input.membershipRole);
     const user = await this.getUserOrThrow(userId);
-    const company = await this.getActiveCompany(input.companyId);
+    const companyId = access.role === "company_admin" ? access.companyId : input.companyId;
+    let companyAdminTargetMembership: UserWithMemberships["memberships"][number] | undefined;
+    if (access.role === "company_admin") {
+      this.assertRequestedCompanyMatchesCurrent(input.companyId, access.companyId);
+      companyAdminTargetMembership = this.assertCompanyAdminCanManageOrdinaryUser(
+        user,
+        access,
+        "membership"
+      );
+      this.assertCompanyAdminManagedRole(input.membershipRole);
+
+      if (input.membershipStatus === MembershipStatus.disabled) {
+        throw new ForbiddenException("公司管理员不能禁用公司成员关系，请使用账号停用");
+      }
+    }
+    const company = await this.getActiveCompany(companyId);
     const hasDepartmentInput = Object.prototype.hasOwnProperty.call(input, "departmentId");
     const departmentId = hasDepartmentInput
       ? await this.resolveDepartmentId(input.departmentId ?? null, company.id)
       : undefined;
-    const membershipStatus = input.membershipStatus ?? MembershipStatus.active;
-    const isDefault = input.isDefault ?? true;
+    const membershipStatus =
+      access.role === "company_admin"
+        ? MembershipStatus.active
+        : (input.membershipStatus ?? MembershipStatus.active);
+    const isDefault =
+      access.role === "company_admin"
+        ? (companyAdminTargetMembership?.isDefault ?? true)
+        : (input.isDefault ?? true);
 
     if (membershipStatus === MembershipStatus.disabled && isDefault) {
       throw new BadRequestException("禁用的公司成员关系不能设为默认公司");
@@ -223,7 +286,7 @@ export class UsersService {
       );
     }
 
-    if (isDefault) {
+    if (isDefault && access.role === "platform_admin") {
       await this.prisma.membership.updateMany({
         where: {
           userId
@@ -235,43 +298,63 @@ export class UsersService {
     }
 
     const updatedUserRole = this.userRoleFromMembershipRole(input.membershipRole);
+    const membershipData = {
+      role: input.membershipRole,
+      status: membershipStatus,
+      isDefault,
+      ...(hasDepartmentInput ? { departmentId } : {})
+    };
     const updated = await this.prisma.user.update({
       where: {
         id: userId
       },
       data: {
         role: updatedUserRole,
-        memberships: {
-          upsert: {
-            where: {
-              userId_companyId: {
-                userId,
-                companyId: company.id
+        memberships:
+          access.role === "company_admin"
+            ? {
+                update: {
+                  where: {
+                    userId_companyId: {
+                      userId,
+                      companyId: company.id
+                    }
+                  },
+                  data: membershipData
+                }
               }
-            },
-            update: {
-              role: input.membershipRole,
-              status: membershipStatus,
-              isDefault,
-              ...(hasDepartmentInput ? { departmentId } : {})
-            },
-            create: {
-              companyId: company.id,
-              departmentId: departmentId ?? null,
-              role: input.membershipRole,
-              status: membershipStatus,
-              isDefault
-            }
-          }
-        }
+            : {
+                upsert: {
+                  where: {
+                    userId_companyId: {
+                      userId,
+                      companyId: company.id
+                    }
+                  },
+                  update: membershipData,
+                  create: {
+                    companyId: company.id,
+                    departmentId: departmentId ?? null,
+                    role: input.membershipRole,
+                    status: membershipStatus,
+                    isDefault
+                  }
+                }
+              }
       },
       include: this.userInclude()
     });
 
-    return this.toUserResponse(updated);
+    return this.toUserResponse(
+      updated,
+      access.role === "company_admin" ? access.companyId : undefined
+    );
   }
 
-  private buildListWhere(query: ListUsersDto): Prisma.UserWhereInput {
+  private buildListWhere(
+    query: ListUsersDto,
+    access: UserManagementAccess
+  ): Prisma.UserWhereInput {
     const and: Prisma.UserWhereInput[] = [];
 
     if (query.keyword) {
@@ -301,7 +384,15 @@ export class UsersService {
       and.push({ status: query.status });
     }
 
-    if (query.companyId || query.membershipRole) {
+    if (access.role === "company_admin") {
+      and.push({
+        memberships: {
+          some: {
+            companyId: access.companyId
+          }
+        }
+      });
+    } else if (query.companyId || query.membershipRole) {
       and.push({
         memberships: {
           some: {
@@ -327,7 +418,11 @@ export class UsersService {
     };
   }
 
-  private toUserResponse(user: UserWithMemberships): UserResponse {
+  private toUserResponse(user: UserWithMemberships, visibleCompanyId?: string): UserResponse {
+    const memberships = visibleCompanyId
+      ? user.memberships.filter((membership) => membership.companyId === visibleCompanyId)
+      : user.memberships;
+
     return {
       id: user.id,
       name: user.name,
@@ -336,7 +431,7 @@ export class UsersService {
       status: user.status,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      memberships: user.memberships.map((membership) => ({
+      memberships: memberships.map((membership) => ({
         id: membership.id,
         companyId: membership.companyId,
         companyName: membership.company.name,
@@ -352,10 +447,21 @@ export class UsersService {
     };
   }
 
-  private assertPlatformAdmin(user?: AuthUser): asserts user is AuthUser {
-    if (!user?.isPlatformAdmin && !this.isPlatformAdminRole(user?.role)) {
+  private assertCanManageUsers(context?: ResourceAccessContext): UserManagementAccess {
+    if (!context) {
       throw new ForbiddenException("当前角色无权管理用户");
     }
+
+    const role = getEffectiveRole(context);
+    if (role !== "platform_admin" && role !== "company_admin") {
+      throw new ForbiddenException("当前角色无权管理用户");
+    }
+
+    return {
+      context,
+      role,
+      companyId: getCurrentCompanyId(context)
+    };
   }
 
   private async getUserOrThrow(userId: string): Promise<UserWithMemberships> {
@@ -447,6 +553,77 @@ export class UsersService {
 
   private isPlatformAdminRole(role?: UserRole): boolean {
     return role === UserRole.platform_admin || role === UserRole.admin;
+  }
+
+  private isCompanyAdminManagedRole(role: MembershipRole): boolean {
+    return COMPANY_ADMIN_MANAGED_ROLES.includes(
+      role as (typeof COMPANY_ADMIN_MANAGED_ROLES)[number]
+    );
+  }
+
+  private assertCompanyAdminManagedRole(role: MembershipRole): void {
+    if (!this.isCompanyAdminManagedRole(role)) {
+      throw new ForbiddenException("公司管理员只能管理运营人员或只读用户");
+    }
+  }
+
+  private assertCompanyAdminManagedUserRole(role: UserRole): void {
+    if (role !== UserRole.operator && role !== UserRole.viewer) {
+      throw new ForbiddenException("公司管理员只能创建运营人员或只读用户");
+    }
+  }
+
+  private assertRequestedCompanyMatchesCurrent(
+    requestedCompanyId: string,
+    currentCompanyId: string
+  ): void {
+    if (requestedCompanyId !== currentCompanyId) {
+      throw new ForbiddenException("只能管理本公司用户");
+    }
+  }
+
+  private assertCompanyAdminCanManageOrdinaryUser(
+    user: UserWithMemberships,
+    access: UserManagementAccess,
+    action: "membership" | "status" | "reset"
+  ) {
+    if (user.id === access.context.user.id) {
+      if (action === "status") {
+        throw new ForbiddenException("不能停用自己");
+      }
+
+      if (action === "membership") {
+        throw new ForbiddenException("不能修改自己的角色");
+      }
+
+      throw new ForbiddenException("公司管理员不能重置自己的密码");
+    }
+
+    const membership = user.memberships.find((item) => item.companyId === access.companyId);
+
+    if (!membership) {
+      throw new ForbiddenException("只能管理本公司用户");
+    }
+
+    if (
+      this.isPlatformAdminRole(user.role) ||
+      membership.role === MembershipRole.platform_admin
+    ) {
+      throw new ForbiddenException("公司管理员不能修改平台管理员");
+    }
+
+    if (
+      user.role === UserRole.company_admin ||
+      membership.role === MembershipRole.company_admin
+    ) {
+      throw new ForbiddenException("公司管理员只能管理普通用户");
+    }
+
+    if (!this.isCompanyAdminManagedRole(membership.role)) {
+      throw new ForbiddenException("公司管理员只能管理普通用户");
+    }
+
+    return membership;
   }
 
   private async assertCanDisableUser(user: UserWithMemberships): Promise<void> {

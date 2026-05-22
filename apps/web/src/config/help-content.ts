@@ -460,7 +460,7 @@ export const sopSections: HelpSection[] = [
       {
         title: "公司管理员",
         description:
-          "管理当前公司内业务数据，确认公司、产品线、提示词、知识库、指令库和内容任务可用。"
+          "管理当前公司内业务数据，维护本公司普通用户、部门绑定、提示词、知识库、指令库和内容任务。"
       },
       {
         title: "运营人员",
@@ -559,7 +559,8 @@ export const sopSections: HelpSection[] = [
       },
       {
         title: "权限管理边界",
-        description: "company_admin 暂不支持管理本公司用户；查看统计和日志仅限管理员。"
+        description:
+          "company_admin 可管理本公司 operator / viewer、部门绑定和密码重置，但不能修改平台管理员、其他公司用户或其他公司管理员。"
       },
       {
         title: "clean 库",
@@ -599,7 +600,7 @@ export const versionNotes: VersionNote[] = [
       "公司管理支持新增、编辑、启用 / 停用；产品线管理支持新增、编辑、启用 / 停用；部门管理支持新增、编辑、停用和模块访问权限配置；用户管理支持角色、状态和部门绑定维护。"
     ],
     usage: "适合从 clean 库搭建正式公司、产品线、部门和账号权限。",
-    notes: "部门控制模块进入，角色控制写入权限；company_admin 暂不支持管理本公司用户。"
+    notes: "部门控制模块进入，角色控制写入权限；company_admin 可管理本公司普通用户。"
   },
   {
     name: "知识库资料治理",

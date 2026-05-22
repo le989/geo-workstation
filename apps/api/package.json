@@ -28,6 +28,7 @@
     "test:geo-analysis": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/geo-analysis-tasks.service.spec.ts test/geo-analysis-tasks.controller.spec.ts",
     "test:usage": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/usage-operation-logs.service.spec.ts",
     "test:aftersales-qa": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/aftersales-qa.service.spec.ts",
+    "test:user-scope": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=false vitest run test/user-scope.controller.spec.ts",
     "test:ai-provider": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/ai-provider.service.spec.ts",
     "test:prisma": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/prisma-schema.spec.ts test/seed-safety.spec.ts",
     "test:users": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=false vitest run test/users.controller.spec.ts test/company-product-lines.controller.spec.ts",
