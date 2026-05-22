@@ -91,9 +91,7 @@ const helpOverviewItems = [
             <div>
               <p class="section-kicker">SOP</p>
               <h2>正式使用流程总览</h2>
-              <span
-                >围绕公司、产品线、提示词、知识库、指令库、内容、覆盖记录和报表，把日常动作拆成可交接流程。</span
-              >
+              <span>围绕公司、产品线、提示词、知识库、指令库、内容、覆盖记录和报表，把日常动作拆成可交接流程。</span>
             </div>
             <el-tag effect="plain">{{ sopSections.length }} 组 SOP</el-tag>
           </div>
@@ -157,9 +155,7 @@ const helpOverviewItems = [
             <div>
               <p class="section-kicker">Changelog</p>
               <h2>版本更新记录</h2>
-              <span
-                >这里记录当前正式入口、基础管理、任务归档和数据初始化口径，便于内部演示和交接。</span
-              >
+              <span>这里记录当前正式入口、基础管理、任务归档和数据初始化口径，便于内部演示和交接。</span>
             </div>
             <el-tag type="info" effect="plain">版本说明</el-tag>
           </div>
