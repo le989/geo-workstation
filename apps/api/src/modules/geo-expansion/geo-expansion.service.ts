@@ -265,6 +265,8 @@ export class GeoExpansionService {
       }
     });
 
+    const operationStartedAt = Date.now();
+
     try {
       const generation = usesMockProvider
         ? this.generateMockExpansionCandidates(normalized, inputPayload)
@@ -304,6 +306,12 @@ export class GeoExpansionService {
           totalTokens: generation.tokenInput + generation.tokenOutput,
           requestCount: 1,
           success: true,
+          latencyMs: generation.latencyMs,
+          providerReturnedUsage: usesMockProvider ? undefined : generation.providerReturnedUsage,
+          usageUnknown:
+            usesMockProvider || generation.providerReturnedUsage === undefined
+              ? undefined
+              : !generation.providerReturnedUsage,
           metadata: {
             jobId: job.id,
             candidateCount: generation.candidates.length
@@ -369,6 +377,9 @@ export class GeoExpansionService {
           requestCount: 1,
           success: false,
           errorMessage: error,
+          latencyMs: usesMockProvider ? undefined : Date.now() - operationStartedAt,
+          usageUnknown: usesMockProvider ? undefined : true,
+          providerReturnedUsage: usesMockProvider ? undefined : false,
           metadata: {
             jobId: job.id
           }
@@ -583,6 +594,8 @@ export class GeoExpansionService {
     model: string;
     tokenInput: number;
     tokenOutput: number;
+    providerReturnedUsage?: boolean;
+    latencyMs?: number;
   } {
     const candidates = this.ensureQualityCandidates(
       this.mockAiProvider.generate({
@@ -616,8 +629,11 @@ export class GeoExpansionService {
     model: string;
     tokenInput: number;
     tokenOutput: number;
+    providerReturnedUsage?: boolean;
+    latencyMs?: number;
   }> {
     const promptText = this.buildRealExpansionPrompt(input, projectProfile);
+    const aiStartedAt = Date.now();
     const result = await this.requireAiProviderService().generateText({
       provider: input.provider,
       model: input.model,
@@ -639,7 +655,9 @@ export class GeoExpansionService {
       tokenInput: result.tokenInput ?? this.estimateTokenCount(promptText),
       tokenOutput:
         result.tokenOutput ??
-        this.estimateTokenCount(candidates.map((candidate) => candidate.promptText).join("\n"))
+        this.estimateTokenCount(candidates.map((candidate) => candidate.promptText).join("\n")),
+      providerReturnedUsage: result.tokenInput !== undefined || result.tokenOutput !== undefined,
+      latencyMs: Date.now() - aiStartedAt
     };
   }
 

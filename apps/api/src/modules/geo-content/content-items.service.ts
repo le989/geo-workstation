@@ -423,6 +423,8 @@ export class ContentItemsService {
       return ruleResult;
     }
 
+    const aiStartedAt = Date.now();
+
     try {
       const aiResult = await this.runAiQualityCheck(qualityContext, input, ruleResult);
       await this.recordContentItemAiUsage(
@@ -432,9 +434,12 @@ export class ContentItemsService {
         false,
         true,
         qualityContext,
-        context
+        context,
+        undefined,
+        aiResult.usage,
+        Date.now() - aiStartedAt
       );
-      return aiResult ?? ruleResult;
+      return aiResult.qualityResult ?? ruleResult;
     } catch (error) {
       await this.recordContentItemAiUsage(
         "quality_check",
@@ -444,7 +449,9 @@ export class ContentItemsService {
         false,
         qualityContext,
         context,
-        error
+        error,
+        undefined,
+        Date.now() - aiStartedAt
       );
       throw error;
     }
@@ -472,6 +479,8 @@ export class ContentItemsService {
       return this.buildMockPublishOptimization(qualityContext, input, qualityResult);
     }
 
+    const aiStartedAt = Date.now();
+
     try {
       const result = await this.requireAiProviderService().generateText({
         provider,
@@ -494,7 +503,8 @@ export class ContentItemsService {
         qualityContext,
         context,
         undefined,
-        result
+        result,
+        Date.now() - aiStartedAt
       );
 
       return this.parsePublishOptimizationResult(result, qualityContext, qualityResult);
@@ -507,7 +517,9 @@ export class ContentItemsService {
         false,
         qualityContext,
         context,
-        error
+        error,
+        undefined,
+        Date.now() - aiStartedAt
       );
       throw error;
     }
@@ -522,7 +534,8 @@ export class ContentItemsService {
     qualityContext: ContentQualityContext,
     accessContext?: ResourceAccessContext,
     error?: unknown,
-    usage?: GenerateTextResult
+    usage?: GenerateTextResult,
+    latencyMs?: number
   ): Promise<void> {
     await this.aiUsageService?.recordUsage(
       {
@@ -531,12 +544,24 @@ export class ContentItemsService {
         provider,
         model: usage?.model ?? model ?? null,
         isMock,
-        promptTokens: usage?.tokenInput ?? 0,
-        completionTokens: usage?.tokenOutput ?? 0,
-        totalTokens: (usage?.tokenInput ?? 0) + (usage?.tokenOutput ?? 0),
+        promptTokens: isMock ? 0 : usage?.tokenInput,
+        completionTokens: isMock ? 0 : usage?.tokenOutput,
+        totalTokens:
+          isMock || usage
+            ? (usage?.tokenInput ?? 0) + (usage?.tokenOutput ?? 0)
+            : undefined,
         requestCount: 1,
         success,
         errorMessage: error,
+        latencyMs,
+        providerReturnedUsage:
+          isMock || usage === undefined
+            ? undefined
+            : usage.tokenInput !== undefined || usage.tokenOutput !== undefined,
+        usageUnknown:
+          isMock || usage === undefined
+            ? undefined
+            : usage.tokenInput === undefined && usage.tokenOutput === undefined,
         metadata: {
           contentItemId: qualityContext.item.id,
           taskId: qualityContext.item.taskId
@@ -689,7 +714,7 @@ export class ContentItemsService {
     context: ContentQualityContext,
     input: ContentQualityCheckDto,
     ruleResult: ContentQualityCheckResponse
-  ): Promise<ContentQualityCheckResponse | null> {
+  ): Promise<{ qualityResult: ContentQualityCheckResponse | null; usage: GenerateTextResult }> {
     const result = await this.requireAiProviderService().generateText({
       provider: normalizeAiProvider(input.provider),
       model: input.model,
@@ -702,7 +727,10 @@ export class ContentItemsService {
       userPrompt: this.buildQualityCheckPrompt(context, input, ruleResult)
     });
 
-    return this.parseQualityCheckResult(result, ruleResult);
+    return {
+      qualityResult: this.parseQualityCheckResult(result, ruleResult),
+      usage: result
+    };
   }
 
   private buildQualityCheckPrompt(

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import type { GeoPrompt, GeoPromptQuery } from "@/api/geo-prompts";
 import { getGeoPrompts } from "@/api/geo-prompts";
 import type {
@@ -147,9 +147,23 @@ const handleReset = () => {
   void loadPromptCandidates();
 };
 
-const submit = () => {
+const submit = async () => {
   if (selectedPromptIds.value.length === 0) {
     ElMessage.warning("请先选择要检测的 GEO 提示词。");
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      "本操作将调用真实模型接口，可能产生费用，是否继续？",
+      "确认联网检测",
+      {
+        confirmButtonText: "继续检测",
+        cancelButtonText: "取消",
+        type: "warning"
+      }
+    );
+  } catch {
     return;
   }
 
@@ -283,6 +297,12 @@ const getFailureHelpText = (value?: ProviderErrorCategory) => {
   <el-dialog v-model="visible" title="联网 GEO 命中检测" width="1080px">
     <div class="web-search-dialog">
       <el-alert :title="providerBoundaryTitle" type="warning" :closable="false" show-icon />
+      <el-alert
+        title="联网检测会调用对应模型服务，请确认后继续。"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
 
       <el-form class="web-search-settings" label-position="top">
         <el-form-item label="Provider">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import type { AiGenerateExpansionPayload } from "@/api/expansion";
 import type { UserIntent } from "@/api/geo-prompts";
 import { splitCommaValues, userIntentOptions } from "@/config/geo-prompt-options";
@@ -31,6 +31,11 @@ const expansionProviderOptions = [
   { label: "内部候选生成", value: "mock" },
   { label: "AI 接口生成", value: "openai_compatible" }
 ] as const;
+const providerSafetyAlert = computed(() =>
+  form.provider === "openai_compatible"
+    ? "真实 AI 接口：会调用外部模型，可能产生额度消耗。"
+    : "内部生成：使用本地规则，不消耗真实模型额度。"
+);
 
 const trimOptional = (value: string) => {
   const trimmed = value.trim();
@@ -161,6 +166,7 @@ const handleSubmit = () => {
                   :value="option.value"
                 />
               </el-select>
+              <p class="form-help">{{ providerSafetyAlert }}</p>
             </el-form-item>
             <el-form-item label="模型名称">
               <el-input v-model="form.model" placeholder="默认可留空，例如 deepseek-chat" />

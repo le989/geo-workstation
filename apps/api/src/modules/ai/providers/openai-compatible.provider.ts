@@ -6,6 +6,7 @@ import {
   type GenerateTextInput,
   type GenerateTextResult
 } from "../ai-provider.interface";
+import { sanitizeProviderErrorMessage } from "../../usage/usage-sanitizer";
 
 type ChatCompletionResponse = {
   choices?: Array<{
@@ -62,7 +63,7 @@ export class OpenAICompatibleProvider implements AiTextProvider {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw this.toReadableProviderError(response.status, errorText, apiKey);
+        throw this.toReadableProviderError(response.status, errorText);
       }
 
       const raw = (await response.json()) as ChatCompletionResponse;
@@ -90,7 +91,7 @@ export class OpenAICompatibleProvider implements AiTextProvider {
         );
       }
       throw new BadRequestException(
-        error instanceof Error ? sanitizeError(error.message, apiKey) : "AI Provider 调用失败。"
+        error instanceof Error ? sanitizeProviderErrorMessage(error.message) : "AI Provider 调用失败。"
       );
     } finally {
       clearTimeout(timeout);
@@ -132,21 +133,17 @@ export class OpenAICompatibleProvider implements AiTextProvider {
     return toPositiveNumber(this.configService.get<string>("AI_TEMPERATURE"), 0.7);
   }
 
-  private toReadableProviderError(
-    status: number,
-    body: string,
-    apiKey: string
-  ): BadRequestException {
+  private toReadableProviderError(status: number, body: string): BadRequestException {
     if (status === 401 || status === 403) {
       return new BadRequestException("AI Provider 鉴权失败，请检查后端环境变量。");
     }
     if (status === 404 || status === 400) {
       return new BadRequestException(
-        `模型不可用或名称错误，请检查后端 AI Provider 配置。${sanitizeError(body, apiKey)}`
+        `模型不可用或名称错误，请检查后端 AI Provider 配置。${sanitizeProviderErrorMessage(body)}`
       );
     }
     return new BadRequestException(
-      `AI Provider 调用失败，状态码 ${status}。${sanitizeError(body, apiKey)}`
+      `AI Provider 调用失败，状态码 ${status}。${sanitizeProviderErrorMessage(body)}`
     );
   }
 }
@@ -154,9 +151,4 @@ export class OpenAICompatibleProvider implements AiTextProvider {
 function toPositiveNumber(value: string | undefined, fallback: number): number {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : fallback;
-}
-
-function sanitizeError(value: string, apiKey: string): string {
-  const compact = value.replaceAll(apiKey, "[REDACTED]").replace(/\s+/g, " ").trim();
-  return compact.length > 0 ? compact.slice(0, 500) : "";
 }
