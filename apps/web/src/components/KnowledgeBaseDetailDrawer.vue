@@ -286,8 +286,8 @@ const advancedFileFilterCount = computed(
   () =>
     [
       fileFilters.applicableModule,
+      fileFilters.directoryId,
       fileFilters.fileType,
-      fileFilters.materialType,
       fileFilters.materialTopic,
       fileFilters.parseStatus,
       fileFilters.trustLevel
@@ -622,7 +622,7 @@ const submitDirectoryForm = () => {
           </el-tag>
           <h2>{{ detail?.knowledgeBase.name ?? "企业 GEO 知识库详情" }}</h2>
           <p>
-            AI 应该引用哪些企业事实资料？在这里查看文件解析状态、知识片段质量和可用于内容生成的资料底座。
+            管理企业资料和 AI 可引用内容。
           </p>
         </div>
         <div class="knowledge-detail-actions">
@@ -634,7 +634,14 @@ const submitDirectoryForm = () => {
       <el-skeleton v-if="detailLoading && !detail" :rows="6" animated />
 
       <template v-else-if="detail">
-        <section class="knowledge-readable-section">
+        <section v-if="isEmbedded" class="knowledge-file-summary" aria-label="知识库资料摘要">
+          <span>资料 {{ detail.filesCount }} 条</span>
+          <span>知识片段 {{ detail.chunksCount }} 条</span>
+          <span>目录 {{ directoryItems.length }} 个</span>
+          <span>更新 {{ formatDateTime(detail.knowledgeBase.updatedAt) }}</span>
+        </section>
+
+        <section v-else class="knowledge-readable-section">
           <div class="knowledge-readable-section__header">
             <div>
               <p class="section-kicker">基本信息</p>
@@ -669,58 +676,58 @@ const submitDirectoryForm = () => {
 
         <el-alert
           v-if="detail.chunksCount === 0"
-          title="当前知识库还没有知识片段，建议先补产品能力、应用场景、FAQ 或选型规则。"
+          title="暂无知识片段，可先上传资料或手动录入。"
           type="warning"
           show-icon
           :closable="false"
           class="knowledge-empty-alert"
         />
 
-        <section class="knowledge-operation-grid knowledge-operation-grid--primary">
+        <section class="knowledge-operation-grid knowledge-operation-grid--primary knowledge-compact-actions">
           <button
-            class="knowledge-operation-card"
+            class="knowledge-operation-card knowledge-operation-card--primary"
             type="button"
             :disabled="!canManage"
             @click="openIngestWizard('upload')"
           >
             <span>上传资料</span>
             <strong>上传文件入库</strong>
-            <small>上传 TXT、Markdown、CSV、Excel 或 Word 文件，进入资料库统一管理。</small>
+            <small>TXT、Markdown、CSV、Excel、Word</small>
           </button>
           <button
-            class="knowledge-operation-card"
+            class="knowledge-operation-card knowledge-operation-card--primary"
             type="button"
             :disabled="!canManage"
             @click="openIngestWizard('manual')"
           >
             <span>手动录入</span>
-            <strong>粘贴整理后的资料</strong>
-            <small>适合补充 FAQ、售后经验、产品参数和应用场景。</small>
+            <strong>粘贴资料</strong>
+            <small>FAQ、参数、案例、场景</small>
           </button>
           <button
-            class="knowledge-operation-card"
+            class="knowledge-operation-card knowledge-operation-card--secondary"
             type="button"
             @click="showPendingKnowledgeFiles"
           >
             <span>待审核资料</span>
-            <strong>筛出待处理资料</strong>
-            <small>快速查看反馈草稿和新入库资料，集中做资料状态维护。</small>
+            <strong>待审核</strong>
+            <small>查看待处理资料</small>
           </button>
           <button
-            class="knowledge-operation-card"
+            class="knowledge-operation-card knowledge-operation-card--secondary"
             type="button"
             :disabled="!canManage"
             @click="openDirectoryManager"
           >
             <span>管理目录</span>
-            <strong>维护资料分类</strong>
-            <small>新增、重命名或停用目录；已有资料不会被删除。</small>
+            <strong>目录维护</strong>
+            <small>新增、重命名、停用</small>
           </button>
         </section>
 
-        <section class="knowledge-detail-flow-note">
+        <section v-if="!isEmbedded" class="knowledge-detail-flow-note">
           <strong>资料层级</strong>
-          <span>上传的文件或粘贴的文本会解析为知识片段，知识片段可被内容生成引用。</span>
+          <span>资料会解析为知识片段，用于后续 GEO 内容引用。</span>
         </section>
 
         <el-tabs
@@ -902,8 +909,8 @@ const submitDirectoryForm = () => {
                 <div class="knowledge-tab-header">
                   <div>
                     <p class="section-kicker">资料文件</p>
-                    <h3>资料列表管理</h3>
-                    <p>搜索资料标题、目录和资料状态，快速判断哪些资料可被售后问答 / GEO 内容引用。</p>
+                    <h3>资料列表</h3>
+                    <p>按目录、状态和类型快速筛选。</p>
                   </div>
                   <div class="knowledge-file-toolbar">
                     <el-button v-if="canManage" type="primary" plain @click="openDirectoryManager">
@@ -949,8 +956,8 @@ const submitDirectoryForm = () => {
                     <p>
                       {{
                         selectedDirectory
-                          ? "当前仅显示这个目录下的资料；停用目录下的已有资料仍可查看。"
-                          : "显示当前知识库内全部目录的资料。"
+                          ? "只看当前目录资料。"
+                          : "显示全部目录资料。"
                       }}
                     </p>
                   </div>
@@ -984,6 +991,45 @@ const submitDirectoryForm = () => {
                       @keyup.enter="handleFileSearch"
                     />
                   </el-form-item>
+                  <el-form-item label="资料状态">
+                    <el-select v-model="fileStatusFilter" placeholder="全部">
+                      <el-option
+                        v-for="option in fileStatusFilterOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="资料类型">
+                    <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
+                      <el-option
+                        v-for="option in materialTypeOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <div class="knowledge-inner-filter-actions">
+                    <el-button type="primary" :loading="filesLoading" @click="handleFileSearch">
+                      查询资料
+                    </el-button>
+                    <el-button @click="handleFileReset">清空筛选</el-button>
+                    <el-button text @click="showFileAdvancedFilters = !showFileAdvancedFilters">
+                      {{ showFileAdvancedFilters ? "收起更多筛选" : "更多筛选" }}
+                    </el-button>
+                    <el-tag v-if="advancedFileFilterCount > 0" type="warning" effect="plain">
+                      已启用 {{ advancedFileFilterCount }} 个筛选
+                    </el-tag>
+                  </div>
+                </el-form>
+
+                <el-form
+                  v-if="showFileAdvancedFilters"
+                  class="knowledge-inner-filters knowledge-inner-filters--advanced"
+                  label-position="top"
+                >
                   <el-form-item label="所属目录">
                     <el-select
                       v-model="fileFilters.directoryId"
@@ -1001,45 +1047,6 @@ const submitDirectoryForm = () => {
                             : getDirectoryDisplayName(directory)
                         "
                         :value="directory.id"
-                      />
-                    </el-select>
-                  </el-form-item>
-                  <el-form-item label="状态">
-                    <el-select v-model="fileStatusFilter" placeholder="全部">
-                      <el-option
-                        v-for="option in fileStatusFilterOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                  <div class="knowledge-inner-filter-actions">
-                    <el-button type="primary" :loading="filesLoading" @click="handleFileSearch">
-                      查询资料
-                    </el-button>
-                    <el-button @click="handleFileReset">清空筛选</el-button>
-                    <el-button text @click="showFileAdvancedFilters = !showFileAdvancedFilters">
-                      {{ showFileAdvancedFilters ? "收起高级筛选" : "高级筛选" }}
-                    </el-button>
-                    <el-tag v-if="advancedFileFilterCount > 0" type="warning" effect="plain">
-                      已启用 {{ advancedFileFilterCount }} 个高级筛选
-                    </el-tag>
-                  </div>
-                </el-form>
-
-                <el-form
-                  v-if="showFileAdvancedFilters"
-                  class="knowledge-inner-filters knowledge-inner-filters--advanced"
-                  label-position="top"
-                >
-                  <el-form-item label="资料类型">
-                    <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
-                      <el-option
-                        v-for="option in materialTypeOptions"
-                        :key="option.value"
-                        :label="option.label"
-                        :value="option.value"
                       />
                     </el-select>
                   </el-form-item>

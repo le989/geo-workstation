@@ -240,6 +240,30 @@ const knowledgeAssetMetrics = computed(() => {
   ];
 });
 
+const workspaceSummaryItems = computed(() => [
+  {
+    label: "资料",
+    value: detail.value?.filesCount ?? 0,
+    suffix: "条"
+  },
+  {
+    label: "知识片段",
+    value: detail.value?.chunksCount ?? 0,
+    suffix: "条"
+  },
+  {
+    label: "目录",
+    value: directories.value.length,
+    suffix: "个"
+  },
+  {
+    label: "更新",
+    value: detail.value?.knowledgeBase.updatedAt
+      ? formatDateTime(detail.value.knowledgeBase.updatedAt)
+      : "未同步"
+  }
+]);
+
 const visibilityLabelMap = {
   COMPANY: "公司公共",
   PLATFORM: "平台公共",
@@ -1122,13 +1146,7 @@ onMounted(async () => {
         </el-tag>
         <p class="section-kicker">知识库工作台</p>
         <h1>知识库</h1>
-        <p>左侧按目录组织企业事实资料，右侧直接维护当前目录下的资料文件和知识片段。</p>
-        <div class="knowledge-flow-cue" aria-label="知识库建设流程">
-          <span>新建知识库</span>
-          <span>上传 / 粘贴资料</span>
-          <span>解析为知识片段</span>
-          <span>用于内容生成</span>
-        </div>
+        <p>管理企业资料和 AI 可引用内容。</p>
       </div>
       <div class="knowledge-workbench-header__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -1157,13 +1175,11 @@ onMounted(async () => {
         <div>
           <p class="section-kicker">当前知识库</p>
           <h2>{{ selectedKnowledgeBase?.name ?? "正在加载知识库" }}</h2>
-          <p>
-            {{
-              selectedKnowledgeBase
-                ? formatKnowledgeDescription(selectedKnowledgeBase.description)
-                : "正在读取知识库目录和资料列表。"
-            }}
-          </p>
+          <div class="knowledge-workbench-summary" aria-label="当前知识库摘要">
+            <span v-for="item in workspaceSummaryItems" :key="item.label">
+              {{ item.label }} {{ item.value }}{{ item.suffix ?? "" }}
+            </span>
+          </div>
         </div>
         <div class="knowledge-workbench-switcher">
           <span>切换知识库</span>
