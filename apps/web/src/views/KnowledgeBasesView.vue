@@ -93,8 +93,8 @@ const editingKnowledgeBase = ref<KnowledgeBase | null>(null);
 const formSubmitting = ref(false);
 const formError = ref("");
 
-const drawerVisible = ref(false);
-const activeTab = ref<"chunks" | "files" | "text-import">("chunks");
+const knowledgeManagerVisible = ref(false);
+const activeTab = ref<"chunks" | "files" | "text-import">("files");
 const selectedKnowledgeBaseId = ref("");
 const detail = ref<KnowledgeBaseDetail | null>(null);
 const detailLoading = ref(false);
@@ -161,6 +161,15 @@ const selectedKnowledgeBase = computed(
     detail.value?.knowledgeBase ??
     knowledgeBases.value.find((item) => item.id === selectedKnowledgeBaseId.value) ??
     null
+);
+const knowledgeBaseOptions = computed(() =>
+  knowledgeBases.value
+    .filter((item) => item.status === "active" || item.status === "enabled")
+    .concat(
+      knowledgeBases.value.filter(
+        (item) => item.status !== "active" && item.status !== "enabled"
+      )
+    )
 );
 const canEditFileContent = computed(() => editingFile.value?.sourceType === "manual");
 const activeDirectoryOptions = computed(() =>
@@ -298,6 +307,40 @@ const buildKnowledgeBaseQuery = (): KnowledgeBaseQuery => ({
   status: trimOptional(filters.status)
 });
 
+const clearWorkspaceKnowledgeBase = () => {
+  selectedKnowledgeBaseId.value = "";
+  detail.value = null;
+  directories.value = [];
+  chunks.value = [];
+  chunksTotal.value = 0;
+  files.value = [];
+  filesTotal.value = 0;
+};
+
+const resetResourcePaginationAndFilters = () => {
+  chunksPage.value = 1;
+  filesPage.value = 1;
+  Object.assign(chunkFilters, {
+    materialType: undefined,
+    productLine: undefined,
+    search: undefined,
+    sourceType: undefined,
+    tags: undefined
+  });
+  Object.assign(fileFilters, {
+    applicableModule: undefined,
+    directoryId: undefined,
+    fileType: undefined,
+    materialType: undefined,
+    materialTopic: undefined,
+    officialCitationStatus: undefined,
+    parseStatus: undefined,
+    reviewStatus: undefined,
+    search: undefined,
+    trustLevel: undefined
+  });
+};
+
 const loadKnowledgeBases = async () => {
   loading.value = true;
   tableError.value = "";
@@ -309,10 +352,12 @@ const loadKnowledgeBases = async () => {
     page.value = result.page;
     pageSize.value = result.pageSize;
     lastLoadedAt.value = new Date().toLocaleString();
+    await ensureWorkspaceKnowledgeBase(result.items);
   } catch (error) {
     tableError.value = getErrorMessage(error);
     knowledgeBases.value = [];
     total.value = 0;
+    clearWorkspaceKnowledgeBase();
   } finally {
     loading.value = false;
   }
@@ -477,35 +522,73 @@ const refreshDetailResources = async () => {
   await Promise.all([loadDetail(), loadChunks(), loadFiles(), loadDirectories()]);
 };
 
-const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
+const selectKnowledgeBaseForWorkspace = async (
+  knowledgeBase: KnowledgeBase,
+  options: { resetFilters?: boolean; tab?: "chunks" | "files" | "text-import" } = {}
+) => {
   selectedKnowledgeBaseId.value = knowledgeBase.id;
   detail.value = null;
   directories.value = [];
-  activeTab.value = "chunks";
-  chunksPage.value = 1;
-  filesPage.value = 1;
-  Object.assign(chunkFilters, {
-    materialType: undefined,
-    productLine: undefined,
-    search: undefined,
-    sourceType: undefined,
-    tags: undefined
-  });
-  Object.assign(fileFilters, {
-    applicableModule: undefined,
-    directoryId: undefined,
-    fileType: undefined,
-    materialType: undefined,
-    materialTopic: undefined,
-    officialCitationStatus: undefined,
-    parseStatus: undefined,
-    reviewStatus: undefined,
-    search: undefined,
-    trustLevel: undefined
-  });
-  drawerVisible.value = true;
+  activeTab.value = options.tab ?? "files";
+
+  if (options.resetFilters !== false) {
+    resetResourcePaginationAndFilters();
+  }
+
   void loadDepartments();
   await refreshDetailResources();
+};
+
+const getDefaultWorkspaceKnowledgeBase = (items: KnowledgeBase[]) =>
+  items.find((item) => item.status === "active" || item.status === "enabled") ?? items[0] ?? null;
+
+const ensureWorkspaceKnowledgeBase = async (items: KnowledgeBase[]) => {
+  if (items.length === 0) {
+    clearWorkspaceKnowledgeBase();
+    return;
+  }
+
+  const current = items.find((item) => item.id === selectedKnowledgeBaseId.value);
+
+  if (!current) {
+    const nextKnowledgeBase = getDefaultWorkspaceKnowledgeBase(items);
+
+    if (nextKnowledgeBase) {
+      await selectKnowledgeBaseForWorkspace(nextKnowledgeBase, {
+        resetFilters: true,
+        tab: "files"
+      });
+    }
+    return;
+  }
+
+  if (!detail.value) {
+    await selectKnowledgeBaseForWorkspace(current, {
+      resetFilters: false,
+      tab: activeTab.value
+    });
+  }
+};
+
+const openDetailDrawer = async (knowledgeBase: KnowledgeBase) => {
+  knowledgeManagerVisible.value = false;
+  await selectKnowledgeBaseForWorkspace(knowledgeBase, {
+    resetFilters: true,
+    tab: "files"
+  });
+};
+
+const handleKnowledgeBaseSwitch = async (knowledgeBaseId: string) => {
+  const knowledgeBase = knowledgeBases.value.find((item) => item.id === knowledgeBaseId);
+
+  if (!knowledgeBase) {
+    return;
+  }
+
+  await selectKnowledgeBaseForWorkspace(knowledgeBase, {
+    resetFilters: true,
+    tab: "files"
+  });
 };
 
 const resetResourceFilters = () => {
@@ -547,7 +630,6 @@ const openRoutedKnowledgeFile = async () => {
   chunksPage.value = 1;
   filesPage.value = 1;
   resetResourceFilters();
-  drawerVisible.value = true;
   void loadDepartments();
   await refreshDetailResources();
 
@@ -599,7 +681,6 @@ const handleDeleteKnowledgeBase = async (knowledgeBase: KnowledgeBase) => {
     await deleteKnowledgeBase(knowledgeBase.id);
     ElMessage.success("知识库已软删除。");
     if (knowledgeBase.id === selectedKnowledgeBaseId.value) {
-      drawerVisible.value = false;
       selectedKnowledgeBaseId.value = "";
       detail.value = null;
     }
@@ -1034,156 +1115,256 @@ onMounted(async () => {
 
 <template>
   <section class="knowledge-page">
-    <header class="knowledge-hero">
-      <div class="knowledge-hero__copy">
+    <header class="knowledge-workbench-header">
+      <div class="knowledge-workbench-header__copy">
         <el-tag class="knowledge-hero__tag" type="success" effect="plain">
           GEO 知识库
         </el-tag>
+        <p class="section-kicker">知识库工作台</p>
         <h1>知识库</h1>
-        <p>管理产品资料、FAQ 和知识片段，为内容生成、事实边界和 GEO 复测提供可信依据。</p>
+        <p>左侧按目录组织企业事实资料，右侧直接维护当前目录下的资料文件和知识片段。</p>
         <div class="knowledge-flow-cue" aria-label="知识库建设流程">
           <span>新建知识库</span>
           <span>上传 / 粘贴资料</span>
           <span>解析为知识片段</span>
           <span>用于内容生成</span>
         </div>
-        <strong>知识库资料用于补齐 GEO 诊断中的事实缺口，并为内容生成提供可引用素材。</strong>
       </div>
-      <div class="knowledge-hero__actions">
+      <div class="knowledge-workbench-header__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" @click="loadKnowledgeBases">
-          刷新列表
+          刷新
         </el-button>
-        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">
+        <el-button @click="knowledgeManagerVisible = true">切换知识库 / 管理知识库</el-button>
+        <el-button v-if="canCreateKnowledgeBase" @click="openCreateDialog">
           新建知识库
         </el-button>
       </div>
     </header>
 
-    <section class="knowledge-asset-overview" aria-label="知识库资产概览">
-      <article
-        v-for="metric in knowledgeAssetMetrics"
-        :key="metric.label"
-        :class="{ 'is-warning': metric.label === '待补说明' }"
-      >
-        <span>{{ metric.label }}</span>
-        <strong>{{ metric.value }}</strong>
-        <small>{{ metric.note }}</small>
-      </article>
-    </section>
-
-    <KnowledgeBaseFilters
-      :model-value="filters"
-      :loading="loading"
-      @update:model-value="Object.assign(filters, $event)"
-      @search="handleSearch"
-      @reset="handleReset"
-      @create="openCreateDialog"
-    />
-
     <AppErrorState v-if="hasTableError" title="知识库加载失败" :message="tableError" />
 
-    <section class="knowledge-table-panel">
-      <div class="knowledge-table-header">
+    <section v-if="isEmpty" class="knowledge-workbench-empty">
+      <el-empty description="暂无知识库，请先新建知识库" :image-size="96">
+        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">
+          新建知识库
+        </el-button>
+      </el-empty>
+    </section>
+
+    <section v-else class="knowledge-workbench-shell knowledge-workbench-main">
+      <div class="knowledge-workbench-toolbar">
         <div>
-          <p class="section-kicker">事实底座</p>
-          <h2>企业事实资料库</h2>
-          <p>查看知识资产建设情况，进入详情维护文件和片段。</p>
+          <p class="section-kicker">当前知识库</p>
+          <h2>{{ selectedKnowledgeBase?.name ?? "正在加载知识库" }}</h2>
+          <p>
+            {{
+              selectedKnowledgeBase
+                ? formatKnowledgeDescription(selectedKnowledgeBase.description)
+                : "正在读取知识库目录和资料列表。"
+            }}
+          </p>
+        </div>
+        <div class="knowledge-workbench-switcher">
+          <span>切换知识库</span>
+          <el-select
+            :model-value="selectedKnowledgeBaseId"
+            class="knowledge-workbench-select"
+            filterable
+            placeholder="选择知识库"
+            :loading="loading"
+            @change="handleKnowledgeBaseSwitch"
+          >
+            <el-option
+              v-for="knowledgeBase in knowledgeBaseOptions"
+              :key="knowledgeBase.id"
+              :label="knowledgeBase.name"
+              :value="knowledgeBase.id"
+            />
+          </el-select>
+          <el-button @click="knowledgeManagerVisible = true">管理知识库</el-button>
         </div>
       </div>
 
-      <el-table
-        v-loading="loading"
-        :data="knowledgeBases"
-        class="knowledge-base-table"
-        row-key="id"
-        border
-        empty-text="暂无企业 GEO 知识库，可先新建知识库并导入文件或手动资料。"
-      >
-        <el-table-column prop="name" label="知识库名称" min-width="220" fixed="left">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            <strong class="knowledge-main-text">{{ row.name }}</strong>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="说明摘要" min-width="260">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            <span class="knowledge-description-line">
-              {{ formatKnowledgeDescription(row.description) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="104">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            <el-tag
-              class="knowledge-status-tag"
-              :type="row.status === 'active' || row.status === 'enabled' ? 'success' : 'info'"
-              effect="plain"
-            >
-              {{ knowledgeBaseStatusLabelMap[row.status] ?? row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="productLine" label="产品线 / 场景" min-width="150">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            {{ formatOptional(row.productLine) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="visibility" label="可见性" width="104">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
-              {{ visibilityLabelMap[row.visibility] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updatedAt" label="更新时间" min-width="168">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            {{ formatDateTime(row.updatedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="154" fixed="right">
-          <template #default="{ row }: { row: KnowledgeBase }">
-            <el-button link type="primary" @click="openDetailDrawer(row)">查看</el-button>
-            <el-button v-if="canManageKnowledgeBase(row)" link type="primary" @click="openEditDialog(row)">
-              编辑
-            </el-button>
-            <el-button
-              v-if="canManageKnowledgeBase(row)"
-              link
-              class="knowledge-danger-action"
-              @click="handleDeleteKnowledgeBase(row)"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty
-            :description="
-              isEmpty
-                ? '暂无企业 GEO 知识库，可先新建知识库并导入企业事实资料。'
-                : '正在加载企业 GEO 知识库'
-            "
-          >
-            <template #image>
-              <div class="empty-mark">GEO</div>
-            </template>
-          </el-empty>
-        </template>
-      </el-table>
-
-      <div class="knowledge-pagination">
-        <span>共 {{ total }} 个企业 GEO 知识库</span>
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50]"
-          :total="total"
-          layout="sizes, prev, pager, next"
-          @current-change="handlePageChange"
-          @size-change="handlePageSizeChange"
-        />
-      </div>
+      <KnowledgeBaseDetailDrawer
+        v-if="selectedKnowledgeBaseId"
+        v-model:active-tab="activeTab"
+        :model-value="true"
+        embedded
+        :detail="detail"
+        :detail-loading="detailLoading"
+        :chunks="chunks"
+        :chunks-total="chunksTotal"
+        :chunks-page="chunksPage"
+        :chunks-page-size="chunksPageSize"
+        :chunks-loading="chunksLoading"
+        :files="files"
+        :files-total="filesTotal"
+        :files-page="filesPage"
+        :files-page-size="filesPageSize"
+        :files-loading="filesLoading"
+        :directories="directories"
+        :directories-loading="directoriesLoading"
+        :text-import-submitting="textImportSubmitting"
+        :uploading="uploading"
+        :can-manage="canManageKnowledgeBase(selectedKnowledgeBase)"
+        :can-review="canReviewMaterials"
+        :departments="departments"
+        :reparsing-ids="reparsingIds"
+        :deleting-file-ids="deletingFileIds"
+        :deleting-chunk-ids="deletingChunkIds"
+        @refresh="refreshDetailResources"
+        @text-import="handleTextImport"
+        @upload-file="handleUploadFile"
+        @search-chunks="handleChunkSearch"
+        @reset-chunks="handleChunkReset"
+        @page-chunks="handleChunkPageChange"
+        @size-chunks="handleChunkPageSizeChange"
+        @edit-chunk="openChunkEditDialog"
+        @delete-chunk="handleDeleteChunk"
+        @search-files="handleFileSearch"
+        @reset-files="handleFileReset"
+        @page-files="handleFilePageChange"
+        @size-files="handleFilePageSizeChange"
+        @file-detail="handleFileDetail"
+        @file-edit="openFileEditDialog"
+        @reparse-file="handleReparseFile"
+        @delete-file="handleDeleteFile"
+        @create-directory="handleCreateDirectory"
+        @rename-directory="handleRenameDirectory"
+        @disable-directory="handleDisableDirectory"
+      />
     </section>
+
+    <el-dialog
+      v-model="knowledgeManagerVisible"
+      title="切换 / 管理知识库"
+      width="1080px"
+      class="knowledge-manager-dialog"
+    >
+      <KnowledgeBaseFilters
+        :model-value="filters"
+        :loading="loading"
+        @update:model-value="Object.assign(filters, $event)"
+        @search="handleSearch"
+        @reset="handleReset"
+        @create="openCreateDialog"
+      />
+
+      <section class="knowledge-asset-overview" aria-label="知识库资产概览">
+        <article
+          v-for="metric in knowledgeAssetMetrics"
+          :key="metric.label"
+          :class="{ 'is-warning': metric.label === '待补说明' }"
+        >
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+          <small>{{ metric.note }}</small>
+        </article>
+      </section>
+
+      <section class="knowledge-table-panel knowledge-table-panel--manager">
+        <div class="knowledge-table-header">
+          <div>
+            <p class="section-kicker">事实底座</p>
+            <h2>企业事实资料库</h2>
+            <p>查看知识资产建设情况，选择要进入的知识库工作台。</p>
+          </div>
+        </div>
+
+        <el-table
+          v-loading="loading"
+          :data="knowledgeBases"
+          class="knowledge-base-table"
+          row-key="id"
+          border
+          empty-text="暂无企业 GEO 知识库，可先新建知识库并导入文件或手动资料。"
+        >
+          <el-table-column prop="name" label="知识库名称" min-width="220" fixed="left">
+            <template #default="{ row }: { row: KnowledgeBase }">
+              <strong class="knowledge-main-text">{{ row.name }}</strong>
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="说明摘要" min-width="260">
+            <template #default="{ row }: { row: KnowledgeBase }">
+              <span class="knowledge-description-line">
+                {{ formatKnowledgeDescription(row.description) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="104">
+            <template #default="{ row }: { row: KnowledgeBase }">
+              <el-tag
+                class="knowledge-status-tag"
+                :type="row.status === 'active' || row.status === 'enabled' ? 'success' : 'info'"
+                effect="plain"
+              >
+                {{ knowledgeBaseStatusLabelMap[row.status] ?? row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="productLine" label="产品线 / 场景" min-width="150">
+            <template #default="{ row }: { row: KnowledgeBase }">
+              {{ formatOptional(row.productLine) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="visibility" label="可见性" width="104">
+            <template #default="{ row }: { row: KnowledgeBase }">
+              <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
+                {{ visibilityLabelMap[row.visibility] }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="updatedAt" label="更新时间" min-width="168">
+            <template #default="{ row }: { row: KnowledgeBase }">
+              {{ formatDateTime(row.updatedAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="154" fixed="right">
+            <template #default="{ row }: { row: KnowledgeBase }">
+              <el-button link type="primary" @click="openDetailDrawer(row)">进入</el-button>
+              <el-button v-if="canManageKnowledgeBase(row)" link type="primary" @click="openEditDialog(row)">
+                编辑
+              </el-button>
+              <el-button
+                v-if="canManageKnowledgeBase(row)"
+                link
+                class="knowledge-danger-action"
+                @click="handleDeleteKnowledgeBase(row)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty
+              :description="
+                isEmpty
+                  ? '暂无企业 GEO 知识库，可先新建知识库并导入企业事实资料。'
+                  : '正在加载企业 GEO 知识库'
+              "
+            >
+              <template #image>
+                <div class="empty-mark">GEO</div>
+              </template>
+            </el-empty>
+          </template>
+        </el-table>
+
+        <div class="knowledge-pagination">
+          <span>共 {{ total }} 个企业 GEO 知识库</span>
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50]"
+            :total="total"
+            layout="sizes, prev, pager, next"
+            @current-change="handlePageChange"
+            @size-change="handlePageSizeChange"
+          />
+        </div>
+      </section>
+    </el-dialog>
 
     <KnowledgeBaseFormDialog
       v-model="formVisible"
@@ -1192,53 +1373,6 @@ onMounted(async () => {
       :submitting="formSubmitting"
       :error-message="formError"
       @submit="handleFormSubmit"
-    />
-
-    <KnowledgeBaseDetailDrawer
-      v-model="drawerVisible"
-      v-model:active-tab="activeTab"
-      :detail="detail"
-      :detail-loading="detailLoading"
-      :chunks="chunks"
-      :chunks-total="chunksTotal"
-      :chunks-page="chunksPage"
-      :chunks-page-size="chunksPageSize"
-      :chunks-loading="chunksLoading"
-      :files="files"
-      :files-total="filesTotal"
-      :files-page="filesPage"
-      :files-page-size="filesPageSize"
-      :files-loading="filesLoading"
-      :directories="directories"
-      :directories-loading="directoriesLoading"
-      :text-import-submitting="textImportSubmitting"
-      :uploading="uploading"
-      :can-manage="canManageKnowledgeBase(selectedKnowledgeBase)"
-      :can-review="canReviewMaterials"
-      :departments="departments"
-      :reparsing-ids="reparsingIds"
-      :deleting-file-ids="deletingFileIds"
-      :deleting-chunk-ids="deletingChunkIds"
-      @refresh="refreshDetailResources"
-      @text-import="handleTextImport"
-      @upload-file="handleUploadFile"
-      @search-chunks="handleChunkSearch"
-      @reset-chunks="handleChunkReset"
-      @page-chunks="handleChunkPageChange"
-      @size-chunks="handleChunkPageSizeChange"
-      @edit-chunk="openChunkEditDialog"
-      @delete-chunk="handleDeleteChunk"
-      @search-files="handleFileSearch"
-      @reset-files="handleFileReset"
-      @page-files="handleFilePageChange"
-      @size-files="handleFilePageSizeChange"
-      @file-detail="handleFileDetail"
-      @file-edit="openFileEditDialog"
-      @reparse-file="handleReparseFile"
-      @delete-file="handleDeleteFile"
-      @create-directory="handleCreateDirectory"
-      @rename-directory="handleRenameDirectory"
-      @disable-directory="handleDisableDirectory"
     />
 
     <el-dialog

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
-import { ElMessage } from "element-plus";
+import { ElDrawer, ElMessage } from "element-plus";
 import type { Department } from "@/api/departments";
 import type {
   KnowledgeApplicableModule,
@@ -72,6 +72,7 @@ const props = defineProps<{
   reparsingIds?: string[];
   deletingFileIds?: string[];
   deletingChunkIds?: string[];
+  embedded?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -143,6 +144,20 @@ const fileStatusFilterOptions = [
   { label: "可被 AI 引用", value: "citable" },
   { label: "暂不可引用", value: "not_citable" }
 ] as const;
+const isEmbedded = computed(() => props.embedded === true);
+const detailShellComponent = computed(() => (isEmbedded.value ? "section" : ElDrawer));
+const detailShellProps = computed(() =>
+  isEmbedded.value
+    ? {
+        class: "knowledge-detail-shell knowledge-detail-shell--embedded"
+      }
+    : {
+        class: "knowledge-detail-drawer",
+        modelValue: props.modelValue,
+        size: "82%",
+        withHeader: false
+      }
+);
 
 watch(
   () => props.detail?.knowledgeBase.id,
@@ -171,7 +186,17 @@ watch(
 );
 
 const close = () => {
+  if (isEmbedded.value) {
+    return;
+  }
+
   emit("update:modelValue", false);
+};
+
+const handleShellModelUpdate = (value: boolean) => {
+  if (!isEmbedded.value) {
+    emit("update:modelValue", value);
+  }
 };
 
 const handleChunkSearch = () => {
@@ -583,15 +608,13 @@ const submitDirectoryForm = () => {
 </script>
 
 <template>
-  <el-drawer
-    :model-value="modelValue"
-    size="82%"
-    :with-header="false"
-    class="knowledge-detail-drawer"
+  <component
+    :is="detailShellComponent"
+    v-bind="detailShellProps"
     @close="close"
-    @update:model-value="emit('update:modelValue', $event)"
+    @update:model-value="handleShellModelUpdate"
   >
-    <section class="knowledge-detail">
+    <section class="knowledge-detail" :class="{ 'knowledge-detail--embedded': isEmbedded }">
       <div class="knowledge-detail-header">
         <div class="knowledge-detail-header__copy">
           <el-tag class="knowledge-detail-header__tag" type="success" effect="plain">
@@ -604,7 +627,7 @@ const submitDirectoryForm = () => {
         </div>
         <div class="knowledge-detail-actions">
           <el-button :loading="detailLoading" @click="emit('refresh')">刷新详情</el-button>
-          <el-button @click="close">关闭</el-button>
+          <el-button v-if="!isEmbedded" @click="close">关闭</el-button>
         </div>
       </div>
 
@@ -798,8 +821,8 @@ const submitDirectoryForm = () => {
               <aside v-loading="directoriesLoading" class="knowledge-directory-sidebar">
                 <div class="knowledge-directory-sidebar__header">
                   <div>
-                    <p class="section-kicker">资料目录</p>
-                    <h3>按目录查看资料</h3>
+                    <p class="section-kicker">知识库目录</p>
+                    <h3>按资料目录查看资料</h3>
                   </div>
                   <div class="knowledge-directory-sidebar__actions">
                     <el-button v-if="canManage" size="small" text @click="openQuickChildDirectory">
@@ -1304,5 +1327,5 @@ const submitDirectoryForm = () => {
         </el-dialog>
       </template>
     </section>
-  </el-drawer>
+  </component>
 </template>
