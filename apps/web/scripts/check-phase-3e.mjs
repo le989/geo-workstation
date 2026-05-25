@@ -51,7 +51,7 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "企业 GEO 知识库",
-  "AI 应该引用哪些企业事实资料",
+  "管理企业资料和 AI 可引用内容",
   "文本导入",
   "文件资料",
   "知识片段",
@@ -74,7 +74,7 @@ const pageRequiredSnippets = [
   "可用场景",
   "AI 可引用状态",
   "已启用",
-  "个高级筛选",
+  "个筛选",
   "基础信息",
   "审核与引用",
   "正文内容",
@@ -82,11 +82,10 @@ const pageRequiredSnippets = [
   "暂不可引用",
   "低可靠",
   "建议拆分",
-  "上传 / 粘贴资料",
-  "解析为知识片段",
-  "用于内容生成",
-  "资料筛选",
-  "高级筛选",
+  "更多筛选",
+  "knowledge-workbench-summary",
+  "knowledge-file-summary",
+  "knowledge-compact-actions",
   "卡片视图",
   "表格视图",
   "知识库工作台",
@@ -187,6 +186,15 @@ const forbiddenRecommendationSnippets = [
   "自动正式引用"
 ];
 
+const forbiddenVerboseKnowledgeSnippets = [
+  "左侧按目录组织企业事实资料，右侧直接维护当前目录下的资料文件和知识片段。",
+  "上传 / 粘贴资料",
+  "用于内容生成",
+  "AI 应该引用哪些企业事实资料",
+  "快速判断哪些资料可被售后问答 / GEO 内容引用",
+  "当前仅显示这个目录下的资料；停用目录下的已有资料仍可查看。"
+];
+
 const knowledgeFields = [
   "name",
   "productLine",
@@ -256,6 +264,10 @@ for (const snippet of suggestRequiredSnippets) {
 
 for (const snippet of forbiddenRecommendationSnippets) {
   assert(!pageSource.includes(snippet), `Knowledge recommendation should not use wording ${snippet}`);
+}
+
+for (const snippet of forbiddenVerboseKnowledgeSnippets) {
+  assert(!pageSource.includes(snippet), `Knowledge page should avoid verbose wording ${snippet}`);
 }
 
 const routesSource = await readSource("src/router/routes.ts");
