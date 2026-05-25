@@ -40,6 +40,11 @@
 - [ ] `VITE_API_BASE_URL` 与 Nginx 反代方案一致。
 - [ ] 没有把 `.env` 或 `.env.production` 提交到 git。
 - [ ] 没有把真实 API Key 写进 README 或 docs。
+- [ ] AI Provider Key 只配置在后端私有环境变量中，未进入前端 `.env` 或构建产物。
+- [ ] OpenAI-compatible / DeepSeek、Kimi、Volcengine / 豆包、Aliyun Bailian / 通义方向所需变量已按实际启用范围配置。
+- [ ] 真实 AI 调用额度已确认，相关负责人知道真实调用可能产生额度消耗。
+- [ ] 模型覆盖联网检测权限已确认，`operator` / `viewer` 不能触发真实联网检测。
+- [ ] 模型覆盖联网检测二次确认提示已确认。
 
 ## 数据库检查
 
@@ -51,6 +56,7 @@
 - [ ] 发布前已执行 `pg_dump` 备份。
 - [ ] 已备份 `LOCAL_STORAGE_ROOT`，并确认数据库和上传目录属于同一批次。
 - [ ] 已确认恢复命令、备份文件路径和恢复演练步骤。
+- [ ] 已确认 `geo_workstation_clean`、`geo_workstation_crud_smoke`、`geo_workstation_aqa_chat_local_smoke`、`geo_workstation` 的边界，不把 clean 库用于 migrate、seed、写库测试或 cleanup。
 
 ## PM2 检查
 
@@ -98,14 +104,32 @@
 - [ ] 用户管理页面只对有权限角色开放。
 - [ ] `/settings` 可查看或维护项目档案。
 - [ ] 提示词、模型覆盖记录或 GEO 报表导出小样本成功。
+- [ ] AI Token 用量统计页面可打开。
+- [ ] token unknown 显示为“未知”，没有被展示为真实 0 token。
+- [ ] 不显示成本金额、价格估算或账单入口。
+- [ ] 知识库待审核资料不会进入 AI 正式引用范围。
+- [ ] 知识库低可靠资料不会进入 AI 正式引用范围。
+- [ ] 产品线说明已补充或确认暂为空，空说明显示为“未填写”。
 
 ## 权限与公司上下文检查
 
 - [ ] 已确认当前角色矩阵：`platform_admin`、`company_admin`、`operator`、`viewer`。
 - [ ] `viewer` 只能查看，不能创建 GEO 诊断任务。
 - [ ] `viewer` 只能查看，不能创建 GEO 内容任务。
-- [ ] 用户管理当前主要由 `platform_admin` 管理。
+- [ ] 用户管理对 `platform_admin` / `company_admin` 按权限开放。
 - [ ] 切换公司上下文后，业务列表、详情、导入、导出和报表只使用当前公司范围。
+- [ ] `company_admin` 只能管理本公司普通用户，并且只能创建 / 调整 `operator`、`viewer`。
+- [ ] `company_admin` 不能修改 `platform_admin`、其他 `company_admin`、其他公司用户或自己的角色 / 状态。
+- [ ] 部门选择只包含本公司启用部门。
+
+## 测试库与正式库边界检查
+
+- [ ] 正式库不执行 demo seed。
+- [ ] `ALLOW_PRODUCTION_SEED=false`，只有首次初始化且确认备份后才临时开启基础 seed。
+- [ ] `BYPASS_AUTH_FOR_TESTS=false`。
+- [ ] 测试数据清理前必须先备份和 dry-run。
+- [ ] 不清理 `operation_logs`、`ai_usage_records`、`ai_call_logs`，除非有单独审批和备份方案。
+- [ ] `LOCAL_STORAGE_ROOT` 纳入备份，并与数据库备份时间点一致。
 
 ## 回滚检查
 
