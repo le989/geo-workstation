@@ -37,7 +37,11 @@ const props = defineProps<{
   canReview?: boolean;
   departments?: Department[];
   directories?: KnowledgeDirectory[];
+  initialDirectoryId?: string;
+  initialDirectoryPath?: string;
+  initialDirectoryWarning?: string;
   initialMethod?: IngestMethod;
+  contextVersion?: number;
 }>();
 
 const emit = defineEmits<{
@@ -51,6 +55,7 @@ const selectedFile = ref<File | null>(null);
 const advancedOpen = ref(false);
 const touched = reactive({
   applicableModules: false,
+  directoryId: false,
   materialTopic: false,
   materialType: false,
   reviewStatus: false,
@@ -93,10 +98,46 @@ const selectedFileName = computed(() => selectedFile.value?.name ?? "");
 const activeDirectoryOptions = computed(() =>
   (props.directories ?? []).filter((directory) => directory.status === "active")
 );
-const selectedDirectoryLabel = computed(() => {
-  const directory = activeDirectoryOptions.value.find((item) => item.id === form.directoryId);
-  return directory?.name ?? "默认根目录";
+const directoryById = computed(
+  () => new Map((props.directories ?? []).map((directory) => [directory.id, directory]))
+);
+const getDirectoryDisplayName = (directory: KnowledgeDirectory) =>
+  directory.isDefault ? "默认根目录" : directory.name;
+const getDirectoryPathLabel = (directoryId?: string) => {
+  if (!directoryId) {
+    return props.initialDirectoryPath || "默认根目录";
+  }
+
+  const path: KnowledgeDirectory[] = [];
+  let currentDirectory = directoryById.value.get(directoryId);
+  const visitedIds = new Set<string>();
+
+  while (currentDirectory && !visitedIds.has(currentDirectory.id)) {
+    path.unshift(currentDirectory);
+    visitedIds.add(currentDirectory.id);
+    currentDirectory = currentDirectory.parentId
+      ? directoryById.value.get(currentDirectory.parentId)
+      : undefined;
+  }
+
+  return path.length > 0 ? path.map(getDirectoryDisplayName).join(" / ") : "默认根目录";
+};
+const directoryDestinationPrefix = computed(() => (isManual.value ? "保存到：" : "上传到："));
+const directoryDestinationLabel = computed(() => {
+  if (form.directoryId) {
+    return getDirectoryPathLabel(form.directoryId);
+  }
+
+  if (props.initialDirectoryWarning) {
+    return "请选择启用目录";
+  }
+
+  return props.initialDirectoryPath || "默认根目录";
 });
+const selectedDirectoryLabel = computed(() => directoryDestinationLabel.value);
+const showInitialDirectoryWarning = computed(() =>
+  Boolean(props.initialDirectoryWarning && !form.directoryId)
+);
 const shouldSuggestWordSplit = computed(() => {
   const file = selectedFile.value;
   if (!file || !file.name.toLowerCase().endsWith(".docx")) {
@@ -207,6 +248,19 @@ const applyMaterialTypeDefaults = () => {
   }
 };
 
+const isActiveDirectoryId = (directoryId?: string) =>
+  Boolean(directoryId && activeDirectoryOptions.value.some((directory) => directory.id === directoryId));
+
+const applyInitialDirectoryDefault = () => {
+  if (touched.directoryId) {
+    return;
+  }
+
+  form.directoryId = isActiveDirectoryId(props.initialDirectoryId)
+    ? (props.initialDirectoryId ?? "")
+    : "";
+};
+
 const applyMaterialSuggestion = (suggestion: KnowledgeMaterialSuggestion | null) => {
   if (!suggestion) {
     return;
@@ -252,6 +306,22 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => props.contextVersion,
+  () => {
+    touched.directoryId = false;
+    applyInitialDirectoryDefault();
+  },
+  { immediate: true }
+);
+
+watch(
+  [() => props.initialDirectoryId, () => props.directories],
+  () => {
+    applyInitialDirectoryDefault();
+  }
+);
+
 const handleMaterialTypeChange = () => {
   touched.materialType = true;
   applyMaterialTypeDefaults();
@@ -259,6 +329,10 @@ const handleMaterialTypeChange = () => {
 
 const handleMaterialTopicChange = () => {
   touched.materialTopic = true;
+};
+
+const handleDirectoryChange = () => {
+  touched.directoryId = true;
 };
 
 const validateForm = () => {
@@ -323,6 +397,7 @@ const resetWizard = () => {
   selectedFile.value = null;
   advancedOpen.value = false;
   touched.applicableModules = false;
+  touched.directoryId = false;
   touched.materialTopic = false;
   touched.materialType = false;
   touched.reviewStatus = false;
@@ -345,6 +420,7 @@ const resetWizard = () => {
   if (fileInput.value) {
     fileInput.value.value = "";
   }
+  applyInitialDirectoryDefault();
 };
 
 watch([() => form.title, () => form.content], () => {
@@ -507,19 +583,32 @@ const submit = () => {
         </el-form-item>
 
         <el-form-item label="所属目录" required>
+          <el-alert
+            v-if="showInitialDirectoryWarning"
+            :title="props.initialDirectoryWarning"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="knowledge-directory-destination-alert"
+          />
           <el-select
             v-model="form.directoryId"
             placeholder="默认根目录"
             clearable
             filterable
+            @change="handleDirectoryChange"
           >
             <el-option
               v-for="directory in activeDirectoryOptions"
               :key="directory.id"
-              :label="directory.name"
+              :label="getDirectoryPathLabel(directory.id)"
               :value="directory.id"
             />
           </el-select>
+          <p class="knowledge-field-help knowledge-directory-destination">
+            <span>{{ directoryDestinationPrefix }}</span>
+            <strong>{{ directoryDestinationLabel }}</strong>
+          </p>
           <p class="knowledge-field-help">
             不选择时归入默认根目录；不需要先建目录也能入库。
           </p>
