@@ -214,6 +214,8 @@ pnpm --filter @geo-workstation/web build
 
 当前已接入统一 AI Provider 抽象。默认使用 `mock`，不需要真实 Key；自用真实流程可以切换为 OpenAI-compatible Provider。
 
+AI Provider 的密钥只允许配置在后端私有环境变量中，不能配置到前端 `.env`，也不能写入文档、日志、构建产物或 git。
+
 ```env
 AI_PROVIDER=mock
 AI_OPENAI_COMPATIBLE_BASE_URL=https://api.deepseek.com/v1
@@ -252,6 +254,53 @@ AI_OPENAI_COMPATIBLE_MODEL=deepseek-chat
 - 不要在普通日志中输出完整 Key。
 - 外部 AI 调用前需要明确哪些知识库内容会发送给模型。
 - 生产环境不应使用 `change_me` 作为真实 Key。
+
+### OpenAI-compatible / DeepSeek 兼容链路变量
+
+| 变量名                          | 用途                                                             |
+| ------------------------------- | ---------------------------------------------------------------- |
+| `AI_PROVIDER`                   | 控制默认 AI Provider。真实兼容链路通常使用 `openai_compatible`。 |
+| `AI_OPENAI_COMPATIBLE_BASE_URL` | OpenAI-compatible 服务地址。                                     |
+| `AI_OPENAI_COMPATIBLE_API_KEY`  | OpenAI-compatible API Key，仅后端读取。                          |
+| `AI_OPENAI_COMPATIBLE_MODEL`    | 默认模型名称。                                                   |
+| `AI_REQUEST_TIMEOUT_MS`         | AI 请求超时时间。                                                |
+| `AI_MAX_TOKENS`                 | 默认最大输出 token。                                             |
+| `AI_TEMPERATURE`                | 默认生成温度。                                                   |
+
+### Kimi Web Search 变量
+
+| 变量名                  | 用途                                              |
+| ----------------------- | ------------------------------------------------- |
+| `KIMI_API_KEY`          | Kimi / Moonshot Web Search 调用密钥，仅后端读取。 |
+| `KIMI_API_BASE_URL`     | Kimi / Moonshot API 地址。                        |
+| `KIMI_WEB_SEARCH_MODEL` | Kimi 联网检测使用的模型名称。                     |
+
+### Volcengine / 豆包方向 Web Search 变量
+
+| 变量名                        | 用途                                              |
+| ----------------------------- | ------------------------------------------------- |
+| `VOLCENGINE_API_KEY`          | 火山 / 豆包方向 Web Search 调用密钥，仅后端读取。 |
+| `VOLCENGINE_API_BASE_URL`     | 火山 / 豆包方向 API 地址。                        |
+| `VOLCENGINE_WEB_SEARCH_MODEL` | 火山 / 豆包方向联网检测使用的模型名称。           |
+| `DOUBAO_API_KEY`              | 如部署环境使用豆包兼容命名，可作为对应密钥变量。  |
+
+### Aliyun Bailian / 通义方向 Web Search 变量
+
+| 变量名                            | 用途                                                    |
+| --------------------------------- | ------------------------------------------------------- |
+| `ALIYUN_BAILIAN_API_KEY`          | 阿里云百炼 / 通义方向 Web Search 调用密钥，仅后端读取。 |
+| `ALIYUN_BAILIAN_API_BASE_URL`     | 阿里云百炼 / 通义方向 API 地址。                        |
+| `ALIYUN_BAILIAN_WEB_SEARCH_MODEL` | 阿里云百炼 / 通义方向联网检测使用的模型名称。           |
+| `DASHSCOPE_API_KEY`               | 如部署环境使用 DashScope 兼容命名，可作为对应密钥变量。 |
+| `QWEN_API_KEY`                    | 如部署环境使用通义兼容命名，可作为对应密钥变量。        |
+
+### 前端可见变量
+
+| 变量名              | 用途                                                                  |
+| ------------------- | --------------------------------------------------------------------- |
+| `VITE_API_BASE_URL` | 前端访问 API 的基础地址。该变量会进入前端构建产物，不得包含任何密钥。 |
+
+前端不得配置 `KIMI_API_KEY`、`VOLCENGINE_API_KEY`、`ALIYUN_BAILIAN_API_KEY`、`DASHSCOPE_API_KEY`、`QWEN_API_KEY`、`AI_OPENAI_COMPATIBLE_API_KEY` 或其他真实 Provider Key。
 
 ## 不能提交到 git 的变量文件
 
