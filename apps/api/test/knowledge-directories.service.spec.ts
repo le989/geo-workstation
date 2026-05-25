@@ -135,7 +135,9 @@ describe("KnowledgeDirectoriesService", () => {
       companyId: companyA.id,
       name: "默认根目录",
       status: "active",
-      isDefault: true
+      isDefault: true,
+      parentId: undefined,
+      sortOrder: 0
     });
 
     const created = await knowledgeDirectoriesService.create(
@@ -150,7 +152,9 @@ describe("KnowledgeDirectoriesService", () => {
       companyId: companyA.id,
       name: "FAQ 资料",
       status: "active",
-      isDefault: false
+      isDefault: false,
+      parentId: undefined,
+      sortOrder: 0
     });
 
     await expect(
@@ -183,6 +187,144 @@ describe("KnowledgeDirectoriesService", () => {
     const afterDisable = await knowledgeDirectoriesService.findMany(knowledgeBase.id, context);
     expect(afterDisable.items.map((item) => item.id)).toEqual(
       expect.arrayContaining([initial.items[0]!.id, created.id])
+    );
+  });
+
+  it("creates child directories, enforces depth, and scopes duplicate names by parent", async () => {
+    const context = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const knowledgeBase = await createCompanyKnowledgeBase("多级目录", context);
+
+    const level1 = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "产品中心" },
+      context
+    );
+    const level2 = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "传感器", parentId: level1.id },
+      context
+    );
+    const level3 = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "激光测距", parentId: level2.id },
+      context
+    );
+    const level4 = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "M 系列资料", parentId: level3.id },
+      context
+    );
+
+    expect(level2.parentId).toBe(level1.id);
+    expect(level3.parentId).toBe(level2.id);
+    expect(level4.parentId).toBe(level3.id);
+    expect(level4.sortOrder).toBe(0);
+
+    await expect(
+      knowledgeDirectoriesService.create(
+        knowledgeBase.id,
+        { name: "第 5 层", parentId: level4.id },
+        context
+      )
+    ).rejects.toThrow("目录最多支持 4 层");
+
+    await expect(
+      knowledgeDirectoriesService.create(
+        knowledgeBase.id,
+        { name: "激光测距", parentId: level2.id },
+        context
+      )
+    ).rejects.toThrow("同一父级下已存在目录");
+
+    const siblingParent = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "售后资料" },
+      context
+    );
+    const sameNameUnderDifferentParent = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "激光测距", parentId: siblingParent.id },
+      context
+    );
+    expect(sameNameUnderDifferentParent.name).toBe("激光测距");
+    expect(sameNameUnderDifferentParent.parentId).toBe(siblingParent.id);
+
+    const listed = await knowledgeDirectoriesService.findMany(knowledgeBase.id, context);
+    expect(listed.items.find((item) => item.id === level3.id)).toMatchObject({
+      parentId: level2.id,
+      sortOrder: 0
+    });
+  });
+
+  it("rejects parent directories from another company, another knowledge base, or disabled parents", async () => {
+    const contextA = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const contextB = contextFor(operatorB, companyB, MembershipRole.operator);
+    const baseA = await createCompanyKnowledgeBase("父级校验 A", contextA);
+    const baseB = await createCompanyKnowledgeBase("父级校验 B", contextB);
+    const parentA = await knowledgeDirectoriesService.create(baseA.id, { name: "父级 A" }, contextA);
+    const parentB = await knowledgeDirectoriesService.create(baseB.id, { name: "父级 B" }, contextB);
+    const mismatchedCompanyParent = await prisma.knowledgeDirectory.create({
+      data: {
+        companyId: companyB.id,
+        knowledgeBaseId: baseA.id,
+        name: `异常公司父级 ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const disabledParent = await knowledgeDirectoriesService.create(
+      baseA.id,
+      { name: "停用父级" },
+      contextA
+    );
+    await knowledgeDirectoriesService.disable(disabledParent.id, contextA);
+
+    await expect(
+      knowledgeDirectoriesService.create(
+        baseA.id,
+        { name: "跨库子目录", parentId: parentB.id },
+        contextA
+      )
+    ).rejects.toThrow("父级目录必须属于当前知识库");
+    await expect(
+      knowledgeDirectoriesService.create(
+        baseA.id,
+        { name: "跨公司子目录", parentId: mismatchedCompanyParent.id },
+        contextA
+      )
+    ).rejects.toThrow("父级目录必须属于当前公司");
+    await expect(
+      knowledgeDirectoriesService.create(
+        baseB.id,
+        { name: "跨公司读写", parentId: parentA.id },
+        contextB
+      )
+    ).rejects.toThrow("父级目录必须属于当前知识库");
+    await expect(
+      knowledgeDirectoriesService.create(
+        baseA.id,
+        { name: "停用父级下子目录", parentId: disabledParent.id },
+        contextA
+      )
+    ).rejects.toThrow("停用目录不能创建子目录");
+  });
+
+  it("prevents disabling directories that still have active child directories", async () => {
+    const context = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const knowledgeBase = await createCompanyKnowledgeBase("停用子目录保护", context);
+    const parent = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "产品中心" },
+      context
+    );
+    await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      { name: "激光测距", parentId: parent.id },
+      context
+    );
+
+    await expect(knowledgeDirectoriesService.disable(parent.id, context)).rejects.toThrow(
+      "目录下仍有启用子目录"
     );
   });
 

@@ -489,9 +489,13 @@ model KnowledgeDirectory {
   company         Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
   knowledgeBaseId String         @map("knowledge_base_id")
   knowledgeBase   KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  parentId        String?        @map("parent_id")
+  parent          KnowledgeDirectory? @relation("KnowledgeDirectoryChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children        KnowledgeDirectory[] @relation("KnowledgeDirectoryChildren")
   name            String
   status          String         @default("active")
   isDefault       Boolean        @default(false) @map("is_default")
+  sortOrder       Int            @default(0) @map("sort_order")
   createdById     String         @map("created_by")
   createdBy       User           @relation("KnowledgeDirectoryCreatedBy", fields: [createdById], references: [id])
   updatedById     String?        @map("updated_by")
@@ -503,9 +507,10 @@ model KnowledgeDirectory {
 
   @@index([companyId])
   @@index([knowledgeBaseId])
+  @@index([parentId])
+  @@index([knowledgeBaseId, parentId])
   @@index([status])
   @@index([isDefault])
-  @@unique([knowledgeBaseId, name])
   @@map("knowledge_directories")
 }
 
