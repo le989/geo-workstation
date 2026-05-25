@@ -766,6 +766,16 @@ describe("KnowledgeFilesService", () => {
         createdById: companyAdmin.id
       }
     });
+    const childDirectory = await prisma.knowledgeDirectory.create({
+      data: {
+        companyId: companyA.id,
+        knowledgeBaseId: companyBase.id,
+        name: `售后子目录 ${runId}`,
+        parentId: targetDirectory.id,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
     const disabledDirectory = await prisma.knowledgeDirectory.create({
       data: {
         companyId: companyA.id,
@@ -809,6 +819,20 @@ describe("KnowledgeFilesService", () => {
     );
     expect(filtered.total).toBe(1);
     expect(filtered.items[0]?.id).toBe(manual.knowledgeFile.id);
+
+    const movedToChild = await knowledgeFilesService.updateMetadata(
+      manual.knowledgeFile.id,
+      {
+        directoryId: childDirectory.id
+      } as Parameters<typeof knowledgeFilesService.updateMetadata>[1] & { directoryId: string },
+      companyAdminContext
+    );
+    expect(movedToChild).toMatchObject({
+      id: manual.knowledgeFile.id,
+      directoryId: childDirectory.id,
+      directoryName: childDirectory.name,
+      directoryStatus: "active"
+    });
 
     await expect(
       knowledgeFilesService.updateMetadata(

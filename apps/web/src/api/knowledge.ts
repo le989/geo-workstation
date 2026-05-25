@@ -42,9 +42,11 @@ export type KnowledgeDirectory = {
   id: string;
   knowledgeBaseId: string;
   companyId?: string;
+  parentId?: string;
   name: string;
   status: string;
   isDefault: boolean;
+  sortOrder: number;
   disabledAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -230,6 +232,7 @@ export type KnowledgeDirectoryListResult = {
 
 export type CreateKnowledgeDirectoryPayload = {
   name: string;
+  parentId?: string;
 };
 
 export type UpdateKnowledgeDirectoryPayload = Partial<CreateKnowledgeDirectoryPayload>;

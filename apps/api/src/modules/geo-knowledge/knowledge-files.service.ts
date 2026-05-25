@@ -1162,7 +1162,9 @@ export class KnowledgeFilesService {
       if (
         existingDefault.name !== DEFAULT_KNOWLEDGE_DIRECTORY_NAME ||
         existingDefault.status !== KNOWLEDGE_DIRECTORY_ACTIVE_STATUS ||
-        existingDefault.disabledAt
+        existingDefault.disabledAt ||
+        existingDefault.parentId ||
+        existingDefault.sortOrder !== 0
       ) {
         return this.prisma.knowledgeDirectory.update({
           where: {
@@ -1172,6 +1174,10 @@ export class KnowledgeFilesService {
             name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
             status: KNOWLEDGE_DIRECTORY_ACTIVE_STATUS,
             disabledAt: null,
+            parent: {
+              disconnect: true
+            },
+            sortOrder: 0,
             ...(context
               ? {
                   updatedBy: {
@@ -1188,12 +1194,11 @@ export class KnowledgeFilesService {
       return existingDefault;
     }
 
-    const existingByName = await this.prisma.knowledgeDirectory.findUnique({
+    const existingByName = await this.prisma.knowledgeDirectory.findFirst({
       where: {
-        knowledgeBaseId_name: {
-          knowledgeBaseId: knowledgeBase.id,
-          name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME
-        }
+        knowledgeBaseId: knowledgeBase.id,
+        name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
+        parentId: null
       }
     });
 
@@ -1206,6 +1211,10 @@ export class KnowledgeFilesService {
           isDefault: true,
           status: KNOWLEDGE_DIRECTORY_ACTIVE_STATUS,
           disabledAt: null,
+          parent: {
+            disconnect: true
+          },
+          sortOrder: 0,
           ...(context
             ? {
                 updatedBy: {
@@ -1228,6 +1237,7 @@ export class KnowledgeFilesService {
         name: DEFAULT_KNOWLEDGE_DIRECTORY_NAME,
         status: KNOWLEDGE_DIRECTORY_ACTIVE_STATUS,
         isDefault: true,
+        sortOrder: 0,
         ...(companyId
           ? {
               company: {
