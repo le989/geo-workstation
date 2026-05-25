@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { CollectionTag, Refresh } from "@element-plus/icons-vue";
 import {
   aiGenerateExpansion,
@@ -120,17 +120,31 @@ const handleRuleGenerate = async (payload: RuleGenerateExpansionPayload) => {
 };
 
 const handleAiGenerate = async (payload: AiGenerateExpansionPayload) => {
-  generationLoading.value = true;
-  generationError.value = "";
-  saveError.value = "";
-  saveResult.value = null;
-
   try {
+    if (payload.provider === "openai_compatible") {
+      await ElMessageBox.confirm(
+        "本操作将调用真实 AI 接口，可能消耗额度，是否继续？",
+        "确认 AI 接口生成",
+        {
+          cancelButtonText: "取消",
+          confirmButtonText: "继续生成",
+          type: "warning"
+        }
+      );
+    }
+
+    generationLoading.value = true;
+    generationError.value = "";
+    saveError.value = "";
+    saveResult.value = null;
+
     const result = await aiGenerateExpansion(payload);
     setJobDetail(result);
     ElMessage.success(`AI 已生成 ${result.candidates.length} 条候选词。`);
   } catch (error) {
-    generationError.value = getErrorMessage(error);
+    if (error !== "cancel") {
+      generationError.value = getErrorMessage(error);
+    }
   } finally {
     generationLoading.value = false;
   }
