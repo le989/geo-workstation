@@ -83,12 +83,11 @@ const pageRequiredSnippets = [
   "低可靠",
   "建议拆分",
   "更多筛选",
-  "knowledge-workbench-summary",
-  "knowledge-file-summary",
-  "knowledge-compact-actions",
+  "knowledge-workbench-bar",
+  "knowledge-workbench-actions",
+  "knowledge-primary-actions",
   "卡片视图",
   "表格视图",
-  "知识库工作台",
   "知识库目录",
   "当前知识库",
   "切换知识库",
@@ -125,6 +124,7 @@ const pageRequiredSnippets = [
   "请先选择一个目录",
   "新建子目录",
   "最多支持 4 层目录",
+  "当前目录资料",
   "submitQuickChildDirectory",
   "selectAfterCreate",
   "搜索资料标题、主题、来源说明",
@@ -192,7 +192,18 @@ const forbiddenVerboseKnowledgeSnippets = [
   "用于内容生成",
   "AI 应该引用哪些企业事实资料",
   "快速判断哪些资料可被售后问答 / GEO 内容引用",
-  "当前仅显示这个目录下的资料；停用目录下的已有资料仍可查看。"
+  "当前仅显示这个目录下的资料；停用目录下的已有资料仍可查看。",
+  "knowledge-workbench-header",
+  "knowledge-workbench-toolbar",
+  "knowledge-workbench-summary",
+  "knowledge-file-summary",
+  "knowledge-operation-grid",
+  "knowledge-operation-card",
+  "knowledge-compact-actions",
+  "knowledge-detail-tabs",
+  "label=\"新增资料\"",
+  "<p class=\"section-kicker\">资料文件</p>",
+  "<h3>资料列表</h3>"
 ];
 
 const knowledgeFields = [
