@@ -844,6 +844,16 @@ const handleFileEditSubmit = async () => {
 
 const handleReparseFile = async (file: KnowledgeFile) => {
   try {
+    await ElMessageBox.confirm(
+      `确认重新解析该资料吗？\n重新解析会重新生成解析结果，可能覆盖当前解析片段，但不会删除原始资料。\n${file.title}`,
+      "重新解析资料",
+      {
+        cancelButtonText: "取消",
+        confirmButtonText: "重新解析",
+        type: "warning"
+      }
+    );
+
     addRunningId(reparsingIds, file.id);
     const result = await reparseKnowledgeFile(file.id);
     if (result.parseStatus === "failed") {
@@ -853,7 +863,9 @@ const handleReparseFile = async (file: KnowledgeFile) => {
     }
     await Promise.all([loadDetail(), loadFiles(), loadChunks()]);
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "重新解析失败，请稍后重试。");
+    if (error !== "cancel") {
+      ElMessage.error(error instanceof Error ? error.message : "重新解析失败，请稍后重试。");
+    }
   } finally {
     removeRunningId(reparsingIds, file.id);
   }
