@@ -1139,48 +1139,27 @@ onMounted(async () => {
 
 <template>
   <section class="knowledge-page">
-    <header class="knowledge-workbench-header">
-      <div class="knowledge-workbench-header__copy">
-        <el-tag class="knowledge-hero__tag" type="success" effect="plain">
-          GEO 知识库
-        </el-tag>
-        <p class="section-kicker">知识库工作台</p>
-        <h1>知识库</h1>
-        <p>管理企业资料和 AI 可引用内容。</p>
-      </div>
-      <div class="knowledge-workbench-header__actions">
-        <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-        <el-button :icon="Refresh" :loading="loading" @click="loadKnowledgeBases">
-          刷新
-        </el-button>
-        <el-button @click="knowledgeManagerVisible = true">切换知识库 / 管理知识库</el-button>
-        <el-button v-if="canCreateKnowledgeBase" @click="openCreateDialog">
-          新建知识库
-        </el-button>
-      </div>
-    </header>
-
-    <AppErrorState v-if="hasTableError" title="知识库加载失败" :message="tableError" />
-
-    <section v-if="isEmpty" class="knowledge-workbench-empty">
-      <el-empty description="暂无知识库，请先新建知识库" :image-size="96">
-        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">
-          新建知识库
-        </el-button>
-      </el-empty>
-    </section>
-
-    <section v-else class="knowledge-workbench-shell knowledge-workbench-main">
-      <div class="knowledge-workbench-toolbar">
-        <div>
-          <p class="section-kicker">当前知识库</p>
-          <h2>{{ selectedKnowledgeBase?.name ?? "正在加载知识库" }}</h2>
-          <div class="knowledge-workbench-summary" aria-label="当前知识库摘要">
-            <span v-for="item in workspaceSummaryItems" :key="item.label">
-              {{ item.label }} {{ item.value }}{{ item.suffix ?? "" }}
-            </span>
+    <header class="knowledge-workbench-bar">
+      <div class="knowledge-workbench-bar__main">
+        <p class="section-kicker">知识库</p>
+        <div class="knowledge-workbench-titleline">
+          <h1>
+            <span>当前知识库</span>
+            {{ selectedKnowledgeBase?.name ?? "未选择" }}
+          </h1>
+          <div class="knowledge-workbench-meta-line" aria-label="当前知识库摘要">
+            <template v-if="selectedKnowledgeBase">
+              <span v-for="item in workspaceSummaryItems" :key="item.label">
+                {{ item.label }} {{ item.value }}{{ item.suffix ?? "" }}
+              </span>
+            </template>
+            <span v-else>暂无知识库</span>
+            <span>管理企业资料和 AI 可引用内容。</span>
+            <span v-if="lastLoadedAt">更新 {{ lastLoadedAt }}</span>
           </div>
         </div>
+      </div>
+      <div class="knowledge-workbench-actions">
         <div class="knowledge-workbench-switcher">
           <span>切换知识库</span>
           <el-select
@@ -1198,10 +1177,28 @@ onMounted(async () => {
               :value="knowledgeBase.id"
             />
           </el-select>
-          <el-button @click="knowledgeManagerVisible = true">管理知识库</el-button>
         </div>
+        <el-button @click="knowledgeManagerVisible = true">管理知识库</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadKnowledgeBases">
+          刷新
+        </el-button>
+        <el-button v-if="canCreateKnowledgeBase" @click="openCreateDialog">
+          新建知识库
+        </el-button>
       </div>
+    </header>
 
+    <AppErrorState v-if="hasTableError" title="知识库加载失败" :message="tableError" />
+
+    <section v-if="isEmpty" class="knowledge-workbench-empty">
+      <el-empty description="暂无知识库，请先新建知识库" :image-size="96">
+        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">
+          新建知识库
+        </el-button>
+      </el-empty>
+    </section>
+
+    <section v-else class="knowledge-workbench-shell knowledge-workbench-main">
       <KnowledgeBaseDetailDrawer
         v-if="selectedKnowledgeBaseId"
         v-model:active-tab="activeTab"
@@ -1284,7 +1281,7 @@ onMounted(async () => {
           <div>
             <p class="section-kicker">事实底座</p>
             <h2>企业事实资料库</h2>
-            <p>查看知识资产建设情况，选择要进入的知识库工作台。</p>
+            <p>查看知识资产建设情况，选择要进入的资料工作区。</p>
           </div>
         </div>
 

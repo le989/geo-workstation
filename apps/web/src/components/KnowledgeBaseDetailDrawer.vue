@@ -615,7 +615,7 @@ const submitDirectoryForm = () => {
     @update:model-value="handleShellModelUpdate"
   >
     <section class="knowledge-detail" :class="{ 'knowledge-detail--embedded': isEmbedded }">
-      <div class="knowledge-detail-header">
+      <div v-if="!isEmbedded" class="knowledge-detail-header">
         <div class="knowledge-detail-header__copy">
           <el-tag class="knowledge-detail-header__tag" type="success" effect="plain">
             企业 GEO 知识库
@@ -634,14 +634,7 @@ const submitDirectoryForm = () => {
       <el-skeleton v-if="detailLoading && !detail" :rows="6" animated />
 
       <template v-else-if="detail">
-        <section v-if="isEmbedded" class="knowledge-file-summary" aria-label="知识库资料摘要">
-          <span>资料 {{ detail.filesCount }} 条</span>
-          <span>知识片段 {{ detail.chunksCount }} 条</span>
-          <span>目录 {{ directoryItems.length }} 个</span>
-          <span>更新 {{ formatDateTime(detail.knowledgeBase.updatedAt) }}</span>
-        </section>
-
-        <section v-else class="knowledge-readable-section">
+        <section v-if="!isEmbedded" class="knowledge-readable-section">
           <div class="knowledge-readable-section__header">
             <div>
               <p class="section-kicker">基本信息</p>
@@ -675,7 +668,7 @@ const submitDirectoryForm = () => {
         </section>
 
         <el-alert
-          v-if="detail.chunksCount === 0"
+          v-if="!isEmbedded && detail.chunksCount === 0"
           title="暂无知识片段，可先上传资料或手动录入。"
           type="warning"
           show-icon
@@ -683,57 +676,15 @@ const submitDirectoryForm = () => {
           class="knowledge-empty-alert"
         />
 
-        <section class="knowledge-operation-grid knowledge-operation-grid--primary knowledge-compact-actions">
-          <button
-            class="knowledge-operation-card knowledge-operation-card--primary"
-            type="button"
-            :disabled="!canManage"
-            @click="openIngestWizard('upload')"
-          >
-            <span>上传资料</span>
-            <strong>上传文件入库</strong>
-            <small>TXT、Markdown、CSV、Excel、Word</small>
-          </button>
-          <button
-            class="knowledge-operation-card knowledge-operation-card--primary"
-            type="button"
-            :disabled="!canManage"
-            @click="openIngestWizard('manual')"
-          >
-            <span>手动录入</span>
-            <strong>粘贴资料</strong>
-            <small>FAQ、参数、案例、场景</small>
-          </button>
-          <button
-            class="knowledge-operation-card knowledge-operation-card--secondary"
-            type="button"
-            @click="showPendingKnowledgeFiles"
-          >
-            <span>待审核资料</span>
-            <strong>待审核</strong>
-            <small>查看待处理资料</small>
-          </button>
-          <button
-            class="knowledge-operation-card knowledge-operation-card--secondary"
-            type="button"
-            :disabled="!canManage"
-            @click="openDirectoryManager"
-          >
-            <span>管理目录</span>
-            <strong>目录维护</strong>
-            <small>新增、重命名、停用</small>
-          </button>
-        </section>
-
         <section v-if="!isEmbedded" class="knowledge-detail-flow-note">
           <strong>资料层级</strong>
           <span>资料会解析为知识片段，用于后续 GEO 内容引用。</span>
         </section>
 
         <el-tabs
-          :model-value="activeTab"
-          class="knowledge-detail-tabs"
-          @tab-change="emit('update:activeTab', $event as 'chunks' | 'files' | 'text-import')"
+          :model-value="activeTab === 'text-import' ? 'files' : activeTab"
+          class="knowledge-section-tabs"
+          @tab-change="emit('update:activeTab', $event as 'chunks' | 'files')"
         >
           <el-tab-pane label="知识片段" name="chunks">
             <section class="knowledge-tab-panel">
@@ -823,7 +774,7 @@ const submitDirectoryForm = () => {
             </section>
           </el-tab-pane>
 
-          <el-tab-pane label="资料文件" name="files">
+          <el-tab-pane label="资料" name="files">
             <div class="knowledge-directory-layout">
               <aside v-loading="directoriesLoading" class="knowledge-directory-sidebar">
                 <div class="knowledge-directory-sidebar__header">
@@ -832,9 +783,6 @@ const submitDirectoryForm = () => {
                     <h3>按资料目录查看资料</h3>
                   </div>
                   <div class="knowledge-directory-sidebar__actions">
-                    <el-button v-if="canManage" size="small" text @click="openQuickChildDirectory">
-                      新建子目录
-                    </el-button>
                     <el-button v-if="canManage" size="small" text @click="openDirectoryManager">
                       管理目录
                     </el-button>
@@ -908,12 +856,37 @@ const submitDirectoryForm = () => {
               <section class="knowledge-tab-panel knowledge-file-workspace">
                 <div class="knowledge-tab-header">
                   <div>
-                    <p class="section-kicker">资料文件</p>
-                    <h3>资料列表</h3>
-                    <p>按目录、状态和类型快速筛选。</p>
+                    <p class="section-kicker">当前目录</p>
+                    <h3>当前目录资料</h3>
                   </div>
                   <div class="knowledge-file-toolbar">
-                    <el-button v-if="canManage" type="primary" plain @click="openDirectoryManager">
+                    <div class="knowledge-primary-actions">
+                      <el-button
+                        v-if="canManage"
+                        type="primary"
+                        @click="openIngestWizard('upload')"
+                      >
+                        上传资料
+                      </el-button>
+                      <el-button
+                        v-if="canManage"
+                        type="primary"
+                        plain
+                        @click="openIngestWizard('manual')"
+                      >
+                        手动录入
+                      </el-button>
+                      <el-button
+                        v-if="canManage"
+                        type="primary"
+                        plain
+                        @click="openQuickChildDirectory"
+                      >
+                        新建子目录
+                      </el-button>
+                    </div>
+                    <el-button @click="showPendingKnowledgeFiles">待审核资料</el-button>
+                    <el-button v-if="canManage" plain @click="openDirectoryManager">
                       管理目录
                     </el-button>
                     <el-radio-group
@@ -961,11 +934,6 @@ const submitDirectoryForm = () => {
                       }}
                     </p>
                   </div>
-                  <div v-if="canManage" class="knowledge-current-directory__actions">
-                    <el-button type="primary" plain size="small" @click="openQuickChildDirectory">
-                      新建子目录
-                    </el-button>
-                  </div>
                   <div class="knowledge-directory-breadcrumb" aria-label="目录路径">
                     <span>目录路径</span>
                     <el-breadcrumb separator="/">
@@ -980,6 +948,32 @@ const submitDirectoryForm = () => {
                       </template>
                     </el-breadcrumb>
                   </div>
+                </section>
+
+                <section v-if="canManage && activeTab === 'text-import'" class="knowledge-ingest-inline-panel">
+                  <div class="knowledge-ingest-inline-panel__header">
+                    <div>
+                      <p class="section-kicker">资料入库</p>
+                      <h3>资料入库向导</h3>
+                    </div>
+                    <el-button text @click="emit('update:activeTab', 'files')">返回资料</el-button>
+                  </div>
+                  <KnowledgeMaterialIngestWizard
+                    :knowledge-base-name="detail.knowledgeBase.name"
+                    :default-product-line="detail.knowledgeBase.productLine"
+                    :submitting="textImportSubmitting"
+                    :uploading="uploading"
+                    :can-review="canReview"
+                    :departments="departments"
+                    :directories="directories"
+                    :initial-directory-id="ingestInitialDirectoryId"
+                    :initial-directory-path="ingestInitialDirectoryPath"
+                    :initial-directory-warning="ingestInitialDirectoryWarning"
+                    :initial-method="ingestInitialMethod"
+                    :context-version="ingestContextVersion"
+                    @submit="emit('text-import', $event)"
+                    @upload="emit('upload-file', $event)"
+                  />
                 </section>
 
                 <el-form class="knowledge-inner-filters knowledge-inner-filters--basic" label-position="top">
@@ -1156,34 +1150,6 @@ const submitDirectoryForm = () => {
                 </div>
               </section>
             </div>
-          </el-tab-pane>
-
-          <el-tab-pane v-if="canManage" label="新增资料" name="text-import">
-            <section class="knowledge-tab-panel">
-              <div class="knowledge-tab-header">
-                <div>
-                  <p class="section-kicker">新增资料</p>
-                  <h3>资料入库向导</h3>
-                  <p>先填写标题、资料类型、目录和内容；需要细分主题或调整引用范围时再展开高级资料属性。</p>
-                </div>
-              </div>
-              <KnowledgeMaterialIngestWizard
-                :knowledge-base-name="detail.knowledgeBase.name"
-                :default-product-line="detail.knowledgeBase.productLine"
-                :submitting="textImportSubmitting"
-                :uploading="uploading"
-                :can-review="canReview"
-                :departments="departments"
-                :directories="directories"
-                :initial-directory-id="ingestInitialDirectoryId"
-                :initial-directory-path="ingestInitialDirectoryPath"
-                :initial-directory-warning="ingestInitialDirectoryWarning"
-                :initial-method="ingestInitialMethod"
-                :context-version="ingestContextVersion"
-                @submit="emit('text-import', $event)"
-                @upload="emit('upload-file', $event)"
-              />
-            </section>
           </el-tab-pane>
         </el-tabs>
 
