@@ -31,6 +31,11 @@ import KnowledgeFileCards from "./KnowledgeFileCards.vue";
 import KnowledgeFileTable from "./KnowledgeFileTable.vue";
 import KnowledgeMaterialIngestWizard from "./KnowledgeMaterialIngestWizard.vue";
 
+type DirectoryTreeNode = KnowledgeDirectory & {
+  children: DirectoryTreeNode[];
+  level: number;
+};
+
 const props = defineProps<{
   modelValue: boolean;
   detail?: KnowledgeBaseDetail | null;
@@ -113,6 +118,8 @@ const directoryFormName = ref("");
 const editingDirectoryId = ref("");
 const directoryFormError = ref("");
 const directoryItems = computed(() => props.directories ?? []);
+const selectedDirectoryId = ref("");
+const expandedDirectoryIds = ref<string[]>([]);
 const fileStatusFilterOptions = [
   { label: "全部", value: "all" },
   { label: "待审核", value: "pending" },
@@ -142,6 +149,8 @@ watch(
     fileDisplayMode.value = "simple";
     fileViewMode.value = "card";
     showFileAdvancedFilters.value = false;
+    selectedDirectoryId.value = "";
+    expandedDirectoryIds.value = [];
   }
 );
 
@@ -211,6 +220,7 @@ const handleFileReset = () => {
   fileFilters.trustLevel = "";
   fileStatusFilter.value = "all";
   showFileAdvancedFilters.value = false;
+  selectedDirectoryId.value = "";
   emit("reset-files");
 };
 
@@ -245,6 +255,155 @@ const advancedFileFilterCount = computed(
 
 const getDirectoryDisplayName = (directory: KnowledgeDirectory) =>
   directory.isDefault ? "默认根目录" : directory.name;
+
+const compareDirectoryOrder = (left: KnowledgeDirectory, right: KnowledgeDirectory) => {
+  if (left.isDefault !== right.isDefault) {
+    return left.isDefault ? -1 : 1;
+  }
+
+  if (left.sortOrder !== right.sortOrder) {
+    return left.sortOrder - right.sortOrder;
+  }
+
+  return getDirectoryDisplayName(left).localeCompare(getDirectoryDisplayName(right), "zh-Hans-CN");
+};
+
+const directoryById = computed(
+  () => new Map(directoryItems.value.map((directory) => [directory.id, directory]))
+);
+
+const buildDirectoryTree = (
+  parentId: string | null,
+  level: number,
+  visitedIds: Set<string>
+): DirectoryTreeNode[] =>
+  directoryItems.value
+    .filter((directory) => (directory.parentId ?? "") === (parentId ?? ""))
+    .sort(compareDirectoryOrder)
+    .map((directory) => {
+      if (visitedIds.has(directory.id)) {
+        return {
+          ...directory,
+          children: [],
+          level
+        };
+      }
+
+      const nextVisitedIds = new Set(visitedIds);
+      nextVisitedIds.add(directory.id);
+
+      return {
+        ...directory,
+        children: buildDirectoryTree(directory.id, level + 1, nextVisitedIds),
+        level
+      };
+    });
+
+const directoryTreeRoots = computed(() => buildDirectoryTree(null, 0, new Set<string>()));
+
+const visibleDirectoryNodes = computed(() => {
+  const nodes: DirectoryTreeNode[] = [];
+
+  const appendNodes = (items: DirectoryTreeNode[]) => {
+    for (const directory of items) {
+      nodes.push(directory);
+
+      if (directory.children.length > 0 && expandedDirectoryIds.value.includes(directory.id)) {
+        appendNodes(directory.children);
+      }
+    }
+  };
+
+  appendNodes(directoryTreeRoots.value);
+  return nodes;
+});
+
+const selectedDirectory = computed(() =>
+  selectedDirectoryId.value ? directoryById.value.get(selectedDirectoryId.value) ?? null : null
+);
+
+const currentDirectoryTitle = computed(() =>
+  selectedDirectory.value ? getDirectoryDisplayName(selectedDirectory.value) : "全部资料"
+);
+
+const getDirectoryPath = (directory: KnowledgeDirectory) => {
+  const path: KnowledgeDirectory[] = [];
+  let currentDirectory: KnowledgeDirectory | undefined = directory;
+  const visitedIds = new Set<string>();
+
+  while (currentDirectory && !visitedIds.has(currentDirectory.id)) {
+    path.unshift(currentDirectory);
+    visitedIds.add(currentDirectory.id);
+    currentDirectory = currentDirectory.parentId
+      ? directoryById.value.get(currentDirectory.parentId)
+      : undefined;
+  }
+
+  return path;
+};
+
+const directoryBreadcrumb = computed(() =>
+  selectedDirectory.value ? getDirectoryPath(selectedDirectory.value) : []
+);
+
+const expandDirectoryPath = (directoryId: string) => {
+  const nextExpandedIds = new Set(expandedDirectoryIds.value);
+  let currentDirectory = directoryById.value.get(directoryId);
+  const visitedIds = new Set<string>();
+
+  while (currentDirectory?.parentId && !visitedIds.has(currentDirectory.id)) {
+    visitedIds.add(currentDirectory.id);
+    nextExpandedIds.add(currentDirectory.parentId);
+    currentDirectory = directoryById.value.get(currentDirectory.parentId);
+  }
+
+  expandedDirectoryIds.value = Array.from(nextExpandedIds);
+};
+
+const toggleDirectoryNode = (directoryId: string) => {
+  expandedDirectoryIds.value = expandedDirectoryIds.value.includes(directoryId)
+    ? expandedDirectoryIds.value.filter((id) => id !== directoryId)
+    : [...expandedDirectoryIds.value, directoryId];
+};
+
+const selectDirectoryNode = (directoryId: string) => {
+  selectedDirectoryId.value = directoryId;
+  fileFilters.directoryId = directoryId;
+  if (directoryId) {
+    expandDirectoryPath(directoryId);
+  }
+  emit("update:activeTab", "files");
+  handleFileSearch();
+};
+
+watch(
+  () => fileFilters.directoryId,
+  (directoryId) => {
+    selectedDirectoryId.value = directoryId || "";
+    if (directoryId) {
+      expandDirectoryPath(directoryId);
+    }
+  }
+);
+
+watch(
+  directoryItems,
+  (directories) => {
+    const existingIds = new Set(directories.map((directory) => directory.id));
+    const nextExpandedIds = new Set(
+      expandedDirectoryIds.value.filter((id) => existingIds.has(id))
+    );
+
+    for (const directory of directories) {
+      if (!directory.parentId) {
+        nextExpandedIds.add(directory.id);
+      }
+    }
+
+    expandedDirectoryIds.value = Array.from(nextExpandedIds);
+  },
+  { immediate: true }
+);
 
 const openIngestWizard = (method: "manual" | "upload") => {
   ingestInitialMethod.value = method;
@@ -520,205 +679,328 @@ const submitDirectoryForm = () => {
           </el-tab-pane>
 
           <el-tab-pane label="资料文件" name="files">
-            <section class="knowledge-tab-panel">
-              <div class="knowledge-tab-header">
-                <div>
-                  <p class="section-kicker">资料文件</p>
-                  <h3>资料列表管理</h3>
-                  <p>搜索资料标题、目录和资料状态，快速判断哪些资料可被售后问答 / GEO 内容引用。</p>
-                </div>
-                <div class="knowledge-file-toolbar">
-                  <el-button v-if="canManage" type="primary" plain @click="openDirectoryManager">
+            <div class="knowledge-directory-layout">
+              <aside v-loading="directoriesLoading" class="knowledge-directory-sidebar">
+                <div class="knowledge-directory-sidebar__header">
+                  <div>
+                    <p class="section-kicker">资料目录</p>
+                    <h3>按目录查看资料</h3>
+                  </div>
+                  <el-button v-if="canManage" size="small" text @click="openDirectoryManager">
                     管理目录
                   </el-button>
-                  <el-radio-group
-                    v-model="fileDisplayMode"
-                    size="small"
-                    class="knowledge-view-toggle"
-                  >
-                    <el-radio-button label="simple">简洁视图</el-radio-button>
-                    <el-radio-button label="management">管理视图</el-radio-button>
-                  </el-radio-group>
-                  <el-radio-group v-model="fileViewMode" size="small" class="knowledge-view-toggle">
-                    <el-radio-button label="card">卡片视图</el-radio-button>
-                    <el-radio-button label="table">表格视图</el-radio-button>
-                  </el-radio-group>
                 </div>
-              </div>
 
-              <el-form class="knowledge-inner-filters knowledge-inner-filters--basic" label-position="top">
-                <el-form-item label="搜索资料">
-                  <el-input
-                    v-model="fileFilters.search"
-                    clearable
-                    placeholder="搜索资料标题、主题、来源说明"
-                    @keyup.enter="handleFileSearch"
-                  />
-                </el-form-item>
-                <el-form-item label="所属目录">
-                  <el-select
-                    v-model="fileFilters.directoryId"
-                    clearable
-                    filterable
-                    placeholder="全部目录"
-                    :loading="directoriesLoading"
+                <button
+                  type="button"
+                  class="knowledge-directory-node knowledge-directory-node--all"
+                  :class="{ 'is-selected-directory': selectedDirectoryId === '' }"
+                  @click="selectDirectoryNode('')"
+                >
+                  <span class="knowledge-directory-node__marker">全</span>
+                  <span class="knowledge-directory-node__label">全部资料</span>
+                </button>
+
+                <div
+                  v-if="visibleDirectoryNodes.length > 0"
+                  class="knowledge-directory-tree"
+                  aria-label="资料目录树"
+                >
+                  <div
+                    v-for="directory in visibleDirectoryNodes"
+                    :key="directory.id"
+                    class="knowledge-directory-node"
+                    :class="{
+                      'is-selected-directory': selectedDirectoryId === directory.id,
+                      'is-disabled-directory': directory.status === 'disabled'
+                    }"
+                    :style="{ paddingLeft: `${12 + directory.level * 18}px` }"
+                    role="button"
+                    tabindex="0"
+                    @click="selectDirectoryNode(directory.id)"
+                    @keydown.enter.prevent="selectDirectoryNode(directory.id)"
+                    @keydown.space.prevent="selectDirectoryNode(directory.id)"
                   >
-                    <el-option
-                      v-for="directory in directoryItems"
-                      :key="directory.id"
-                      :label="
-                        directory.status === 'disabled'
-                          ? `${getDirectoryDisplayName(directory)}（已停用）`
-                          : getDirectoryDisplayName(directory)
-                      "
-                      :value="directory.id"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="状态">
-                  <el-select v-model="fileStatusFilter" placeholder="全部">
-                    <el-option
-                      v-for="option in fileStatusFilterOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <div class="knowledge-inner-filter-actions">
-                  <el-button type="primary" :loading="filesLoading" @click="handleFileSearch">
-                    查询资料
-                  </el-button>
-                  <el-button @click="handleFileReset">清空筛选</el-button>
-                  <el-button text @click="showFileAdvancedFilters = !showFileAdvancedFilters">
-                    {{ showFileAdvancedFilters ? "收起高级筛选" : "高级筛选" }}
-                  </el-button>
-                  <el-tag v-if="advancedFileFilterCount > 0" type="warning" effect="plain">
-                    已启用 {{ advancedFileFilterCount }} 个高级筛选
-                  </el-tag>
+                    <button
+                      v-if="directory.children.length > 0"
+                      type="button"
+                      class="knowledge-directory-node__toggle"
+                      :aria-expanded="expandedDirectoryIds.includes(directory.id)"
+                      @click.stop="toggleDirectoryNode(directory.id)"
+                    >
+                      {{ expandedDirectoryIds.includes(directory.id) ? "▾" : "▸" }}
+                    </button>
+                    <span v-else class="knowledge-directory-node__toggle-placeholder" />
+                    <span class="knowledge-directory-node__label">
+                      {{ getDirectoryDisplayName(directory) }}
+                    </span>
+                    <el-tag
+                      v-if="directory.isDefault"
+                      size="small"
+                      type="success"
+                      effect="plain"
+                    >
+                      默认
+                    </el-tag>
+                    <el-tag
+                      v-if="directory.status === 'disabled'"
+                      size="small"
+                      type="info"
+                      effect="plain"
+                    >
+                      已停用
+                    </el-tag>
+                  </div>
                 </div>
-              </el-form>
+                <el-empty v-else description="暂无目录，可先使用默认根目录。" :image-size="72" />
+              </aside>
 
-              <el-form
-                v-if="showFileAdvancedFilters"
-                class="knowledge-inner-filters knowledge-inner-filters--advanced"
-                label-position="top"
-              >
-                <el-form-item label="资料类型">
-                  <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
-                    <el-option
-                      v-for="option in materialTypeOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="资料主题">
-                  <el-select v-model="fileFilters.materialTopic" clearable placeholder="全部主题">
-                    <el-option
-                      v-for="option in materialTopicOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="可靠程度">
-                  <el-select v-model="fileFilters.trustLevel" clearable placeholder="全部可靠程度">
-                    <el-option
-                      v-for="option in trustLevelOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="可用场景">
-                  <el-select v-model="fileFilters.applicableModule" clearable placeholder="全部场景">
-                    <el-option
-                      v-for="option in applicableModuleOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="解析状态">
-                  <el-select v-model="fileFilters.parseStatus" clearable placeholder="全部状态">
-                    <el-option
-                      v-for="option in parseStatusOptions"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="文件类型">
-                  <el-select v-model="fileFilters.fileType" clearable placeholder="全部类型">
-                    <el-option label="txt" value="txt" />
-                    <el-option label="md" value="md" />
-                    <el-option label="csv" value="csv" />
-                    <el-option label="xlsx" value="xlsx" />
-                    <el-option label="xls" value="xls" />
-                    <el-option label="docx" value="docx" />
-                    <el-option label="manual" value="manual" />
-                  </el-select>
-                </el-form-item>
-              </el-form>
+              <section class="knowledge-tab-panel knowledge-file-workspace">
+                <div class="knowledge-tab-header">
+                  <div>
+                    <p class="section-kicker">资料文件</p>
+                    <h3>资料列表管理</h3>
+                    <p>搜索资料标题、目录和资料状态，快速判断哪些资料可被售后问答 / GEO 内容引用。</p>
+                  </div>
+                  <div class="knowledge-file-toolbar">
+                    <el-button v-if="canManage" type="primary" plain @click="openDirectoryManager">
+                      管理目录
+                    </el-button>
+                    <el-radio-group
+                      v-model="fileDisplayMode"
+                      size="small"
+                      class="knowledge-view-toggle"
+                    >
+                      <el-radio-button label="simple">简洁视图</el-radio-button>
+                      <el-radio-button label="management">管理视图</el-radio-button>
+                    </el-radio-group>
+                    <el-radio-group v-model="fileViewMode" size="small" class="knowledge-view-toggle">
+                      <el-radio-button label="card">卡片视图</el-radio-button>
+                      <el-radio-button label="table">表格视图</el-radio-button>
+                    </el-radio-group>
+                  </div>
+                </div>
 
-              <el-alert
-                v-if="!filesLoading && filesTotal === 0 && hasFileFilters"
-                title="没有符合条件的资料"
-                description="可以清空筛选后重新查看。"
-                type="info"
-                show-icon
-                :closable="false"
-                class="knowledge-empty-alert"
-              />
+                <section class="knowledge-current-directory">
+                  <div class="knowledge-current-directory__main">
+                    <p class="section-kicker">当前目录</p>
+                    <div class="knowledge-current-directory__title">
+                      <h3>{{ currentDirectoryTitle }}</h3>
+                      <el-tag
+                        v-if="selectedDirectory?.isDefault"
+                        size="small"
+                        type="success"
+                        effect="plain"
+                      >
+                        默认根目录
+                      </el-tag>
+                      <el-tag
+                        v-if="selectedDirectory?.status === 'disabled'"
+                        size="small"
+                        type="info"
+                        effect="plain"
+                      >
+                        已停用
+                      </el-tag>
+                    </div>
+                    <p>
+                      {{
+                        selectedDirectory
+                          ? "当前仅显示这个目录下的资料；停用目录下的已有资料仍可查看。"
+                          : "显示当前知识库内全部目录的资料。"
+                      }}
+                    </p>
+                  </div>
+                  <div class="knowledge-directory-breadcrumb" aria-label="目录路径">
+                    <span>目录路径</span>
+                    <el-breadcrumb separator="/">
+                      <el-breadcrumb-item v-if="!selectedDirectory">全部资料</el-breadcrumb-item>
+                      <template v-else>
+                        <el-breadcrumb-item
+                          v-for="directory in directoryBreadcrumb"
+                          :key="directory.id"
+                        >
+                          {{ getDirectoryDisplayName(directory) }}
+                        </el-breadcrumb-item>
+                      </template>
+                    </el-breadcrumb>
+                  </div>
+                </section>
 
-              <KnowledgeFileCards
-                v-if="fileViewMode === 'card'"
-                :files="files"
-                :loading="filesLoading"
-                :reparsing-ids="reparsingIds"
-                :deleting-ids="deletingFileIds"
-                :can-manage="canManage"
-                :knowledge-base-name="detail.knowledgeBase.name"
-                :display-mode="fileDisplayMode"
-                @detail="emit('file-detail', $event)"
-                @edit="emit('file-edit', $event)"
-                @reparse="emit('reparse-file', $event)"
-                @delete="emit('delete-file', $event)"
-              />
-              <KnowledgeFileTable
-                v-else
-                :files="files"
-                :loading="filesLoading"
-                :reparsing-ids="reparsingIds"
-                :deleting-ids="deletingFileIds"
-                :can-manage="canManage"
-                :knowledge-base-name="detail.knowledgeBase.name"
-                :display-mode="fileDisplayMode"
-                @detail="emit('file-detail', $event)"
-                @edit="emit('file-edit', $event)"
-                @reparse="emit('reparse-file', $event)"
-                @delete="emit('delete-file', $event)"
-              />
+                <el-form class="knowledge-inner-filters knowledge-inner-filters--basic" label-position="top">
+                  <el-form-item label="搜索资料">
+                    <el-input
+                      v-model="fileFilters.search"
+                      clearable
+                      placeholder="搜索资料标题、主题、来源说明"
+                      @keyup.enter="handleFileSearch"
+                    />
+                  </el-form-item>
+                  <el-form-item label="所属目录">
+                    <el-select
+                      v-model="fileFilters.directoryId"
+                      clearable
+                      filterable
+                      placeholder="全部目录"
+                      :loading="directoriesLoading"
+                    >
+                      <el-option
+                        v-for="directory in directoryItems"
+                        :key="directory.id"
+                        :label="
+                          directory.status === 'disabled'
+                            ? `${getDirectoryDisplayName(directory)}（已停用）`
+                            : getDirectoryDisplayName(directory)
+                        "
+                        :value="directory.id"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="状态">
+                    <el-select v-model="fileStatusFilter" placeholder="全部">
+                      <el-option
+                        v-for="option in fileStatusFilterOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <div class="knowledge-inner-filter-actions">
+                    <el-button type="primary" :loading="filesLoading" @click="handleFileSearch">
+                      查询资料
+                    </el-button>
+                    <el-button @click="handleFileReset">清空筛选</el-button>
+                    <el-button text @click="showFileAdvancedFilters = !showFileAdvancedFilters">
+                      {{ showFileAdvancedFilters ? "收起高级筛选" : "高级筛选" }}
+                    </el-button>
+                    <el-tag v-if="advancedFileFilterCount > 0" type="warning" effect="plain">
+                      已启用 {{ advancedFileFilterCount }} 个高级筛选
+                    </el-tag>
+                  </div>
+                </el-form>
 
-              <div class="knowledge-pagination">
-                <span>共 {{ filesTotal }} 个文件资料</span>
-                <el-pagination
-                  :current-page="filesPage"
-                  :page-size="filesPageSize"
-                  :page-sizes="[10, 20, 50]"
-                  :total="filesTotal"
-                  layout="sizes, prev, pager, next"
-                  @current-change="emit('page-files', $event)"
-                  @size-change="emit('size-files', $event)"
+                <el-form
+                  v-if="showFileAdvancedFilters"
+                  class="knowledge-inner-filters knowledge-inner-filters--advanced"
+                  label-position="top"
+                >
+                  <el-form-item label="资料类型">
+                    <el-select v-model="fileFilters.materialType" clearable placeholder="全部资料">
+                      <el-option
+                        v-for="option in materialTypeOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="资料主题">
+                    <el-select v-model="fileFilters.materialTopic" clearable placeholder="全部主题">
+                      <el-option
+                        v-for="option in materialTopicOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="可靠程度">
+                    <el-select v-model="fileFilters.trustLevel" clearable placeholder="全部可靠程度">
+                      <el-option
+                        v-for="option in trustLevelOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="可用场景">
+                    <el-select v-model="fileFilters.applicableModule" clearable placeholder="全部场景">
+                      <el-option
+                        v-for="option in applicableModuleOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="解析状态">
+                    <el-select v-model="fileFilters.parseStatus" clearable placeholder="全部状态">
+                      <el-option
+                        v-for="option in parseStatusOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="文件类型">
+                    <el-select v-model="fileFilters.fileType" clearable placeholder="全部类型">
+                      <el-option label="txt" value="txt" />
+                      <el-option label="md" value="md" />
+                      <el-option label="csv" value="csv" />
+                      <el-option label="xlsx" value="xlsx" />
+                      <el-option label="xls" value="xls" />
+                      <el-option label="docx" value="docx" />
+                      <el-option label="manual" value="manual" />
+                    </el-select>
+                  </el-form-item>
+                </el-form>
+
+                <el-alert
+                  v-if="!filesLoading && filesTotal === 0 && hasFileFilters"
+                  title="没有符合条件的资料"
+                  description="可以清空筛选后重新查看。"
+                  type="info"
+                  show-icon
+                  :closable="false"
+                  class="knowledge-empty-alert"
                 />
-              </div>
-            </section>
+
+                <KnowledgeFileCards
+                  v-if="fileViewMode === 'card'"
+                  :files="files"
+                  :loading="filesLoading"
+                  :reparsing-ids="reparsingIds"
+                  :deleting-ids="deletingFileIds"
+                  :can-manage="canManage"
+                  :knowledge-base-name="detail.knowledgeBase.name"
+                  :display-mode="fileDisplayMode"
+                  @detail="emit('file-detail', $event)"
+                  @edit="emit('file-edit', $event)"
+                  @reparse="emit('reparse-file', $event)"
+                  @delete="emit('delete-file', $event)"
+                />
+                <KnowledgeFileTable
+                  v-else
+                  :files="files"
+                  :loading="filesLoading"
+                  :reparsing-ids="reparsingIds"
+                  :deleting-ids="deletingFileIds"
+                  :can-manage="canManage"
+                  :knowledge-base-name="detail.knowledgeBase.name"
+                  :display-mode="fileDisplayMode"
+                  @detail="emit('file-detail', $event)"
+                  @edit="emit('file-edit', $event)"
+                  @reparse="emit('reparse-file', $event)"
+                  @delete="emit('delete-file', $event)"
+                />
+
+                <div class="knowledge-pagination">
+                  <span>共 {{ filesTotal }} 个文件资料</span>
+                  <el-pagination
+                    :current-page="filesPage"
+                    :page-size="filesPageSize"
+                    :page-sizes="[10, 20, 50]"
+                    :total="filesTotal"
+                    layout="sizes, prev, pager, next"
+                    @current-change="emit('page-files', $event)"
+                    @size-change="emit('size-files', $event)"
+                  />
+                </div>
+              </section>
+            </div>
           </el-tab-pane>
 
           <el-tab-pane v-if="canManage" label="新增资料" name="text-import">
