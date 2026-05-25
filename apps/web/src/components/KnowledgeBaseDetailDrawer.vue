@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
+import { ElMessage } from "element-plus";
 import type { Department } from "@/api/departments";
 import type {
   KnowledgeApplicableModule,
@@ -35,6 +36,16 @@ type DirectoryTreeNode = KnowledgeDirectory & {
   children: DirectoryTreeNode[];
   level: number;
 };
+
+type CreateDirectoryRequest = {
+  name: string;
+  parentId?: string;
+  selectAfterCreate?: boolean;
+  onCreated?: (directory: KnowledgeDirectory) => void;
+  onFinished?: () => void;
+};
+
+const MAX_DIRECTORY_DEPTH = 4;
 
 const props = defineProps<{
   modelValue: boolean;
@@ -83,7 +94,7 @@ const emit = defineEmits<{
   "file-edit": [file: KnowledgeFile];
   "reparse-file": [file: KnowledgeFile];
   "delete-file": [file: KnowledgeFile];
-  "create-directory": [name: string];
+  "create-directory": [payload: CreateDirectoryRequest];
   "rename-directory": [payload: { id: string; name: string }];
   "disable-directory": [directory: KnowledgeDirectory];
 }>();
@@ -113,10 +124,15 @@ const fileDisplayMode = ref<"simple" | "management">("simple");
 const fileStatusFilter = ref<"all" | "pending" | "approved" | "citable" | "not_citable">("all");
 const showFileAdvancedFilters = ref(false);
 const ingestInitialMethod = ref<"manual" | "upload">("manual");
+const ingestContextVersion = ref(0);
 const directoryManageVisible = ref(false);
 const directoryFormName = ref("");
 const editingDirectoryId = ref("");
 const directoryFormError = ref("");
+const quickChildDirectoryVisible = ref(false);
+const quickChildDirectoryName = ref("");
+const quickChildDirectoryError = ref("");
+const quickChildDirectorySubmitting = ref(false);
 const directoryItems = computed(() => props.directories ?? []);
 const selectedDirectoryId = ref("");
 const expandedDirectoryIds = ref<string[]>([]);
@@ -346,6 +362,27 @@ const directoryBreadcrumb = computed(() =>
   selectedDirectory.value ? getDirectoryPath(selectedDirectory.value) : []
 );
 
+const getDirectoryPathLabel = (directory: KnowledgeDirectory | null | undefined) =>
+  directory ? getDirectoryPath(directory).map(getDirectoryDisplayName).join(" / ") : "默认根目录";
+
+const selectedDirectoryPathLabel = computed(() =>
+  selectedDirectory.value ? getDirectoryPathLabel(selectedDirectory.value) : "全部资料"
+);
+
+const selectedDirectoryDepth = computed(() => directoryBreadcrumb.value.length);
+
+const ingestDefaultDirectory = computed(() =>
+  selectedDirectory.value?.status === "active" ? selectedDirectory.value : null
+);
+
+const ingestInitialDirectoryId = computed(() => ingestDefaultDirectory.value?.id ?? "");
+const ingestInitialDirectoryPath = computed(() =>
+  ingestDefaultDirectory.value ? getDirectoryPathLabel(ingestDefaultDirectory.value) : "默认根目录"
+);
+const ingestInitialDirectoryWarning = computed(() =>
+  selectedDirectory.value?.status === "disabled" ? "当前目录已停用，请选择其他目录" : ""
+);
+
 const expandDirectoryPath = (directoryId: string) => {
   const nextExpandedIds = new Set(expandedDirectoryIds.value);
   let currentDirectory = directoryById.value.get(directoryId);
@@ -407,6 +444,7 @@ watch(
 
 const openIngestWizard = (method: "manual" | "upload") => {
   ingestInitialMethod.value = method;
+  ingestContextVersion.value += 1;
   emit("update:activeTab", "text-import");
 };
 
@@ -435,6 +473,83 @@ const startCreateDirectory = () => {
   resetDirectoryForm();
 };
 
+const resetQuickChildDirectoryForm = () => {
+  quickChildDirectoryName.value = "";
+  quickChildDirectoryError.value = "";
+};
+
+const openQuickChildDirectory = () => {
+  if (!props.canManage) {
+    return;
+  }
+
+  if (!selectedDirectory.value) {
+    ElMessage.warning("请先选择一个目录。");
+    return;
+  }
+
+  if (selectedDirectory.value.status === "disabled") {
+    ElMessage.warning("当前目录已停用，请选择其他目录。");
+    return;
+  }
+
+  if (selectedDirectoryDepth.value >= MAX_DIRECTORY_DEPTH) {
+    ElMessage.warning("最多支持 4 层目录。");
+    return;
+  }
+
+  resetQuickChildDirectoryForm();
+  quickChildDirectoryVisible.value = true;
+};
+
+const submitQuickChildDirectory = () => {
+  const parentDirectory = selectedDirectory.value;
+  const name = quickChildDirectoryName.value.trim();
+
+  quickChildDirectoryError.value = "";
+
+  if (!parentDirectory) {
+    quickChildDirectoryError.value = "请先选择一个目录。";
+    return;
+  }
+
+  if (parentDirectory.status === "disabled") {
+    quickChildDirectoryError.value = "当前目录已停用，请选择其他目录。";
+    return;
+  }
+
+  if (selectedDirectoryDepth.value >= MAX_DIRECTORY_DEPTH) {
+    quickChildDirectoryError.value = "最多支持 4 层目录。";
+    return;
+  }
+
+  if (!name) {
+    quickChildDirectoryError.value = "请填写子目录名称。";
+    return;
+  }
+
+  quickChildDirectorySubmitting.value = true;
+  const parentId = parentDirectory.id;
+
+  emit("create-directory", {
+    name,
+    onCreated: (directory) => {
+      quickChildDirectoryVisible.value = false;
+      resetQuickChildDirectoryForm();
+      expandedDirectoryIds.value = Array.from(new Set([...expandedDirectoryIds.value, parentId]));
+
+      if (directory.id) {
+        void nextTick(() => selectDirectoryNode(directory.id));
+      }
+    },
+    onFinished: () => {
+      quickChildDirectorySubmitting.value = false;
+    },
+    parentId,
+    selectAfterCreate: true
+  });
+};
+
 const startRenameDirectory = (directory: KnowledgeDirectory) => {
   if (directory.isDefault) {
     directoryFormError.value = "默认根目录不能重命名。";
@@ -460,7 +575,7 @@ const submitDirectoryForm = () => {
       name
     });
   } else {
-    emit("create-directory", name);
+    emit("create-directory", { name });
   }
 
   resetDirectoryForm();
@@ -686,9 +801,14 @@ const submitDirectoryForm = () => {
                     <p class="section-kicker">资料目录</p>
                     <h3>按目录查看资料</h3>
                   </div>
-                  <el-button v-if="canManage" size="small" text @click="openDirectoryManager">
-                    管理目录
-                  </el-button>
+                  <div class="knowledge-directory-sidebar__actions">
+                    <el-button v-if="canManage" size="small" text @click="openQuickChildDirectory">
+                      新建子目录
+                    </el-button>
+                    <el-button v-if="canManage" size="small" text @click="openDirectoryManager">
+                      管理目录
+                    </el-button>
+                  </div>
                 </div>
 
                 <button
@@ -810,6 +930,11 @@ const submitDirectoryForm = () => {
                           : "显示当前知识库内全部目录的资料。"
                       }}
                     </p>
+                  </div>
+                  <div v-if="canManage" class="knowledge-current-directory__actions">
+                    <el-button type="primary" plain size="small" @click="openQuickChildDirectory">
+                      新建子目录
+                    </el-button>
                   </div>
                   <div class="knowledge-directory-breadcrumb" aria-label="目录路径">
                     <span>目录路径</span>
@@ -1020,7 +1145,11 @@ const submitDirectoryForm = () => {
                 :can-review="canReview"
                 :departments="departments"
                 :directories="directories"
+                :initial-directory-id="ingestInitialDirectoryId"
+                :initial-directory-path="ingestInitialDirectoryPath"
+                :initial-directory-warning="ingestInitialDirectoryWarning"
                 :initial-method="ingestInitialMethod"
+                :context-version="ingestContextVersion"
                 @submit="emit('text-import', $event)"
                 @upload="emit('upload-file', $event)"
               />
@@ -1132,6 +1261,46 @@ const submitDirectoryForm = () => {
               停用后不再用于新资料归类，已有资料仍可查看。
             </p>
           </section>
+        </el-dialog>
+
+        <el-dialog
+          v-model="quickChildDirectoryVisible"
+          title="新建子目录"
+          width="440px"
+          append-to-body
+          @closed="resetQuickChildDirectoryForm"
+        >
+          <section class="knowledge-quick-directory-form">
+            <el-alert
+              v-if="quickChildDirectoryError"
+              :title="quickChildDirectoryError"
+              type="error"
+              show-icon
+              :closable="false"
+            />
+            <p>
+              <span>父级目录</span>
+              <strong>{{ selectedDirectoryPathLabel }}</strong>
+            </p>
+            <el-input
+              v-model="quickChildDirectoryName"
+              maxlength="40"
+              show-word-limit
+              placeholder="子目录名称，例如 产品大类、型号组、资料组"
+              @keyup.enter="submitQuickChildDirectory"
+            />
+            <small>最多支持 4 层目录；新建后会自动选中新目录。</small>
+          </section>
+          <template #footer>
+            <el-button @click="quickChildDirectoryVisible = false">取消</el-button>
+            <el-button
+              type="primary"
+              :loading="quickChildDirectorySubmitting"
+              @click="submitQuickChildDirectory"
+            >
+              新建子目录
+            </el-button>
+          </template>
         </el-dialog>
       </template>
     </section>

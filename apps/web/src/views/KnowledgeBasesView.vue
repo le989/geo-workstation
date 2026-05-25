@@ -671,17 +671,37 @@ const handleUploadFile = async (payload: {
   }
 };
 
-const handleCreateDirectory = async (name: string) => {
+const handleCreateDirectory = async (
+  payload:
+    | string
+    | {
+        name: string;
+        parentId?: string;
+        selectAfterCreate?: boolean;
+        onCreated?: (directory: KnowledgeDirectory) => void;
+        onFinished?: () => void;
+      }
+) => {
   if (!selectedKnowledgeBaseId.value) {
     return;
   }
 
+  const request = typeof payload === "string" ? { name: payload } : payload;
+
   try {
-    await createKnowledgeDirectory(selectedKnowledgeBaseId.value, { name });
+    const directory = await createKnowledgeDirectory(selectedKnowledgeBaseId.value, {
+      name: request.name,
+      parentId: request.parentId
+    });
     ElMessage.success("目录已创建。");
     await loadDirectories();
+    if (request.selectAfterCreate) {
+      request.onCreated?.(directory);
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "目录创建失败，请稍后重试。");
+  } finally {
+    request.onFinished?.();
   }
 };
 
