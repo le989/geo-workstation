@@ -8057,18 +8057,26 @@ a {
 
 @media (max-width: 1120px) {
   .admin-layout {
-    display: block;
+    display: flex;
+    min-width: 0;
   }
 
   .admin-sidebar {
-    position: static;
-    width: 100% !important;
-    height: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
   }
 
   .sidebar-menu {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: block;
+  }
+
+  .admin-main {
+    min-width: 0;
+  }
+
+  .admin-content {
+    padding: 22px 20px 32px;
   }
 
   .admin-header,
@@ -8079,6 +8087,7 @@ a {
   }
 
   .header-actions {
+    flex-wrap: wrap;
     justify-content: flex-start;
   }
 

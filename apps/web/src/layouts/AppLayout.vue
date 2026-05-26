@@ -19,6 +19,11 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "geo-workstation.sidebar-collapsed";
 const route = useRoute();
 const appStore = useAppStore();
 const authStore = useAuthStore();
+const storedSidebarCollapsed = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+const defaultSidebarCollapsed =
+  storedSidebarCollapsed === null
+    ? window.matchMedia("(max-width: 1120px)").matches
+    : storedSidebarCollapsed === "true";
 
 const activeMenu = computed(() => {
   if (route.path === "/content-tasks") {
@@ -30,9 +35,7 @@ const activeMenu = computed(() => {
 
   return route.path;
 });
-const isSidebarCollapsed = ref(
-  window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true"
-);
+const isSidebarCollapsed = ref(defaultSidebarCollapsed);
 const isNarrowLayout = ref(false);
 
 let sidebarMediaQuery: MediaQueryList | undefined;
@@ -51,7 +54,7 @@ onBeforeUnmount(() => {
   sidebarMediaQuery?.removeEventListener("change", updateNarrowLayout);
 });
 
-const isSidebarCollapseActive = computed(() => isSidebarCollapsed.value && !isNarrowLayout.value);
+const isSidebarCollapseActive = computed(() => isSidebarCollapsed.value);
 
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value;
@@ -231,7 +234,10 @@ const handleCompanyCommand = (command: string | number | object) => {
 <template>
   <el-container
     class="admin-layout"
-    :class="{ 'admin-layout--sidebar-collapsed': isSidebarCollapseActive }"
+    :class="{
+      'admin-layout--sidebar-collapsed': isSidebarCollapseActive,
+      'admin-layout--narrow': isNarrowLayout
+    }"
   >
     <el-aside :width="isSidebarCollapseActive ? '72px' : '248px'" class="admin-sidebar">
       <div class="brand-block">
