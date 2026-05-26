@@ -21,6 +21,13 @@ export class QueryKnowledgeFilesDto {
   pageSize?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Transform(({ value }) => toOptionalInt(value))
+  limit?: number;
+
+  @IsOptional()
   @IsEnum(ParseStatus)
   parseStatus?: ParseStatus;
 

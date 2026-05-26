@@ -88,6 +88,7 @@ export type KnowledgeFile = {
   allowedDepartmentIds: string[];
   parseStatus: ParseStatus;
   errorMessage?: string;
+  chunksCount?: number;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -138,6 +139,7 @@ export type KnowledgeFileQuery = {
   trustLevel?: KnowledgeTrustLevel;
   applicableModule?: KnowledgeApplicableModule;
   officialCitationStatus?: KnowledgeOfficialCitationStatus;
+  limit?: number;
 };
 
 export type CreateKnowledgeBasePayload = {

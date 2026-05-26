@@ -4,6 +4,22 @@ import type { KnowledgeBase } from "./knowledge";
 import { apiRequest } from "./http";
 
 export type TaskStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+export type ContentScopeType = "all" | "product_line" | "selected_files";
+
+export type ContentKnowledgeScope =
+  | {
+      type: "all";
+    }
+  | {
+      type: "product_line";
+      productLineId: string;
+      summary?: string;
+    }
+  | {
+      type: "selected_files";
+      selectedKnowledgeFileIds: string[];
+      summary?: string;
+    };
 
 export type PaginatedResponse<T> = {
   items: T[];
@@ -17,7 +33,9 @@ export type ContentTask = {
   companyId?: string;
   name: string;
   productLine?: string;
+  productLineId?: string;
   knowledgeBaseId?: string | null;
+  knowledgeScope?: ContentKnowledgeScope;
   instructionTemplateId?: string | null;
   generationType: string;
   targetModel?: string;
@@ -105,12 +123,15 @@ export type ContentItemQuery = {
 export type CreateContentTaskPayload = {
   name: string;
   productLine?: string;
+  productLineId?: string;
   knowledgeBaseId?: string;
   instructionTemplateId?: string;
   generationType: string;
   targetModel?: string;
   provider?: string;
   model?: string;
+  scopeType?: ContentScopeType;
+  selectedKnowledgeFileIds?: string[];
   geoPromptIds: string[];
 };
 

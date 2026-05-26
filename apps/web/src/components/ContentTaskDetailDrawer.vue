@@ -157,6 +157,21 @@ const toggleContentPreview = (id: string) => {
 const findPromptText = (geoPromptId?: string | null) =>
   props.detail?.prompts.find((prompt) => prompt.id === geoPromptId)?.promptText ?? "--";
 
+const getKnowledgeScopeSummary = () => {
+  const task = props.detail?.task;
+  const scope = task?.knowledgeScope;
+
+  if (scope?.type === "selected_files") {
+    return `指定资料：${scope.selectedKnowledgeFileIds.length} 份`;
+  }
+
+  if (scope?.type === "product_line") {
+    return `产品线：${formatOptional(task?.productLine)}`;
+  }
+
+  return "全部资料";
+};
+
 const getWorkflowStepStatus = (index: number) => {
   const taskStatus = props.detail?.task.status;
 
@@ -505,6 +520,10 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             <div>
               <span>知识库</span>
               <strong>{{ detail.knowledgeBase?.name ?? "未选择" }}</strong>
+            </div>
+            <div>
+              <span>资料范围</span>
+              <strong>{{ getKnowledgeScopeSummary() }}</strong>
             </div>
             <div>
               <span>创建时间</span>
