@@ -528,15 +528,14 @@ watch(
 
 <template>
   <main class="settings-page">
-    <section class="settings-hero">
+    <section class="settings-hero settings-hero--compact">
       <div class="settings-hero__copy">
         <el-icon>
           <Setting />
         </el-icon>
         <div>
-          <el-tag type="success" effect="plain">配置中心</el-tag>
           <h1>系统设置</h1>
-          <p>管理项目档案、模型接口状态、密钥边界和数据维护说明。</p>
+          <p>维护公司、产品线和 Provider 状态。</p>
         </div>
       </div>
       <div class="settings-hero__actions">
@@ -555,16 +554,17 @@ watch(
     <AppErrorState v-if="errorMessage" :message="errorMessage" />
     <AppLoadingState v-if="loading && !profile" title="正在加载项目档案" />
 
-    <section class="settings-overview-grid" aria-label="设置状态概览">
-      <article
-        v-for="item in settingsOverviewItems"
-        :key="item.label"
-        class="settings-overview-card"
-      >
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <p>{{ item.hint }}</p>
-      </article>
+    <section class="settings-compact-summary" aria-label="设置状态概览">
+      <span v-for="item in settingsOverviewItems" :key="item.label">
+        {{ item.label }} {{ item.value }}
+      </span>
+      <strong>密钥仅由后端环境变量读取，前端不展示。</strong>
+    </section>
+
+    <section class="settings-identity-strip" aria-label="当前登录身份">
+      <span>当前用户：{{ currentUser?.name ?? "--" }}</span>
+      <span>角色：{{ getRoleLabel(authStore.currentRole ?? currentUser?.role) }}</span>
+      <span>公司：{{ authStore.currentCompany?.name ?? "--" }}</span>
     </section>
 
     <section class="settings-section">
@@ -572,7 +572,7 @@ watch(
         <div>
           <p class="section-kicker">组织基础</p>
           <h2>公司管理</h2>
-          <span>公司用于隔离 GEO 诊断、提示词、知识库、内容任务和报表数据；停用不会删除历史数据。</span>
+          <span>维护公司状态，停用不会删除历史数据。</span>
         </div>
         <el-button v-if="canManageCompanies" type="primary" @click="openCreateCompany">
           新增公司
@@ -646,7 +646,7 @@ watch(
         <div>
           <p class="section-kicker">业务基础</p>
           <h2>产品线管理</h2>
-          <span>产品线归属于当前公司，用于提示词、知识库、内容任务和模型覆盖记录的业务分组。</span>
+          <span>用于提示词、知识库、内容任务和模型覆盖记录分组。</span>
         </div>
         <el-button v-if="canManageProductLines" type="primary" @click="openCreateProductLine">
           新增产品线
@@ -659,7 +659,7 @@ watch(
             <div>
               <p class="section-kicker">Product Line</p>
               <h2>当前公司产品线</h2>
-              <span>产品线说明用于补充用途、适用场景和内部识别信息，方便后续内容生成和知识引用。</span>
+              <span>可补充用途、适用场景和内部识别信息。</span>
             </div>
           </div>
         </template>
@@ -715,12 +715,12 @@ watch(
       </el-card>
     </section>
 
-    <section class="settings-section">
+    <section class="settings-section settings-section--secondary">
       <div class="settings-section__header">
         <div>
           <p class="section-kicker">基础信息</p>
           <h2>项目档案</h2>
-          <span>先确认这个工作站服务哪个项目，再进入内容生成、拓词和检测。</span>
+          <span>项目上下文用于内容生成、拓词和检测，可按需维护。</span>
         </div>
         <el-tag v-if="profile" type="success" effect="plain">已配置</el-tag>
         <el-tag v-else type="warning" effect="plain">未配置</el-tag>
@@ -733,7 +733,7 @@ watch(
               <div>
                 <p class="section-kicker">项目档案</p>
                 <h2>当前项目基础信息</h2>
-                <span>项目档案是 GEO 生成和检测的基础上下文，不绑定某个固定行业。</span>
+                <span>GEO 生成和检测的基础上下文。</span>
               </div>
             </div>
           </template>
@@ -795,7 +795,7 @@ watch(
               <div>
                 <p class="section-kicker">品牌上下文</p>
                 <h2>表达边界与事实底座</h2>
-                <span>适用于企业品牌、产品、服务、课程、门店、本地生活、个人品牌或其他项目。</span>
+                <span>参数、认证、价格和效果承诺仍以知识库为准。</span>
               </div>
             </div>
           </template>
@@ -836,7 +836,7 @@ watch(
         <div>
           <p class="section-kicker">模型与接口配置</p>
           <h2>Provider 状态</h2>
-          <span>当前页面不显示密钥，密钥仅由后端环境变量读取。</span>
+          <span>只展示接入状态，不展示 API Key、Secret 或 Token。</span>
         </div>
         <el-tag type="info" effect="plain">前端只读说明</el-tag>
       </div>
@@ -846,7 +846,7 @@ watch(
           <div class="settings-card-header">
             <div>
               <p class="section-kicker">模型 / API 配置状态</p>
-              <h2>Provider 只显示状态，不展示密钥</h2>
+              <h2>Provider 状态只读</h2>
               <span>
                 API Key 只允许在后端 .env 配置，前端不保存密钥，也不展示 Secret 或 Token。
               </span>
@@ -866,23 +866,23 @@ watch(
       </el-card>
     </section>
 
-    <section class="settings-section">
+    <section class="settings-section settings-section--secondary">
       <div class="settings-section__header">
         <div>
-          <p class="section-kicker">安全与密钥状态</p>
-          <h2>登录身份与系统边界</h2>
-          <span>复用现有登录鉴权；设置页不新增用户、角色或密钥管理能力。</span>
+          <p class="section-kicker">帮助与边界</p>
+          <h2>说明与入口</h2>
+          <span>低频说明保留在底部，不影响产品线和 Provider 维护。</span>
         </div>
       </div>
 
       <div class="settings-grid">
-        <el-card shadow="never" class="settings-panel">
+        <el-card shadow="never" class="settings-panel settings-panel--muted">
           <template #header>
             <div class="settings-card-header">
               <div>
                 <p class="section-kicker">用户与权限</p>
                 <h2>当前登录身份</h2>
-                <span>当前阶段只做展示，不新增权限系统。</span>
+                <span>复用现有登录鉴权，不新增角色或密钥管理。</span>
               </div>
             </div>
           </template>
@@ -906,7 +906,7 @@ watch(
           </div>
         </el-card>
 
-        <el-card shadow="never" class="settings-panel">
+        <el-card shadow="never" class="settings-panel settings-panel--muted">
           <template #header>
             <div class="settings-card-header">
               <div>
@@ -930,7 +930,7 @@ watch(
       </div>
     </section>
 
-    <section class="settings-section settings-section--maintenance">
+    <section class="settings-section settings-section--maintenance settings-section--secondary">
       <div class="settings-section__header">
         <div>
           <p class="section-kicker">数据维护 / 风险操作</p>

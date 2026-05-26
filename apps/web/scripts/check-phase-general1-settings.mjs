@@ -67,11 +67,13 @@ for (const snippet of [
   "用一两句话说明这个产品线是什么",
   "未填写",
   "项目档案",
-  "不绑定某个固定行业",
-  "产品、服务、课程、门店、本地生活、个人品牌",
   "主营产品 / 服务 / 课程 / 门店 / 个人品牌方向",
   "API Key 只允许在后端 .env 配置",
-  "具体事实仍以知识库为准"
+  "密钥仅由后端环境变量读取",
+  "Provider 状态只读",
+  "当前登录身份",
+  "GEO 生成和检测的基础上下文",
+  "参数、认证、价格和效果承诺仍以知识库为准"
 ]) {
   assert(settingsSource.includes(snippet), `Settings page missing copy: ${snippet}`);
 }

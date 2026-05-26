@@ -45,9 +45,9 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
     <div class="model-filter-header">
       <div>
         <p class="section-kicker">记录筛选</p>
-        <h2>按风险和平台快速定位</h2>
+        <h2>按常用条件快速定位</h2>
       </div>
-      <span>常用筛选默认展示，入口、设备、记录方式等低频字段放入更多筛选。</span>
+      <span>默认只保留搜索、模型、命中和记录状态；时间、平台等放入更多筛选。</span>
     </div>
 
     <el-form class="model-inclusion-filters model-inclusion-filters--primary" label-position="top">
@@ -80,15 +80,6 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
           </el-option>
         </el-select>
       </el-form-item>
-      <el-form-item label="平台">
-        <el-input
-          :model-value="modelValue.platform"
-          clearable
-          placeholder="例如 Kimi / 通义"
-          @keyup.enter="emit('search')"
-          @update:model-value="updateField('platform', $event)"
-        />
-      </el-form-item>
       <el-form-item label="命中状态">
         <el-select
           :model-value="modelValue.hitLevel"
@@ -118,24 +109,6 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="查询时间从">
-        <el-date-picker
-          :model-value="modelValue.checkedFrom"
-          type="datetime"
-          value-format="YYYY-MM-DDTHH:mm:ss.SSS[Z]"
-          placeholder="开始时间"
-          @update:model-value="updateField('checkedFrom', $event)"
-        />
-      </el-form-item>
-      <el-form-item label="查询时间到">
-        <el-date-picker
-          :model-value="modelValue.checkedTo"
-          type="datetime"
-          value-format="YYYY-MM-DDTHH:mm:ss.SSS[Z]"
-          placeholder="结束时间"
-          @update:model-value="updateField('checkedTo', $event)"
-        />
-      </el-form-item>
       <div class="model-filter-actions">
         <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
         <el-button @click="emit('reset')">重置</el-button>
@@ -162,6 +135,33 @@ const updateField = <K extends keyof ModelInclusionRecordQuery>(
               placeholder="按 GEO 提示词 ID 精准筛选"
               @keyup.enter="emit('search')"
               @update:model-value="updateField('geoPromptId', $event)"
+            />
+          </el-form-item>
+          <el-form-item label="平台">
+            <el-input
+              :model-value="modelValue.platform"
+              clearable
+              placeholder="例如 Kimi / 通义"
+              @keyup.enter="emit('search')"
+              @update:model-value="updateField('platform', $event)"
+            />
+          </el-form-item>
+          <el-form-item label="查询时间从">
+            <el-date-picker
+              :model-value="modelValue.checkedFrom"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ss.SSS[Z]"
+              placeholder="开始时间"
+              @update:model-value="updateField('checkedFrom', $event)"
+            />
+          </el-form-item>
+          <el-form-item label="查询时间到">
+            <el-date-picker
+              :model-value="modelValue.checkedTo"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ss.SSS[Z]"
+              placeholder="结束时间"
+              @update:model-value="updateField('checkedTo', $event)"
             />
           </el-form-item>
           <el-form-item label="入口">

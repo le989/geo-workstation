@@ -577,30 +577,18 @@ onMounted(() => {
 
 <template>
   <section class="model-inclusion-page">
-    <header class="model-inclusion-hero">
-      <div class="model-inclusion-hero__copy">
-        <el-tag class="model-inclusion-hero__tag" type="warning" effect="plain">
-          GEO 监测台账
-        </el-tag>
-        <h1>AI 模型覆盖记录</h1>
-        <p>
-          聚合豆包、通义千问、Kimi 的 GEO 监测结果，用于核对品牌提及、推荐、官网引用和竞品占位。
-        </p>
+    <header class="model-inclusion-hero model-inclusion-toolbar">
+      <div class="model-inclusion-toolbar__main">
+        <div>
+          <p class="section-kicker">GEO 监测台账</p>
+          <h1>AI 模型覆盖记录</h1>
+          <span>{{ inclusionScopeLabel }} · {{ total }} 条记录</span>
+        </div>
         <div class="model-inclusion-hero__models" aria-label="当前启用监测模型">
-          <span>当前启用模型</span>
-          <strong
-            v-for="option in enabledMonitoringModelOptions"
-            :key="option.value"
-          >
+          <span>启用模型</span>
+          <strong v-for="option in enabledMonitoringModelOptions" :key="option.value">
             {{ option.label }}
           </strong>
-        </div>
-        <p class="model-inclusion-hero__scope">{{ inclusionScopeLabel }}</p>
-        <div class="model-inclusion-hero__note">
-          <strong>
-            当前页面用于维护模型覆盖明细；趋势复盘、平台对比和优化建议请到「GEO 报表」查看。
-          </strong>
-          <RouterLink to="/geo-reports">进入 GEO 报表</RouterLink>
         </div>
       </div>
       <div class="model-inclusion-hero__actions">
@@ -609,18 +597,30 @@ onMounted(() => {
           刷新
         </el-button>
         <el-button v-if="canCreateRecord" type="primary" :icon="Plus" @click="openCreateDialog">
-          手动新增记录
+          新增记录
+        </el-button>
+        <el-button v-if="canImportRecords" :icon="Upload" @click="openImportDialog">
+          导入
+        </el-button>
+        <el-button
+          v-if="canExportRecords"
+          :icon="Download"
+          :loading="exporting"
+          @click="handleExport"
+        >
+          导出
+        </el-button>
+        <el-button v-if="canRunWebSearch" :icon="Connection" @click="openWebSearchDialog">
+          联网检测
         </el-button>
       </div>
     </header>
-
-    <ModelInclusionSummaryCards :summary="activePageSummary" :loading="recordsLoading" />
 
     <ModelInclusionFilters
       :model-value="filters"
       :loading="recordsLoading"
       :exporting="exporting"
-      :can-export="canExportRecords"
+      :can-export="false"
       @update:model-value="Object.assign(filters, $event)"
       @search="handleSearch"
       @reset="handleReset"
@@ -635,29 +635,10 @@ onMounted(() => {
           <div>
             <p class="section-kicker">AI 模型覆盖记录</p>
             <h2>当前匹配记录</h2>
-            <span>默认列聚焦提示词、监测模型、覆盖结论、回答摘要和检测时间。</span>
+            <span>优先处理新增、导入、导出和联网检测；统计分布已收起到分析概览。</span>
           </div>
           <div class="model-table-actions">
             <strong>{{ enabledRecords.length }} 条启用模型记录</strong>
-            <el-button
-              v-if="canRunWebSearch"
-              :icon="Connection"
-              @click="openWebSearchDialog"
-            >
-              联网检测
-            </el-button>
-            <el-button v-if="canImportRecords" :icon="Upload" @click="openImportDialog">
-              批量导入
-            </el-button>
-            <el-button
-              v-if="canExportRecords"
-              :icon="Download"
-              :loading="exporting"
-              title="导出 CSV"
-              @click="handleExport"
-            >
-              导出当前范围 CSV
-            </el-button>
           </div>
         </div>
       </template>
@@ -697,6 +678,12 @@ onMounted(() => {
         />
       </div>
     </el-card>
+
+    <el-collapse class="model-analysis-collapse">
+      <el-collapse-item title="分析概览 / 统计分布" name="analysis">
+        <ModelInclusionSummaryCards :summary="activePageSummary" :loading="recordsLoading" />
+      </el-collapse-item>
+    </el-collapse>
 
     <el-card class="uncovered-card" shadow="never">
       <template #header>
