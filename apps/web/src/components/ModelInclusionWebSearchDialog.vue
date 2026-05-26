@@ -294,7 +294,7 @@ const getFailureHelpText = (value?: ProviderErrorCategory) => {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="联网 GEO 命中检测" width="1080px">
+  <el-dialog v-model="visible" title="联网 GEO 命中检测" width="min(1080px, calc(100vw - 32px))">
     <div class="web-search-dialog">
       <el-alert :title="providerBoundaryTitle" type="warning" :closable="false" show-icon />
       <el-alert

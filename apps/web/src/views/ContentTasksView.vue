@@ -110,6 +110,9 @@ const contentOverviewStats = computed(() => {
     { label: "待处理失败", value: failedCount, hint: "可查看原因后重试" }
   ];
 });
+const contentOverviewSummary = computed(() =>
+  contentOverviewStats.value.map((item) => `${item.label} ${item.value}`).join("｜")
+);
 
 const contentWorkflowSteps = [
   {
@@ -574,18 +577,10 @@ onMounted(() => {
 
 <template>
   <section class="content-page">
-    <header class="content-hero">
+    <header class="content-hero content-hero--compact">
       <div class="content-hero__copy">
-        <el-tag class="content-hero__tag" type="success" effect="plain">GEO 内容生产</el-tag>
         <h1>GEO 内容生成</h1>
-        <p>
-          提示词决定用户会问什么，知识库提供事实资料，指令模板定义写法，内容任务生成可审校和导出的 GEO 草稿。
-        </p>
-        <div class="content-hero__signals">
-          <span>提示词 / 知识库 / 指令模板</span>
-          <span>创建内容任务</span>
-          <span>生成草稿并人工审校</span>
-        </div>
+        <p>创建 GEO 内容任务，查看生成状态并进入详情审校。</p>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -601,46 +596,9 @@ onMounted(() => {
       </div>
     </header>
 
-    <el-alert
-      title="内容任务会结合提示词、知识库和指令模板生成可审校草稿；正式发布前仍需人工确认事实、语气和样式。"
-      type="info"
-      :closable="false"
-      show-icon
-      class="content-boundary-alert"
-    />
-
-    <el-collapse class="content-workflow-collapse">
-      <el-collapse-item title="查看内容生产流程" name="workflow">
-        <section class="content-workflow-panel" aria-label="内容生产流程概览">
-          <div class="content-workflow-panel__header">
-            <div>
-              <p class="section-kicker">内容生产流程</p>
-              <h2>提示词 / 知识库 / 指令模板 → 创建内容任务 → 生成草稿 → 导出或归档</h2>
-            </div>
-            <span>流程提示默认收起，避免遮挡任务列表。</span>
-          </div>
-          <div class="content-workflow-strip">
-            <article
-              v-for="(step, index) in contentWorkflowSteps"
-              :key="step.title"
-              class="content-workflow-card"
-            >
-              <span>{{ String(index + 1).padStart(2, "0") }}</span>
-              <strong>{{ step.title }}</strong>
-              <small>{{ step.description }}</small>
-            </article>
-          </div>
-        </section>
-      </el-collapse-item>
-    </el-collapse>
-
-    <section class="content-overview-strip" aria-label="当前列表概览">
-      <article v-for="item in contentOverviewStats" :key="item.label">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <small>{{ item.hint }}</small>
-      </article>
-    </section>
+    <p class="content-inline-note">
+      生成结果仍需人工确认事实、语气和样式；AI 生成模式会在创建弹窗内提示额度风险。
+    </p>
 
     <ContentTaskFilters
       :model-value="filters"
@@ -658,7 +616,7 @@ onMounted(() => {
           <div>
             <p class="section-kicker">内容任务</p>
             <h2>GEO 内容任务列表</h2>
-            <span>查看每个任务服务的提示词、知识库、指令模板和 AI 生成状态。</span>
+            <span>{{ contentOverviewSummary }}</span>
           </div>
           <strong>{{ total }} 个任务</strong>
         </div>
@@ -742,6 +700,38 @@ onMounted(() => {
         />
       </div>
     </el-card>
+
+    <el-collapse class="content-workflow-collapse content-workflow-collapse--secondary">
+      <el-collapse-item title="任务状态和内容生产流程说明" name="workflow">
+        <section class="content-workflow-panel" aria-label="内容生产流程概览">
+          <div class="content-workflow-panel__header">
+            <div>
+              <p class="section-kicker">内容生产流程</p>
+              <h2>提示词 / 知识库 / 指令模板 → 创建内容任务 → 生成草稿 → 导出或归档</h2>
+            </div>
+            <span>用于排查状态和理解流程，默认收起。</span>
+          </div>
+          <section class="content-overview-strip" aria-label="当前列表概览">
+            <article v-for="item in contentOverviewStats" :key="item.label">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <small>{{ item.hint }}</small>
+            </article>
+          </section>
+          <div class="content-workflow-strip">
+            <article
+              v-for="(step, index) in contentWorkflowSteps"
+              :key="step.title"
+              class="content-workflow-card"
+            >
+              <span>{{ String(index + 1).padStart(2, "0") }}</span>
+              <strong>{{ step.title }}</strong>
+              <small>{{ step.description }}</small>
+            </article>
+          </div>
+        </section>
+      </el-collapse-item>
+    </el-collapse>
 
     <ContentTaskFormDialog
       v-model="createDialogVisible"
