@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   AiCallStatus,
   Prisma,
@@ -21,6 +22,7 @@ import {
   normalizeAiProvider,
   type GenerateTextResult
 } from "../ai/ai-provider.interface";
+import { assertMockProviderAllowed } from "../ai/ai-provider-policy";
 import {
   generateMockGeoContent,
   type MockContentGenerationResult
@@ -190,7 +192,10 @@ export class ContentTasksService {
     private readonly aiUsageService?: AiUsageService,
     @Optional()
     @Inject(OperationLogsService)
-    private readonly operationLogsService?: OperationLogsService
+    private readonly operationLogsService?: OperationLogsService,
+    @Optional()
+    @Inject(ConfigService)
+    private readonly configService?: ConfigService
   ) {}
 
   async findMany(
@@ -227,6 +232,8 @@ export class ContentTasksService {
     context?: ResourceAccessContext
   ): Promise<ContentTaskDetailResponse> {
     const normalized = normalizeCreateContentTask(input);
+    const provider = normalizeAiProvider(normalized.provider);
+    assertMockProviderAllowed(this.configService, provider, "GEO 内容生成");
     const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const prompts = await this.findActiveGeoPrompts(normalized.geoPromptIds, context);
     const knowledgeBase = await this.findOptionalKnowledgeBase(
@@ -280,7 +287,6 @@ export class ContentTasksService {
 
     const createdItems: ContentItem[] = [];
     let failedCount = 0;
-    const provider = normalizeAiProvider(normalized.provider);
     const aiUsage: AiUsageSummary = {
       provider,
       model: normalized.model
@@ -544,6 +550,7 @@ export class ContentTasksService {
       : undefined;
     const projectProfile = await this.findProjectProfileContext(context);
     const provider = normalizeAiProvider(task.provider ?? "mock");
+    assertMockProviderAllowed(this.configService, provider, "GEO 内容重试");
     const model = task.model ?? this.resolveFallbackModel(provider);
     const aiUsage: AiUsageSummary = {
       provider,

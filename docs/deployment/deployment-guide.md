@@ -71,7 +71,8 @@ cp apps/web/.env.production.example apps/web/.env.production
 - 当前 API 代码读取 `API_PORT`，示例中同时保留 `PORT` 方便 PM2 或平台约定。
 - 生产环境必须显式设置 `DATABASE_URL`、`CORS_ORIGIN` 和 `JWT_SECRET`，缺失时 API 应停止启动。
 - `JWT_SECRET`、`DEFAULT_ADMIN_EMAIL`、`DEFAULT_ADMIN_PASSWORD` 必须在共享部署前替换。
-- `AI_PROVIDER=mock` 可无 Key 运行；切换 `openai_compatible` 时只在后端私有 `.env` 配置 `AI_OPENAI_COMPATIBLE_API_KEY`。
+- development / smoke 可用 `AI_PROVIDER=mock` 无 Key 运行；正式环境必须使用真实 Provider，并保持 `ENABLE_MOCK_PROVIDER=false`。
+- 切换 `openai_compatible` 时只在后端私有 `.env` 配置 `AI_OPENAI_COMPATIBLE_API_KEY`。
 
 ## 推荐部署顺序
 

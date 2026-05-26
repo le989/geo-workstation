@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Optional
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   AiCallStatus,
   ExpansionMode,
@@ -39,6 +40,7 @@ import {
   normalizeAiProvider,
   type GenerateTextResult
 } from "../ai/ai-provider.interface";
+import { assertMockProviderAllowed } from "../ai/ai-provider-policy";
 import { generateExpansionCombinations } from "./utils/expansion-combination.util";
 import {
   MockAiExpansionProvider,
@@ -169,7 +171,10 @@ export class GeoExpansionService {
     private readonly aiUsageService?: AiUsageService,
     @Optional()
     @Inject(OperationLogsService)
-    private readonly operationLogsService?: OperationLogsService
+    private readonly operationLogsService?: OperationLogsService,
+    @Optional()
+    @Inject(ConfigService)
+    private readonly configService?: ConfigService
   ) {}
 
   async ruleGenerate(
@@ -235,8 +240,9 @@ export class GeoExpansionService {
       throw new BadRequestException("AI expansion promptType cannot be base.");
     }
 
-    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const provider = normalizeAiProvider(normalized.provider);
+    assertMockProviderAllowed(this.configService, provider, "AI 拓词");
+    const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const usesMockProvider = isMockAiProvider(provider);
     const initialModel = usesMockProvider ? this.mockAiProvider.model : normalized.model;
     const inputPayload = compactJson({

@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   Prisma,
   type ContentItem,
@@ -14,6 +15,7 @@ import {
   normalizeAiProvider,
   type GenerateTextResult
 } from "../ai/ai-provider.interface";
+import { assertMockProviderAllowed } from "../ai/ai-provider-policy";
 import {
   ProjectProfileService,
   type ProjectProfileResponse
@@ -214,7 +216,10 @@ export class ContentItemsService {
     private readonly aiUsageService?: AiUsageService,
     @Optional()
     @Inject(OperationLogsService)
-    private readonly operationLogsService?: OperationLogsService
+    private readonly operationLogsService?: OperationLogsService,
+    @Optional()
+    @Inject(ConfigService)
+    private readonly configService?: ConfigService
   ) {}
 
   async findMany(
@@ -409,6 +414,7 @@ export class ContentItemsService {
     const qualityContext = await this.loadQualityContext(id, context);
     const ruleResult = this.buildRuleQualityCheck(qualityContext);
     const provider = normalizeAiProvider(input.provider);
+    assertMockProviderAllowed(this.configService, provider, "GEO 内容质检");
 
     if (isMockAiProvider(provider)) {
       await this.recordContentItemAiUsage(
@@ -464,6 +470,7 @@ export class ContentItemsService {
   ): Promise<ContentPublishOptimizationResponse> {
     const qualityContext = await this.loadQualityContext(id, context);
     const provider = normalizeAiProvider(input.provider);
+    assertMockProviderAllowed(this.configService, provider, "GEO 发布优化");
     const qualityResult = this.buildRuleQualityCheck(qualityContext);
 
     if (isMockAiProvider(provider)) {

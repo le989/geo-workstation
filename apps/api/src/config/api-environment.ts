@@ -1,10 +1,16 @@
 import { randomUUID } from "node:crypto";
+import {
+  normalizeAppEnv,
+  normalizeBooleanEnv,
+  type AppRuntimeEnv
+} from "../modules/ai/ai-provider-policy";
 
 export const DEFAULT_LOCAL_DATABASE_URL =
   "postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public";
 
 export type ApiEnvironment = {
   NODE_ENV: string;
+  APP_ENV: AppRuntimeEnv;
   API_PORT: number;
   DATABASE_URL: string;
   REDIS_URL?: string;
@@ -15,6 +21,8 @@ export type ApiEnvironment = {
   DEFAULT_ADMIN_EMAIL: string;
   DEFAULT_ADMIN_PASSWORD: string;
   BYPASS_AUTH_FOR_TESTS?: string;
+  ENABLE_MOCK_PROVIDER: string;
+  ENABLE_MOCK_AUTH: string;
   AI_PROVIDER: string;
   AI_OPENAI_COMPATIBLE_BASE_URL: string;
   AI_OPENAI_COMPATIBLE_API_KEY?: string;
@@ -45,33 +53,52 @@ export type ApiEnvironment = {
 
 export function validateApiEnvironment(config: Record<string, unknown>): ApiEnvironment {
   const nodeEnv = getString(config.NODE_ENV, "development");
+  const appEnv = normalizeAppEnv(
+    getOptionalString(config.APP_ENV),
+    nodeEnv === "production" ? "production" : "development"
+  );
+  const isProductionRuntime = nodeEnv === "production" || appEnv === "production";
   const bypassAuthForTests = getOptionalString(config.BYPASS_AUTH_FOR_TESTS);
+  const mockProviderEnabled = normalizeBooleanEnv(
+    getOptionalString(config.ENABLE_MOCK_PROVIDER),
+    appEnv !== "production"
+  );
+  const mockAuthEnabled = normalizeBooleanEnv(
+    getOptionalString(config.ENABLE_MOCK_AUTH),
+    appEnv !== "production"
+  );
 
-  if (nodeEnv === "production" && bypassAuthForTests === "true") {
+  if (isProductionRuntime && bypassAuthForTests === "true") {
     throw new Error("BYPASS_AUTH_FOR_TESTS cannot be enabled in production.");
   }
+  if (isProductionRuntime && mockAuthEnabled) {
+    throw new Error("ENABLE_MOCK_AUTH cannot be enabled in production.");
+  }
   const databaseUrl =
-    nodeEnv === "production"
+    isProductionRuntime
       ? getRequiredString(config.DATABASE_URL, "DATABASE_URL is required in production.")
       : getString(config.DATABASE_URL, DEFAULT_LOCAL_DATABASE_URL);
   const corsOrigin =
-    nodeEnv === "production"
+    isProductionRuntime
       ? getRequiredString(config.CORS_ORIGIN, "CORS_ORIGIN is required in production.")
       : getOptionalString(config.CORS_ORIGIN);
 
   return {
     NODE_ENV: nodeEnv,
+    APP_ENV: appEnv,
     API_PORT: getPort(config.API_PORT, 3000),
     DATABASE_URL: databaseUrl,
     REDIS_URL: getOptionalString(config.REDIS_URL),
     LOCAL_STORAGE_ROOT: getString(config.LOCAL_STORAGE_ROOT, "./storage"),
     CORS_ORIGIN: corsOrigin,
-    JWT_SECRET: getJwtSecret(config.JWT_SECRET, nodeEnv),
+    JWT_SECRET: getJwtSecret(config.JWT_SECRET, isProductionRuntime),
     JWT_EXPIRES_IN: getString(config.JWT_EXPIRES_IN, "12h"),
     DEFAULT_ADMIN_EMAIL: getString(config.DEFAULT_ADMIN_EMAIL, "admin@geo-workstation.local"),
     DEFAULT_ADMIN_PASSWORD: getString(config.DEFAULT_ADMIN_PASSWORD, "change_me_admin_password"),
     BYPASS_AUTH_FOR_TESTS: bypassAuthForTests,
-    AI_PROVIDER: getString(config.AI_PROVIDER, "mock"),
+    ENABLE_MOCK_PROVIDER: mockProviderEnabled ? "true" : "false",
+    ENABLE_MOCK_AUTH: mockAuthEnabled ? "true" : "false",
+    AI_PROVIDER: getString(config.AI_PROVIDER, appEnv === "production" ? "openai_compatible" : "mock"),
     AI_OPENAI_COMPATIBLE_BASE_URL: getString(
       config.AI_OPENAI_COMPATIBLE_BASE_URL,
       "https://api.deepseek.com/v1"
@@ -168,12 +195,12 @@ function getPositiveNumber(value: unknown, fallback: number): number {
   return numericValue;
 }
 
-function getJwtSecret(value: unknown, nodeEnv: string): string {
+function getJwtSecret(value: unknown, isProductionRuntime: boolean): string {
   if (typeof value === "string" && value.trim().length > 0) {
     return value;
   }
 
-  if (nodeEnv === "production") {
+  if (isProductionRuntime) {
     throw new Error("JWT_SECRET is required in production.");
   }
 

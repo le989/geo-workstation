@@ -6,11 +6,13 @@ import { createValidationPipe } from "../validation/create-validation-pipe";
 
 export function resolveCorsOrigin(app: INestApplication): string | boolean {
   let nodeEnv = process.env.NODE_ENV ?? "development";
+  let appEnv = process.env.APP_ENV ?? "development";
   let configuredOrigin = process.env.CORS_ORIGIN;
 
   try {
     const configService = app.get(ConfigService, { strict: false });
     nodeEnv = configService.get<string>("NODE_ENV") ?? nodeEnv;
+    appEnv = configService.get<string>("APP_ENV") ?? appEnv;
     configuredOrigin = configService.get<string>("CORS_ORIGIN") ?? configuredOrigin;
   } catch {
     // Non-AppModule tests may not register ConfigService. Fall back to process.env.
@@ -20,7 +22,7 @@ export function resolveCorsOrigin(app: INestApplication): string | boolean {
     return configuredOrigin;
   }
 
-  if (nodeEnv === "production") {
+  if (nodeEnv === "production" || appEnv === "production") {
     throw new Error("CORS_ORIGIN is required in production.");
   }
 

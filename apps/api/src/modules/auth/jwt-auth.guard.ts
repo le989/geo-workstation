@@ -13,6 +13,7 @@ import type { AuthenticatedRequest } from "./auth.types";
 import { AuthService } from "./auth.service";
 import { JwtTokenService } from "./jwt-token.service";
 import { isModuleAccessBypassed, resolveApiModuleKey } from "./module-access";
+import { isMockAuthEnabled } from "../ai/ai-provider-policy";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -72,7 +73,10 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private shouldBypassForTests(): boolean {
-    return this.configService.get<string>("BYPASS_AUTH_FOR_TESTS") === "true";
+    return (
+      this.configService.get<string>("BYPASS_AUTH_FOR_TESTS") === "true" &&
+      isMockAuthEnabled(this.configService)
+    );
   }
 
   private extractBearerToken(request: AuthenticatedRequest): string | null {
