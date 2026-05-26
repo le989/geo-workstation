@@ -205,6 +205,36 @@ describe("Phase 2A API infrastructure", () => {
     ).toThrow("BYPASS_AUTH_FOR_TESTS cannot be enabled in production.");
   });
 
+  it("rejects auth bypass when APP_ENV is production", () => {
+    expect(() =>
+      validateApiEnvironment({
+        NODE_ENV: "development",
+        APP_ENV: "production",
+        DATABASE_URL:
+          "postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public",
+        CORS_ORIGIN: "http://example.test",
+        JWT_SECRET: "production-test-secret",
+        BYPASS_AUTH_FOR_TESTS: "true"
+      })
+    ).toThrow("BYPASS_AUTH_FOR_TESTS cannot be enabled in production.");
+  });
+
+  it("disables mock providers by default in production app env", () => {
+    const env = validateApiEnvironment({
+      NODE_ENV: "development",
+      APP_ENV: "production",
+      DATABASE_URL:
+        "postgresql://geo_workstation:geo_workstation@localhost:5432/geo_workstation?schema=public",
+      CORS_ORIGIN: "http://example.test",
+      JWT_SECRET: "production-test-secret"
+    });
+
+    expect(env.APP_ENV).toBe("production");
+    expect(env.AI_PROVIDER).toBe("openai_compatible");
+    expect(env.ENABLE_MOCK_PROVIDER).toBe("false");
+    expect(env.ENABLE_MOCK_AUTH).toBe("false");
+  });
+
   it("requires DATABASE_URL and CORS_ORIGIN in production configuration", () => {
     expect(() =>
       validateApiEnvironment({

@@ -6,10 +6,37 @@
 
 | 数据库名                               | 用途                          | 允许动作                                    | 禁止动作                                   |
 | -------------------------------------- | ----------------------------- | ------------------------------------------- | ------------------------------------------ |
+| `geo_workstation_official`             | 正式资料库 / 正式运营库       | 正式资料管理、备份后受控初始化、正式部署使用 | smoke 测试、demo seed、mock 生成正式内容、批量清理 |
 | `geo_workstation_clean`                | 干净库 / 基线库               | 只读确认                                    | 写入测试、migrate、seed、cleanup、写库测试 |
 | `geo_workstation_crud_smoke`           | 写入验收库                    | 明确允许的专项写库测试、migrate deploy 验证 | 当作正式数据源、误删、无备份清理           |
 | `geo_workstation_aqa_chat_local_smoke` | 本地联调 / 当前最终验收使用库 | 本地联调、只读验收、经确认的精确清理        | 当作 clean 基线、无 dry-run 清理           |
 | `geo_workstation`                      | 旧测试库                      | 暂保留、只读排查                            | 误删、误作为当前 smoke 库                  |
+
+## official / smoke / clean 边界
+
+- `geo_workstation_official` 是正式资料库，只用于正式资料、正式公司上下文和正式部署。正式内容生成必须使用真实登录、真实 API、真实数据库和真实 company membership。
+- `geo_workstation_aqa_chat_local_smoke` 是开发 / 测试 / smoke 库，可以保留测试数据和 mock provider，用于页面联调和本地验收，不能代表正式资料库。
+- `geo_workstation_clean` 是干净基线库，默认不触碰，不用于写库验收、mock 导入、seed、migrate 或 cleanup。
+
+## 正式环境禁用项
+
+正式环境必须保持：
+
+- 禁止随意执行 seed；基础 seed 仅首次初始化且备份确认后临时开启。
+- 禁止随意执行开发 migrate；发布只使用受控的 deploy 流程。
+- 禁止运行测试脚本、mock import、demo seed 或 smoke 清理脚本。
+- 禁止模拟登录、auth bypass、mock company context。
+- 禁止 `mock` provider 生成正式内容、拓词或质检。
+- 禁止 API 失败后展示 mock 知识库、mock 产品线、mock 指令模板或 mock 提示词。
+- 禁止批量清理正式库，所有删除必须单独审批、备份和 dry-run。
+
+正式部署必须确认：
+
+- 后端 `APP_ENV=production`。
+- 前端 `VITE_APP_ENV=production`。
+- 数据库名为 `geo_workstation_official`。
+- 页面顶部显示 `正式环境 / API`。
+- API 启动日志只输出数据库名、安全摘要和 mock 开关状态，不输出完整连接串或密钥。
 
 ## clean 库禁区
 

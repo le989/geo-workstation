@@ -10,6 +10,7 @@ import {
   type GenerateTextInput,
   type GenerateTextResult
 } from "./ai-provider.interface";
+import { assertMockProviderAllowed } from "./ai-provider-policy";
 import { MockAiProvider } from "./providers/mock-ai.provider";
 import { OpenAICompatibleProvider } from "./providers/openai-compatible.provider";
 
@@ -30,6 +31,7 @@ export class AiProviderService implements AiTextProvider {
     const provider = normalizeAiProvider(
       input.provider ?? this.configService.get<string>("AI_PROVIDER")
     );
+    assertMockProviderAllowed(this.configService, provider, "AI Provider");
 
     if (isMockAiProvider(provider)) {
       return this.mockAiProvider.generateText({

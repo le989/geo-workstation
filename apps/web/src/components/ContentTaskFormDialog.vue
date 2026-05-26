@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
+import { ElMessageBox } from "element-plus";
 import type { CreateContentTaskPayload } from "@/api/content";
 import { getInstructionTemplates, type InstructionTemplate } from "@/api/instructions";
 import { getKnowledgeBases, type KnowledgeBase } from "@/api/knowledge";
 import GeoPromptSelector from "@/components/GeoPromptSelector.vue";
+import { appEnvironment } from "@/config/app-env";
 import {
   contentModelOptions,
   formatContentModelName,
@@ -35,15 +37,19 @@ const emit = defineEmits<{
   submit: [payload: CreateContentTaskPayload];
 }>();
 
+const defaultProvider = () => (appEnvironment.mockEnabled ? "mock" : "openai_compatible");
+const defaultModel = (provider = defaultProvider()) =>
+  provider === "mock" ? "mock-content-v1" : "deepseek-chat";
+
 const form = reactive<ContentTaskFormState>({
   generationType: "article",
   geoPromptIds: [],
   instructionTemplateId: "",
   knowledgeBaseId: "",
-  model: "mock-content-v1",
+  model: defaultModel(),
   name: "",
   productLine: "",
-  provider: "mock",
+  provider: defaultProvider(),
   targetModel: ""
 });
 
@@ -53,15 +59,31 @@ const selectError = ref("");
 const loadingOptions = ref(false);
 const knowledgeBases = ref<KnowledgeBase[]>([]);
 const instructionTemplates = ref<InstructionTemplate[]>([]);
-const contentGenerationModeOptions = [
-  { label: "基础生成模式", value: "mock" },
-  { label: "AI 生成模式", value: "openai_compatible" }
-];
-const providerSafetyText = computed(() =>
-  form.provider === "openai_compatible"
-    ? "真实 AI 接口：会调用外部模型，可能产生额度消耗。"
-    : "基础生成模式：不调用真实模型。"
+const contentGenerationModeOptions = computed(() => {
+  const options = [{ label: "AI 生成模式", value: "openai_compatible" }];
+
+  if (appEnvironment.mockEnabled) {
+    options.unshift({ label: "基础生成模式", value: "mock" });
+  }
+
+  return options;
+});
+const productionProviderWarning = computed(() =>
+  appEnvironment.isProduction
+    ? "正式环境已禁用 Mock 生成；正式环境未配置真实 AI Provider 时，暂不能生成真实文章。"
+    : ""
 );
+const providerSafetyText = computed(() => {
+  if (form.provider === "openai_compatible") {
+    return "真实 AI 接口：会调用外部模型，可能产生额度消耗，创建前需要确认。";
+  }
+
+  if (!appEnvironment.mockEnabled) {
+    return "正式环境已禁用 Mock 生成。";
+  }
+
+  return "基础生成模式：不调用真实模型。";
+});
 
 const selectedKnowledgeBase = computed(() =>
   knowledgeBases.value.find((item) => item.id === form.knowledgeBaseId)
@@ -103,10 +125,10 @@ const resetForm = () => {
   form.geoPromptIds = [];
   form.instructionTemplateId = "";
   form.knowledgeBaseId = "";
-  form.model = "mock-content-v1";
+  form.provider = defaultProvider();
+  form.model = defaultModel(form.provider);
   form.name = "";
   form.productLine = "";
-  form.provider = "mock";
   form.targetModel = "";
   formError.value = "";
   selectError.value = "";
@@ -165,7 +187,28 @@ const trimOptional = (value: string) => {
   return trimmed ? trimmed : undefined;
 };
 
-const handleSubmit = () => {
+const confirmRealAiProvider = async () => {
+  if (form.provider !== "openai_compatible") {
+    return true;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      "本次创建会使用真实 AI Provider，可能调用外部模型并消耗额度。请确认后再继续。",
+      "确认调用真实 AI",
+      {
+        confirmButtonText: "确认创建",
+        cancelButtonText: "取消",
+        type: "warning"
+      }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const handleSubmit = async () => {
   formError.value = "";
 
   if (!form.name.trim()) {
@@ -183,6 +226,15 @@ const handleSubmit = () => {
     return;
   }
 
+  if (!appEnvironment.mockEnabled && form.provider === "mock") {
+    formError.value = "正式环境已禁用 Mock 生成，请选择真实 AI Provider。";
+    return;
+  }
+
+  if (!(await confirmRealAiProvider())) {
+    return;
+  }
+
   emit("submit", {
     generationType: form.generationType.trim(),
     geoPromptIds: form.geoPromptIds,
@@ -191,7 +243,7 @@ const handleSubmit = () => {
     model: trimOptional(form.model) ?? (form.provider === "mock" ? "mock-content-v1" : undefined),
     name: form.name.trim(),
     productLine: trimOptional(form.productLine),
-    provider: trimOptional(form.provider) ?? "mock",
+    provider: trimOptional(form.provider) ?? defaultProvider(),
     targetModel: trimOptional(form.targetModel)
   });
 };
@@ -216,6 +268,14 @@ const handleSubmit = () => {
       v-if="formError || errorMessage || selectError"
       :title="formError || errorMessage || selectError"
       type="error"
+      :closable="false"
+      show-icon
+      class="dialog-alert"
+    />
+    <el-alert
+      v-if="productionProviderWarning"
+      :title="productionProviderWarning"
+      type="warning"
       :closable="false"
       show-icon
       class="dialog-alert"

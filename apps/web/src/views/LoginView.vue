@@ -4,9 +4,11 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Lock, Message } from "@element-plus/icons-vue";
 import { ApiClientError } from "@/api/http";
+import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 
 const router = useRouter();
+const appStore = useAppStore();
 const authStore = useAuthStore();
 
 const form = reactive({
@@ -133,8 +135,8 @@ const submitLogin = async () => {
         </el-form>
 
         <div class="geo-login-status">
-          <span><i aria-hidden="true" />本地 / 模拟环境</span>
-          <span><i aria-hidden="true" />API 状态：待确认</span>
+          <span><i aria-hidden="true" />{{ appStore.environmentLabel }}</span>
+          <span><i aria-hidden="true" />API 状态：{{ appStore.isProduction ? "正式 API" : "待确认" }}</span>
         </div>
 
         <p class="login-note geo-login-note">

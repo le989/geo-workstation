@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   GeoPromptType,
   Prisma,
@@ -43,6 +44,7 @@ import {
   type ResourceAccessContext
 } from "../auth/auth-policy";
 import { AiUsageService } from "../usage/ai-usage.service";
+import { assertMockProviderAllowed } from "../ai/ai-provider-policy";
 import {
   assertCanManageCompanyTask,
   buildTaskReadWhere,
@@ -133,7 +135,10 @@ export class GeoAnalysisTasksService {
     @Inject(ContentTasksService) private readonly contentTasksService: ContentTasksService,
     @Optional()
     @Inject(AiUsageService)
-    private readonly aiUsageService?: AiUsageService
+    private readonly aiUsageService?: AiUsageService,
+    @Optional()
+    @Inject(ConfigService)
+    private readonly configService?: ConfigService
   ) {}
 
   async findMany(
@@ -328,6 +333,7 @@ export class GeoAnalysisTasksService {
     if (context) {
       assertCanManageCompanyTask(context, task);
     }
+    assertMockProviderAllowed(this.configService, "mock", "GEO 分析");
 
     const runningTask = await this.prisma.geoAnalysisTask.update({
       where: {
@@ -552,6 +558,7 @@ export class GeoAnalysisTasksService {
     if (context) {
       assertCanManageCompanyTask(context, task);
     }
+    assertMockProviderAllowed(this.configService, "mock", "GEO 分析内容任务");
     const normalized = normalizeCreateAnalysisContentTask(input);
     const geoPromptIds = await this.resolveContentTaskPromptIds(task, normalized, context);
 

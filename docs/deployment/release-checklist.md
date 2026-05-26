@@ -6,7 +6,8 @@
 
 - [ ] 本次只是内部演示版或内部试用部署。
 - [ ] 已确认已启用最小登录保护，但仍需要内网、VPN 或服务器访问控制配合。
-- [ ] 已确认 mock Provider 只用于演示、测试或无 Key 环境，不作为正式外部 AI 效果承诺。
+- [ ] 已确认 mock Provider 只用于 development / smoke，不作为正式内容生成、拓词或质检入口。
+- [ ] 正式环境必须走真实 API、真实登录、真实数据库和真实 company membership。
 - [ ] 未承诺真实外部 AI 检测结果。
 
 ## 构建检查
@@ -16,9 +17,9 @@
 - [ ] `pnpm typecheck` 通过。
 - [ ] `pnpm build` 通过。
 - [ ] `pnpm test:web-mvp` 通过。
-- [ ] `pnpm test:auth` 通过。
+- [ ] `pnpm test:auth` 仅在 smoke / 临时库通过，不在正式库执行。
 - [ ] `pnpm test:web-auth` 通过。
-- [ ] `DATABASE_URL=... pnpm test:api` 通过。
+- [ ] `DATABASE_URL=... pnpm test:api` 仅在 smoke / 临时库通过，不在正式库执行。
 - [ ] `pnpm smoke:api` 通过。
 - [ ] `pnpm check:internal-mvp` 通过。
 - [ ] `pnpm check:deployment` 通过。
@@ -29,7 +30,13 @@
 
 - [ ] `.env.production` 已从 `.env.production.example` 复制。
 - [ ] `apps/web/.env.production` 已从 `apps/web/.env.production.example` 复制。
+- [ ] `APP_ENV=production`。
+- [ ] `VITE_APP_ENV=production`。
+- [ ] `ENABLE_MOCK_PROVIDER=false`。
+- [ ] `ENABLE_MOCK_AUTH=false`。
+- [ ] `VITE_ENABLE_MOCK=false`。
 - [ ] `DATABASE_URL` 使用真实私有密码，不是 `change_me`。
+- [ ] `DATABASE_URL` 指向 `geo_workstation_official`，确认时只输出库名，不输出完整连接串。
 - [ ] `JWT_SECRET` 使用长随机值，不是示例占位值。
 - [ ] `DEFAULT_ADMIN_EMAIL` 已确认。
 - [ ] `DEFAULT_ADMIN_PASSWORD` 已替换为私有强密码；首次初始化如需基础 seed，使用 `ALLOW_PRODUCTION_SEED=true pnpm prisma:seed`。
@@ -43,6 +50,8 @@
 - [ ] AI Provider Key 只配置在后端私有环境变量中，未进入前端 `.env` 或构建产物。
 - [ ] OpenAI-compatible / DeepSeek、Kimi、Volcengine / 豆包、Aliyun Bailian / 通义方向所需变量已按实际启用范围配置。
 - [ ] 真实 AI 调用额度已确认，相关负责人知道真实调用可能产生额度消耗。
+- [ ] 页面顶部环境标签显示 `正式环境 / API`，不显示 `本地 / 模拟`、`模拟环境` 或 `Mock 环境`。
+- [ ] API 启动日志显示 `APP_ENV`、数据库名、mock provider 和 mock auth 状态，且不泄露连接串或密钥。
 - [ ] 模型覆盖联网检测权限已确认，`operator` / `viewer` 不能触发真实联网检测。
 - [ ] 模型覆盖联网检测二次确认提示已确认。
 
@@ -53,10 +62,13 @@
 - [ ] `pnpm prisma:migrate:deploy` 已执行。
 - [ ] `pnpm prisma:seed` 仅在首次初始化时按需执行基础 seed，并已临时设置生产 seed 确认变量。
 - [ ] 未在正式库执行 `INCLUDE_DEMO_SEED=true pnpm prisma:seed:demo`。
+- [ ] 未在正式库执行 mock import、测试脚本或批量清理脚本。
+- [ ] 正式环境未启用 mock provider，内容生成、AI 拓词、质检和发布优化不会 fallback 到 mock。
 - [ ] 发布前已执行 `pg_dump` 备份。
 - [ ] 已备份 `LOCAL_STORAGE_ROOT`，并确认数据库和上传目录属于同一批次。
 - [ ] 已确认恢复命令、备份文件路径和恢复演练步骤。
 - [ ] 已确认 `geo_workstation_clean`、`geo_workstation_crud_smoke`、`geo_workstation_aqa_chat_local_smoke`、`geo_workstation` 的边界，不把 clean 库用于 migrate、seed、写库测试或 cleanup。
+- [ ] 已确认 `geo_workstation_official` 是正式资料库，`geo_workstation_aqa_chat_local_smoke` 是开发 / 测试 / smoke 库，`geo_workstation_clean` 是干净基线库。
 
 ## PM2 检查
 
@@ -127,6 +139,9 @@
 - [ ] 正式库不执行 demo seed。
 - [ ] `ALLOW_PRODUCTION_SEED=false`，只有首次初始化且确认备份后才临时开启基础 seed。
 - [ ] `BYPASS_AUTH_FOR_TESTS=false`。
+- [ ] `APP_ENV=production` 时禁止 auth bypass 和模拟登录。
+- [ ] `AI_PROVIDER` 使用真实 Provider，`ENABLE_MOCK_PROVIDER=false`。
+- [ ] API 失败时正式环境显示错误或空状态，不展示 mock 知识库、mock 产品线、mock 提示词或 mock 指令模板。
 - [ ] 测试数据清理前必须先备份和 dry-run。
 - [ ] 不清理 `operation_logs`、`ai_usage_records`、`ai_call_logs`，除非有单独审批和备份方案。
 - [ ] `LOCAL_STORAGE_ROOT` 纳入备份，并与数据库备份时间点一致。

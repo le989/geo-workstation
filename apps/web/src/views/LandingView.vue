@@ -8,6 +8,9 @@ import {
   Setting,
   TrendCharts
 } from "@element-plus/icons-vue";
+import { useAppStore } from "@/stores/app";
+
+const appStore = useAppStore();
 
 const capabilityCards = [
   {
@@ -104,7 +107,7 @@ const workflowSteps = [
             <a class="geo-landing-secondary-button" href="#workflow">查看工作流程</a>
           </div>
           <div class="geo-landing-hero-checks" aria-label="产品边界提示">
-            <span>本地 / 模拟环境</span>
+            <span>{{ appStore.environmentLabel }}</span>
             <span>事实人工确认</span>
             <span>不展示密钥</span>
           </div>

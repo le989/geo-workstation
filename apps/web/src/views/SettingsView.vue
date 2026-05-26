@@ -30,7 +30,7 @@ import AppEmptyState from "@/components/AppEmptyState.vue";
 import AppErrorState from "@/components/AppErrorState.vue";
 import AppLoadingState from "@/components/AppLoadingState.vue";
 import { formatDateTime, formatOptional, splitCommaValues } from "@/config/geo-prompt-options";
-import { getApiBaseUrl } from "@/api/http";
+import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 import { getRoleLabel, normalizeRole } from "@/utils/permission";
 
@@ -116,6 +116,7 @@ const trimOptional = (value: string) => {
 };
 
 const joinValues = (values: string[]) => values.join("\n");
+const appStore = useAppStore();
 const currentUser = computed(() => authStore.currentUser);
 const currentRole = computed(() =>
   normalizeRole(authStore.currentRole ?? currentUser.value?.role)
@@ -191,12 +192,12 @@ const dataMaintenanceItems = [
   }
 ];
 
-const systemInfoItems = [
-  { label: "运行环境", value: "本地 / 内部" },
-  { label: "API 地址", value: getApiBaseUrl() || "同域 /api" },
+const systemInfoItems = computed(() => [
+  { label: "运行环境", value: appStore.environmentLabel },
+  { label: "API 地址", value: appStore.apiBaseUrl || "同域 /api" },
   { label: "当前版本", value: "内部 MVP" },
   { label: "最近 UI 收口", value: "首页、登录、工作台、报表、内容、资产和策略页" }
-];
+]);
 
 const settingsOverviewItems = computed(() => [
   {
