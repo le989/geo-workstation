@@ -185,6 +185,20 @@ const isTechnicalTaskName = (value: string) =>
 const getDisplayTaskName = (task: ContentTask) =>
   task.name && !isTechnicalTaskName(task.name) ? task.name : "GEO 内容生成任务";
 
+const getTaskKnowledgeScopeSummary = (task: ContentTask) => {
+  const scope = task.knowledgeScope;
+
+  if (scope?.type === "selected_files") {
+    return `指定资料：${scope.selectedKnowledgeFileIds.length} 份`;
+  }
+
+  if (scope?.type === "product_line") {
+    return `产品线：${formatOptional(task.productLine)}`;
+  }
+
+  return "全部资料";
+};
+
 const buildQuery = (): ContentTaskQuery => ({
   generationType: trimOptional(filters.generationType),
   page: page.value,
@@ -633,6 +647,7 @@ onMounted(() => {
           <template #default="{ row }">
             <strong class="content-task-title">{{ getDisplayTaskName(row) }}</strong>
             <p class="table-subtext">产品线：{{ formatOptional(row.productLine) }}</p>
+            <p class="table-subtext">资料范围：{{ getTaskKnowledgeScopeSummary(row) }}</p>
           </template>
         </el-table-column>
         <el-table-column label="内容类型" width="150">

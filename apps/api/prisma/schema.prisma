@@ -678,6 +678,7 @@ model ContentTask {
   productLineRef        ProductLine?         @relation(fields: [productLineId], references: [id], onDelete: SetNull)
   knowledgeBaseId       String?              @map("knowledge_base_id")
   knowledgeBase         KnowledgeBase?       @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  knowledgeScope        Json?                @map("knowledge_scope")
   instructionTemplateId String?              @map("instruction_template_id")
   instructionTemplate   InstructionTemplate? @relation(fields: [instructionTemplateId], references: [id], onDelete: SetNull)
   generationType        String               @map("generation_type")

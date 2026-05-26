@@ -6,16 +6,22 @@ import type { QueryContentTasksDto } from "../dto/query-content-tasks.dto";
 
 const DEFAULT_PROVIDER = "mock";
 const DEFAULT_MODEL = "mock-content-v1";
+const MAX_SELECTED_KNOWLEDGE_FILES = 10;
+
+export type ContentKnowledgeScopeType = "all" | "product_line" | "selected_files";
 
 export type NormalizedCreateContentTask = {
   name: string;
   productLine?: string;
+  productLineId?: string;
   knowledgeBaseId?: string;
   instructionTemplateId?: string;
   generationType: string;
   targetModel?: string;
   provider: string;
   model?: string;
+  scopeType: ContentKnowledgeScopeType;
+  selectedKnowledgeFileIds: string[];
   geoPromptIds: string[];
   createdBy?: string;
 };
@@ -38,12 +44,15 @@ export function normalizeCreateContentTask(
   const normalized = {
     name: trimRequired(input.name),
     productLine: trimOptional(input.productLine),
+    productLineId: trimOptional(input.productLineId),
     knowledgeBaseId: trimOptional(input.knowledgeBaseId),
     instructionTemplateId: trimOptional(input.instructionTemplateId),
     generationType: trimRequired(input.generationType),
     targetModel: trimOptional(input.targetModel),
     provider,
     model: trimOptional(input.model) ?? (provider === DEFAULT_PROVIDER ? DEFAULT_MODEL : undefined),
+    scopeType: normalizeScopeType(input.scopeType),
+    selectedKnowledgeFileIds: uniqueStrings(toStringArray(input.selectedKnowledgeFileIds)),
     geoPromptIds: uniqueStrings(toStringArray(input.geoPromptIds)),
     createdBy: trimOptional(input.createdBy)
   };
@@ -53,6 +62,20 @@ export function normalizeCreateContentTask(
 
   if (normalized.geoPromptIds.length === 0) {
     throw new BadRequestException("GEO content task requires at least one GEO prompt.");
+  }
+  if (normalized.scopeType === "product_line" && !normalized.productLineId) {
+    throw new BadRequestException("按产品线生成时必须选择产品线。");
+  }
+  if (
+    normalized.scopeType === "selected_files" &&
+    normalized.selectedKnowledgeFileIds.length === 0
+  ) {
+    throw new BadRequestException("指定资料生成时至少需要选择 1 份资料。");
+  }
+  if (normalized.selectedKnowledgeFileIds.length > MAX_SELECTED_KNOWLEDGE_FILES) {
+    throw new BadRequestException(
+      `指定资料生成最多选择 ${MAX_SELECTED_KNOWLEDGE_FILES} 份资料。`
+    );
   }
 
   return normalized;
@@ -96,6 +119,16 @@ function assertRequired(label: string, value: string): void {
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function normalizeScopeType(value: unknown): ContentKnowledgeScopeType {
+  const normalized = trimOptional(value) ?? "all";
+
+  if (["all", "product_line", "selected_files"].includes(normalized)) {
+    return normalized as ContentKnowledgeScopeType;
+  }
+
+  throw new BadRequestException(`Unsupported content knowledge scope type: ${normalized}`);
 }
 
 function normalizeTaskStatus(value: unknown): TaskStatus | undefined {

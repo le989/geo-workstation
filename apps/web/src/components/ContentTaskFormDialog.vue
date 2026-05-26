@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { ElMessageBox } from "element-plus";
-import type { CreateContentTaskPayload } from "@/api/content";
+import type { ContentScopeType, CreateContentTaskPayload } from "@/api/content";
 import { getInstructionTemplates, type InstructionTemplate } from "@/api/instructions";
-import { getKnowledgeBases, type KnowledgeBase } from "@/api/knowledge";
+import {
+  getKnowledgeBases,
+  getKnowledgeFiles,
+  type KnowledgeBase,
+  type KnowledgeFile
+} from "@/api/knowledge";
+import { listProductLines, type ManagedProductLine } from "@/api/settings-management";
 import GeoPromptSelector from "@/components/GeoPromptSelector.vue";
 import { appEnvironment } from "@/config/app-env";
 import {
@@ -12,17 +18,20 @@ import {
   generationTypeOptions
 } from "@/config/content-options";
 import { contentTypeLabelMap, instructionTypeLabelMap } from "@/config/instruction-options";
-import { formatOptional } from "@/config/geo-prompt-options";
+import { useAuthStore } from "@/stores/auth";
 
 type ContentTaskFormState = {
   name: string;
   productLine: string;
+  productLineId: string;
   knowledgeBaseId: string;
   instructionTemplateId: string;
   generationType: string;
   targetModel: string;
   provider: string;
   model: string;
+  scopeType: ContentScopeType;
+  selectedKnowledgeFileIds: string[];
   geoPromptIds: string[];
 };
 
@@ -40,6 +49,7 @@ const emit = defineEmits<{
 const defaultProvider = () => (appEnvironment.mockEnabled ? "mock" : "openai_compatible");
 const defaultModel = (provider = defaultProvider()) =>
   provider === "mock" ? "mock-content-v1" : "deepseek-chat";
+const authStore = useAuthStore();
 
 const form = reactive<ContentTaskFormState>({
   generationType: "article",
@@ -49,7 +59,10 @@ const form = reactive<ContentTaskFormState>({
   model: defaultModel(),
   name: "",
   productLine: "",
+  productLineId: "",
   provider: defaultProvider(),
+  scopeType: "all",
+  selectedKnowledgeFileIds: [],
   targetModel: ""
 });
 
@@ -57,8 +70,11 @@ const formError = ref("");
 const advancedSections = ref<string[]>([]);
 const selectError = ref("");
 const loadingOptions = ref(false);
+const loadingKnowledgeFiles = ref(false);
 const knowledgeBases = ref<KnowledgeBase[]>([]);
+const knowledgeFiles = ref<KnowledgeFile[]>([]);
 const instructionTemplates = ref<InstructionTemplate[]>([]);
+const productLines = ref<ManagedProductLine[]>([]);
 const contentGenerationModeOptions = computed(() => {
   const options = [{ label: "AI 生成模式", value: "openai_compatible" }];
 
@@ -91,6 +107,32 @@ const selectedKnowledgeBase = computed(() =>
 const selectedInstructionTemplate = computed(() =>
   instructionTemplates.value.find((item) => item.id === form.instructionTemplateId)
 );
+const activeProductLines = computed(() =>
+  productLines.value.filter((item) => item.status === "active")
+);
+const selectedProductLine = computed(() =>
+  activeProductLines.value.find((item) => item.id === form.productLineId)
+);
+const scopeTypeLabel = computed(() => {
+  if (form.scopeType === "selected_files") {
+    return "指定资料";
+  }
+
+  if (form.scopeType === "product_line") {
+    return "按产品线";
+  }
+
+  return "全部资料";
+});
+const currentCompanyName = computed(() => authStore.currentCompany?.name ?? "当前公司");
+const scopePreviewRows = computed(() => [
+  ["当前公司", currentCompanyName.value],
+  ["知识库", selectedKnowledgeBase.value?.name ?? "未选择"],
+  ["写作范围", scopeTypeLabel.value],
+  ["产品线", selectedProductLine.value?.name ?? "未选择"],
+  ["指定资料", `${form.selectedKnowledgeFileIds.length} 份`],
+  ["待审核资料", "不参与正式生成"]
+]);
 const activeStep = computed(() => {
   if (
     form.geoPromptIds.length > 0 &&
@@ -101,7 +143,12 @@ const activeStep = computed(() => {
     return 4;
   }
 
-  if (form.knowledgeBaseId || form.instructionTemplateId) {
+  if (
+    form.knowledgeBaseId ||
+    form.instructionTemplateId ||
+    form.productLineId ||
+    form.selectedKnowledgeFileIds.length > 0
+  ) {
     return 3;
   }
 
@@ -129,7 +176,11 @@ const resetForm = () => {
   form.model = defaultModel(form.provider);
   form.name = "";
   form.productLine = "";
+  form.productLineId = "";
+  form.scopeType = "all";
+  form.selectedKnowledgeFileIds = [];
   form.targetModel = "";
+  knowledgeFiles.value = [];
   formError.value = "";
   selectError.value = "";
 };
@@ -145,17 +196,49 @@ watch(
   }
 );
 
+watch(
+  () => form.productLineId,
+  (productLineId) => {
+    const productLine = activeProductLines.value.find((item) => item.id === productLineId);
+    form.productLine = productLine?.name ?? "";
+
+    if (productLineId && form.scopeType === "all" && form.selectedKnowledgeFileIds.length === 0) {
+      form.scopeType = "product_line";
+    }
+
+    if (!productLineId && form.scopeType === "product_line") {
+      form.scopeType = "all";
+    }
+  }
+);
+
+watch(
+  () => form.selectedKnowledgeFileIds.slice(),
+  (selectedIds) => {
+    if (selectedIds.length > 0) {
+      form.scopeType = "selected_files";
+      return;
+    }
+
+    if (form.scopeType === "selected_files") {
+      form.scopeType = form.productLineId ? "product_line" : "all";
+    }
+  }
+);
+
 const loadSelectOptions = async () => {
   loadingOptions.value = true;
   selectError.value = "";
 
   try {
-    const [knowledgeResult, instructionResult] = await Promise.all([
+    const [knowledgeResult, instructionResult, productLineResult] = await Promise.all([
       getKnowledgeBases({ page: 1, pageSize: 100 }),
-      getInstructionTemplates({ page: 1, pageSize: 100 })
+      getInstructionTemplates({ page: 1, pageSize: 100 }),
+      listProductLines()
     ]);
     knowledgeBases.value = knowledgeResult.items;
     instructionTemplates.value = instructionResult.items;
+    productLines.value = productLineResult.items;
   } catch (error) {
     selectError.value =
       error instanceof Error
@@ -163,10 +246,72 @@ const loadSelectOptions = async () => {
         : "知识库或指令模板加载失败。";
     knowledgeBases.value = [];
     instructionTemplates.value = [];
+    productLines.value = [];
   } finally {
     loadingOptions.value = false;
   }
 };
+
+const trimOptional = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+const loadKnowledgeFiles = async (search = "") => {
+  if (!form.knowledgeBaseId) {
+    knowledgeFiles.value = [];
+    return;
+  }
+
+  loadingKnowledgeFiles.value = true;
+
+  try {
+    const result = await getKnowledgeFiles(form.knowledgeBaseId, {
+      officialCitationStatus: "citable",
+      page: 1,
+      pageSize: 100,
+      limit: 100,
+      search: trimOptional(search)
+    });
+    knowledgeFiles.value = result.items;
+  } catch (error) {
+    selectError.value =
+      error instanceof Error ? error.message : "可引用资料加载失败，请稍后重试。";
+    knowledgeFiles.value = [];
+  } finally {
+    loadingKnowledgeFiles.value = false;
+  }
+};
+
+const formatKnowledgeBaseLabel = (item: KnowledgeBase) => {
+  const productLine = item.productLine?.trim();
+
+  return productLine ? `${item.name} / ${productLine}` : item.name;
+};
+
+const formatKnowledgeFileLabel = (item: KnowledgeFile) => {
+  const name = item.title || item.fileName;
+  const meta = [
+    item.directoryName,
+    item.chunksCount !== undefined ? `${item.chunksCount} chunks` : undefined
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  return meta ? `${name} / ${meta}` : name;
+};
+
+watch(
+  () => form.knowledgeBaseId,
+  (knowledgeBaseId) => {
+    form.selectedKnowledgeFileIds = [];
+    knowledgeFiles.value = [];
+
+    if (knowledgeBaseId) {
+      void loadKnowledgeFiles();
+    }
+  }
+);
 
 watch(
   () => props.modelValue,
@@ -180,11 +325,6 @@ watch(
 
 const close = () => {
   emit("update:modelValue", false);
-};
-
-const trimOptional = (value: string) => {
-  const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
 };
 
 const confirmRealAiProvider = async () => {
@@ -231,9 +371,27 @@ const handleSubmit = async () => {
     return;
   }
 
+  if (form.scopeType === "product_line" && !form.productLineId) {
+    formError.value = "按产品线生成时必须选择产品线。";
+    return;
+  }
+
+  if (form.scopeType === "selected_files" && form.selectedKnowledgeFileIds.length === 0) {
+    formError.value = "指定资料生成时至少选择 1 份资料。";
+    return;
+  }
+
+  if (form.selectedKnowledgeFileIds.length > 10) {
+    formError.value = "指定资料最多选择 10 份。";
+    return;
+  }
+
   if (!(await confirmRealAiProvider())) {
     return;
   }
+
+  const selectedFileIds =
+    form.scopeType === "selected_files" ? [...form.selectedKnowledgeFileIds] : undefined;
 
   emit("submit", {
     generationType: form.generationType.trim(),
@@ -242,8 +400,11 @@ const handleSubmit = async () => {
     knowledgeBaseId: trimOptional(form.knowledgeBaseId),
     model: trimOptional(form.model) ?? (form.provider === "mock" ? "mock-content-v1" : undefined),
     name: form.name.trim(),
-    productLine: trimOptional(form.productLine),
+    productLine: selectedProductLine.value?.name ?? trimOptional(form.productLine),
+    productLineId: trimOptional(form.productLineId),
     provider: trimOptional(form.provider) ?? defaultProvider(),
+    scopeType: form.scopeType,
+    selectedKnowledgeFileIds: selectedFileIds,
     targetModel: trimOptional(form.targetModel)
   });
 };
@@ -284,7 +445,7 @@ const handleSubmit = async () => {
     <el-steps class="content-create-steps" :active="activeStep" finish-status="success" simple>
       <el-step title="选择提示词" />
       <el-step title="任务信息" />
-      <el-step title="知识与指令" />
+      <el-step title="资料范围与模板" />
       <el-step title="生成方式" />
       <el-step title="确认生成" />
     </el-steps>
@@ -315,12 +476,6 @@ const handleSubmit = async () => {
           <el-form-item label="任务名称" required>
             <el-input v-model="form.name" placeholder="例如：核心项目 GEO 内容补齐任务" />
           </el-form-item>
-          <el-form-item label="产品线 / 服务线">
-            <el-input
-              v-model="form.productLine"
-              placeholder="例如：核心产品、服务、课程或门店项目"
-            />
-          </el-form-item>
           <el-form-item label="生成类型" required>
             <el-select
               v-model="form.generationType"
@@ -343,8 +498,8 @@ const handleSubmit = async () => {
         <div class="content-form-section__header">
           <span>03</span>
           <div>
-            <h3>选择知识库与指令模板</h3>
-            <p>知识库提供事实边界，指令模板控制内容结构和质量规则。</p>
+            <h3>选择资料范围与文章模板</h3>
+            <p>限定本次文章可引用的知识库、产品线或具体资料，避免同库内混用资料。</p>
           </div>
         </div>
         <div class="content-form-grid">
@@ -359,7 +514,7 @@ const handleSubmit = async () => {
               <el-option
                 v-for="item in knowledgeBases"
                 :key="item.id"
-                :label="`${item.name} / ${formatOptional(item.productLine)}`"
+                :label="formatKnowledgeBaseLabel(item)"
                 :value="item.id"
               />
             </el-select>
@@ -367,7 +522,55 @@ const handleSubmit = async () => {
               将引用 {{ selectedKnowledgeBase.name }} 中的企业事实资料。
             </p>
           </el-form-item>
-          <el-form-item label="指令模板">
+          <el-form-item label="写作范围">
+            <el-radio-group v-model="form.scopeType" class="content-scope-radio-group">
+              <el-radio-button label="all">全部资料</el-radio-button>
+              <el-radio-button label="product_line">按产品线</el-radio-button>
+              <el-radio-button label="selected_files">指定资料</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="产品线">
+            <el-select
+              v-model="form.productLineId"
+              clearable
+              filterable
+              :loading="loadingOptions"
+              placeholder="可选：选择当前公司产品线"
+            >
+              <el-option
+                v-for="item in activeProductLines"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="指定资料">
+            <el-select
+              v-model="form.selectedKnowledgeFileIds"
+              multiple
+              filterable
+              remote
+              reserve-keyword
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
+              :multiple-limit="10"
+              :disabled="!form.knowledgeBaseId"
+              :loading="loadingKnowledgeFiles"
+              :remote-method="loadKnowledgeFiles"
+              placeholder="选择知识库后可多选可引用资料"
+            >
+              <el-option
+                v-for="item in knowledgeFiles"
+                :key="item.id"
+                :label="formatKnowledgeFileLabel(item)"
+                :value="item.id"
+              />
+            </el-select>
+            <p class="form-help">仅展示已通过、高/中可靠、可引用资料，最多 10 份。</p>
+          </el-form-item>
+          <el-form-item label="文章模板">
             <el-select
               v-model="form.instructionTemplateId"
               clearable
@@ -386,6 +589,12 @@ const handleSubmit = async () => {
               内容类型：{{ getInstructionContentTypeLabel(selectedInstructionTemplate) }}
             </p>
           </el-form-item>
+          <div class="content-scope-preview">
+            <div v-for="[label, value] in scopePreviewRows" :key="label">
+              <span>{{ label }}</span>
+              <strong>{{ value }}</strong>
+            </div>
+          </div>
         </div>
       </section>
 

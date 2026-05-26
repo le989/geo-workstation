@@ -75,6 +75,13 @@ type KnowledgeFileWithBase = KnowledgeFile & {
   directory?: KnowledgeDirectory | null;
 };
 
+type KnowledgeFileWithDirectoryAndCount = KnowledgeFile & {
+  directory?: KnowledgeDirectory | null;
+  _count?: {
+    chunks: number;
+  };
+};
+
 type KnowledgeFileMetadataInput = Pick<
   UploadKnowledgeFileDto,
   | "title"
@@ -121,6 +128,7 @@ export type KnowledgeFileResponse = {
   allowedDepartmentIds: string[];
   parseStatus: ParseStatus;
   errorMessage?: string;
+  chunksCount?: number;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -608,14 +616,22 @@ export class KnowledgeFilesService {
   ): Promise<KnowledgeFileListResponse> {
     await this.assertActiveKnowledgeBase(knowledgeBaseId, context);
     const page = Math.max(toOptionalInt(query.page) ?? DEFAULT_PAGE, 1);
-    const pageSize = Math.min(Math.max(toOptionalInt(query.pageSize) ?? DEFAULT_PAGE_SIZE, 1), 100);
+    const pageSize = Math.min(
+      Math.max(toOptionalInt(query.limit) ?? toOptionalInt(query.pageSize) ?? DEFAULT_PAGE_SIZE, 1),
+      100
+    );
     const where = this.buildWhere(knowledgeBaseId, query, context);
 
     const [items, total] = await Promise.all([
       this.prisma.knowledgeFile.findMany({
         where,
         include: {
-          directory: true
+          directory: true,
+          _count: {
+            select: {
+              chunks: true
+            }
+          }
         },
         orderBy: {
           createdAt: "desc"
@@ -1475,9 +1491,7 @@ export class KnowledgeFilesService {
     return value.map((item) => String(item).trim()).filter(Boolean);
   }
 
-  private toFileResponse(
-    file: KnowledgeFile & { directory?: KnowledgeDirectory | null }
-  ): KnowledgeFileResponse {
+  private toFileResponse(file: KnowledgeFileWithDirectoryAndCount): KnowledgeFileResponse {
     return {
       id: file.id,
       knowledgeBaseId: file.knowledgeBaseId,
@@ -1499,6 +1513,7 @@ export class KnowledgeFilesService {
       allowedDepartmentIds: this.jsonStringArrayToArray(file.allowedDepartmentIds),
       parseStatus: file.parseStatus,
       errorMessage: file.errorMessage ?? undefined,
+      chunksCount: file._count?.chunks,
       createdBy: file.createdById,
       createdAt: file.createdAt,
       updatedAt: file.updatedAt
