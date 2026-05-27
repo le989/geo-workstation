@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
+  AiCallStatus,
   Prisma,
   type ContentItem,
   type ContentTask,
@@ -36,6 +37,7 @@ import {
   buildFormattedPublishContent,
   type FormattedPublishContent
 } from "./utils/publish-format.util";
+import { findScopedContentKnowledgeChunks } from "./utils/content-knowledge-context.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
   getCurrentCompanyId,
@@ -544,6 +546,36 @@ export class ContentItemsService {
     usage?: GenerateTextResult,
     latencyMs?: number
   ): Promise<void> {
+    const promptTokens = isMock ? 0 : usage?.tokenInput;
+    const completionTokens = isMock ? 0 : usage?.tokenOutput;
+
+    await this.prisma.aiCallLog.create({
+      data: {
+        provider,
+        model: usage?.model ?? model ?? "configured-default",
+        purpose: action === "quality_check" ? AI_QUALITY_PURPOSE : AI_OPTIMIZE_PURPOSE,
+        relatedType: AI_RELATED_TYPE,
+        relatedId: qualityContext.item.id,
+        tokenInput: promptTokens,
+        tokenOutput: completionTokens,
+        costEstimate: 0,
+        status: success ? AiCallStatus.succeeded : AiCallStatus.failed,
+        ...(accessContext
+          ? {
+              company: {
+                connect: {
+                  id: getCurrentCompanyId(accessContext)
+                }
+              },
+              createdBy: {
+                connect: {
+                  id: accessContext.user.id
+                }
+              }
+            }
+          : {})
+      }
+    });
     await this.aiUsageService?.recordUsage(
       {
         moduleKey: "geo-content",
@@ -551,8 +583,8 @@ export class ContentItemsService {
         provider,
         model: usage?.model ?? model ?? null,
         isMock,
-        promptTokens: isMock ? 0 : usage?.tokenInput,
-        completionTokens: isMock ? 0 : usage?.tokenOutput,
+        promptTokens,
+        completionTokens,
         totalTokens:
           isMock || usage
             ? (usage?.tokenInput ?? 0) + (usage?.tokenOutput ?? 0)
@@ -612,20 +644,11 @@ export class ContentItemsService {
     }
 
     const knowledgeChunks = item.task.knowledgeBaseId
-      ? await this.prisma.knowledgeChunk.findMany({
-          where: {
-            knowledgeBaseId: item.task.knowledgeBaseId,
-            deletedAt: null,
-            ...(context
-              ? {
-                  companyId: getCurrentCompanyId(context)
-                }
-              : {})
-          },
-          orderBy: {
-            updatedAt: "desc"
-          },
-          take: 20
+      ? await findScopedContentKnowledgeChunks({
+          prisma: this.prisma,
+          task: item.task,
+          context,
+          take: 12
         })
       : [];
     const projectProfile = (await this.projectProfileService?.getPromptContext(context)) ?? null;

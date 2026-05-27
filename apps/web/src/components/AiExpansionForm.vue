@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import type { AiGenerateExpansionPayload } from "@/api/expansion";
 import type { UserIntent } from "@/api/geo-prompts";
+import { appEnvironment } from "@/config/app-env";
 import { splitCommaValues, userIntentOptions } from "@/config/geo-prompt-options";
 
 const props = defineProps<{
@@ -12,28 +13,42 @@ const emit = defineEmits<{
   submit: [payload: AiGenerateExpansionPayload];
 }>();
 
+const defaultProvider = () => (appEnvironment.mockEnabled ? "mock" : "openai_compatible");
+const defaultModel = (provider = defaultProvider()) =>
+  provider === "mock" ? "mock-expansion-v1" : "deepseek-chat";
+
 const form = reactive({
   baseWord: "",
   constraints: "",
   count: 10,
   knowledgeBaseId: "",
-  model: "mock-expansion-v1",
+  model: defaultModel(),
   productLine: "",
   promptType: "distilled" as AiGenerateExpansionPayload["promptType"],
-  provider: "mock" as "mock" | "openai_compatible",
+  provider: defaultProvider() as "mock" | "openai_compatible",
   scenario: "",
   targetModelsText: "",
   userIntent: "selection" as UserIntent
 });
 
 const localError = ref("");
-const expansionProviderOptions = [
-  { label: "内部候选生成", value: "mock" },
-  { label: "AI 接口生成", value: "openai_compatible" }
-] as const;
+const expansionProviderOptions = computed(() => {
+  const options: Array<{
+    label: string;
+    value: "mock" | "openai_compatible";
+  }> = [{ label: "AI 接口生成", value: "openai_compatible" }];
+
+  if (appEnvironment.mockEnabled) {
+    options.unshift({ label: "内部候选生成", value: "mock" });
+  }
+
+  return options;
+});
 const providerSafetyAlert = computed(() =>
   form.provider === "openai_compatible"
     ? "真实 AI 接口：会调用外部模型，可能产生额度消耗。"
+    : !appEnvironment.mockEnabled
+      ? "正式环境已禁用内部 Mock 生成。"
     : "内部生成：使用本地规则，不消耗真实模型额度。"
 );
 
@@ -50,6 +65,19 @@ watch(
     } else if (!form.model || form.model === "mock-expansion-v1") {
       form.model = "deepseek-chat";
     }
+  }
+);
+
+watch(
+  () => appEnvironment.mockEnabled,
+  (mockEnabled) => {
+    if (!mockEnabled && form.provider === "mock") {
+      form.provider = "openai_compatible";
+      form.model = defaultModel(form.provider);
+    }
+  },
+  {
+    immediate: true
   }
 );
 

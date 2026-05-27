@@ -185,6 +185,33 @@ const isTechnicalTaskName = (value: string) =>
 const getDisplayTaskName = (task: ContentTask) =>
   task.name && !isTechnicalTaskName(task.name) ? task.name : "GEO 内容生成任务";
 
+const isRealAiProvider = (provider?: string) => provider && provider !== "mock";
+
+const confirmRealAiTaskAction = async (
+  task: ContentTask | undefined | null,
+  actionLabel: string,
+  confirmButtonText: string
+) => {
+  if (!isRealAiProvider(task?.provider)) {
+    return true;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `${actionLabel}将调用外部 AI 模型，可能产生额度消耗。系统会发送当前任务资料范围内的知识片段，并继续排除待审核、低可靠、暂不可引用资料；确认后才继续。`,
+      `确认${actionLabel}`,
+      {
+        cancelButtonText: "取消",
+        confirmButtonText,
+        type: "warning"
+      }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const getTaskKnowledgeScopeSummary = (task: ContentTask) => {
   const scope = task.knowledgeScope;
 
@@ -329,6 +356,7 @@ const handleCreateTask = async (payload: CreateContentTaskPayload) => {
 
 const handleRetry = async (task?: ContentTask) => {
   const targetTaskId = task?.id ?? selectedTaskId.value;
+  const targetTask = task ?? detail.value?.task;
 
   if (!targetTaskId) {
     return;
@@ -340,15 +368,21 @@ const handleRetry = async (task?: ContentTask) => {
   }
 
   try {
-    await ElMessageBox.confirm(
-      "确认重试失败内容任务吗？重试不会重复生成已成功内容项。",
-      "重试内容任务",
-      {
-        cancelButtonText: "取消",
-        confirmButtonText: "重试",
-        type: "warning"
+    if (isRealAiProvider(targetTask?.provider)) {
+      if (!(await confirmRealAiTaskAction(targetTask, "重试生成", "确认重试"))) {
+        return;
       }
-    );
+    } else {
+      await ElMessageBox.confirm(
+        "确认重试失败内容任务吗？重试不会重复生成已成功内容项。",
+        "重试内容任务",
+        {
+          cancelButtonText: "取消",
+          confirmButtonText: "重试",
+          type: "warning"
+        }
+      );
+    }
 
     retrying.value = true;
     const result = await retryContentTask(targetTaskId);
@@ -446,6 +480,10 @@ const handleQualityCheck = async (item: ContentItem) => {
   qualityCheckError.value = "";
 
   try {
+    if (!(await confirmRealAiTaskAction(detail.value?.task, "质量检查", "确认检查"))) {
+      return;
+    }
+
     await withIdFlag(qualityCheckingIds, item.id, async () => {
       const result = await qualityCheckContentItem(item.id, {
         ...getReviewProviderPayload(),
@@ -470,6 +508,10 @@ const handleOptimizeForPublish = async (item: ContentItem) => {
   publishOptimizationError.value = "";
 
   try {
+    if (!(await confirmRealAiTaskAction(detail.value?.task, "生成发布优化版", "确认生成"))) {
+      return;
+    }
+
     await withIdFlag(optimizingIds, item.id, async () => {
       const result = await optimizeContentItemForPublish(item.id, {
         ...getReviewProviderPayload(),
