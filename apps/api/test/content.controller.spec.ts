@@ -148,10 +148,15 @@ describe("GeoContentController", () => {
     expect(qualityCheckResponse.body).toMatchObject({
       code: 0,
       message: "ok",
-      data: {
-        publishReadiness: {
-          needsHumanReview: true
-        }
+        data: {
+          publishStatus: expect.any(String),
+          qualityGateResult: expect.objectContaining({
+            version: "article_quality_gate_v1"
+          }),
+          qualityCheckedAt: expect.any(String),
+          publishReadiness: {
+            needsHumanReview: true
+          }
       }
     });
     expect(qualityCheckResponse.body.data.riskItems).toEqual(
@@ -161,6 +166,16 @@ describe("GeoContentController", () => {
         })
       ])
     );
+    const detailAfterQualityCheck = await request(app.getHttpServer())
+      .get(`/api/content-tasks/${taskId}`)
+      .expect(200);
+    expect(detailAfterQualityCheck.body.data.items[0]).toMatchObject({
+      publishStatus: qualityCheckResponse.body.data.publishStatus,
+      qualityGateResult: expect.objectContaining({
+        publishStatus: qualityCheckResponse.body.data.publishStatus
+      }),
+      qualityCheckedAt: expect.any(String)
+    });
 
     const optimizeResponse = await request(app.getHttpServer())
       .post(`/api/content-items/${itemId}/optimize-for-publish`)

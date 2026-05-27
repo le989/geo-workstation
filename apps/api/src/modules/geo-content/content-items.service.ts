@@ -37,7 +37,16 @@ import {
   buildFormattedPublishContent,
   type FormattedPublishContent
 } from "./utils/publish-format.util";
-import { findScopedContentKnowledgeChunks } from "./utils/content-knowledge-context.util";
+import {
+  findScopedContentKnowledgeChunks,
+  normalizeContentKnowledgeScope
+} from "./utils/content-knowledge-context.util";
+import {
+  buildQualityGateResult,
+  type PublishStatus,
+  type QualityGateResult,
+  type QualityGateScopeSummary
+} from "./utils/quality-gate.util";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
   getCurrentCompanyId,
@@ -60,6 +69,9 @@ export type GeneratedContentItemResponse = {
   geoOptimizationPoints: string[];
   suggestedPublishChannel?: string;
   status: string;
+  publishStatus?: PublishStatus;
+  qualityGateResult?: QualityGateResult;
+  qualityCheckedAt?: Date;
   errorMessage?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -111,6 +123,9 @@ export type ContentQualityCheckResponse = {
     needsHumanReview: boolean;
     suggestedAction: string;
   };
+  publishStatus?: PublishStatus;
+  qualityGateResult?: QualityGateResult;
+  qualityCheckedAt?: Date;
 };
 
 export type ContentPublishOptimizationResponse = {
@@ -428,17 +443,23 @@ export class ContentItemsService {
         qualityContext,
         context
       );
-      return ruleResult;
+      return this.persistQualityGateResult(
+        qualityContext,
+        ruleResult,
+        provider,
+        input.model ?? "mock-content-v1"
+      );
     }
 
     const aiStartedAt = Date.now();
 
     try {
       const aiResult = await this.runAiQualityCheck(qualityContext, input, ruleResult);
+      const qualityResult = aiResult.qualityResult ?? ruleResult;
       await this.recordContentItemAiUsage(
         "quality_check",
-        provider,
-        input.model,
+        aiResult.usage.provider,
+        aiResult.usage.model,
         false,
         true,
         qualityContext,
@@ -447,7 +468,12 @@ export class ContentItemsService {
         aiResult.usage,
         Date.now() - aiStartedAt
       );
-      return aiResult.qualityResult ?? ruleResult;
+      return this.persistQualityGateResult(
+        qualityContext,
+        qualityResult,
+        aiResult.usage.provider,
+        aiResult.usage.model
+      );
     } catch (error) {
       await this.recordContentItemAiUsage(
         "quality_check",
@@ -463,6 +489,75 @@ export class ContentItemsService {
       );
       throw error;
     }
+  }
+
+  private async persistQualityGateResult(
+    context: ContentQualityContext,
+    qualityResult: ContentQualityCheckResponse,
+    provider: string,
+    model?: string
+  ): Promise<ContentQualityCheckResponse> {
+    const checkedAt = new Date();
+    const qualityGateResult = buildQualityGateResult({
+      qualityResult,
+      title: context.item.title,
+      body: context.item.body,
+      provider,
+      model,
+      checkedAt,
+      scopeSummary: this.buildQualityGateScopeSummary(context.item.task)
+    });
+    const updated = await this.prisma.contentItem.update({
+      where: {
+        id: context.item.id
+      },
+      data: {
+        publishStatus: qualityGateResult.publishStatus,
+        qualityGateResult: qualityGateResult as Prisma.InputJsonValue,
+        qualityCheckedAt: checkedAt
+      }
+    });
+
+    return {
+      ...qualityResult,
+      publishStatus: qualityGateResult.publishStatus,
+      qualityGateResult,
+      qualityCheckedAt: updated.qualityCheckedAt ?? checkedAt
+    };
+  }
+
+  private buildQualityGateScopeSummary(
+    task: ContentTask & {
+      knowledgeBase: KnowledgeBase | null;
+      instructionTemplate: InstructionTemplate | null;
+    }
+  ): QualityGateScopeSummary {
+    const scope = normalizeContentKnowledgeScope(task.knowledgeScope);
+
+    if (scope.type === "selected_files") {
+      return {
+        knowledgeBaseId: task.knowledgeBaseId,
+        scopeType: scope.type,
+        selectedFileCount: scope.selectedKnowledgeFileIds.length,
+        productLineId: task.productLineId
+      };
+    }
+
+    if (scope.type === "product_line") {
+      return {
+        knowledgeBaseId: task.knowledgeBaseId,
+        scopeType: scope.type,
+        selectedFileCount: 0,
+        productLineId: scope.productLineId
+      };
+    }
+
+    return {
+      knowledgeBaseId: task.knowledgeBaseId,
+      scopeType: "all",
+      selectedFileCount: 0,
+      productLineId: task.productLineId
+    };
   }
 
   async optimizeForPublish(
@@ -1357,11 +1452,22 @@ export class ContentItemsService {
       geoOptimizationPoints: jsonStringArray(item.geoOptimizationPoints),
       suggestedPublishChannel: item.suggestedPublishChannel ?? undefined,
       status: item.status,
+      publishStatus: item.publishStatus as PublishStatus | undefined,
+      qualityGateResult: toQualityGateResult(item.qualityGateResult),
+      qualityCheckedAt: item.qualityCheckedAt ?? undefined,
       errorMessage: item.errorMessage ?? undefined,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt
     };
   }
+}
+
+function toQualityGateResult(value: Prisma.JsonValue | null): QualityGateResult | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value as QualityGateResult;
 }
 
 function tryParseJsonFromAiText(text: string): unknown {

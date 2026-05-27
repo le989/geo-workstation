@@ -5,6 +5,7 @@ import { apiRequest } from "./http";
 
 export type TaskStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
 export type ContentScopeType = "all" | "product_line" | "selected_files";
+export type PublishStatus = "publish_ready" | "needs_review" | "not_recommended";
 
 export type ContentKnowledgeScope =
   | {
@@ -57,6 +58,9 @@ export type ContentItem = {
   geoOptimizationPoints: string[];
   suggestedPublishChannel?: string;
   status: string;
+  publishStatus?: PublishStatus;
+  qualityGateResult?: QualityGateResult;
+  qualityCheckedAt?: string;
   errorMessage?: string;
   createdAt: string;
   updatedAt: string;
@@ -188,6 +192,40 @@ export type ContentQualityCheckResult = {
     needsHumanReview: boolean;
     suggestedAction: string;
   };
+  publishStatus?: PublishStatus;
+  qualityGateResult?: QualityGateResult;
+  qualityCheckedAt?: string;
+};
+
+export type QualityGateLevel = "low" | "medium" | "high";
+
+export type QualityGateTextHit = {
+  word: string;
+  field: "title" | "body";
+  snippet: string;
+};
+
+export type QualityGateResult = {
+  version: "article_quality_gate_v1";
+  checkedAt: string;
+  provider: string;
+  model?: string;
+  score: number;
+  level: QualityGateLevel;
+  publishStatus: PublishStatus;
+  riskItems: ContentQualityRiskItem[];
+  positiveItems: string[];
+  manualReviewItems: string[];
+  forbiddenWordHits: QualityGateTextHit[];
+  aiStyleIssues: QualityGateTextHit[];
+  factBoundaryIssues: QualityGateTextHit[];
+  scopeSummary: {
+    knowledgeBaseId?: string | null;
+    scopeType: ContentScopeType;
+    selectedFileCount: number;
+    productLineId?: string | null;
+  };
+  recommendation: string;
 };
 
 export type OptimizeContentItemForPublishPayload = {

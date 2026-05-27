@@ -5,6 +5,8 @@ import { MoreFilled } from "@element-plus/icons-vue";
 import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
 import {
   contentItemStatusLabelMap,
+  publishStatusLabelMap,
+  publishStatusTypeMap,
   truncateContentText
 } from "@/config/content-options";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
@@ -43,6 +45,11 @@ const getItemStatusType = (status: string) => {
   }
   return "info";
 };
+
+const getPublishStatusLabel = (status?: ContentItem["publishStatus"]) =>
+  status ? (publishStatusLabelMap[status] ?? status) : "未检查";
+const getPublishStatusType = (status?: ContentItem["publishStatus"]) =>
+  status ? (publishStatusTypeMap[status] ?? "info") : "info";
 
 const handleCommand = (command: string, item: ContentItem) => {
   if (command === "quality") {
@@ -98,6 +105,18 @@ const handleCommand = (command: string, item: ContentItem) => {
         <el-tag class="content-item-status-tag" :type="getItemStatusType(row.status)" effect="plain">
           {{ contentItemStatusLabelMap[row.status] ?? row.status }}
         </el-tag>
+      </template>
+    </el-table-column>
+    <el-table-column label="发布质量" width="130">
+      <template #default="{ row }">
+        <el-tag
+          v-if="row.publishStatus"
+          :type="getPublishStatusType(row.publishStatus)"
+          effect="plain"
+        >
+          {{ getPublishStatusLabel(row.publishStatus) }}
+        </el-tag>
+        <el-tag v-else type="info" effect="plain">未检查</el-tag>
       </template>
     </el-table-column>
     <el-table-column label="发布建议" min-width="170">

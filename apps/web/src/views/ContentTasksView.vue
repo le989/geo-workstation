@@ -494,6 +494,7 @@ const handleQualityCheck = async (item: ContentItem) => {
         itemTitle: item.title,
         result
       };
+      await loadDetail();
     });
 
     ElMessage.success("内容质量检查完成。");
