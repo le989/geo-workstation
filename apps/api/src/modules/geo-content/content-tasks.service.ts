@@ -29,6 +29,11 @@ import {
   generateMockGeoContent,
   type MockContentGenerationResult
 } from "./utils/mock-content-generator";
+import {
+  findScopedContentKnowledgeChunks,
+  normalizeContentKnowledgeScope,
+  type ContentKnowledgeScope
+} from "./utils/content-knowledge-context.util";
 import { jsonStringArray } from "./utils/normalize-content-item";
 import {
   normalizeCreateContentTask,
@@ -183,21 +188,6 @@ type AiUsageSummary = {
   latencyMs?: number;
 };
 
-export type ContentKnowledgeScope =
-  | {
-      type: "all";
-    }
-  | {
-      type: "product_line";
-      productLineId: string;
-      summary?: string;
-    }
-  | {
-      type: "selected_files";
-      selectedKnowledgeFileIds: string[];
-      summary?: string;
-    };
-
 @Injectable()
 export class ContentTasksService {
   constructor(
@@ -273,12 +263,23 @@ export class ContentTasksService {
         context
       );
     }
-    const knowledgeChunks = knowledgeBase
-      ? await this.findKnowledgeChunks(knowledgeBase.id, context, knowledgeScope)
-      : [];
-    const projectProfile = await this.findProjectProfileContext(context);
     const companyId = context ? getCurrentCompanyId(context) : undefined;
     const productLineName = normalized.productLine ?? productLine?.name;
+    const knowledgeChunks = knowledgeBase
+      ? await findScopedContentKnowledgeChunks({
+          prisma: this.prisma,
+          knowledgeBaseId: knowledgeBase.id,
+          task: {
+            companyId: companyId ?? null,
+            knowledgeBaseId: knowledgeBase.id,
+            knowledgeScope: knowledgeScope as Prisma.JsonValue,
+            productLine: productLineName ?? null,
+            productLineId: productLine?.id ?? normalized.productLineId ?? null
+          },
+          context
+        })
+      : [];
+    const projectProfile = await this.findProjectProfileContext(context);
 
     const task = await this.prisma.contentTask.create({
       data: {
@@ -580,9 +581,12 @@ export class ContentTasksService {
       }
     });
     const failedItems = activeItems.filter((item) => item.status === "failed");
-    const taskKnowledgeScope = this.normalizeKnowledgeScope(task.knowledgeScope);
     const knowledgeChunks = task.knowledgeBaseId
-      ? await this.findKnowledgeChunks(task.knowledgeBaseId, context, taskKnowledgeScope)
+      ? await findScopedContentKnowledgeChunks({
+          prisma: this.prisma,
+          task,
+          context
+        })
       : [];
     const instructionTemplate = task.instructionTemplateId
       ? await this.findOptionalInstructionTemplate(task.instructionTemplateId, context)
@@ -1202,90 +1206,6 @@ export class ContentTasksService {
     }
   }
 
-  private async findKnowledgeChunks(
-    knowledgeBaseId: string,
-    context?: ResourceAccessContext,
-    knowledgeScope: ContentKnowledgeScope = {
-      type: "all"
-    }
-  ): Promise<KnowledgeChunk[]> {
-    const companyId = context ? getCurrentCompanyId(context) : undefined;
-    const andWhere: Prisma.KnowledgeChunkWhereInput[] = [
-      {
-        knowledgeBaseId,
-        deletedAt: null,
-        file: {
-          is: buildOfficialCitableKnowledgeFileWhere({
-            ...(companyId
-              ? {
-                  companyId
-                }
-              : {})
-          })
-        },
-        ...(companyId
-          ? {
-              companyId
-            }
-          : {})
-      }
-    ];
-
-    if (knowledgeScope.type === "selected_files") {
-      andWhere.push({
-        fileId: {
-          in: knowledgeScope.selectedKnowledgeFileIds
-        }
-      });
-    }
-
-    if (knowledgeScope.type === "product_line") {
-      const productLine = await this.findOptionalProductLine(knowledgeScope.productLineId, context);
-      if (!productLine) {
-        throw new BadRequestException("产品线不存在、未启用或不属于当前公司。");
-      }
-      const legacyDefaultChunkWhere =
-        productLine.code === "default"
-          ? [
-              {
-                productLineId: null,
-                productLine: null
-              }
-            ]
-          : [];
-      andWhere.push({
-        OR: [
-          {
-            productLineId: productLine.id
-          },
-          {
-            productLine: productLine.name
-          },
-          {
-            productLine: productLine.code
-          },
-          ...legacyDefaultChunkWhere
-        ]
-      });
-    }
-
-    const chunks = await this.prisma.knowledgeChunk.findMany({
-      where: {
-        AND: andWhere
-      },
-      orderBy: {
-        updatedAt: "desc"
-      },
-      take: 5
-    });
-
-    if (knowledgeScope.type !== "all" && chunks.length === 0) {
-      throw new BadRequestException("当前资料范围内没有可引用资料。");
-    }
-
-    return chunks;
-  }
-
   private async createFailedContentItem(
     taskId: string,
     prompt: GeoPrompt,
@@ -1444,46 +1364,6 @@ export class ContentTasksService {
     return this.aiProviderService;
   }
 
-  private normalizeKnowledgeScope(
-    value: Prisma.JsonValue | null | undefined
-  ): ContentKnowledgeScope {
-    if (!isRecord(value)) {
-      return {
-        type: "all"
-      };
-    }
-
-    const type = optionalString(value.type);
-
-    if (type === "product_line") {
-      const productLineId = optionalString(value.productLineId);
-
-      if (productLineId) {
-        return {
-          type,
-          productLineId,
-          summary: optionalString(value.summary)
-        };
-      }
-    }
-
-    if (type === "selected_files") {
-      const selectedKnowledgeFileIds = optionalStringArray(value.selectedKnowledgeFileIds);
-
-      if (selectedKnowledgeFileIds.length > 0) {
-        return {
-          type,
-          selectedKnowledgeFileIds,
-          summary: optionalString(value.summary)
-        };
-      }
-    }
-
-    return {
-      type: "all"
-    };
-  }
-
   private toTaskResponse(task: ContentTask): ContentTaskResponse {
     return {
       id: task.id,
@@ -1492,7 +1372,7 @@ export class ContentTasksService {
       productLine: task.productLine ?? undefined,
       productLineId: task.productLineId ?? undefined,
       knowledgeBaseId: task.knowledgeBaseId,
-      knowledgeScope: this.normalizeKnowledgeScope(task.knowledgeScope),
+      knowledgeScope: normalizeContentKnowledgeScope(task.knowledgeScope),
       instructionTemplateId: task.instructionTemplateId,
       generationType: task.generationType,
       targetModel: task.targetModel ?? undefined,
@@ -1665,14 +1545,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function optionalStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))];
 }
 
 function buildProjectProfilePromptContext(profile?: ProjectProfileResponse | null): string {
