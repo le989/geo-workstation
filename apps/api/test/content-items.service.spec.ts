@@ -539,9 +539,11 @@ describe("ContentItemsService", () => {
 
     const markdown = await itemsService.exportMarkdown(item!.id);
     expect(markdown).toContain("# 行车防撞激光测距传感器 GEO 方案");
-    expect(markdown).toContain("## 目标提示词");
-    expect(markdown).toContain("## GEO 优化点");
-    expect(markdown).toContain("## 建议发布位置");
+    expect(markdown).toContain("## 任务信息");
+    expect(markdown).toContain("## 正文");
+    expect(markdown).toContain("## 人工复核提示");
+    expect(markdown).not.toContain("## GEO 优化点");
+    expect(markdown).not.toContain("## 建议发布位置");
 
     const deleted = await itemsService.softDelete(item!.id);
     expect(deleted.alreadyDeleted).toBe(false);
@@ -827,10 +829,20 @@ describe("ContentItemsService", () => {
 
     const markdown = await itemsService.exportPublishPackage(item.id, "markdown");
     const text = await itemsService.exportPublishPackage(item.id, "txt");
+    const publishMarkdown = await itemsService.exportContentItem(item.id, {
+      type: "publish",
+      format: "markdown"
+    });
     expect(markdown).toContain("## 标题组");
     expect(markdown).toContain(selectedFile.title ?? selectedFile.fileName);
     expect(markdown).not.toContain(otherFile.title ?? otherFile.fileName);
     expect(markdown).not.toContain(pendingFile.title ?? pendingFile.fileName);
+    expect(publishMarkdown).not.toContain("AI 用量");
+    expect(publishMarkdown).not.toContain("AI 调用日志");
+    expect(publishMarkdown).not.toContain("目标提示词");
+    expect(publishMarkdown).not.toContain("GEO 优化点");
+    expect(publishMarkdown).not.toContain("生成时间");
+    expect(publishMarkdown).not.toContain('{"code":0');
     expect(text).toContain("标题组");
     expect(text).not.toContain("undefined");
     expect(text).not.toContain("null");

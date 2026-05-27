@@ -152,7 +152,7 @@ const handleCommand = (command: string, item: ContentItem) => {
                   {{ optimizingIds?.includes(row.id) ? "生成中..." : "生成发布优化版" }}
                 </el-dropdown-item>
                 <el-dropdown-item command="export">
-                  {{ exportingIds?.includes(row.id) ? "导出中..." : "导出 Markdown" }}
+                  {{ exportingIds?.includes(row.id) ? "导出中..." : "导出评审稿" }}
                 </el-dropdown-item>
                 <el-dropdown-item command="delete" divided class="content-item-danger-command">
                   {{ deletingIds?.includes(row.id) ? "删除中..." : "删除" }}
