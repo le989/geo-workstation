@@ -7,6 +7,7 @@ import type {
   ContentQualityRiskItem,
   FormatContentItemForPublishPayload,
   ContentTaskDetail,
+  PublishStatus,
   PublishFormatResult,
   PublishOptimizationResult
 } from "@/api/content";
@@ -123,13 +124,33 @@ const contentItemsCount = computed(() => props.detail?.items.length ?? 0);
 const generatedItems = computed(() => props.detail?.items.filter(isGeneratedContentItem) ?? []);
 const generatedItemsCount = computed(() => generatedItems.value.length);
 const hasGeneratedContent = computed(() => generatedItemsCount.value > 0);
-const hasQualityCheck = computed(() => Boolean(props.qualityCheckResult));
+const persistedQualityGateItems = computed(
+  () =>
+    props.detail?.items
+      .filter((item) => item.qualityGateResult)
+      .map((item) => ({
+        item,
+        gate: item.qualityGateResult!
+      })) ?? []
+);
+const latestQualityGateResult = computed(
+  () => props.qualityCheckResult?.result.qualityGateResult ?? persistedQualityGateItems.value[0]?.gate ?? null
+);
+const hasQualityCheck = computed(
+  () => Boolean(props.qualityCheckResult) || persistedQualityGateItems.value.length > 0
+);
 const hasPublishOptimization = computed(() => Boolean(props.publishOptimizationResult));
 const hasPublishFormat = computed(() => Boolean(props.publishFormatResult));
 const needsHumanReview = computed(
-  () => props.qualityCheckResult?.result.publishReadiness.needsHumanReview ?? false
+  () =>
+    props.qualityCheckResult?.result.publishReadiness.needsHumanReview ??
+    (latestQualityGateResult.value ? latestQualityGateResult.value.publishStatus !== "publish_ready" : false)
 );
-const hasRiskyQuality = computed(() => props.qualityCheckResult?.result.level === "risky");
+const hasRiskyQuality = computed(
+  () =>
+    props.qualityCheckResult?.result.level === "risky" ||
+    latestQualityGateResult.value?.publishStatus === "not_recommended"
+);
 
 const getContentPreview = (body: string, maxLength = 360) => {
   const normalized = body.replace(/\s+/g, " ").trim();
@@ -245,7 +266,8 @@ const workflowSteps = computed(() => [
         ? "待质量检查"
         : "未开始",
     description: hasQualityCheck.value
-      ? props.qualityCheckResult?.result.publishReadiness.suggestedAction
+      ? (latestQualityGateResult.value?.recommendation ??
+        props.qualityCheckResult?.result.publishReadiness.suggestedAction)
       : "检查事实边界、品牌表达和 GEO 结构"
   },
   {
@@ -380,6 +402,18 @@ const severityTagMap: Record<string, "info" | "warning" | "danger"> = {
   high: "danger"
 };
 
+const publishStatusLabelMap: Record<PublishStatus, string> = {
+  publish_ready: "可发布",
+  needs_review: "需人工确认",
+  not_recommended: "不建议发布"
+};
+
+const publishStatusTypeMap: Record<PublishStatus, "success" | "warning" | "danger"> = {
+  publish_ready: "success",
+  needs_review: "warning",
+  not_recommended: "danger"
+};
+
 const contentItemStatusLabelMap: Record<string, string> = {
   pending: "待生成",
   running: "生成中",
@@ -403,6 +437,27 @@ const getQualityLevelLabel = (level: string) => qualityLevelLabelMap[level] ?? l
 const getQualityLevelType = (level: string) => qualityLevelTagMap[level] ?? "info";
 const getContentItemStatusLabel = (status: string) => contentItemStatusLabelMap[status] ?? status;
 const getContentItemStatusType = (status: string) => contentItemStatusTypeMap[status] ?? "info";
+const getPublishStatusLabel = (status?: PublishStatus) =>
+  status ? (publishStatusLabelMap[status] ?? status) : "未检查";
+const getPublishStatusType = (status?: PublishStatus) =>
+  status ? (publishStatusTypeMap[status] ?? "info") : "info";
+const getScopeSummaryLabel = (item: ContentItem) => {
+  const summary = item.qualityGateResult?.scopeSummary;
+
+  if (!summary) {
+    return "资料范围：未记录";
+  }
+
+  if (summary.scopeType === "selected_files") {
+    return `资料范围：指定资料 ${summary.selectedFileCount} 份`;
+  }
+
+  if (summary.scopeType === "product_line") {
+    return "资料范围：按产品线";
+  }
+
+  return "资料范围：全部资料";
+};
 
 const copyOptimizedBody = async () => {
   const text = props.publishOptimizationResult?.result.body;
@@ -741,6 +796,124 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             class="dialog-alert"
           />
 
+          <el-card
+            v-if="persistedQualityGateItems.length > 0"
+            shadow="never"
+            class="quality-gate-card"
+          >
+            <template #header>
+              <div class="quality-card-header">
+                <div>
+                  <span>发布质量状态</span>
+                  <strong>已保存的文章质量闸门结果</strong>
+                </div>
+              </div>
+            </template>
+
+            <div class="quality-gate-list">
+              <article
+                v-for="{ item, gate } in persistedQualityGateItems"
+                :key="item.id"
+                class="quality-gate-item"
+              >
+                <div class="quality-gate-item__header">
+                  <div>
+                    <strong>{{ item.title }}</strong>
+                    <span>
+                      {{ item.qualityCheckedAt ? formatDateTime(item.qualityCheckedAt) : "检查时间未记录" }}
+                    </span>
+                  </div>
+                  <div class="quality-gate-item__actions">
+                    <el-tag :type="getPublishStatusType(gate.publishStatus)" effect="plain">
+                      {{ getPublishStatusLabel(gate.publishStatus) }}
+                    </el-tag>
+                    <el-button
+                      v-if="canManageActions"
+                      text
+                      type="primary"
+                      :loading="qualityCheckingIds?.includes(item.id)"
+                      @click="emit('qualityCheck', item)"
+                    >
+                      重新检查
+                    </el-button>
+                  </div>
+                </div>
+
+                <div class="quality-summary-grid">
+                  <div>
+                    <span>评分</span>
+                    <strong>{{ gate.score }}</strong>
+                  </div>
+                  <div>
+                    <span>风险等级</span>
+                    <strong>{{ severityLabelMap[gate.level] ?? gate.level }}</strong>
+                  </div>
+                  <div>
+                    <span>资料范围</span>
+                    <strong>{{ getScopeSummaryLabel(item) }}</strong>
+                  </div>
+                </div>
+
+                <p class="quality-summary-text">{{ gate.recommendation }}</p>
+
+                <div class="quality-columns">
+                  <div>
+                    <h4>风险项 / 人工确认项</h4>
+                    <ul v-if="gate.manualReviewItems.length > 0 || gate.riskItems.length > 0">
+                      <li v-for="reviewItem in gate.manualReviewItems" :key="reviewItem">
+                        {{ reviewItem }}
+                      </li>
+                      <li
+                        v-for="risk in gate.riskItems"
+                        :key="`${risk.type}-${risk.text}`"
+                      >
+                        {{ getRiskTypeLabel(risk) }}：{{ risk.text }}，{{ risk.suggestion }}
+                      </li>
+                    </ul>
+                    <el-empty v-else description="暂无需要人工确认的风险项" />
+                  </div>
+                  <div>
+                    <h4>规则扫描</h4>
+                    <div class="positive-list">
+                      <el-tag
+                        v-if="gate.forbiddenWordHits.length > 0"
+                        type="danger"
+                        effect="plain"
+                      >
+                        风险词 {{ gate.forbiddenWordHits.length }} 处
+                      </el-tag>
+                      <el-tag
+                        v-if="gate.aiStyleIssues.length > 0"
+                        type="warning"
+                        effect="plain"
+                      >
+                        AI 化表达 {{ gate.aiStyleIssues.length }} 处
+                      </el-tag>
+                      <el-tag
+                        v-if="gate.factBoundaryIssues.length > 0"
+                        type="warning"
+                        effect="plain"
+                      >
+                        事实边界 {{ gate.factBoundaryIssues.length }} 处
+                      </el-tag>
+                      <el-tag
+                        v-if="
+                          gate.forbiddenWordHits.length === 0 &&
+                            gate.aiStyleIssues.length === 0 &&
+                            gate.factBoundaryIssues.length === 0
+                        "
+                        type="success"
+                        effect="plain"
+                      >
+                        规则扫描未命中明显问题
+                      </el-tag>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </el-card>
+
           <el-alert
             v-if="qualityCheckError"
             :title="qualityCheckError"
@@ -827,9 +1000,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           <el-card v-else shadow="never" class="review-empty-card">
             <div>
               <el-tag type="warning" effect="plain">待质量检查</el-tag>
-              <h4>先检查，再进入发布优化</h4>
+              <h4>尚未进行发布质量检查</h4>
               <p>
-                内容已生成时，建议先执行质量检查，确认是否存在知识库外参数、协议、认证、过度营销或品牌表达风险。
+                内容已生成时，建议先执行质量检查。检查完成后会保存发布质量状态，刷新页面后仍可查看。
               </p>
             </div>
           </el-card>
@@ -912,6 +1085,42 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 <style scoped>
 .content-quality-section {
   margin-top: 20px;
+}
+
+.quality-gate-card {
+  margin-bottom: 16px;
+}
+
+.quality-gate-list {
+  display: grid;
+  gap: 14px;
+}
+
+.quality-gate-item {
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.quality-gate-item__header,
+.quality-gate-item__actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.quality-gate-item__header > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.quality-gate-item__header span {
+  color: var(--geo-text-secondary);
+  font-size: 12px;
 }
 
 .content-flow-card,

@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { ContentItemsService } from "../src/modules/geo-content/content-items.service";
 import { ContentTasksService } from "../src/modules/geo-content/content-tasks.service";
+import type { QualityGateResult } from "../src/modules/geo-content/utils/quality-gate.util";
 import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
@@ -492,6 +493,47 @@ describe("ContentItemsService", () => {
       ])
     );
     expect(result.level).toBe("risky");
+  });
+
+  it("persists quality gate status and result after quality check", async () => {
+    const item = await createQualityCheckItem(
+      "## 适用场景\nKJT-LD18 雷达测距传感器适合工业测距。\n## 选型判断逻辑\n安装时最好对准目标中心，输出方式需结合现场工况确认。\n## FAQ\n问：怎么选？答：先确认现场工况。"
+    );
+
+    const result = await itemsService.qualityCheck(item.id, {
+      provider: "mock"
+    });
+
+    expect(["needs_review", "not_recommended"]).toContain(result.publishStatus);
+    expect(result.qualityGateResult).toMatchObject({
+      version: "article_quality_gate_v1",
+      publishStatus: result.publishStatus,
+      provider: "mock"
+    });
+    expect(result.qualityGateResult.forbiddenWordHits).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          word: "最好",
+          field: "body"
+        })
+      ])
+    );
+    expect(result.qualityCheckedAt).toBeInstanceOf(Date);
+
+    const persisted = await prisma.contentItem.findUniqueOrThrow({
+      where: {
+        id: item.id
+      }
+    });
+    const persistedGate = persisted.qualityGateResult as unknown as QualityGateResult;
+    expect(persisted.publishStatus).toBe(result.publishStatus);
+    expect(persistedGate).toMatchObject({
+      publishStatus: result.publishStatus,
+      scopeSummary: {
+        scopeType: "all"
+      }
+    });
+    expect(persisted.qualityCheckedAt).toBeInstanceOf(Date);
   });
 
   it("returns an optimized publish draft without overwriting the original content item", async () => {

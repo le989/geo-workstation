@@ -1,4 +1,4 @@
-import type { TaskStatus } from "@/api/content";
+import type { PublishStatus, TaskStatus } from "@/api/content";
 
 export const contentTaskStatusOptions: Array<{ label: string; value: TaskStatus }> = [
   { label: "待执行", value: "pending" },
@@ -33,6 +33,12 @@ export const contentItemStatusOptions = [
   { label: "可发布", value: "ready" },
   { label: "已发布", value: "published" },
   { label: "失败", value: "failed" }
+];
+
+export const publishStatusOptions: Array<{ label: string; value: PublishStatus; type: string }> = [
+  { label: "可发布", value: "publish_ready", type: "success" },
+  { label: "需人工确认", value: "needs_review", type: "warning" },
+  { label: "不建议发布", value: "not_recommended", type: "danger" }
 ];
 
 export const contentTaskStatusLabelMap = Object.fromEntries(
@@ -76,6 +82,14 @@ export const formatContentModelName = (value?: string | null) => {
 export const contentItemStatusLabelMap = Object.fromEntries(
   contentItemStatusOptions.map((item) => [item.value, item.label])
 ) as Record<string, string>;
+
+export const publishStatusLabelMap = Object.fromEntries(
+  publishStatusOptions.map((item) => [item.value, item.label])
+) as Record<PublishStatus, string>;
+
+export const publishStatusTypeMap = Object.fromEntries(
+  publishStatusOptions.map((item) => [item.value, item.type])
+) as Record<PublishStatus, string>;
 
 export const formatPercentLike = (value?: string | null) => value || "--";
 

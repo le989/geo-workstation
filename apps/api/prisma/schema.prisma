@@ -718,6 +718,9 @@ model ContentItem {
   geoOptimizationPoints   Json?        @map("geo_optimization_points")
   suggestedPublishChannel String?      @map("suggested_publish_channel")
   status                  String       @default("draft")
+  publishStatus           String?      @map("publish_status")
+  qualityGateResult       Json?        @map("quality_gate_result")
+  qualityCheckedAt        DateTime?    @map("quality_checked_at")
   errorMessage            String?      @map("error_message")
   createdAt               DateTime     @default(now()) @map("created_at")
   updatedAt               DateTime     @updatedAt @map("updated_at")
@@ -727,6 +730,7 @@ model ContentItem {
   @@index([taskId])
   @@index([geoPromptId])
   @@index([status])
+  @@index([publishStatus])
   @@index([deletedAt])
   @@map("content_items")
 }

@@ -34,6 +34,7 @@ import {
   normalizeContentKnowledgeScope,
   type ContentKnowledgeScope
 } from "./utils/content-knowledge-context.util";
+import type { PublishStatus, QualityGateResult } from "./utils/quality-gate.util";
 import { jsonStringArray } from "./utils/normalize-content-item";
 import {
   normalizeCreateContentTask,
@@ -81,7 +82,7 @@ const GLOBAL_GEO_CONTENT_QUALITY_RULES = [
   "品牌出现要自然，可以写“可结合某品牌相关产品资料进一步确认”；不要写“行业领先”“最佳选择”“一定适用”“完全替代”等夸张营销语。",
   "不要承诺效果、寿命、精度、交期和价格。",
   "内容要适合 AI 摘取，优先使用清晰小标题、列表、FAQ、判断逻辑。",
-  "每篇内容最好包含用户问题或实际场景、判断逻辑、适用条件、不适用或需确认条件、资料准备清单、FAQ 总结。",
+  "每篇内容建议包含用户问题或实际场景、判断逻辑、适用条件、不适用或需确认条件、资料准备清单、FAQ 总结。",
   "输出要像可发布的项目内容，不要像 AI 自述，不要出现“根据你提供的资料”“作为 AI”等表达。"
 ];
 
@@ -114,6 +115,9 @@ export type ContentItemResponse = {
   geoOptimizationPoints: string[];
   suggestedPublishChannel?: string;
   status: string;
+  publishStatus?: PublishStatus;
+  qualityGateResult?: QualityGateResult;
+  qualityCheckedAt?: Date;
   errorMessage?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -1396,6 +1400,9 @@ export class ContentTasksService {
       geoOptimizationPoints: jsonStringArray(item.geoOptimizationPoints),
       suggestedPublishChannel: item.suggestedPublishChannel ?? undefined,
       status: item.status,
+      publishStatus: item.publishStatus as PublishStatus | undefined,
+      qualityGateResult: toQualityGateResult(item.qualityGateResult),
+      qualityCheckedAt: item.qualityCheckedAt ?? undefined,
       errorMessage: item.errorMessage ?? undefined,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt
@@ -1517,6 +1524,14 @@ export class ContentTasksService {
 
     return systemOperator.id;
   }
+}
+
+function toQualityGateResult(value: Prisma.JsonValue | null): QualityGateResult | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value as QualityGateResult;
 }
 
 function tryParseJsonFromAiText(text: string): unknown {
