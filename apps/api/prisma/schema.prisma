@@ -721,6 +721,8 @@ model ContentItem {
   publishStatus           String?      @map("publish_status")
   qualityGateResult       Json?        @map("quality_gate_result")
   qualityCheckedAt        DateTime?    @map("quality_checked_at")
+  publishPackage          Json?        @map("publish_package")
+  publishPackageGeneratedAt DateTime?  @map("publish_package_generated_at")
   errorMessage            String?      @map("error_message")
   createdAt               DateTime     @default(now()) @map("created_at")
   updatedAt               DateTime     @updatedAt @map("updated_at")

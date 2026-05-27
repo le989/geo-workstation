@@ -7,7 +7,9 @@ import {
   createContentTask,
   deleteContentItem,
   exportContentItem,
+  exportContentItemPublishPackage,
   formatContentItemForPublish,
+  generateContentItemPublishPackage,
   getContentTask,
   getContentTasks,
   optimizeContentItemForPublish,
@@ -21,6 +23,7 @@ import {
   type ContentTaskQuery,
   type CreateContentTaskPayload,
   type FormatContentItemForPublishPayload,
+  type PublishPackageExportFormat,
   type PublishFormatResult,
   type PublishOptimizationResult,
   type UpdateContentItemPayload
@@ -72,6 +75,8 @@ const deletingIds = ref<string[]>([]);
 const qualityCheckingIds = ref<string[]>([]);
 const optimizingIds = ref<string[]>([]);
 const formattingIds = ref<string[]>([]);
+const publishPackageGeneratingIds = ref<string[]>([]);
+const publishPackageExportingIds = ref<string[]>([]);
 const qualityCheckResult = ref<{
   itemId: string;
   itemTitle: string;
@@ -450,18 +455,22 @@ const getReviewProviderPayload = () => ({
   model: detail.value?.task.model
 });
 
-const downloadMarkdown = (item: ContentItem, markdown: string) => {
-  const blob = new Blob([markdown], {
-    type: "text/markdown;charset=utf-8"
+const downloadTextFile = (fileName: string, content: string, mimeType: string) => {
+  const blob = new Blob([content], {
+    type: mimeType
   });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `content-item-${item.id}.md`;
+  link.download = fileName;
   document.body.append(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+};
+
+const downloadMarkdown = (item: ContentItem, markdown: string) => {
+  downloadTextFile(`content-item-${item.id}.md`, markdown, "text/markdown;charset=utf-8");
 };
 
 const handleExportMarkdown = async (item: ContentItem) => {
@@ -473,6 +482,37 @@ const handleExportMarkdown = async (item: ContentItem) => {
     ElMessage.success("Markdown 已导出。");
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "Markdown 导出失败。");
+  }
+};
+
+const handleGeneratePublishPackage = async (item: ContentItem) => {
+  try {
+    await withIdFlag(publishPackageGeneratingIds, item.id, async () => {
+      await generateContentItemPublishPackage(item.id);
+      await loadDetail();
+    });
+    ElMessage.success("发布包已生成。");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "发布包生成失败。");
+  }
+};
+
+const handleExportPublishPackage = async (
+  item: ContentItem,
+  format: PublishPackageExportFormat
+) => {
+  try {
+    await withIdFlag(publishPackageExportingIds, item.id, async () => {
+      const content = await exportContentItemPublishPackage(item.id, format);
+      downloadTextFile(
+        `publish-package-${item.id}.${format === "txt" ? "txt" : "md"}`,
+        content,
+        format === "txt" ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8"
+      );
+    });
+    ElMessage.success(format === "txt" ? "TXT 发布包已导出。" : "Markdown 发布包已导出。");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "发布包导出失败。");
   }
 };
 
@@ -809,6 +849,8 @@ onMounted(() => {
       :quality-checking-ids="qualityCheckingIds"
       :optimizing-ids="optimizingIds"
       :formatting-ids="formattingIds"
+      :publish-package-generating-ids="publishPackageGeneratingIds"
+      :publish-package-exporting-ids="publishPackageExportingIds"
       :quality-check-result="qualityCheckResult"
       :quality-check-error="qualityCheckError"
       :publish-optimization-result="publishOptimizationResult"
@@ -826,6 +868,8 @@ onMounted(() => {
       @quality-check="handleQualityCheck"
       @optimize="handleOptimizeForPublish"
       @format-publish="handleFormatForPublish"
+      @generate-publish-package="handleGeneratePublishPackage"
+      @export-publish-package="handleExportPublishPackage"
     />
 
     <ContentItemFormDialog

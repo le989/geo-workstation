@@ -8,7 +8,8 @@ import {
   type GeoPrompt,
   type InstructionTemplate,
   type KnowledgeBase,
-  type KnowledgeChunk
+  type KnowledgeChunk,
+  type KnowledgeFile
 } from "@prisma/client";
 import { AiProviderService } from "../ai/ai-provider.service";
 import {
@@ -38,6 +39,14 @@ import {
   type FormattedPublishContent
 } from "./utils/publish-format.util";
 import {
+  buildArticlePublishPackageMarkdown,
+  buildArticlePublishPackageText,
+  generateArticlePublishPackage,
+  toArticlePublishPackage,
+  type ArticlePublishPackage,
+  type ArticlePublishPackageEvidence
+} from "./utils/article-publish-package.util";
+import {
   findScopedContentKnowledgeChunks,
   normalizeContentKnowledgeScope
 } from "./utils/content-knowledge-context.util";
@@ -58,6 +67,7 @@ import {
 } from "../auth/owner-company-policy";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
+import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
 
 export type GeneratedContentItemResponse = {
   id: string;
@@ -72,6 +82,8 @@ export type GeneratedContentItemResponse = {
   publishStatus?: PublishStatus;
   qualityGateResult?: QualityGateResult;
   qualityCheckedAt?: Date;
+  publishPackage?: ArticlePublishPackage;
+  publishPackageGeneratedAt?: Date;
   errorMessage?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -136,6 +148,7 @@ export type ContentPublishOptimizationResponse = {
 };
 
 export type ContentPublishFormatResponse = FormattedPublishContent;
+export type PublishPackageExportFormat = "markdown" | "txt";
 
 type ContentItemWithContext = ContentItem & {
   geoPrompt: GeoPrompt | null;
@@ -390,6 +403,107 @@ export class ContentItemsService {
     );
 
     return markdown;
+  }
+
+  async generatePublishPackage(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeneratedContentItemResponse> {
+    const qualityContext = await this.loadQualityContext(id, context);
+
+    if (!qualityContext.item.body.trim()) {
+      throw new BadRequestException("内容项正文为空，无法生成发布包。");
+    }
+
+    const generatedAt = new Date();
+    const evidence = await this.buildPublishPackageEvidence(qualityContext, context);
+    const publishPackage = generateArticlePublishPackage({
+      title: qualityContext.item.title,
+      body: qualityContext.item.body,
+      productLineName: qualityContext.item.task.productLine ?? undefined,
+      promptText: qualityContext.item.geoPrompt?.promptText ?? undefined,
+      suggestedPublishChannel: qualityContext.item.suggestedPublishChannel ?? undefined,
+      publishStatus: qualityContext.item.publishStatus as PublishStatus | undefined,
+      qualityGateResult: toQualityGateResult(qualityContext.item.qualityGateResult),
+      evidence
+    });
+
+    const updated = await this.prisma.contentItem.update({
+      where: {
+        id: qualityContext.item.id
+      },
+      data: {
+        publishPackage: publishPackage as Prisma.InputJsonValue,
+        publishPackageGeneratedAt: generatedAt
+      }
+    });
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "generate_publish_package",
+        targetType: "content_item",
+        targetId: updated.id,
+        targetTitle: updated.title,
+        success: true,
+        metadata: {
+          taskId: updated.taskId,
+          evidenceCount: publishPackage.evidence.length
+        }
+      },
+      context
+    );
+
+    return this.toResponse(updated);
+  }
+
+  async exportPublishPackage(
+    id: string,
+    format: PublishPackageExportFormat,
+    context?: ResourceAccessContext
+  ): Promise<string> {
+    const item = await this.findExistingContentItem(id, context);
+
+    if (context) {
+      assertCanManageOwnerCompanyResource(context, item.task, "无权导出当前 GEO 内容项发布包");
+    }
+
+    if (item.deletedAt) {
+      throw new NotFoundException(`GEO content item not found: ${id}`);
+    }
+
+    const publishPackage = toArticlePublishPackage(item.publishPackage);
+
+    if (!publishPackage) {
+      throw new BadRequestException("请先生成发布包，再导出发布包内容。");
+    }
+
+    const payload = {
+      title: item.title,
+      publishStatus: item.publishStatus as PublishStatus | undefined,
+      publishPackage,
+      generatedAt: item.publishPackageGeneratedAt
+    };
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "export_publish_package",
+        targetType: "content_item",
+        targetId: item.id,
+        targetTitle: item.title,
+        success: true,
+        metadata: {
+          taskId: item.taskId,
+          format
+        }
+      },
+      context
+    );
+
+    return format === "txt"
+      ? buildArticlePublishPackageText(payload)
+      : buildArticlePublishPackageMarkdown(payload);
   }
 
   async formatForPublish(
@@ -752,6 +866,100 @@ export class ContentItemsService {
       item,
       knowledgeChunks,
       projectProfile
+    };
+  }
+
+  private async buildPublishPackageEvidence(
+    context: ContentQualityContext,
+    accessContext?: ResourceAccessContext
+  ): Promise<ArticlePublishPackageEvidence[]> {
+    const task = context.item.task;
+    const knowledgeBaseId = task.knowledgeBaseId;
+
+    if (!knowledgeBaseId || context.knowledgeChunks.length === 0) {
+      return [];
+    }
+
+    const scope = normalizeContentKnowledgeScope(task.knowledgeScope);
+    const companyId = accessContext ? getCurrentCompanyId(accessContext) : task.companyId ?? undefined;
+    const fileIds = [
+      ...new Set(
+        context.knowledgeChunks
+          .map((chunk) => chunk.fileId)
+          .filter((fileId): fileId is string => Boolean(fileId))
+      )
+    ];
+
+    if (fileIds.length === 0) {
+      return [];
+    }
+
+    // 发布包资料依据只来自当前任务实际可引用片段，避免把同库其他资料误展示为来源。
+    const files = await this.prisma.knowledgeFile.findMany({
+      where: buildOfficialCitableKnowledgeFileWhere({
+        id: {
+          in: fileIds
+        },
+        knowledgeBaseId,
+        ...(companyId
+          ? {
+              companyId
+            }
+          : {})
+      }),
+      orderBy: {
+        updatedAt: "desc"
+      }
+    });
+
+    const selectedFileIdSet =
+      scope.type === "selected_files" ? new Set(scope.selectedKnowledgeFileIds) : null;
+    const fileChunkCounts = this.countChunksByFileId(context.knowledgeChunks);
+
+    return files
+      .filter((file) => (selectedFileIdSet ? selectedFileIdSet.has(file.id) : true))
+      .map((file) =>
+        this.toPublishPackageEvidence(file, {
+          knowledgeBaseName: task.knowledgeBase?.name,
+          productLineName: task.productLine ?? undefined,
+          scopeType: scope.type,
+          chunkCount: fileChunkCounts.get(file.id) ?? 0
+        })
+      );
+  }
+
+  private countChunksByFileId(chunks: KnowledgeChunk[]): Map<string, number> {
+    const counts = new Map<string, number>();
+
+    for (const chunk of chunks) {
+      if (!chunk.fileId) {
+        continue;
+      }
+
+      counts.set(chunk.fileId, (counts.get(chunk.fileId) ?? 0) + 1);
+    }
+
+    return counts;
+  }
+
+  private toPublishPackageEvidence(
+    file: KnowledgeFile,
+    input: {
+      knowledgeBaseName?: string;
+      productLineName?: string;
+      scopeType: string;
+      chunkCount: number;
+    }
+  ): ArticlePublishPackageEvidence {
+    return {
+      knowledgeBaseName: input.knowledgeBaseName,
+      fileName: file.title ?? file.fileName,
+      productLineName: input.productLineName,
+      scopeType: input.scopeType,
+      sourceNote:
+        input.chunkCount > 0
+          ? `来自当前资料范围内 ${input.chunkCount} 个可引用知识片段`
+          : "来自当前资料范围内的可引用资料"
     };
   }
 
@@ -1455,6 +1663,8 @@ export class ContentItemsService {
       publishStatus: item.publishStatus as PublishStatus | undefined,
       qualityGateResult: toQualityGateResult(item.qualityGateResult),
       qualityCheckedAt: item.qualityCheckedAt ?? undefined,
+      publishPackage: toArticlePublishPackage(item.publishPackage),
+      publishPackageGeneratedAt: item.publishPackageGeneratedAt ?? undefined,
       errorMessage: item.errorMessage ?? undefined,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt

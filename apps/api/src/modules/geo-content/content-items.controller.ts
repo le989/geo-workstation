@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
 import { createValidationPipe } from "../../common/validation/create-validation-pipe";
 import {
   buildResourceAccessContext,
@@ -108,6 +108,40 @@ export class ContentItemsController {
     return this.contentItemsService.formatForPublish(
       id,
       body,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Post(":id/publish-package")
+  generatePublishPackage(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.contentItemsService.generatePublishPackage(
+      id,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Get(":id/publish-package/export")
+  exportPublishPackage(
+    @Param("id") id: string,
+    @Query("format") format: string | undefined,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    const normalizedFormat = format === "txt" ? "txt" : format === "markdown" || !format ? "markdown" : null;
+
+    if (!normalizedFormat) {
+      throw new BadRequestException("发布包导出格式仅支持 markdown 或 txt。");
+    }
+
+    return this.contentItemsService.exportPublishPackage(
+      id,
+      normalizedFormat,
       this.buildContext(user, currentCompany, currentMembership)
     );
   }

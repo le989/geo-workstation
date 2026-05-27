@@ -3,6 +3,8 @@ import {
   CompanyStatus,
   CompanyType,
   GeoPromptType,
+  KnowledgeReviewStatus,
+  KnowledgeTrustLevel,
   MembershipRole,
   TaskStatus,
   UserIntent,
@@ -15,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ContentItemsService } from "../src/modules/geo-content/content-items.service";
 import { ContentTasksService } from "../src/modules/geo-content/content-tasks.service";
 import type { QualityGateResult } from "../src/modules/geo-content/utils/quality-gate.util";
+import type { ArticlePublishPackage } from "../src/modules/geo-content/utils/article-publish-package.util";
 import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
@@ -270,6 +273,157 @@ describe("ContentItemsService", () => {
         status: "draft"
       }
     });
+  }
+
+  async function createPublishPackageItem(input?: { body?: string }) {
+    const knowledgeBase = await prisma.knowledgeBase.create({
+      data: {
+        name: unique("发布包知识库"),
+        productLine: "雷达测距传感器",
+        description: "用于发布包测试的知识库。",
+        createdById: createdBy
+      }
+    });
+    const selectedFile = await prisma.knowledgeFile.create({
+      data: {
+        knowledgeBaseId: knowledgeBase.id,
+        title: unique("KJT-LD18 雷达测距传感器产品规格书"),
+        fileName: "KJT-LD18 雷达测距传感器产品规格书.md",
+        fileType: "md",
+        fileSize: 1024,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        trustLevel: KnowledgeTrustLevel.high,
+        createdById: createdBy
+      }
+    });
+    const otherFile = await prisma.knowledgeFile.create({
+      data: {
+        knowledgeBaseId: knowledgeBase.id,
+        title: unique("KJT-HWCJ-50M 红外光电开关技术规格"),
+        fileName: "KJT-HWCJ-50M 红外光电开关技术规格.md",
+        fileType: "md",
+        fileSize: 1024,
+        reviewStatus: KnowledgeReviewStatus.approved,
+        trustLevel: KnowledgeTrustLevel.high,
+        createdById: createdBy
+      }
+    });
+    const pendingFile = await prisma.knowledgeFile.create({
+      data: {
+        knowledgeBaseId: knowledgeBase.id,
+        title: unique("KJT-KELR-TE 待审核资料"),
+        fileName: "KJT-KELR-TE 待审核资料.md",
+        fileType: "md",
+        fileSize: 1024,
+        reviewStatus: KnowledgeReviewStatus.pending,
+        trustLevel: KnowledgeTrustLevel.low,
+        createdById: createdBy
+      }
+    });
+    await prisma.knowledgeChunk.createMany({
+      data: [
+        {
+          knowledgeBaseId: knowledgeBase.id,
+          fileId: selectedFile.id,
+          title: unique("LD18 片段"),
+          content: "KJT-LD18 雷达测距传感器可用于工业测距，选型需结合现场工况确认。",
+          sourceType: "file_parse",
+          productLine: "雷达测距传感器",
+          materialType: "product_material"
+        },
+        {
+          knowledgeBaseId: knowledgeBase.id,
+          fileId: otherFile.id,
+          title: unique("HWCJ 片段"),
+          content: "KJT-HWCJ-50M 红外光电开关用于长距离 TOF 检测。",
+          sourceType: "file_parse",
+          productLine: "TOF光电开关",
+          materialType: "product_material"
+        },
+        {
+          knowledgeBaseId: knowledgeBase.id,
+          fileId: pendingFile.id,
+          title: unique("待审核片段"),
+          content: "KELR-TE 待审核资料不得作为正式发布依据。",
+          sourceType: "file_parse",
+          productLine: "激光位移传感器",
+          materialType: "product_material"
+        }
+      ]
+    });
+    const prompt = await prisma.geoPrompt.create({
+      data: {
+        type: GeoPromptType.distilled,
+        baseWord: "KJT-LD18",
+        promptText: unique("KJT-LD18 雷达测距传感器怎么选"),
+        productLine: "雷达测距传感器",
+        userIntent: UserIntent.selection,
+        priority: 1,
+        createdById: createdBy
+      }
+    });
+    const task = await prisma.contentTask.create({
+      data: {
+        name: unique("发布包内容任务"),
+        productLine: "雷达测距传感器",
+        knowledgeBaseId: knowledgeBase.id,
+        knowledgeScope: {
+          type: "selected_files",
+          selectedKnowledgeFileIds: [selectedFile.id],
+          summary: "指定资料生成"
+        },
+        generationType: "selection_guide",
+        status: TaskStatus.succeeded,
+        provider: "mock",
+        model: "mock-content-v1",
+        createdById: createdBy
+      }
+    });
+    const item = await prisma.contentItem.create({
+      data: {
+        taskId: task.id,
+        geoPromptId: prompt.id,
+        title: unique("KJT-LD18 雷达测距传感器选型与应用参考"),
+        body:
+          input?.body ??
+          "## 适用场景\nKJT-LD18 雷达测距传感器适合工业测距场景，选型前应确认目标材质、安装距离和现场环境。\n\n## 选型注意事项\n- 结合资料核对型号参数\n- 结合现场工况确认安装条件\n\n## FAQ\n问：怎么选？答：先确认检测距离、安装空间和输出要求。",
+        geoOptimizationPoints: ["覆盖 LD18 选型问题"],
+        suggestedPublishChannel: "多平台文章",
+        publishStatus: "needs_review",
+        qualityGateResult: {
+          version: "article_quality_gate_v1",
+          checkedAt: new Date().toISOString(),
+          provider: "mock",
+          model: "mock-content-v1",
+          score: 82,
+          level: "medium",
+          publishStatus: "needs_review",
+          riskItems: [],
+          positiveItems: ["结构清晰"],
+          manualReviewItems: ["参数发布前需人工核对"],
+          forbiddenWordHits: [],
+          aiStyleIssues: [],
+          factBoundaryIssues: [],
+          scopeSummary: {
+            knowledgeBaseId: knowledgeBase.id,
+            scopeType: "selected_files",
+            selectedFileCount: 1
+          },
+          recommendation: "可作为发布前人工审校稿。"
+        },
+        qualityCheckedAt: new Date(),
+        status: "draft"
+      }
+    });
+
+    return {
+      knowledgeBase,
+      selectedFile,
+      otherFile,
+      pendingFile,
+      task,
+      item
+    };
   }
 
   const contextFor = (
@@ -617,5 +771,68 @@ describe("ContentItemsService", () => {
     });
     expect(unchanged.title).toBe(item.title);
     expect(unchanged.body).toContain("激光测距传感器选型前应先确认现场工况");
+  });
+
+  it("rejects publish package generation when the body is empty", async () => {
+    const { item } = await createPublishPackageItem({
+      body: ""
+    });
+
+    await expect(itemsService.generatePublishPackage(item.id)).rejects.toThrow("正文为空");
+  });
+
+  it("generates, persists, and exports a scoped publish package without AI logs", async () => {
+    const { item, selectedFile, otherFile, pendingFile } = await createPublishPackageItem();
+
+    const result = await itemsService.generatePublishPackage(item.id);
+    const publishPackage = result.publishPackage as ArticlePublishPackage;
+
+    expect(result.publishPackageGeneratedAt).toBeInstanceOf(Date);
+    expect(publishPackage.titles.standardTitle).toContain("KJT-LD18");
+    expect(publishPackage.summary).toContain("KJT-LD18");
+    expect(publishPackage.faqs.length).toBeGreaterThanOrEqual(3);
+    expect(publishPackage.evidence.map((evidence) => evidence.fileName)).toEqual([
+      selectedFile.title
+    ]);
+    expect(publishPackage.evidence.map((evidence) => evidence.fileName)).not.toContain(
+      otherFile.title
+    );
+    expect(publishPackage.evidence.map((evidence) => evidence.fileName)).not.toContain(
+      pendingFile.title
+    );
+
+    const persisted = await prisma.contentItem.findUniqueOrThrow({
+      where: {
+        id: item.id
+      }
+    });
+    expect(persisted.publishPackage).toBeTruthy();
+    expect(persisted.publishPackageGeneratedAt).toBeInstanceOf(Date);
+    const relatedUsageRecords = (await prisma.aiUsageRecord.findMany({
+      where: {
+        moduleKey: "geo-content"
+      }
+    })).filter((record) => {
+      const metadata = record.metadata as { contentItemId?: string } | null;
+      return metadata?.contentItemId === item.id;
+    });
+    const relatedCallLogs = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    expect(relatedUsageRecords).toHaveLength(0);
+    expect(relatedCallLogs).toBe(0);
+
+    const markdown = await itemsService.exportPublishPackage(item.id, "markdown");
+    const text = await itemsService.exportPublishPackage(item.id, "txt");
+    expect(markdown).toContain("## 标题组");
+    expect(markdown).toContain(selectedFile.title ?? selectedFile.fileName);
+    expect(markdown).not.toContain(otherFile.title ?? otherFile.fileName);
+    expect(markdown).not.toContain(pendingFile.title ?? pendingFile.fileName);
+    expect(text).toContain("标题组");
+    expect(text).not.toContain("undefined");
+    expect(text).not.toContain("null");
   });
 });

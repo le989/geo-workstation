@@ -61,6 +61,8 @@ export type ContentItem = {
   publishStatus?: PublishStatus;
   qualityGateResult?: QualityGateResult;
   qualityCheckedAt?: string;
+  publishPackage?: ArticlePublishPackage;
+  publishPackageGeneratedAt?: string;
   errorMessage?: string;
   createdAt: string;
   updatedAt: string;
@@ -263,6 +265,43 @@ export type PublishFormatResult = {
   copyTips: string[];
 };
 
+export type ArticlePublishPackage = {
+  titles: {
+    shortTitle: string;
+    standardTitle: string;
+    searchTitle: string;
+    platformTitles: {
+      baijiahao: string;
+      toutiao: string;
+      zhihu: string;
+      xiaohongshu: string;
+      douyin: string;
+      generic: string;
+    };
+  };
+  summary: string;
+  keywords: {
+    primaryKeywords: string[];
+    longTailKeywords: string[];
+    platformTags: string[];
+  };
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
+  evidence: Array<{
+    knowledgeBaseName?: string;
+    fileName?: string;
+    productLineName?: string;
+    scopeType?: string;
+    sourceNote?: string;
+  }>;
+  riskTips: string[];
+  manualCheckItems: string[];
+};
+
+export type PublishPackageExportFormat = "markdown" | "txt";
+
 const toQueryString = (params: Record<string, string | number | boolean | undefined>) => {
   const searchParams = new URLSearchParams();
 
@@ -314,6 +353,16 @@ export const deleteContentItem = (id: string) =>
 
 export const exportContentItem = (id: string) =>
   apiRequest<string>(`/api/content-items/${id}/export`);
+
+export const generateContentItemPublishPackage = (id: string) =>
+  apiRequest<ContentItem>(`/api/content-items/${id}/publish-package`, {
+    method: "POST"
+  });
+
+export const exportContentItemPublishPackage = (
+  id: string,
+  format: PublishPackageExportFormat
+) => apiRequest<string>(`/api/content-items/${id}/publish-package/export?format=${format}`);
 
 export const qualityCheckContentItem = (id: string, payload: ContentQualityCheckPayload = {}) =>
   apiRequest<ContentQualityCheckResult>(`/api/content-items/${id}/quality-check`, {
