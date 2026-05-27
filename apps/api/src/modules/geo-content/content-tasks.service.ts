@@ -35,6 +35,10 @@ import {
   type ContentKnowledgeScope
 } from "./utils/content-knowledge-context.util";
 import type { PublishStatus, QualityGateResult } from "./utils/quality-gate.util";
+import {
+  toArticlePublishPackage,
+  type ArticlePublishPackage
+} from "./utils/article-publish-package.util";
 import { jsonStringArray } from "./utils/normalize-content-item";
 import {
   normalizeCreateContentTask,
@@ -118,6 +122,8 @@ export type ContentItemResponse = {
   publishStatus?: PublishStatus;
   qualityGateResult?: QualityGateResult;
   qualityCheckedAt?: Date;
+  publishPackage?: ArticlePublishPackage;
+  publishPackageGeneratedAt?: Date;
   errorMessage?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -1403,6 +1409,8 @@ export class ContentTasksService {
       publishStatus: item.publishStatus as PublishStatus | undefined,
       qualityGateResult: toQualityGateResult(item.qualityGateResult),
       qualityCheckedAt: item.qualityCheckedAt ?? undefined,
+      publishPackage: toArticlePublishPackage(item.publishPackage),
+      publishPackageGeneratedAt: item.publishPackageGeneratedAt ?? undefined,
       errorMessage: item.errorMessage ?? undefined,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt

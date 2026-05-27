@@ -7,6 +7,8 @@ import type {
   ContentQualityRiskItem,
   FormatContentItemForPublishPayload,
   ContentTaskDetail,
+  ArticlePublishPackage,
+  PublishPackageExportFormat,
   PublishStatus,
   PublishFormatResult,
   PublishOptimizationResult
@@ -36,6 +38,8 @@ const props = defineProps<{
   qualityCheckingIds?: string[];
   optimizingIds?: string[];
   formattingIds?: string[];
+  publishPackageGeneratingIds?: string[];
+  publishPackageExportingIds?: string[];
   qualityCheckResult?: {
     itemId: string;
     itemTitle: string;
@@ -69,6 +73,8 @@ const emit = defineEmits<{
   qualityCheck: [item: ContentItem];
   optimize: [item: ContentItem];
   formatPublish: [item: ContentItem, payload: FormatContentItemForPublishPayload];
+  generatePublishPackage: [item: ContentItem];
+  exportPublishPackage: [item: ContentItem, format: PublishPackageExportFormat];
 }>();
 
 const hasFailedItems = computed(
@@ -141,6 +147,10 @@ const hasQualityCheck = computed(
 );
 const hasPublishOptimization = computed(() => Boolean(props.publishOptimizationResult));
 const hasPublishFormat = computed(() => Boolean(props.publishFormatResult));
+const publishPackageItems = computed(() => generatedItems.value.filter((item) => item.status !== "failed"));
+const hasPublishPackage = computed(() =>
+  publishPackageItems.value.some((item) => Boolean(item.publishPackage))
+);
 const needsHumanReview = computed(
   () =>
     props.qualityCheckResult?.result.publishReadiness.needsHumanReview ??
@@ -356,6 +366,14 @@ const currentAction = computed(() => {
     };
   }
 
+  if (!hasPublishPackage.value) {
+    return {
+      type: "info" as const,
+      title: "建议生成发布包",
+      description: "发布包会整理标题、摘要、关键词、FAQ、资料依据和人工确认项，便于人工发布。"
+    };
+  }
+
   return {
     type: "success" as const,
     title: "可以进入人工发布前预览",
@@ -457,6 +475,111 @@ const getScopeSummaryLabel = (item: ContentItem) => {
   }
 
   return "资料范围：全部资料";
+};
+
+const platformTitleLabelMap: Record<keyof ArticlePublishPackage["titles"]["platformTitles"], string> = {
+  baijiahao: "百家号",
+  toutiao: "今日头条",
+  zhihu: "知乎",
+  xiaohongshu: "小红书",
+  douyin: "抖音图文",
+  generic: "通用"
+};
+
+const getPlatformTitleLabel = (platform: string) =>
+  platformTitleLabelMap[platform as keyof ArticlePublishPackage["titles"]["platformTitles"]] ??
+  platform;
+
+const getPackageGeneratedAt = (item: ContentItem) =>
+  item.publishPackageGeneratedAt ? formatDateTime(item.publishPackageGeneratedAt) : "未记录";
+
+const getPackageArray = (values?: string[]) => values?.filter(Boolean) ?? [];
+const hasPackageKeywords = (pack: ArticlePublishPackage) =>
+  getPackageArray(pack.keywords.primaryKeywords).length > 0 ||
+  getPackageArray(pack.keywords.longTailKeywords).length > 0 ||
+  getPackageArray(pack.keywords.platformTags).length > 0;
+
+// 前端复制只整理已保存的发布包，不重新生成内容，避免误触发 AI。
+const buildPublishPackageMarkdown = (item: ContentItem) => {
+  const pack = item.publishPackage;
+
+  if (!pack) {
+    return "";
+  }
+
+  const evidenceLines =
+    pack.evidence.length > 0
+      ? pack.evidence.map((evidence) =>
+          [
+            evidence.knowledgeBaseName ? `知识库：${evidence.knowledgeBaseName}` : "",
+            evidence.fileName ? `资料：${evidence.fileName}` : "",
+            evidence.productLineName ? `产品线：${evidence.productLineName}` : "",
+            evidence.scopeType ? `范围：${evidence.scopeType}` : "",
+            evidence.sourceNote ? `说明：${evidence.sourceNote}` : ""
+          ]
+            .filter(Boolean)
+            .join("；")
+        )
+      : ["暂无可自动确认的资料依据，发布前需人工核对。"];
+
+  return [
+    `# ${pack.titles.standardTitle || item.title}`,
+    "",
+    "## 标题组",
+    `- 短标题：${pack.titles.shortTitle || "待人工补充"}`,
+    `- 标准标题：${pack.titles.standardTitle || "待人工补充"}`,
+    `- 搜索标题：${pack.titles.searchTitle || "待人工补充"}`,
+    "",
+    "## 平台标题建议",
+    ...Object.entries(pack.titles.platformTitles).map(
+      ([platform, value]) => `- ${getPlatformTitleLabel(platform)}：${value || "待人工补充"}`
+    ),
+    "",
+    "## 摘要",
+    pack.summary || "待人工补充",
+    "",
+    "## 关键词",
+    `- 主关键词：${getPackageArray(pack.keywords.primaryKeywords).join("、") || "待人工补充"}`,
+    `- 长尾关键词：${getPackageArray(pack.keywords.longTailKeywords).join("、") || "待人工补充"}`,
+    `- 平台标签：${getPackageArray(pack.keywords.platformTags).join("、") || "待人工补充"}`,
+    "",
+    "## FAQ",
+    ...(pack.faqs.length > 0
+      ? pack.faqs.flatMap((faq, index) => [`${index + 1}. ${faq.question}`, `   ${faq.answer}`])
+      : ["- 待人工补充 FAQ"]),
+    "",
+    "## 资料依据",
+    ...evidenceLines.map((line) => `- ${line}`),
+    "",
+    "## 发布风险提示",
+    ...(pack.riskTips.length > 0 ? pack.riskTips.map((line) => `- ${line}`) : ["- 暂无额外风险提示"]),
+    "",
+    "## 人工确认项",
+    ...(pack.manualCheckItems.length > 0
+      ? pack.manualCheckItems.map((line) => `- ${line}`)
+      : ["- 暂无额外人工确认项"]),
+    "",
+    "## 发布质量状态",
+    getPublishStatusLabel(item.publishStatus),
+    "",
+    "## 发布包生成时间",
+    getPackageGeneratedAt(item)
+  ].join("\n");
+};
+
+const copyPublishPackageMarkdown = async (item: ContentItem) => {
+  const markdown = buildPublishPackageMarkdown(item);
+
+  if (!markdown) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(markdown);
+    ElMessage.success("发布包 Markdown 已复制。");
+  } catch {
+    ElMessage.warning("当前浏览器不支持自动复制，请手动导出后复制。");
+  }
 };
 
 const copyOptimizedBody = async () => {
@@ -682,6 +805,174 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             @quality-check="emit('qualityCheck', $event)"
             @optimize="emit('optimize', $event)"
           />
+        </section>
+
+        <section class="content-publish-package-section">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">发布包</p>
+              <h3>整理标题、摘要、关键词和人工发布素材</h3>
+              <p>发布包不会调用 AI，也不会自动发布，只用于人工复制和导出。</p>
+            </div>
+          </div>
+
+          <div v-if="publishPackageItems.length > 0" class="publish-package-list">
+            <article
+              v-for="item in publishPackageItems"
+              :key="`publish-package-${item.id}`"
+              class="publish-package-card"
+            >
+              <div class="publish-package-card__header">
+                <div>
+                  <span>{{ item.title }}</span>
+                  <strong>
+                    {{ item.publishPackage ? "已生成发布包" : "尚未生成发布包" }}
+                  </strong>
+                </div>
+                <div class="publish-package-card__actions">
+                  <el-tag :type="getPublishStatusType(item.publishStatus)" effect="plain">
+                    {{ getPublishStatusLabel(item.publishStatus) }}
+                  </el-tag>
+                  <el-button
+                    v-if="canManageActions"
+                    type="primary"
+                    plain
+                    :loading="publishPackageGeneratingIds?.includes(item.id)"
+                    @click="emit('generatePublishPackage', item)"
+                  >
+                    {{ item.publishPackage ? "重新生成发布包" : "生成发布包" }}
+                  </el-button>
+                </div>
+              </div>
+
+              <template v-if="item.publishPackage">
+                <div class="publish-package-actions">
+                  <el-button text type="primary" @click="copyPublishPackageMarkdown(item)">
+                    复制 Markdown
+                  </el-button>
+                  <el-button
+                    text
+                    type="primary"
+                    :loading="publishPackageExportingIds?.includes(item.id)"
+                    @click="emit('exportPublishPackage', item, 'markdown')"
+                  >
+                    导出 Markdown
+                  </el-button>
+                  <el-button
+                    text
+                    type="primary"
+                    :loading="publishPackageExportingIds?.includes(item.id)"
+                    @click="emit('exportPublishPackage', item, 'txt')"
+                  >
+                    导出 TXT
+                  </el-button>
+                </div>
+
+                <div class="publish-package-grid">
+                  <div>
+                    <span>短标题</span>
+                    <strong>{{ item.publishPackage.titles.shortTitle || "待人工补充" }}</strong>
+                  </div>
+                  <div>
+                    <span>标准标题</span>
+                    <strong>{{ item.publishPackage.titles.standardTitle || "待人工补充" }}</strong>
+                  </div>
+                  <div>
+                    <span>搜索标题</span>
+                    <strong>{{ item.publishPackage.titles.searchTitle || "待人工补充" }}</strong>
+                  </div>
+                  <div>
+                    <span>生成时间</span>
+                    <strong>{{ getPackageGeneratedAt(item) }}</strong>
+                  </div>
+                </div>
+
+                <div class="publish-package-block">
+                  <h4>平台标题建议</h4>
+                  <div class="publish-package-tags">
+                    <el-tag
+                      v-for="(value, platform) in item.publishPackage.titles.platformTitles"
+                      :key="platform"
+                      effect="plain"
+                    >
+                      {{ getPlatformTitleLabel(platform) }}：{{ value || "待人工补充" }}
+                    </el-tag>
+                  </div>
+                </div>
+
+                <div class="publish-package-block">
+                  <h4>摘要</h4>
+                  <p>{{ item.publishPackage.summary || "待人工补充" }}</p>
+                </div>
+
+                <div class="publish-package-columns">
+                  <div>
+                    <h4>关键词</h4>
+                    <div class="publish-package-tags">
+                      <el-tag
+                        v-for="keyword in [
+                          ...getPackageArray(item.publishPackage.keywords.primaryKeywords),
+                          ...getPackageArray(item.publishPackage.keywords.longTailKeywords),
+                          ...getPackageArray(item.publishPackage.keywords.platformTags)
+                        ]"
+                        :key="keyword"
+                        effect="plain"
+                      >
+                        {{ keyword }}
+                      </el-tag>
+                      <span v-if="!hasPackageKeywords(item.publishPackage)">待人工补充</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h4>FAQ</h4>
+                    <ul v-if="item.publishPackage.faqs.length > 0">
+                      <li v-for="faq in item.publishPackage.faqs" :key="faq.question">
+                        <strong>{{ faq.question }}</strong>
+                        <span>{{ faq.answer }}</span>
+                      </li>
+                    </ul>
+                    <p v-else>待人工补充 FAQ</p>
+                  </div>
+                </div>
+
+                <div class="publish-package-columns">
+                  <div>
+                    <h4>资料依据</h4>
+                    <ul v-if="item.publishPackage.evidence.length > 0">
+                      <li v-for="evidence in item.publishPackage.evidence" :key="`${evidence.fileName}-${evidence.sourceNote}`">
+                        {{
+                          [
+                            evidence.knowledgeBaseName ? `知识库：${evidence.knowledgeBaseName}` : "",
+                            evidence.fileName ? `资料：${evidence.fileName}` : "",
+                            evidence.productLineName ? `产品线：${evidence.productLineName}` : "",
+                            evidence.scopeType ? `范围：${evidence.scopeType}` : "",
+                            evidence.sourceNote ? `说明：${evidence.sourceNote}` : ""
+                          ].filter(Boolean).join("；")
+                        }}
+                      </li>
+                    </ul>
+                    <p v-else>暂无可自动确认的资料依据，发布前需人工核对。</p>
+                  </div>
+                  <div>
+                    <h4>风险提示 / 人工确认</h4>
+                    <ul>
+                      <li
+                        v-for="tip in [
+                          ...item.publishPackage.riskTips,
+                          ...item.publishPackage.manualCheckItems
+                        ]"
+                        :key="tip"
+                      >
+                        {{ tip }}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </template>
+              <el-empty v-else description="尚未生成发布包" />
+            </article>
+          </div>
+          <el-empty v-else description="暂无可生成发布包的内容项" />
         </section>
 
         <el-collapse class="content-technical-collapse">
@@ -1439,6 +1730,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .content-overview-card,
 .content-preview-section,
 .content-items-section,
+.content-publish-package-section,
 .content-technical-collapse,
 .quality-result-card,
 .publish-optimization-card,
@@ -1511,6 +1803,93 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .quality-result-card :deep(.el-card__header),
 .publish-optimization-card :deep(.el-card__header) {
   border-bottom-color: #eee9f5;
+}
+
+.content-publish-package-section {
+  margin-top: 20px;
+}
+
+.publish-package-list {
+  display: grid;
+  gap: 14px;
+}
+
+.publish-package-card {
+  border: 1px solid #e5e0ef;
+  border-radius: 14px;
+  background: #fbfaff;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.publish-package-card__header,
+.publish-package-card__actions,
+.publish-package-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.publish-package-card__header span,
+.publish-package-grid span {
+  color: var(--geo-text-secondary);
+  font-size: 12px;
+}
+
+.publish-package-card__header strong,
+.publish-package-grid strong {
+  color: #111019;
+  font-weight: 900;
+}
+
+.publish-package-actions {
+  justify-content: flex-start;
+}
+
+.publish-package-grid,
+.publish-package-columns {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.publish-package-grid > div,
+.publish-package-block,
+.publish-package-columns > div {
+  border: 1px solid #e5e0ef;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.publish-package-block h4,
+.publish-package-columns h4 {
+  margin: 0 0 8px;
+}
+
+.publish-package-block p,
+.publish-package-columns p,
+.publish-package-columns li {
+  color: #273849;
+  line-height: 1.65;
+}
+
+.publish-package-columns ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.publish-package-columns li + li {
+  margin-top: 6px;
+}
+
+.publish-package-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .content-flow-steps :deep(.el-step__head.is-success) {
@@ -1603,7 +1982,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   }
 
   .quality-summary-grid,
-  .quality-columns {
+  .quality-columns,
+  .publish-package-grid,
+  .publish-package-columns {
     grid-template-columns: 1fr;
   }
 }
