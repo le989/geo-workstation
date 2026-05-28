@@ -47,7 +47,9 @@ const forbiddenPublishTerms = [
   "写作提示",
   "生成稿",
   "内部资料",
-  "资料准备清单（供用户参考）"
+  "资料准备清单（供用户参考）",
+  "产品/方案说明",
+  "样例产品资料"
 ];
 
 describe("article publish package cleanup utilities", () => {
@@ -148,6 +150,9 @@ describe("article publish package cleanup utilities", () => {
       "本指南基于KJT-LD18雷达测距传感器资料，整理工业测距和物位检测的选型关注点。",
       "在撰写推荐时，可提及“可参考KJT品牌的相关产品资料进行选型”。",
       "",
+      "## 产品/方案说明",
+      "这是一段样例产品资料，不应进入最终发布稿。",
+      "",
       "## 资料准备清单（供用户参考）",
       "- 现场安装空间",
       "- 目标材质",
@@ -170,6 +175,7 @@ describe("article publish package cleanup utilities", () => {
       "实际选型时，可结合 KJT 相关产品资料、现场工况和安装条件进一步确认。"
     );
     expect(publishMarkdown).toContain("## 选型前建议准备的信息");
+    expect(publishMarkdown).toContain("## 产品说明");
     expect(publishMarkdown).toContain("## 常见问题");
     for (const forbiddenTerm of forbiddenPublishTerms) {
       expect(publishMarkdown).not.toContain(forbiddenTerm);

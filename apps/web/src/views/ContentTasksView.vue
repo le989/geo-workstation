@@ -76,6 +76,8 @@ const optimizingIds = ref<string[]>([]);
 const formattingIds = ref<string[]>([]);
 const publishPackageGeneratingIds = ref<string[]>([]);
 const publishPackageExportingIds = ref<string[]>([]);
+const publishPreviewLoadingIds = ref<string[]>([]);
+const publishPreviewMarkdownByItemId = ref<Record<string, string>>({});
 const qualityCheckResult = ref<{
   itemId: string;
   itemTitle: string;
@@ -351,6 +353,41 @@ const loadTasks = async () => {
   }
 };
 
+const isPreviewableContentItem = (item: ContentItem) =>
+  Boolean(item.title.trim() || item.body.trim()) &&
+  item.status !== "failed" &&
+  item.status !== "cancelled";
+
+const loadPublishPreviewMarkdown = async (items: ContentItem[]) => {
+  const previewableItems = items.filter(isPreviewableContentItem);
+  publishPreviewMarkdownByItemId.value = {};
+
+  if (previewableItems.length === 0) {
+    publishPreviewLoadingIds.value = [];
+    return;
+  }
+
+  publishPreviewLoadingIds.value = previewableItems.map((item) => item.id);
+
+  // 详情页发布稿预览复用复制富文本的后端导出，确保“看到的”和“复制的”一致。
+  const previewEntries = await Promise.all(
+    previewableItems.map(async (item) => {
+      try {
+        const markdown = await exportContentItem(item.id, {
+          type: "publish",
+          format: "markdown"
+        });
+        return [item.id, markdown] as const;
+      } catch {
+        return [item.id, ""] as const;
+      }
+    })
+  );
+
+  publishPreviewMarkdownByItemId.value = Object.fromEntries(previewEntries);
+  publishPreviewLoadingIds.value = [];
+};
+
 const handleSearch = () => {
   page.value = 1;
   void loadTasks();
@@ -406,10 +443,14 @@ const loadDetail = async () => {
   detailLoading.value = true;
 
   try {
-    detail.value = await getContentTask(selectedTaskId.value);
+    const loadedDetail = await getContentTask(selectedTaskId.value);
+    detail.value = loadedDetail;
+    await loadPublishPreviewMarkdown(loadedDetail.items);
   } catch (error) {
     ElMessage.error(getErrorMessage(error));
     detail.value = null;
+    publishPreviewMarkdownByItemId.value = {};
+    publishPreviewLoadingIds.value = [];
   } finally {
     detailLoading.value = false;
   }
@@ -441,6 +482,7 @@ const handleCreateTask = async (payload: CreateContentTaskPayload) => {
     await loadTasks();
     selectedTaskId.value = created.task.id;
     detail.value = created;
+    await loadPublishPreviewMarkdown(created.items);
     detailVisible.value = true;
   } catch (error) {
     createError.value = error instanceof Error ? error.message : "创建文章任务失败。";
@@ -483,6 +525,7 @@ const handleRetry = async (task?: ContentTask) => {
     const result = await retryContentTask(targetTaskId);
     detail.value = result;
     selectedTaskId.value = result.task.id;
+    await loadPublishPreviewMarkdown(result.items);
     detailVisible.value = true;
     ElMessage.success("已重试失败文章。");
     await loadTasks();
@@ -775,6 +818,7 @@ const handleRegenerateTask = async (task?: ContentTask) => {
     await loadTasks();
     selectedTaskId.value = created.task.id;
     detail.value = created;
+    await loadPublishPreviewMarkdown(created.items);
     detailVisible.value = true;
   } catch (error) {
     if (error !== "cancel") {
@@ -1213,6 +1257,8 @@ onMounted(() => {
       :formatting-ids="formattingIds"
       :publish-package-generating-ids="publishPackageGeneratingIds"
       :publish-package-exporting-ids="publishPackageExportingIds"
+      :publish-preview-loading-ids="publishPreviewLoadingIds"
+      :publish-preview-markdown-by-item-id="publishPreviewMarkdownByItemId"
       :quality-check-result="qualityCheckResult"
       :quality-check-error="qualityCheckError"
       :publish-optimization-result="publishOptimizationResult"

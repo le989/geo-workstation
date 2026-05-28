@@ -41,6 +41,8 @@ const props = defineProps<{
   formattingIds?: string[];
   publishPackageGeneratingIds?: string[];
   publishPackageExportingIds?: string[];
+  publishPreviewLoadingIds?: string[];
+  publishPreviewMarkdownByItemId?: Record<string, string>;
   qualityCheckResult?: {
     itemId: string;
     itemTitle: string;
@@ -230,8 +232,18 @@ const primaryArticleItem = computed(() => {
     null
   );
 });
+const primaryArticlePreviewMarkdown = computed(() => {
+  const itemId = primaryArticleItem.value?.id;
+
+  return itemId ? (props.publishPreviewMarkdownByItemId?.[itemId] ?? "") : "";
+});
+const isPrimaryArticlePreviewLoading = computed(() => {
+  const itemId = primaryArticleItem.value?.id;
+
+  return Boolean(itemId && props.publishPreviewLoadingIds?.includes(itemId));
+});
 const primaryArticleBlocks = computed(() =>
-  parseAssistantArticleBlocks(primaryArticleItem.value?.body ?? "")
+  parseAssistantArticleBlocks(primaryArticlePreviewMarkdown.value)
 );
 const persistedQualityGateItems = computed(
   () =>
@@ -842,9 +854,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           <section ref="articleBodyRef" class="assistant-article-panel">
             <div class="section-heading">
               <div>
-                <p class="section-kicker">文章正文</p>
-                <h3>{{ primaryArticleItem?.title ?? "文章正文待生成" }}</h3>
-                <p>FAQ 如果在正文里，会作为正文的一部分一起展示和复制。</p>
+                <p class="section-kicker">发布稿预览</p>
+                <h3>可复制发布稿</h3>
+                <p>这里展示的是复制到发布平台的最终稿。</p>
               </div>
               <el-button
                 v-if="primaryArticleItem?.publishStatus === 'publish_ready'"
@@ -871,7 +883,12 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                 </template>
                 <!-- eslint-enable vue/no-v-html -->
               </template>
-              <p v-else class="assistant-muted-text">正文生成后会显示在这里。</p>
+              <p v-else-if="isPrimaryArticlePreviewLoading" class="assistant-muted-text">
+                发布稿预览加载中。
+              </p>
+              <p v-else class="assistant-muted-text">
+                暂无可预览发布稿，请刷新详情或请负责人检查发布稿导出。
+              </p>
             </div>
           </section>
 
@@ -1045,9 +1062,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             <section class="content-preview-section">
               <div class="section-heading">
                 <div>
-                  <p class="section-kicker">内容预览</p>
-                  <h3>标题和正文</h3>
-                  <p>默认展示正文摘要，展开后可阅读全文；不会修改或截断真实内容。</p>
+                  <p class="section-kicker">原始生成稿</p>
+                  <h3>原始标题和正文</h3>
+                  <p>负责人查看原始 content body；助理默认看到的是上方发布稿预览。</p>
                 </div>
               </div>
 

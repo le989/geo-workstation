@@ -33,6 +33,9 @@ export const PUBLISH_FORBIDDEN_EDITOR_TONE_TERMS = [
   "是一份面向",
   "样例资料",
   "测试资料",
+  "样例产品资料",
+  "测试产品资料",
+  "产品/方案说明",
   "在撰写推荐时",
   "可提及",
   "本指南基于",
@@ -194,6 +197,8 @@ export function cleanInternalPublishText(value: string): string {
     .replace(/资料准备清单[（(]供用户参考[）)]/g, "选型前建议准备的信息")
     .replace(/资料准备清单/g, "选型前建议准备的信息")
     .replace(/该资料提示选型时应/g, "选型时应")
+    .replace(/产品\/方案说明/g, "产品说明")
+    .replace(/样例产品资料|测试产品资料/g, "产品资料")
     .replace(/AI\s*生成|系统生成|写作提示|生成稿|内部资料/g, "")
     .replace(/AI\s*可摘取(?:的)?问答式总结/gi, "常见问题")
     .replace(/可用于\s*AI\s*摘取的问答式总结/gi, "常见问题")

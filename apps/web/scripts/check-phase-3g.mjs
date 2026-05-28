@@ -68,7 +68,8 @@ const pageRequiredSnippets = [
   "打开文章",
   "这篇文章已通过发布检查，可以复制发布稿",
   "这篇文章暂不建议直接发布",
-  "文章正文",
+  "发布稿预览",
+  "这里展示的是复制到发布平台的最终稿。",
   "资料来源",
   "高级信息（负责人查看）",
   "发布检查",
@@ -90,6 +91,7 @@ const pageRequiredSnippets = [
   "已通过检查，可以复制",
   "发现问题，先修复或人工修改",
   "primaryArticleBlocks",
+  "primaryArticlePreviewMarkdown",
   "renderInlineArticleMarkdown",
   "导出评审稿",
   "导出发布稿",
@@ -172,6 +174,26 @@ assert(
     contentTasksViewSource
   ),
   "Copy publish action must request /export?type=publish&format=markdown"
+);
+assert(
+  contentTasksViewSource.includes("publishPreviewMarkdownByItemId") &&
+    /loadPublishPreviewMarkdown[\s\S]*exportContentItem\(item\.id,\s*\{[\s\S]*type:\s*"publish"[\s\S]*format:\s*"markdown"/.test(
+      contentTasksViewSource
+    ),
+  "Detail preview must load the same publish markdown used by copy rich text"
+);
+assert(
+  contentTaskDetailDrawerSource.includes("publishPreviewMarkdownByItemId") &&
+    contentTaskDetailDrawerSource.includes("primaryArticlePreviewMarkdown") &&
+    !contentTaskDetailDrawerSource.includes(
+      'parseAssistantArticleBlocks(primaryArticleItem.value?.body ?? "")'
+    ),
+  "Detail drawer must preview clean publish markdown instead of raw generated body"
+);
+assert(
+  contentTaskDetailDrawerSource.includes("原始生成稿") &&
+    contentTaskDetailDrawerSource.includes("getDisplayContentText(item.body)"),
+  "Raw generated body must remain only in the advanced owner section"
 );
 assert(
   contentTasksViewSource.includes("ClipboardItem") &&
