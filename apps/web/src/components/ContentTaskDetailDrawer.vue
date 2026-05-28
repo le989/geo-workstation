@@ -8,7 +8,6 @@ import type {
   FormatContentItemForPublishPayload,
   ContentTaskDetail,
   ArticlePublishPackage,
-  PublishPackageExportFormat,
   PublishStatus,
   PublishFormatResult,
   PublishOptimizationResult
@@ -26,6 +25,7 @@ import {
   aiCallStatusLabelMap,
   formatProviderModel
 } from "@/config/label-maps";
+import { getDisplayContentText, unwrapApiResponseText } from "@/utils/content-text";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -61,6 +61,8 @@ const props = defineProps<{
   canManageActions?: boolean;
 }>();
 
+type PublishPackageExportAction = "review-markdown" | "publish-markdown" | "package-txt";
+
 const emit = defineEmits<{
   "update:modelValue": [value: boolean];
   refresh: [];
@@ -74,7 +76,7 @@ const emit = defineEmits<{
   optimize: [item: ContentItem];
   formatPublish: [item: ContentItem, payload: FormatContentItemForPublishPayload];
   generatePublishPackage: [item: ContentItem];
-  exportPublishPackage: [item: ContentItem, format: PublishPackageExportFormat];
+  exportPublishPackage: [item: ContentItem, action: PublishPackageExportAction];
 }>();
 
 const hasFailedItems = computed(
@@ -163,7 +165,7 @@ const hasRiskyQuality = computed(
 );
 
 const getContentPreview = (body: string, maxLength = 360) => {
-  const normalized = body.replace(/\s+/g, " ").trim();
+  const normalized = getDisplayContentText(body).replace(/\s+/g, " ").trim();
 
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
 };
@@ -521,50 +523,32 @@ const buildPublishPackageMarkdown = (item: ContentItem) => {
             .join("；")
         )
       : ["暂无可自动确认的资料依据，发布前需人工核对。"];
+  const body = unwrapApiResponseText(item.body).trim() || "正文待人工补充。";
+  const bodyHasFaq = /(^|\n)#{1,6}\s*FAQ\b|问[:：]/i.test(body);
+  const keywordTags = [
+    ...getPackageArray(pack.keywords.primaryKeywords),
+    ...getPackageArray(pack.keywords.platformTags)
+  ];
 
   return [
     `# ${pack.titles.standardTitle || item.title}`,
     "",
-    "## 标题组",
-    `- 短标题：${pack.titles.shortTitle || "待人工补充"}`,
-    `- 标准标题：${pack.titles.standardTitle || "待人工补充"}`,
-    `- 搜索标题：${pack.titles.searchTitle || "待人工补充"}`,
+    body,
     "",
-    "## 平台标题建议",
-    ...Object.entries(pack.titles.platformTitles).map(
-      ([platform, value]) => `- ${getPlatformTitleLabel(platform)}：${value || "待人工补充"}`
-    ),
-    "",
-    "## 摘要",
-    pack.summary || "待人工补充",
-    "",
-    "## 关键词",
-    `- 主关键词：${getPackageArray(pack.keywords.primaryKeywords).join("、") || "待人工补充"}`,
-    `- 长尾关键词：${getPackageArray(pack.keywords.longTailKeywords).join("、") || "待人工补充"}`,
-    `- 平台标签：${getPackageArray(pack.keywords.platformTags).join("、") || "待人工补充"}`,
-    "",
-    "## FAQ",
-    ...(pack.faqs.length > 0
-      ? pack.faqs.flatMap((faq, index) => [`${index + 1}. ${faq.question}`, `   ${faq.answer}`])
-      : ["- 待人工补充 FAQ"]),
-    "",
+    ...(bodyHasFaq || pack.faqs.length === 0
+      ? []
+      : [
+          "## FAQ",
+          ...pack.faqs.flatMap((faq) => [`**问：${faq.question}**`, faq.answer, ""])
+        ]),
     "## 资料依据",
     ...evidenceLines.map((line) => `- ${line}`),
     "",
-    "## 发布风险提示",
-    ...(pack.riskTips.length > 0 ? pack.riskTips.map((line) => `- ${line}`) : ["- 暂无额外风险提示"]),
-    "",
-    "## 人工确认项",
-    ...(pack.manualCheckItems.length > 0
-      ? pack.manualCheckItems.map((line) => `- ${line}`)
-      : ["- 暂无额外人工确认项"]),
-    "",
-    "## 发布质量状态",
-    getPublishStatusLabel(item.publishStatus),
-    "",
-    "## 发布包生成时间",
-    getPackageGeneratedAt(item)
-  ].join("\n");
+    ...(keywordTags.length > 0 ? ["## 关键词 / 标签建议", keywordTags.join("、")] : [])
+  ]
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 };
 
 const copyPublishPackageMarkdown = async (item: ContentItem) => {
@@ -576,7 +560,7 @@ const copyPublishPackageMarkdown = async (item: ContentItem) => {
 
   try {
     await navigator.clipboard.writeText(markdown);
-    ElMessage.success("发布包 Markdown 已复制。");
+    ElMessage.success("发布稿已复制。");
   } catch {
     ElMessage.warning("当前浏览器不支持自动复制，请手动导出后复制。");
   }
@@ -769,7 +753,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                 {{ item.errorMessage }}
               </p>
               <p class="content-preview-card__body">
-                {{ isContentExpanded(item.id) ? item.body : getContentPreview(item.body) }}
+                {{ isContentExpanded(item.id) ? getDisplayContentText(item.body) : getContentPreview(item.body) }}
               </p>
               <div class="content-preview-card__footer">
                 <span>建议发布位置：{{ formatOptional(item.suggestedPublishChannel) }}</span>
@@ -848,23 +832,31 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               <template v-if="item.publishPackage">
                 <div class="publish-package-actions">
                   <el-button text type="primary" @click="copyPublishPackageMarkdown(item)">
-                    复制 Markdown
+                    复制发布稿
                   </el-button>
                   <el-button
                     text
                     type="primary"
                     :loading="publishPackageExportingIds?.includes(item.id)"
-                    @click="emit('exportPublishPackage', item, 'markdown')"
+                    @click="emit('exportPublishPackage', item, 'review-markdown')"
                   >
-                    导出 Markdown
+                    导出评审稿
                   </el-button>
                   <el-button
                     text
                     type="primary"
                     :loading="publishPackageExportingIds?.includes(item.id)"
-                    @click="emit('exportPublishPackage', item, 'txt')"
+                    @click="emit('exportPublishPackage', item, 'publish-markdown')"
                   >
-                    导出 TXT
+                    导出发布稿
+                  </el-button>
+                  <el-button
+                    text
+                    type="primary"
+                    :loading="publishPackageExportingIds?.includes(item.id)"
+                    @click="emit('exportPublishPackage', item, 'package-txt')"
+                  >
+                    导出发布包 TXT
                   </el-button>
                 </div>
 

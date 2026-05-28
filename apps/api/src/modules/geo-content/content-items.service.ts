@@ -27,7 +27,10 @@ import type { FormatContentItemForPublishDto } from "./dto/format-content-item-f
 import type { OptimizeContentItemForPublishDto } from "./dto/optimize-content-item-for-publish.dto";
 import type { QueryContentItemsDto } from "./dto/query-content-items.dto";
 import type { UpdateContentItemDto } from "./dto/update-content-item.dto";
-import { buildContentItemMarkdown } from "./utils/markdown-export.util";
+import {
+  buildContentItemPublishMarkdown,
+  buildContentItemReviewMarkdown
+} from "./utils/markdown-export.util";
 import {
   jsonStringArray,
   normalizeQueryContentItems,
@@ -149,6 +152,8 @@ export type ContentPublishOptimizationResponse = {
 
 export type ContentPublishFormatResponse = FormattedPublishContent;
 export type PublishPackageExportFormat = "markdown" | "txt";
+export type ContentItemExportType = "review" | "publish";
+export type ContentItemExportFormat = "markdown" | "txt";
 
 type ContentItemWithContext = ContentItem & {
   geoPrompt: GeoPrompt | null;
@@ -362,6 +367,14 @@ export class ContentItemsService {
   }
 
   async exportMarkdown(id: string, context?: ResourceAccessContext): Promise<string> {
+    return this.exportContentItem(id, { type: "review", format: "markdown" }, context);
+  }
+
+  async exportContentItem(
+    id: string,
+    options: { type: ContentItemExportType; format: ContentItemExportFormat },
+    context?: ResourceAccessContext
+  ): Promise<string> {
     const item = await this.prisma.contentItem.findFirst({
       where: {
         AND: [
@@ -386,23 +399,59 @@ export class ContentItemsService {
       assertCanManageOwnerCompanyResource(context, item.task, "无权导出当前 GEO 内容项");
     }
 
-    const markdown = buildContentItemMarkdown(item);
+    if (options.type === "review" && options.format !== "markdown") {
+      throw new BadRequestException("内部评审稿仅支持 Markdown 导出。");
+    }
+
+    const markdown =
+      options.type === "publish"
+        ? buildContentItemPublishMarkdown({
+            title: item.title,
+            body: item.body,
+            faqs: toArticlePublishPackage(item.publishPackage)?.faqs,
+            keywords: [
+              ...(toArticlePublishPackage(item.publishPackage)?.keywords.primaryKeywords ?? []),
+              ...(toArticlePublishPackage(item.publishPackage)?.keywords.platformTags ?? [])
+            ],
+            evidenceNotes: this.buildPublishMarkdownEvidenceNotes(item)
+          })
+        : buildContentItemReviewMarkdown({
+            title: item.title,
+            body: item.body,
+            taskInfo: {
+              taskName: item.task.name,
+              targetPrompt: item.geoPrompt?.promptText ?? "未关联 GEO 提示词",
+              scopeSummary: this.buildTaskScopeSummary(item.task)
+            },
+            qualityGateSummary: this.buildQualityGateSummary(item),
+            publishPackageMarkdown: this.buildSavedPublishPackageMarkdown(item),
+            manualReviewItems: ["发布前请人工核对参数、资料依据和平台规则。"]
+          });
+    const exportedText =
+      options.format === "txt"
+        ? markdown
+            .replace(/^#{1,6}\s*/gm, "")
+            .replace(/^\s*[-*]\s*/gm, "")
+            .replace(/^\d+\.\s*/gm, "")
+        : markdown;
     await this.operationLogsService?.recordOperation(
       {
         moduleKey: "geo-content",
-        action: "export",
+        action: options.type === "publish" ? "export_publish_markdown" : "export_review_markdown",
         targetType: "content_item",
         targetId: item.id,
         targetTitle: item.title,
         success: true,
         metadata: {
-          taskId: item.taskId
+          taskId: item.taskId,
+          type: options.type,
+          format: options.format
         }
       },
       context
     );
 
-    return markdown;
+    return exportedText;
   }
 
   async generatePublishPackage(
@@ -535,6 +584,73 @@ export class ContentItemsService {
       includeGeoNotes: input.includeGeoNotes ?? true,
       includeWarnings: input.includeWarnings ?? true
     });
+  }
+
+  private buildPublishMarkdownEvidenceNotes(item: ContentItem & { task: ContentTask }): string[] {
+    const publishPackage = toArticlePublishPackage(item.publishPackage);
+
+    return (publishPackage?.evidence ?? [])
+      .map((evidence) =>
+        [
+          evidence.knowledgeBaseName ? `知识库：${evidence.knowledgeBaseName}` : undefined,
+          evidence.fileName ? `资料：${evidence.fileName}` : undefined,
+          evidence.productLineName ? `产品线：${evidence.productLineName}` : undefined,
+          evidence.scopeType ? `范围：${evidence.scopeType}` : undefined,
+          evidence.sourceNote ? `说明：${evidence.sourceNote}` : undefined
+        ]
+          .filter(Boolean)
+          .join("；")
+      )
+      .filter((line) => line.length > 0);
+  }
+
+  private buildSavedPublishPackageMarkdown(item: ContentItem & { task: ContentTask }): string | undefined {
+    const publishPackage = toArticlePublishPackage(item.publishPackage);
+
+    if (!publishPackage) {
+      return undefined;
+    }
+
+    return buildArticlePublishPackageMarkdown({
+      title: item.title,
+      publishStatus: item.publishStatus as PublishStatus | undefined,
+      publishPackage,
+      generatedAt: item.publishPackageGeneratedAt
+    });
+  }
+
+  private buildQualityGateSummary(item: ContentItem): string[] {
+    const qualityGateResult = toQualityGateResult(item.qualityGateResult);
+
+    if (!qualityGateResult) {
+      return [];
+    }
+
+    return [
+      `发布状态：${qualityGateResult.publishStatus}`,
+      `质量分数：${qualityGateResult.score}`,
+      `风险项：${qualityGateResult.riskItems.length} 项`,
+      `人工确认项：${qualityGateResult.manualReviewItems.length} 项`
+    ];
+  }
+
+  private buildTaskScopeSummary(task: ContentTask): string {
+    try {
+      const scope = normalizeContentKnowledgeScope(task.knowledgeScope);
+
+      if (scope.type === "selected_files") {
+        return `指定资料：${scope.selectedKnowledgeFileIds.length} 份`;
+      }
+
+      if (scope.type === "product_line") {
+        return "按产品线";
+      }
+
+      return "全部资料";
+    } catch {
+      // 历史任务的范围字段可能不完整，导出时提示人工核对，避免把错误字段原样带给发布稿。
+      return "资料范围需人工核对";
+    }
   }
 
   async qualityCheck(

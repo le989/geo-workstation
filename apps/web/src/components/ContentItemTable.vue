@@ -10,6 +10,7 @@ import {
   truncateContentText
 } from "@/config/content-options";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
+import { getDisplayContentText } from "@/utils/content-text";
 
 const props = defineProps<{
   items: ContentItem[];
@@ -85,7 +86,7 @@ const handleCommand = (command: string, item: ContentItem) => {
     <el-table-column label="标题" min-width="240" fixed>
       <template #default="{ row }">
         <strong class="content-item-title">{{ row.title }}</strong>
-        <p class="table-subtext">{{ truncateContentText(row.body, 86) }}</p>
+        <p class="table-subtext">{{ truncateContentText(getDisplayContentText(row.body), 86) }}</p>
         <p v-if="row.errorMessage" class="error-text">{{ row.errorMessage }}</p>
       </template>
     </el-table-column>
@@ -152,7 +153,7 @@ const handleCommand = (command: string, item: ContentItem) => {
                   {{ optimizingIds?.includes(row.id) ? "生成中..." : "生成发布优化版" }}
                 </el-dropdown-item>
                 <el-dropdown-item command="export">
-                  {{ exportingIds?.includes(row.id) ? "导出中..." : "导出 Markdown" }}
+                  {{ exportingIds?.includes(row.id) ? "导出中..." : "导出评审稿" }}
                 </el-dropdown-item>
                 <el-dropdown-item command="delete" divided class="content-item-danger-command">
                   {{ deletingIds?.includes(row.id) ? "删除中..." : "删除" }}

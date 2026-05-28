@@ -23,7 +23,6 @@ import {
   type ContentTaskQuery,
   type CreateContentTaskPayload,
   type FormatContentItemForPublishPayload,
-  type PublishPackageExportFormat,
   type PublishFormatResult,
   type PublishOptimizationResult,
   type UpdateContentItemPayload
@@ -41,6 +40,7 @@ import { useAuthStore } from "@/stores/auth";
 import { canUseAction } from "@/utils/permission";
 
 const authStore = useAuthStore();
+type PublishPackageExportAction = "review-markdown" | "publish-markdown" | "package-txt";
 const tasks = ref<ContentTask[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -476,12 +476,15 @@ const downloadMarkdown = (item: ContentItem, markdown: string) => {
 const handleExportMarkdown = async (item: ContentItem) => {
   try {
     await withIdFlag(exportingIds, item.id, async () => {
-      const markdown = await exportContentItem(item.id);
+      const markdown = await exportContentItem(item.id, {
+        type: "review",
+        format: "markdown"
+      });
       downloadMarkdown(item, markdown);
     });
-    ElMessage.success("Markdown 已导出。");
+    ElMessage.success("评审稿 Markdown 已导出。");
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "Markdown 导出失败。");
+    ElMessage.error(error instanceof Error ? error.message : "评审稿导出失败。");
   }
 };
 
@@ -499,20 +502,39 @@ const handleGeneratePublishPackage = async (item: ContentItem) => {
 
 const handleExportPublishPackage = async (
   item: ContentItem,
-  format: PublishPackageExportFormat
+  action: PublishPackageExportAction
 ) => {
   try {
     await withIdFlag(publishPackageExportingIds, item.id, async () => {
-      const content = await exportContentItemPublishPackage(item.id, format);
+      const isPackageTxt = action === "package-txt";
+      const content = isPackageTxt
+        ? await exportContentItemPublishPackage(item.id, "txt")
+        : await exportContentItem(item.id, {
+            type: action === "review-markdown" ? "review" : "publish",
+            format: "markdown"
+          });
+      const extension = isPackageTxt ? "txt" : "md";
+      const fileNamePrefix =
+        action === "review-markdown"
+          ? "content-review"
+          : action === "publish-markdown"
+            ? "content-publish"
+            : "publish-package";
       downloadTextFile(
-        `publish-package-${item.id}.${format === "txt" ? "txt" : "md"}`,
+        `${fileNamePrefix}-${item.id}.${extension}`,
         content,
-        format === "txt" ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8"
+        isPackageTxt ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8"
       );
     });
-    ElMessage.success(format === "txt" ? "TXT 发布包已导出。" : "Markdown 发布包已导出。");
+    ElMessage.success(
+      action === "review-markdown"
+        ? "评审稿已导出。"
+        : action === "publish-markdown"
+          ? "发布稿已导出。"
+          : "TXT 发布包已导出。"
+    );
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "发布包导出失败。");
+    ElMessage.error(error instanceof Error ? error.message : "导出失败。");
   }
 };
 

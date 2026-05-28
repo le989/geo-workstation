@@ -22,7 +22,7 @@
     "test:geo-knowledge": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/knowledge-bases.service.spec.ts test/knowledge-directories.service.spec.ts test/knowledge.controller.spec.ts",
     "test:geo-knowledge-files": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/knowledge-file-parser.service.spec.ts test/knowledge-files.service.spec.ts test/knowledge-files.controller.spec.ts",
     "test:geo-instructions": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/instruction-templates.service.spec.ts test/instruction-templates.controller.spec.ts",
-    "test:geo-content": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/content-tasks.service.spec.ts test/content-items.service.spec.ts test/content.controller.spec.ts",
+    "test:geo-content": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/content-tasks.service.spec.ts test/content-items.service.spec.ts test/content.controller.spec.ts test/article-publish-package.util.spec.ts",
     "test:model-inclusion": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/model-inclusion-records.service.spec.ts test/model-inclusion-records.controller.spec.ts",
     "test:model-inclusion-scope": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/model-inclusion-scope.spec.ts",
     "test:ai-provider-safety": "JWT_SECRET=test_only_jwt_secret BYPASS_AUTH_FOR_TESTS=true vitest run test/ai-provider-safety.spec.ts",

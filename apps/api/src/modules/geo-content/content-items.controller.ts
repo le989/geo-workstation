@@ -149,12 +149,29 @@ export class ContentItemsController {
   @Get(":id/export")
   exportMarkdown(
     @Param("id") id: string,
+    @Query("type") type: string | undefined,
+    @Query("format") format: string | undefined,
     @CurrentUser() user?: AuthUser,
     @CurrentCompany() currentCompany?: AuthCompanyOption,
     @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
-    return this.contentItemsService.exportMarkdown(
+    const normalizedType = type === "publish" ? "publish" : type === "review" || !type ? "review" : null;
+    const normalizedFormat = format === "txt" ? "txt" : format === "markdown" || !format ? "markdown" : null;
+
+    if (!normalizedType) {
+      throw new BadRequestException("内容导出类型仅支持 review 或 publish。");
+    }
+
+    if (!normalizedFormat) {
+      throw new BadRequestException("内容导出格式仅支持 markdown 或 txt。");
+    }
+
+    return this.contentItemsService.exportContentItem(
       id,
+      {
+        type: normalizedType,
+        format: normalizedFormat
+      },
       this.buildContext(user, currentCompany, currentMembership)
     );
   }

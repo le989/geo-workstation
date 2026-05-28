@@ -301,6 +301,8 @@ export type ArticlePublishPackage = {
 };
 
 export type PublishPackageExportFormat = "markdown" | "txt";
+export type ContentItemExportType = "review" | "publish";
+export type ContentItemExportFormat = "markdown" | "txt";
 
 const toQueryString = (params: Record<string, string | number | boolean | undefined>) => {
   const searchParams = new URLSearchParams();
@@ -351,8 +353,19 @@ export const deleteContentItem = (id: string) =>
     method: "DELETE"
   });
 
-export const exportContentItem = (id: string) =>
-  apiRequest<string>(`/api/content-items/${id}/export`);
+export const exportContentItem = (
+  id: string,
+  options: {
+    type?: ContentItemExportType;
+    format?: ContentItemExportFormat;
+  } = {}
+) =>
+  apiRequest<string>(
+    `/api/content-items/${id}/export${toQueryString({
+      type: options.type,
+      format: options.format
+    })}`
+  );
 
 export const generateContentItemPublishPackage = (id: string) =>
   apiRequest<ContentItem>(`/api/content-items/${id}/publish-package`, {
