@@ -75,7 +75,10 @@ const pageRequiredSnippets = [
   "ContentItemTable",
   "ContentItemFormDialog",
   "GeoPromptSelector",
-  "导出 Markdown",
+  "复制发布稿",
+  "导出评审稿",
+  "导出发布稿",
+  "导出发布包 TXT",
   "归档任务",
   "重试不会重复生成已成功内容项",
   "移除该内容项"
@@ -132,6 +135,29 @@ const pageSource = [
 for (const snippet of pageRequiredSnippets) {
   assert(pageSource.includes(snippet), `Content tasks page missing ${snippet}`);
 }
+
+const contentTasksViewSource = await readSource("src/views/ContentTasksView.vue");
+const contentTaskDetailDrawerSource = await readSource("src/components/ContentTaskDetailDrawer.vue");
+
+// 复制发布稿必须复用后端干净发布稿导出，避免继续复制历史 publishPackage。
+assert(
+  contentTaskDetailDrawerSource.includes("copyPublishPackage: [item: ContentItem]"),
+  "Content task drawer must emit copyPublishPackage instead of local publishPackage markdown"
+);
+assert(
+  contentTaskDetailDrawerSource.includes("emit('copyPublishPackage', item)"),
+  "Content task drawer copy button must delegate copy action to the parent view"
+);
+assert(
+  contentTasksViewSource.includes("@copy-publish-package=\"handleCopyPublishPackage\""),
+  "Content tasks view must handle copyPublishPackage event"
+);
+assert(
+  /const handleCopyPublishPackage = async[\s\S]*exportContentItem\(item\.id,\s*\{[\s\S]*type:\s*"publish"[\s\S]*format:\s*"markdown"/.test(
+    contentTasksViewSource
+  ),
+  "Copy publish action must request /export?type=publish&format=markdown"
+);
 
 for (const field of contentFields) {
   assert(pageSource.includes(field), `Content tasks page missing field ${field}`);
