@@ -1,38 +1,25 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { ElMessageBox } from "element-plus";
-import type { ContentScopeType, CreateContentTaskPayload } from "@/api/content";
-import { getInstructionTemplates, type InstructionTemplate } from "@/api/instructions";
+import { Search } from "@element-plus/icons-vue";
+import type { CreateContentTaskPayload } from "@/api/content";
 import {
   getKnowledgeBases,
   getKnowledgeFiles,
   type KnowledgeBase,
   type KnowledgeFile
 } from "@/api/knowledge";
-import { listProductLines, type ManagedProductLine } from "@/api/settings-management";
-import GeoPromptSelector from "@/components/GeoPromptSelector.vue";
 import { appEnvironment } from "@/config/app-env";
-import {
-  contentModelOptions,
-  formatContentModelName,
-  generationTypeOptions
-} from "@/config/content-options";
-import { contentTypeLabelMap, instructionTypeLabelMap } from "@/config/instruction-options";
 import { useAuthStore } from "@/stores/auth";
 
-type ContentTaskFormState = {
-  name: string;
-  productLine: string;
-  productLineId: string;
-  knowledgeBaseId: string;
-  instructionTemplateId: string;
-  generationType: string;
-  targetModel: string;
-  provider: string;
-  model: string;
-  scopeType: ContentScopeType;
+type AssistantArticleFormState = {
+  articleTopic: string;
   selectedKnowledgeFileIds: string[];
-  geoPromptIds: string[];
+};
+
+type RecommendedKnowledgeFile = KnowledgeFile & {
+  knowledgeBaseName: string;
+  productLine?: string;
 };
 
 const props = defineProps<{
@@ -51,294 +38,142 @@ const defaultModel = (provider = defaultProvider()) =>
   provider === "mock" ? "mock-content-v1" : "deepseek-chat";
 const authStore = useAuthStore();
 
-const form = reactive<ContentTaskFormState>({
-  generationType: "article",
-  geoPromptIds: [],
-  instructionTemplateId: "",
-  knowledgeBaseId: "",
-  model: defaultModel(),
-  name: "",
-  productLine: "",
-  productLineId: "",
-  provider: defaultProvider(),
-  scopeType: "all",
-  selectedKnowledgeFileIds: [],
-  targetModel: ""
+const form = reactive<AssistantArticleFormState>({
+  articleTopic: "",
+  selectedKnowledgeFileIds: []
 });
-
 const formError = ref("");
-const advancedSections = ref<string[]>([]);
 const selectError = ref("");
-const loadingOptions = ref(false);
-const loadingKnowledgeFiles = ref(false);
+const materialSearch = ref("");
+const loadingMaterials = ref(false);
 const knowledgeBases = ref<KnowledgeBase[]>([]);
-const knowledgeFiles = ref<KnowledgeFile[]>([]);
-const instructionTemplates = ref<InstructionTemplate[]>([]);
-const productLines = ref<ManagedProductLine[]>([]);
-const contentGenerationModeOptions = computed(() => {
-  const options = [{ label: "AI 生成模式", value: "openai_compatible" }];
+const recommendedKnowledgeFiles = ref<RecommendedKnowledgeFile[]>([]);
 
-  if (appEnvironment.mockEnabled) {
-    options.unshift({ label: "基础生成模式", value: "mock" });
-  }
-
-  return options;
-});
-const productionProviderWarning = computed(() =>
-  appEnvironment.isProduction
-    ? "正式环境已禁用 Mock 生成；正式环境未配置真实 AI Provider 时，暂不能生成真实文章。"
-    : ""
-);
-const providerSafetyText = computed(() => {
-  if (form.provider === "openai_compatible") {
-    return "真实 AI 接口：会调用外部模型，可能产生额度消耗，创建前需要确认。";
-  }
-
-  if (!appEnvironment.mockEnabled) {
-    return "正式环境已禁用 Mock 生成。";
-  }
-
-  return "基础生成模式：不调用真实模型。";
-});
-
-const selectedKnowledgeBase = computed(() =>
-  knowledgeBases.value.find((item) => item.id === form.knowledgeBaseId)
-);
-const selectedInstructionTemplate = computed(() =>
-  instructionTemplates.value.find((item) => item.id === form.instructionTemplateId)
-);
-const activeProductLines = computed(() =>
-  productLines.value.filter((item) => item.status === "active")
-);
-const selectedProductLine = computed(() =>
-  activeProductLines.value.find((item) => item.id === form.productLineId)
-);
-const scopeTypeLabel = computed(() => {
-  if (form.scopeType === "selected_files") {
-    return "指定资料";
-  }
-
-  if (form.scopeType === "product_line") {
-    return "按产品线";
-  }
-
-  return "全部资料";
-});
 const currentCompanyName = computed(() => authStore.currentCompany?.name ?? "当前公司");
-const scopePreviewRows = computed(() => [
-  ["当前公司", currentCompanyName.value],
-  ["知识库", selectedKnowledgeBase.value?.name ?? "未选择"],
-  ["写作范围", scopeTypeLabel.value],
-  ["产品线", selectedProductLine.value?.name ?? "未选择"],
-  ["指定资料", `${form.selectedKnowledgeFileIds.length} 份`],
-  ["待审核资料", "不参与正式生成"]
-]);
-const activeStep = computed(() => {
-  if (
-    form.geoPromptIds.length > 0 &&
-    form.name.trim() &&
-    form.generationType.trim() &&
-    form.provider
-  ) {
-    return 4;
-  }
+const selectedKnowledgeFiles = computed(() =>
+  recommendedKnowledgeFiles.value.filter((file) => form.selectedKnowledgeFileIds.includes(file.id))
+);
+const selectedKnowledgeBaseId = computed(() => selectedKnowledgeFiles.value[0]?.knowledgeBaseId);
+const selectedProductLine = computed(
+  () => selectedKnowledgeFiles.value.find((file) => file.productLine)?.productLine
+);
+const selectedSameKnowledgeBase = computed(() => {
+  const baseId = selectedKnowledgeBaseId.value;
 
-  if (
-    form.knowledgeBaseId ||
-    form.instructionTemplateId ||
-    form.productLineId ||
-    form.selectedKnowledgeFileIds.length > 0
-  ) {
-    return 3;
-  }
-
-  if (form.name.trim() && form.generationType.trim()) {
-    return 2;
-  }
-
-  if (form.geoPromptIds.length > 0) {
-    return 1;
-  }
-
-  return 0;
+  return Boolean(
+    baseId && selectedKnowledgeFiles.value.every((file) => file.knowledgeBaseId === baseId)
+  );
 });
-
-const getInstructionContentTypeLabel = (template: InstructionTemplate) =>
-  contentTypeLabelMap[template.contentType] ?? template.contentType;
 
 const resetForm = () => {
-  advancedSections.value = [];
-  form.generationType = "article";
-  form.geoPromptIds = [];
-  form.instructionTemplateId = "";
-  form.knowledgeBaseId = "";
-  form.provider = defaultProvider();
-  form.model = defaultModel(form.provider);
-  form.name = "";
-  form.productLine = "";
-  form.productLineId = "";
-  form.scopeType = "all";
+  form.articleTopic = "";
   form.selectedKnowledgeFileIds = [];
-  form.targetModel = "";
-  knowledgeFiles.value = [];
   formError.value = "";
   selectError.value = "";
+  materialSearch.value = "";
+  knowledgeBases.value = [];
+  recommendedKnowledgeFiles.value = [];
 };
 
-watch(
-  () => form.provider,
-  (provider) => {
-    if (provider === "mock") {
-      form.model = "mock-content-v1";
-    } else if (!form.model || form.model === "mock-content-v1") {
-      form.model = "deepseek-chat";
-    }
-  }
-);
-
-watch(
-  () => form.productLineId,
-  (productLineId) => {
-    const productLine = activeProductLines.value.find((item) => item.id === productLineId);
-    form.productLine = productLine?.name ?? "";
-
-    if (productLineId && form.scopeType === "all" && form.selectedKnowledgeFileIds.length === 0) {
-      form.scopeType = "product_line";
-    }
-
-    if (!productLineId && form.scopeType === "product_line") {
-      form.scopeType = "all";
-    }
-  }
-);
-
-watch(
-  () => form.selectedKnowledgeFileIds.slice(),
-  (selectedIds) => {
-    if (selectedIds.length > 0) {
-      form.scopeType = "selected_files";
-      return;
-    }
-
-    if (form.scopeType === "selected_files") {
-      form.scopeType = form.productLineId ? "product_line" : "all";
-    }
-  }
-);
-
-const loadSelectOptions = async () => {
-  loadingOptions.value = true;
-  selectError.value = "";
-
-  try {
-    const [knowledgeResult, instructionResult, productLineResult] = await Promise.all([
-      getKnowledgeBases({ page: 1, pageSize: 100 }),
-      getInstructionTemplates({ page: 1, pageSize: 100 }),
-      listProductLines()
-    ]);
-    knowledgeBases.value = knowledgeResult.items;
-    instructionTemplates.value = instructionResult.items;
-    productLines.value = productLineResult.items;
-  } catch (error) {
-    selectError.value =
-      error instanceof Error
-        ? `${error.message}。后端未连接时仍可查看页面结构。`
-        : "知识库或指令模板加载失败。";
-    knowledgeBases.value = [];
-    instructionTemplates.value = [];
-    productLines.value = [];
-  } finally {
-    loadingOptions.value = false;
-  }
+const close = () => {
+  emit("update:modelValue", false);
 };
 
-const trimOptional = (value: string) => {
-  const trimmed = value.trim();
+const trimOptional = (value?: string) => {
+  const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 };
 
-const loadKnowledgeFiles = async (search = "") => {
-  if (!form.knowledgeBaseId) {
-    knowledgeFiles.value = [];
-    return;
-  }
-
-  loadingKnowledgeFiles.value = true;
+const loadMaterialOptions = async (search = "") => {
+  loadingMaterials.value = true;
+  selectError.value = "";
 
   try {
-    const result = await getKnowledgeFiles(form.knowledgeBaseId, {
-      officialCitationStatus: "citable",
-      page: 1,
-      pageSize: 100,
-      limit: 100,
-      search: trimOptional(search)
-    });
-    knowledgeFiles.value = result.items;
+    const knowledgeResult = await getKnowledgeBases({ page: 1, pageSize: 20, status: "active" });
+    knowledgeBases.value = knowledgeResult.items;
+    const fileResults = await Promise.all(
+      knowledgeResult.items.map(async (base) => {
+        const result = await getKnowledgeFiles(base.id, {
+          applicableModule: "geo-content",
+          officialCitationStatus: "citable",
+          page: 1,
+          pageSize: 8,
+          limit: 8,
+          search: trimOptional(search)
+        });
+
+        return result.items.map<RecommendedKnowledgeFile>((file) => ({
+          ...file,
+          knowledgeBaseName: base.name,
+          productLine: base.productLine
+        }));
+      })
+    );
+
+    recommendedKnowledgeFiles.value = fileResults
+      .flat()
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, 24);
+    form.selectedKnowledgeFileIds = form.selectedKnowledgeFileIds.filter((id) =>
+      recommendedKnowledgeFiles.value.some((file) => file.id === id)
+    );
   } catch (error) {
     selectError.value =
-      error instanceof Error ? error.message : "可引用资料加载失败，请稍后重试。";
-    knowledgeFiles.value = [];
+      error instanceof Error
+        ? `${error.message}。请确认后端服务已启动。`
+        : "可引用资料加载失败，请稍后重试。";
+    recommendedKnowledgeFiles.value = [];
   } finally {
-    loadingKnowledgeFiles.value = false;
+    loadingMaterials.value = false;
   }
 };
-
-const formatKnowledgeBaseLabel = (item: KnowledgeBase) => {
-  const productLine = item.productLine?.trim();
-
-  return productLine ? `${item.name} / ${productLine}` : item.name;
-};
-
-const formatKnowledgeFileLabel = (item: KnowledgeFile) => {
-  const name = item.title || item.fileName;
-  const meta = [
-    item.directoryName,
-    item.chunksCount !== undefined ? `${item.chunksCount} chunks` : undefined
-  ]
-    .filter(Boolean)
-    .join(" / ");
-
-  return meta ? `${name} / ${meta}` : name;
-};
-
-watch(
-  () => form.knowledgeBaseId,
-  (knowledgeBaseId) => {
-    form.selectedKnowledgeFileIds = [];
-    knowledgeFiles.value = [];
-
-    if (knowledgeBaseId) {
-      void loadKnowledgeFiles();
-    }
-  }
-);
 
 watch(
   () => props.modelValue,
   (visible) => {
     if (visible) {
       resetForm();
-      void loadSelectOptions();
+      void loadMaterialOptions();
     }
   }
 );
 
-const close = () => {
-  emit("update:modelValue", false);
+const toggleKnowledgeFile = (file: RecommendedKnowledgeFile) => {
+  const selectedSet = new Set(form.selectedKnowledgeFileIds);
+
+  if (selectedSet.has(file.id)) {
+    selectedSet.delete(file.id);
+    form.selectedKnowledgeFileIds = [...selectedSet];
+    return;
+  }
+
+  if (selectedKnowledgeBaseId.value && selectedKnowledgeBaseId.value !== file.knowledgeBaseId) {
+    formError.value = "一次文章只能选择同一个知识库里的资料，请先取消已选资料。";
+    return;
+  }
+
+  if (selectedSet.size >= 10) {
+    formError.value = "一次最多选择 10 份资料。";
+    return;
+  }
+
+  selectedSet.add(file.id);
+  form.selectedKnowledgeFileIds = [...selectedSet];
+  formError.value = "";
 };
 
 const confirmRealAiProvider = async () => {
-  if (form.provider !== "openai_compatible") {
+  if (defaultProvider() !== "openai_compatible") {
     return true;
   }
 
   try {
     await ElMessageBox.confirm(
-      "本次创建会使用真实 AI Provider，可能调用外部模型并消耗额度。请确认后再继续。",
-      "确认调用真实 AI",
+      "本次重新生成会消耗 AI token / 额度，并会把已选资料发送给模型。确认后才继续。",
+      "确认生成文章",
       {
-        confirmButtonText: "确认创建",
         cancelButtonText: "取消",
+        confirmButtonText: "确认生成",
         type: "warning"
       }
     );
@@ -348,41 +183,25 @@ const confirmRealAiProvider = async () => {
   }
 };
 
+const handleSearchMaterials = () => {
+  void loadMaterialOptions(materialSearch.value);
+};
+
 const handleSubmit = async () => {
   formError.value = "";
 
-  if (!form.name.trim()) {
-    formError.value = "内容任务名称不能为空。";
+  if (!form.articleTopic.trim()) {
+    formError.value = "文章主题不能为空。";
     return;
   }
 
-  if (!form.generationType.trim()) {
-    formError.value = "生成类型不能为空。";
+  if (form.selectedKnowledgeFileIds.length === 0) {
+    formError.value = "请至少选择 1 份资料。";
     return;
   }
 
-  if (form.geoPromptIds.length === 0) {
-    formError.value = "至少选择 1 个 GEO 提示词。";
-    return;
-  }
-
-  if (!appEnvironment.mockEnabled && form.provider === "mock") {
-    formError.value = "正式环境已禁用 Mock 生成，请选择真实 AI Provider。";
-    return;
-  }
-
-  if (form.scopeType === "product_line" && !form.productLineId) {
-    formError.value = "按产品线生成时必须选择产品线。";
-    return;
-  }
-
-  if (form.scopeType === "selected_files" && form.selectedKnowledgeFileIds.length === 0) {
-    formError.value = "指定资料生成时至少选择 1 份资料。";
-    return;
-  }
-
-  if (form.selectedKnowledgeFileIds.length > 10) {
-    formError.value = "指定资料最多选择 10 份。";
+  if (!selectedSameKnowledgeBase.value || !selectedKnowledgeBaseId.value) {
+    formError.value = "一次文章只能选择同一个知识库里的资料。";
     return;
   }
 
@@ -390,22 +209,18 @@ const handleSubmit = async () => {
     return;
   }
 
-  const selectedFileIds =
-    form.scopeType === "selected_files" ? [...form.selectedKnowledgeFileIds] : undefined;
+  const provider = defaultProvider();
 
   emit("submit", {
-    generationType: form.generationType.trim(),
-    geoPromptIds: form.geoPromptIds,
-    instructionTemplateId: trimOptional(form.instructionTemplateId),
-    knowledgeBaseId: trimOptional(form.knowledgeBaseId),
-    model: trimOptional(form.model) ?? (form.provider === "mock" ? "mock-content-v1" : undefined),
-    name: form.name.trim(),
-    productLine: selectedProductLine.value?.name ?? trimOptional(form.productLine),
-    productLineId: trimOptional(form.productLineId),
-    provider: trimOptional(form.provider) ?? defaultProvider(),
-    scopeType: form.scopeType,
-    selectedKnowledgeFileIds: selectedFileIds,
-    targetModel: trimOptional(form.targetModel)
+    generationType: "article",
+    geoPromptIds: [],
+    knowledgeBaseId: selectedKnowledgeBaseId.value,
+    model: defaultModel(provider),
+    name: form.articleTopic.trim(),
+    productLine: selectedProductLine.value,
+    provider,
+    scopeType: "selected_files",
+    selectedKnowledgeFileIds: [...form.selectedKnowledgeFileIds]
   });
 };
 </script>
@@ -413,13 +228,13 @@ const handleSubmit = async () => {
 <template>
   <el-dialog
     :model-value="modelValue"
-    title="创建 GEO 内容生成任务"
-    width="980px"
+    title="新建发布文章"
+    width="760px"
     @close="close"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <el-alert
-      title="内容任务会结合提示词、知识库和指令模板生成可审校的 GEO 草稿，生成后仍需人工确认事实边界。"
+      title="只填写文章主题并选择资料，系统会按已审核、可引用资料生成文章。"
       type="info"
       :closable="false"
       show-icon
@@ -433,241 +248,143 @@ const handleSubmit = async () => {
       show-icon
       class="dialog-alert"
     />
-    <el-alert
-      v-if="productionProviderWarning"
-      :title="productionProviderWarning"
-      type="warning"
-      :closable="false"
-      show-icon
-      class="dialog-alert"
-    />
 
-    <el-steps class="content-create-steps" :active="activeStep" finish-status="success" simple>
-      <el-step title="选择提示词" />
-      <el-step title="任务信息" />
-      <el-step title="资料范围与模板" />
-      <el-step title="生成方式" />
-      <el-step title="确认生成" />
-    </el-steps>
+    <el-form class="assistant-article-form" label-position="top">
+      <el-form-item label="文章主题" required>
+        <el-input
+          v-model="form.articleTopic"
+          maxlength="80"
+          show-word-limit
+          placeholder="例如：激光测距传感器在行车防撞中的选型方法"
+        />
+      </el-form-item>
 
-    <el-form class="content-task-form" label-position="top">
-      <section class="content-form-section content-form-section--prompts">
-        <div class="content-form-section__header">
-          <span>01</span>
-          <div>
-            <h3>选择要服务的 GEO 提示词</h3>
-            <p>每个提示词会生成一个内容项，内容目标围绕 AI 问答中的品牌提及和推荐。</p>
+      <el-form-item label="选择资料" required>
+        <div class="assistant-material-picker">
+          <div class="assistant-material-picker__search">
+            <el-input
+              v-model="materialSearch"
+              clearable
+              :prefix-icon="Search"
+              placeholder="搜索资料名称、产品线或主题"
+              @keyup.enter="handleSearchMaterials"
+            />
+            <el-button :loading="loadingMaterials" @click="handleSearchMaterials">搜索</el-button>
           </div>
-        </div>
-        <el-form-item label="选择 GEO 提示词" required>
-          <GeoPromptSelector v-model="form.geoPromptIds" :disabled="submitting" />
-        </el-form-item>
-      </section>
 
-      <section class="content-form-section">
-        <div class="content-form-section__header">
-          <span>02</span>
-          <div>
-            <h3>填写任务基础信息</h3>
-            <p>让任务名称、项目方向和生成类型清楚对应到 GEO 内容资产。</p>
-          </div>
-        </div>
-        <div class="content-form-grid">
-          <el-form-item label="任务名称" required>
-            <el-input v-model="form.name" placeholder="例如：核心项目 GEO 内容补齐任务" />
-          </el-form-item>
-          <el-form-item label="生成类型" required>
-            <el-select
-              v-model="form.generationType"
-              filterable
-              allow-create
-              placeholder="选择生成类型"
-            >
-              <el-option
-                v-for="option in generationTypeOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-        </div>
-      </section>
-
-      <section class="content-form-section">
-        <div class="content-form-section__header">
-          <span>03</span>
-          <div>
-            <h3>选择资料范围与文章模板</h3>
-            <p>限定本次文章可引用的知识库、产品线或具体资料，避免同库内混用资料。</p>
-          </div>
-        </div>
-        <div class="content-form-grid">
-          <el-form-item label="知识库">
-            <el-select
-              v-model="form.knowledgeBaseId"
-              clearable
-              filterable
-              :loading="loadingOptions"
-              placeholder="可选：选择企业 GEO 知识库"
-            >
-              <el-option
-                v-for="item in knowledgeBases"
-                :key="item.id"
-                :label="formatKnowledgeBaseLabel(item)"
-                :value="item.id"
-              />
-            </el-select>
-            <p v-if="selectedKnowledgeBase" class="form-help">
-              将引用 {{ selectedKnowledgeBase.name }} 中的企业事实资料。
-            </p>
-          </el-form-item>
-          <el-form-item label="写作范围">
-            <el-radio-group v-model="form.scopeType" class="content-scope-radio-group">
-              <el-radio-button label="all">全部资料</el-radio-button>
-              <el-radio-button label="product_line">按产品线</el-radio-button>
-              <el-radio-button label="selected_files">指定资料</el-radio-button>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="产品线">
-            <el-select
-              v-model="form.productLineId"
-              clearable
-              filterable
-              :loading="loadingOptions"
-              placeholder="可选：选择当前公司产品线"
-            >
-              <el-option
-                v-for="item in activeProductLines"
-                :key="item.id"
-                :label="item.name"
-                :value="item.id"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="指定资料">
-            <el-select
-              v-model="form.selectedKnowledgeFileIds"
-              multiple
-              filterable
-              remote
-              reserve-keyword
-              clearable
-              collapse-tags
-              collapse-tags-tooltip
-              :multiple-limit="10"
-              :disabled="!form.knowledgeBaseId"
-              :loading="loadingKnowledgeFiles"
-              :remote-method="loadKnowledgeFiles"
-              placeholder="选择知识库后可多选可引用资料"
-            >
-              <el-option
-                v-for="item in knowledgeFiles"
-                :key="item.id"
-                :label="formatKnowledgeFileLabel(item)"
-                :value="item.id"
-              />
-            </el-select>
-            <p class="form-help">仅展示已通过、高/中可靠、可引用资料，最多 10 份。</p>
-          </el-form-item>
-          <el-form-item label="文章模板">
-            <el-select
-              v-model="form.instructionTemplateId"
-              clearable
-              filterable
-              :loading="loadingOptions"
-              placeholder="可选：选择 GEO 指令模板"
-            >
-              <el-option
-                v-for="item in instructionTemplates"
-                :key="item.id"
-                :label="`${item.name} / ${instructionTypeLabelMap[item.instructionType] ?? item.instructionType}`"
-                :value="item.id"
-              />
-            </el-select>
-            <p v-if="selectedInstructionTemplate" class="form-help">
-              内容类型：{{ getInstructionContentTypeLabel(selectedInstructionTemplate) }}
-            </p>
-          </el-form-item>
-          <div class="content-scope-preview">
-            <div v-for="[label, value] in scopePreviewRows" :key="label">
-              <span>{{ label }}</span>
-              <strong>{{ value }}</strong>
+          <div class="assistant-material-picker__header">
+            <div>
+              <strong>推荐资料卡片</strong>
+              <span>最近可引用资料优先展示，仅限 {{ currentCompanyName }} 已审核资料。</span>
             </div>
+            <el-tag effect="plain">已选 {{ form.selectedKnowledgeFileIds.length }} 份</el-tag>
           </div>
-        </div>
-      </section>
 
-      <section class="content-form-section">
-        <div class="content-form-section__header">
-          <span>04</span>
-          <div>
-            <h3>高级配置</h3>
-            <p>低频生成参数默认收起；如无特殊要求，按当前默认配置创建任务即可。</p>
+          <div v-loading="loadingMaterials" class="assistant-material-grid">
+            <button
+              v-for="file in recommendedKnowledgeFiles"
+              :key="file.id"
+              class="assistant-material-card"
+              :class="{ 'is-selected': form.selectedKnowledgeFileIds.includes(file.id) }"
+              type="button"
+              @click="toggleKnowledgeFile(file)"
+            >
+              <strong>{{ file.title || file.fileName }}</strong>
+              <span>{{ file.productLine || file.knowledgeBaseName }}</span>
+              <small>{{ file.materialTopic || "可生成文章" }}</small>
+              <em>可生成文章</em>
+            </button>
           </div>
+          <el-empty
+            v-if="!loadingMaterials && recommendedKnowledgeFiles.length === 0"
+            description="暂无可引用资料，请先让负责人审核知识库资料。"
+          />
         </div>
-        <el-collapse v-model="advancedSections" class="content-form-collapse">
-          <el-collapse-item title="生成方式与模型参数" name="generation">
-            <div class="content-form-grid">
-              <el-form-item label="目标模型">
-                <el-select
-                  v-model="form.targetModel"
-                  clearable
-                  filterable
-                  allow-create
-                  placeholder="豆包 / 通义千问 / Kimi"
-                >
-                  <el-option
-                    v-for="option in contentModelOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <p v-if="form.targetModel" class="form-help">
-                  当前显示：{{ formatContentModelName(form.targetModel) }}
-                </p>
-              </el-form-item>
-              <el-form-item label="生成方式">
-                <el-select v-model="form.provider">
-                  <el-option
-                    v-for="option in contentGenerationModeOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <p class="form-help">{{ providerSafetyText }}</p>
-              </el-form-item>
-              <el-form-item label="模型名称">
-                <el-select
-                  v-model="form.model"
-                  filterable
-                  allow-create
-                  placeholder="豆包 / 通义千问 / Kimi"
-                >
-                  <el-option
-                    v-for="option in contentModelOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <p v-if="form.model" class="form-help">
-                  当前显示：{{ formatContentModelName(form.model) }}
-                </p>
-              </el-form-item>
-            </div>
-          </el-collapse-item>
-        </el-collapse>
-      </section>
+      </el-form-item>
     </el-form>
 
     <template #footer>
       <el-button @click="close">取消</el-button>
       <el-button type="primary" :loading="submitting" @click="handleSubmit">
-        创建并生成内容
+        生成文章
       </el-button>
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+.assistant-article-form {
+  display: grid;
+  gap: 18px;
+}
+
+.assistant-material-picker {
+  width: 100%;
+}
+
+.assistant-material-picker__search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.assistant-material-picker__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 10px;
+}
+
+.assistant-material-picker__header div {
+  display: grid;
+  gap: 3px;
+}
+
+.assistant-material-picker__header span {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.assistant-material-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  min-height: 120px;
+}
+
+.assistant-material-card {
+  display: grid;
+  gap: 6px;
+  min-height: 116px;
+  padding: 14px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.assistant-material-card.is-selected {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+
+.assistant-material-card strong,
+.assistant-material-card span,
+.assistant-material-card small {
+  overflow-wrap: anywhere;
+}
+
+.assistant-material-card span,
+.assistant-material-card small {
+  color: var(--el-text-color-secondary);
+}
+
+.assistant-material-card em {
+  align-self: end;
+  color: var(--el-color-success);
+  font-style: normal;
+  font-size: 12px;
+}
+</style>

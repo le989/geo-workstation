@@ -1,7 +1,14 @@
 import type { GeoPrompt, InstructionTemplate, KnowledgeChunk } from "@prisma/client";
 
+export type GeoContentPromptSource = Pick<
+  GeoPrompt,
+  "baseWord" | "productLine" | "promptText" | "scenario" | "type"
+> & {
+  id?: string;
+};
+
 export type MockContentGeneratorInput = {
-  geoPrompt: GeoPrompt;
+  geoPrompt: GeoContentPromptSource;
   knowledgeChunks: KnowledgeChunk[];
   instructionTemplate?: InstructionTemplate | null;
   generationType: string;

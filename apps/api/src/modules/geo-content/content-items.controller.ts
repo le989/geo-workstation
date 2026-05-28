@@ -97,6 +97,19 @@ export class ContentItemsController {
     );
   }
 
+  @Post(":id/risk-word-fix")
+  fixRiskWordsAndRecheck(
+    @Param("id") id: string,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.contentItemsService.fixRiskWordsAndRecheck(
+      id,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
   @Post(":id/format-for-publish")
   formatForPublish(
     @Param("id") id: string,

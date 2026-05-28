@@ -715,6 +715,50 @@ describe("ContentItemsService", () => {
     expect(unchanged.body).toContain("IO-Link");
   });
 
+  it("rule-fixes risk words, rechecks publish status, and writes no AI logs", async () => {
+    const item = await createQualityCheckItem(
+      "## 选型判断逻辑\n凯基特是行业领先品牌，保证所有现场都一定适用，100%解决问题；IO-Link 参数需保留给人工核对。\n## FAQ\n问：怎么选？答：先确认现场工况。"
+    );
+
+    const callLogsBefore = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageBefore = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+
+    const fixed = await itemsService.fixRiskWordsAndRecheck(item.id);
+
+    expect(fixed.body).not.toContain("行业领先");
+    expect(fixed.body).not.toContain("保证");
+    expect(fixed.body).not.toContain("100%");
+    expect(fixed.body).toContain("IO-Link");
+    expect(fixed.publishStatus).not.toBe("not_recommended");
+    expect(fixed.qualityGateResult).toMatchObject({
+      provider: "rule_fix",
+      model: "risk-word-fix-v1"
+    });
+
+    const callLogsAfter = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageAfter = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+    expect(callLogsAfter).toBe(callLogsBefore);
+    expect(usageAfter).toBe(usageBefore);
+  });
+
   it("can use the injected AI provider for publish optimization without external requests", async () => {
     const item = await createQualityCheckItem(
       "## 选型判断逻辑\n输出接口需结合具体型号资料确认。\n## FAQ\n问：怎么选？答：先确认工况。"

@@ -36,6 +36,7 @@ const props = defineProps<{
   exportingIds?: string[];
   deletingIds?: string[];
   qualityCheckingIds?: string[];
+  riskFixingIds?: string[];
   optimizingIds?: string[];
   formattingIds?: string[];
   publishPackageGeneratingIds?: string[];
@@ -73,6 +74,7 @@ const emit = defineEmits<{
   export: [item: ContentItem];
   delete: [item: ContentItem];
   qualityCheck: [item: ContentItem];
+  fixRiskWords: [item: ContentItem];
   optimize: [item: ContentItem];
   formatPublish: [item: ContentItem, payload: FormatContentItemForPublishPayload];
   generatePublishPackage: [item: ContentItem];
@@ -106,8 +108,8 @@ const failedItemReasons = computed(
 );
 const failureAlertTitle = computed(() =>
   isRealAiTask.value
-    ? "内容任务已创建，但真实 AI 生成失败，请查看失败原因。"
-    : "当前任务已创建，但部分内容项生成失败，请查看失败原因。"
+    ? "文章任务已创建，但真实 AI 生成失败，请查看失败原因。"
+    : "当前任务已创建，但部分文章生成失败，请查看失败原因。"
 );
 const failureAlertDescription = computed(() => {
   const firstReason = failedItemReasons.value[0];
@@ -118,7 +120,7 @@ const failureAlertDescription = computed(() => {
 
   return isRealAiTask.value
     ? "请检查生成配置、模型服务和网络连通性，必要时调整生成方式后重试。"
-    : "请查看内容项状态后重试失败任务。";
+    : "请查看文章状态后重试失败任务。";
 });
 
 const expandedContentItemIds = ref<string[]>([]);
@@ -177,7 +179,7 @@ const isTechnicalTaskName = (value: string) =>
 const getDisplayTaskName = () => {
   const name = props.detail?.task.name;
 
-  return name && !isTechnicalTaskName(name) ? name : "GEO 内容生成任务详情";
+  return name && !isTechnicalTaskName(name) ? name : "文章任务详情";
 };
 
 const isContentExpanded = (id: string) => expandedContentItemIds.value.includes(id);
@@ -264,11 +266,11 @@ const workflowSteps = computed(() => [
             ? "生成中"
             : "未开始",
     description: hasGeneratedContent.value
-      ? `已生成 ${generatedItemsCount.value} 个内容项`
-      : "创建任务后由 AI 生成内容项"
+      ? `已生成 ${generatedItemsCount.value} 篇文章`
+      : "创建任务后生成文章"
   },
   {
-    title: "质量检查",
+    title: "发布检查",
     label: hasQualityCheck.value
       ? hasRiskyQuality.value
         ? "风险较高"
@@ -276,7 +278,7 @@ const workflowSteps = computed(() => [
           ? "可进入人工审校"
           : "已完成"
       : hasGeneratedContent.value
-        ? "待质量检查"
+        ? "待发布检查"
         : "未开始",
     description: hasQualityCheck.value
       ? (latestQualityGateResult.value?.recommendation ??
@@ -292,7 +294,7 @@ const workflowSteps = computed(() => [
         : "未开始",
     description: hasPublishOptimization.value
       ? "优化稿不会覆盖原文，可复制审校"
-      : "基于质量检查结果生成更稳妥版本"
+      : "基于发布检查结果生成更稳妥版本"
   },
   {
     title: "富文本稿",
@@ -316,7 +318,7 @@ const currentAction = computed(() => {
   if (!props.detail) {
     return {
       type: "info" as const,
-      title: "请选择一个内容任务",
+      title: "请选择一个文章任务",
       description: "打开任务详情后可查看生成、审校和发布稿准备进度。"
     };
   }
@@ -325,7 +327,7 @@ const currentAction = computed(() => {
     return {
       type: "error" as const,
       title: "建议先处理生成失败",
-      description: "查看失败内容项原因，必要时重试失败任务；重试不会重复生成已成功内容项。"
+      description: "查看失败原因，必要时重试失败任务；重试不会重复生成已成功文章。"
     };
   }
 
@@ -333,15 +335,15 @@ const currentAction = computed(() => {
     return {
       type: "info" as const,
       title: "内容仍未生成完成",
-      description: "请等待生成结果返回，或刷新详情查看内容项状态。"
+      description: "请等待生成结果返回，或刷新详情查看文章状态。"
     };
   }
 
   if (!hasQualityCheck.value) {
     return {
       type: "warning" as const,
-      title: "建议执行质量检查",
-      description: "内容已生成，下一步应检查知识库外参数、协议、认证、过度营销和 GEO 结构风险。"
+      title: "建议执行发布检查",
+      description: "文章已生成，下一步应检查知识库外参数、协议、认证和风险词。"
     };
   }
 
@@ -349,7 +351,7 @@ const currentAction = computed(() => {
     return {
       type: "warning" as const,
       title: "建议先人工审校风险项",
-      description: "质量检查发现需要复核的内容，先处理风险项，再生成或使用发布优化稿。"
+      description: "发布检查发现需要复核的内容，先处理风险项，再生成或使用发布优化稿。"
     };
   }
 
@@ -357,7 +359,7 @@ const currentAction = computed(() => {
     return {
       type: "info" as const,
       title: "可以生成发布优化版",
-      description: "质量检查已完成，可生成更稳妥的发布优化稿；优化稿不会覆盖原文。"
+      description: "发布检查已完成，可生成更稳妥的发布优化稿；优化稿不会覆盖原文。"
     };
   }
 
@@ -372,8 +374,8 @@ const currentAction = computed(() => {
   if (!hasPublishPackage.value) {
     return {
       type: "info" as const,
-      title: "建议生成发布包",
-      description: "发布包会整理标题、摘要、关键词、FAQ、资料依据和人工确认项，便于人工发布。"
+      title: "建议生成发布稿",
+      description: "发布稿会整理标题、摘要、关键词、FAQ、资料依据和人工确认项，便于人工发布。"
     };
   }
 
@@ -424,9 +426,9 @@ const severityTagMap: Record<string, "info" | "warning" | "danger"> = {
 };
 
 const publishStatusLabelMap: Record<PublishStatus, string> = {
-  publish_ready: "可发布",
-  needs_review: "需人工确认",
-  not_recommended: "不建议发布"
+  publish_ready: "可复制",
+  needs_review: "需人工检查",
+  not_recommended: "需人工检查"
 };
 
 const publishStatusTypeMap: Record<PublishStatus, "success" | "warning" | "danger"> = {
@@ -535,12 +537,11 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
       <div class="content-detail-header">
         <div class="content-detail-header__copy">
           <el-tag class="content-detail-header__tag" type="success" effect="plain">
-            GEO 内容任务
+            文章任务
           </el-tag>
           <h2>{{ getDisplayTaskName() }}</h2>
           <p>
-            查看提示词、企业知识库和指令模板如何共同生成内容资产，判断这些内容是否能支撑 AI
-            回答中的品牌提及、推荐和引用。
+            查看完整文章、发布检查结果和资料依据；检查通过后可以复制富文本去发布平台。
           </p>
         </div>
         <div class="content-detail-actions">
@@ -556,7 +557,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
       </div>
 
       <el-alert
-        title="重试不会重复生成已成功内容项，只会处理失败或缺失的 GEO 内容结果。"
+        title="重试不会重复生成已成功文章，只会处理失败或缺失的文章结果。"
         type="info"
         :closable="false"
         show-icon
@@ -596,7 +597,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           </template>
           <div class="content-overview-grid">
             <div>
-              <span>GEO 词 / 提示词</span>
+              <span>文章主题</span>
               <strong>{{
                 detail.prompts.map((prompt) => prompt.promptText).join("、") || "--"
               }}</strong>
@@ -640,7 +641,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                 <div class="quality-card-header">
                   <div>
                     <span>内容发布准备流程</span>
-                    <strong>生成内容 → 质量检查 → 发布优化 → 富文本稿 → 人工发布</strong>
+                    <strong>生成文章 → 发布检查 → 发布优化 → 富文本稿 → 人工发布</strong>
                   </div>
                 </div>
               </template>
@@ -669,8 +670,8 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           <div class="section-heading">
             <div>
               <p class="section-kicker">内容预览</p>
-              <h3>先看标题、摘要和正文，再决定审校动作</h3>
-              <p>默认只展示正文摘要，展开后可阅读全文；不会修改或截断真实内容。</p>
+              <h3>标题和正文</h3>
+              <p>默认展示正文摘要，展开后可阅读全文；不会修改或截断真实内容。</p>
             </div>
           </div>
 
@@ -693,21 +694,39 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               </p>
               <div class="content-preview-card__footer">
                 <span>建议发布位置：{{ formatOptional(item.suggestedPublishChannel) }}</span>
+                <el-button
+                  v-if="item.publishStatus === 'publish_ready'"
+                  text
+                  type="success"
+                  :loading="publishPackageExportingIds?.includes(item.id)"
+                  @click="emit('copyPublishPackage', item)"
+                >
+                  复制富文本
+                </el-button>
+                <el-button
+                  v-else-if="canManageActions"
+                  text
+                  type="warning"
+                  :loading="riskFixingIds?.includes(item.id)"
+                  @click="emit('fixRiskWords', item)"
+                >
+                  自动修复风险词
+                </el-button>
                 <el-button text type="primary" @click="toggleContentPreview(item.id)">
                   {{ isContentExpanded(item.id) ? "收起正文" : "展开阅读全文" }}
                 </el-button>
               </div>
             </article>
           </div>
-          <el-empty v-else description="暂无内容项" />
+          <el-empty v-else description="暂无文章内容" />
         </section>
 
         <section class="content-items-section">
           <div class="section-heading">
             <div>
-              <p class="section-kicker">内容项操作</p>
-              <h3>编辑、质检、优化和导出入口</h3>
-              <p>查看入口始终可用；编辑、质检、优化和导出会按当前账号权限展示。</p>
+              <p class="section-kicker">高级操作</p>
+              <h3>编辑、检查、优化和导出入口</h3>
+              <p>查看入口始终可用；编辑、检查、优化和导出会按当前账号权限展示。</p>
             </div>
           </div>
           <ContentItemTable
@@ -730,9 +749,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
         <section class="content-publish-package-section">
           <div class="section-heading">
             <div>
-              <p class="section-kicker">发布包</p>
-              <h3>整理标题、摘要、关键词和人工发布素材</h3>
-              <p>发布包不会调用 AI，也不会自动发布，只用于人工复制和导出。</p>
+              <p class="section-kicker">发布稿</p>
+              <h3>发布稿、资料依据和高级导出</h3>
+              <p>发布稿不会调用 AI，也不会自动发布，只用于人工复制和导出。</p>
             </div>
           </div>
 
@@ -746,7 +765,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                 <div>
                   <span>{{ item.title }}</span>
                   <strong>
-                    {{ item.publishPackage ? "已生成发布包" : "尚未生成发布包" }}
+                    {{ item.publishPackage ? "已生成发布稿" : "尚未生成发布稿" }}
                   </strong>
                 </div>
                 <div class="publish-package-card__actions">
@@ -760,7 +779,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                     :loading="publishPackageGeneratingIds?.includes(item.id)"
                     @click="emit('generatePublishPackage', item)"
                   >
-                    {{ item.publishPackage ? "重新生成发布包" : "生成发布包" }}
+                    {{ item.publishPackage ? "重新生成发布稿" : "生成发布稿" }}
                   </el-button>
                 </div>
               </div>
@@ -773,7 +792,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                     :loading="publishPackageExportingIds?.includes(item.id)"
                     @click="emit('copyPublishPackage', item)"
                   >
-                    复制发布稿
+                    复制富文本
                   </el-button>
                   <el-button
                     text
@@ -797,7 +816,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                     :loading="publishPackageExportingIds?.includes(item.id)"
                     @click="emit('exportPublishPackage', item, 'package-txt')"
                   >
-                    导出发布包 TXT
+                    导出发布稿 TXT
                   </el-button>
                 </div>
 
@@ -902,10 +921,10 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                   </div>
                 </div>
               </template>
-              <el-empty v-else description="尚未生成发布包" />
+              <el-empty v-else description="尚未生成发布稿" />
             </article>
           </div>
-          <el-empty v-else description="暂无可生成发布包的内容项" />
+          <el-empty v-else description="暂无可生成发布稿的文章" />
         </section>
 
         <el-collapse class="content-technical-collapse">
@@ -914,7 +933,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               <span class="technical-collapse-title">技术信息与上下文（默认折叠）</span>
             </template>
             <el-descriptions :column="3" border class="content-detail-summary">
-              <el-descriptions-item label="内容任务 ID">
+              <el-descriptions-item label="文章任务 ID">
                 {{ detail.task.id }}
               </el-descriptions-item>
               <el-descriptions-item label="任务名称">
@@ -1003,17 +1022,17 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
         <section class="content-quality-section">
           <div class="section-heading">
             <div>
-              <p class="section-kicker">发布前审校</p>
-              <h3>内容质量检查与发布优化版</h3>
+              <p class="section-kicker">发布前检查</p>
+              <h3>发布检查与发布优化版</h3>
               <p>
-                质量检查会识别知识库外参数、协议、认证、过度承诺、品牌表达和 GEO
+                发布检查会识别知识库外参数、协议、认证、过度承诺、品牌表达和 GEO
                 结构风险；生成发布优化版不会自动覆盖原文。
               </p>
             </div>
           </div>
 
           <el-alert
-            title="质量检查和发布优化用于辅助人工审校，生成结果不会自动覆盖原文。"
+            title="发布检查和发布优化用于辅助人工审校，生成结果不会自动覆盖原文。"
             type="info"
             :closable="false"
             show-icon
@@ -1029,7 +1048,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               <div class="quality-card-header">
                 <div>
                   <span>发布质量状态</span>
-                  <strong>已保存的文章质量闸门结果</strong>
+                  <strong>已保存的文章发布检查结果</strong>
                 </div>
               </div>
             </template>
@@ -1151,7 +1170,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             <template #header>
               <div class="quality-card-header">
                 <div>
-                  <span>质量检查结果</span>
+                  <span>发布检查结果</span>
                   <strong>{{ qualityCheckResult.itemTitle }}</strong>
                 </div>
                 <el-tag :type="getQualityLevelType(qualityCheckResult.result.level)" effect="plain">
@@ -1223,10 +1242,10 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
           </el-card>
           <el-card v-else shadow="never" class="review-empty-card">
             <div>
-              <el-tag type="warning" effect="plain">待质量检查</el-tag>
-              <h4>尚未进行发布质量检查</h4>
+              <el-tag type="warning" effect="plain">待发布检查</el-tag>
+              <h4>尚未进行发布检查</h4>
               <p>
-                内容已生成时，建议先执行质量检查。检查完成后会保存发布质量状态，刷新页面后仍可查看。
+                文章已生成时，建议先执行发布检查。检查完成后会保存发布检查状态，刷新页面后仍可查看。
               </p>
             </div>
           </el-card>
@@ -1284,7 +1303,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               </el-tag>
               <h4>发布优化版不会覆盖原文</h4>
               <p>
-                建议在质量检查后生成发布优化版，用于弱化事实风险、保留 GEO
+                建议在发布检查后生成发布优化版，用于弱化事实风险、保留 GEO
                 结构，并作为富文本稿的优先来源。
               </p>
             </div>
@@ -1301,7 +1320,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
         </section>
       </template>
 
-      <el-empty v-else description="请选择一个内容任务查看详情" />
+      <el-empty v-else description="请选择一个文章任务查看详情" />
     </section>
   </el-drawer>
 </template>

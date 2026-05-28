@@ -43,6 +43,7 @@ export type ContentTask = {
   status: TaskStatus;
   provider?: string;
   model?: string;
+  primaryItem?: PrimaryContentItem;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -67,6 +68,19 @@ export type ContentItem = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type PrimaryContentItem = Pick<
+  ContentItem,
+  | "id"
+  | "title"
+  | "status"
+  | "publishStatus"
+  | "qualityGateResult"
+  | "qualityCheckedAt"
+  | "publishPackageGeneratedAt"
+  | "errorMessage"
+  | "updatedAt"
+>;
 
 export type RelatedKnowledgeBase = Pick<
   KnowledgeBase,
@@ -381,6 +395,11 @@ export const qualityCheckContentItem = (id: string, payload: ContentQualityCheck
   apiRequest<ContentQualityCheckResult>(`/api/content-items/${id}/quality-check`, {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+
+export const fixRiskWordsAndRecheckContentItem = (id: string) =>
+  apiRequest<ContentItem>(`/api/content-items/${id}/risk-word-fix`, {
+    method: "POST"
   });
 
 export const optimizeContentItemForPublish = (

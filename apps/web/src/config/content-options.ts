@@ -1,10 +1,10 @@
 import type { PublishStatus, TaskStatus } from "@/api/content";
 
 export const contentTaskStatusOptions: Array<{ label: string; value: TaskStatus }> = [
-  { label: "待执行", value: "pending" },
+  { label: "待处理", value: "pending" },
   { label: "生成中", value: "running" },
   { label: "已完成", value: "succeeded" },
-  { label: "失败", value: "failed" },
+  { label: "需人工检查", value: "failed" },
   { label: "已归档", value: "cancelled" }
 ];
 
@@ -36,9 +36,9 @@ export const contentItemStatusOptions = [
 ];
 
 export const publishStatusOptions: Array<{ label: string; value: PublishStatus; type: string }> = [
-  { label: "可发布", value: "publish_ready", type: "success" },
-  { label: "需人工确认", value: "needs_review", type: "warning" },
-  { label: "不建议发布", value: "not_recommended", type: "danger" }
+  { label: "可复制", value: "publish_ready", type: "success" },
+  { label: "需人工检查", value: "needs_review", type: "warning" },
+  { label: "需人工检查", value: "not_recommended", type: "danger" }
 ];
 
 export const contentTaskStatusLabelMap = Object.fromEntries(

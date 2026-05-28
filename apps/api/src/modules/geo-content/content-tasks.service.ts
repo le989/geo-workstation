@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException, Optional } 
 import { ConfigService } from "@nestjs/config";
 import {
   AiCallStatus,
+  GeoPromptType,
   ProductLineStatus,
   Prisma,
   TaskStatus,
@@ -27,6 +28,7 @@ import {
 import { assertMockProviderAllowed } from "../ai/ai-provider-policy";
 import {
   generateMockGeoContent,
+  type GeoContentPromptSource,
   type MockContentGenerationResult
 } from "./utils/mock-content-generator";
 import {
@@ -104,6 +106,7 @@ export type ContentTaskResponse = {
   status: TaskStatus;
   provider?: string;
   model?: string;
+  primaryItem?: PrimaryContentItemResponse;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -128,6 +131,19 @@ export type ContentItemResponse = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type PrimaryContentItemResponse = Pick<
+  ContentItemResponse,
+  | "id"
+  | "title"
+  | "status"
+  | "publishStatus"
+  | "qualityGateResult"
+  | "qualityCheckedAt"
+  | "publishPackageGeneratedAt"
+  | "errorMessage"
+  | "updatedAt"
+>;
 
 export type RelatedKnowledgeBaseResponse = {
   id: string;
@@ -227,6 +243,29 @@ export class ContentTasksService {
     const [items, total] = await Promise.all([
       this.prisma.contentTask.findMany({
         where,
+        include: {
+          contentItems: {
+            where: {
+              deletedAt: null,
+              ...(context
+                ? {
+                    OR: [
+                      {
+                        companyId: getCurrentCompanyId(context)
+                      },
+                      {
+                        companyId: null
+                      }
+                    ]
+                  }
+                : {})
+            },
+            orderBy: {
+              updatedAt: "desc"
+            },
+            take: 1
+          }
+        },
         orderBy: {
           createdAt: "desc"
         },
@@ -255,6 +294,8 @@ export class ContentTasksService {
     assertMockProviderAllowed(this.configService, provider, "GEO 内容生成");
     const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const prompts = await this.findActiveGeoPrompts(normalized.geoPromptIds, context);
+    const generationPrompts =
+      prompts.length > 0 ? prompts : [this.buildAssistantTopicPrompt(normalized)];
     const knowledgeBase = await this.findOptionalKnowledgeBase(
       normalized.knowledgeBaseId,
       context
@@ -341,7 +382,7 @@ export class ContentTasksService {
       model: normalized.model
     };
 
-    for (const prompt of prompts) {
+    for (const prompt of generationPrompts) {
       try {
         const generated = await this.generateGeoContent({
           geoPrompt: prompt,
@@ -363,11 +404,15 @@ export class ContentTasksService {
                 id: task.id
               }
             },
-            geoPrompt: {
-              connect: {
-                id: prompt.id
-              }
-            },
+            ...(prompt.id
+              ? {
+                  geoPrompt: {
+                    connect: {
+                      id: prompt.id
+                    }
+                  }
+                }
+              : {}),
             title: generated.title,
             body: generated.body,
             geoOptimizationPoints: generated.geoOptimizationPoints as Prisma.InputJsonValue,
@@ -416,7 +461,7 @@ export class ContentTasksService {
       normalized,
       task.id,
       nextStatus,
-      prompts,
+      generationPrompts,
       createdItems,
       aiUsage,
       context,
@@ -631,7 +676,7 @@ export class ContentTasksService {
     let failedCount = 0;
 
     for (const item of failedItems) {
-      if (!item.geoPrompt || item.geoPrompt.deletedAt) {
+      if (item.geoPromptId && (!item.geoPrompt || item.geoPrompt.deletedAt)) {
         failedCount += 1;
         await this.prisma.contentItem.update({
           where: {
@@ -655,8 +700,9 @@ export class ContentTasksService {
       }
 
       try {
+        const prompt = item.geoPrompt ?? this.buildAssistantTopicPromptFromTask(task);
         const generated = await this.generateGeoContent({
-          geoPrompt: item.geoPrompt,
+          geoPrompt: prompt,
           knowledgeChunks,
           instructionTemplate,
           generationType: task.generationType,
@@ -797,7 +843,7 @@ export class ContentTasksService {
   }
 
   private async generateGeoContent(input: {
-    geoPrompt: GeoPrompt;
+    geoPrompt: GeoContentPromptSource;
     knowledgeChunks: KnowledgeChunk[];
     instructionTemplate?: InstructionTemplate | null;
     generationType: string;
@@ -843,7 +889,7 @@ export class ContentTasksService {
   }
 
   private buildRealContentPrompt(input: {
-    geoPrompt: GeoPrompt;
+    geoPrompt: GeoContentPromptSource;
     knowledgeChunks: KnowledgeChunk[];
     instructionTemplate?: InstructionTemplate | null;
     generationType: string;
@@ -922,7 +968,7 @@ export class ContentTasksService {
 
   private parseRealContentResult(
     result: GenerateTextResult,
-    geoPrompt: GeoPrompt
+    geoPrompt: GeoContentPromptSource
   ): MockContentGenerationResult {
     const parsed = tryParseJsonFromAiText(result.text);
 
@@ -1067,6 +1113,28 @@ export class ContentTasksService {
     return ids
       .map((id) => promptById.get(id))
       .filter((prompt): prompt is GeoPrompt => Boolean(prompt));
+  }
+
+  private buildAssistantTopicPrompt(input: NormalizedCreateContentTask): GeoContentPromptSource {
+    return {
+      id: undefined,
+      type: GeoPromptType.scene,
+      baseWord: input.productLine ?? input.name,
+      promptText: input.name,
+      productLine: input.productLine ?? null,
+      scenario: input.generationType
+    };
+  }
+
+  private buildAssistantTopicPromptFromTask(task: ContentTask): GeoContentPromptSource {
+    return {
+      id: undefined,
+      type: GeoPromptType.scene,
+      baseWord: task.productLine ?? task.name,
+      promptText: task.name,
+      productLine: task.productLine,
+      scenario: task.generationType
+    };
   }
 
   private async findOptionalKnowledgeBase(
@@ -1218,7 +1286,7 @@ export class ContentTasksService {
 
   private async createFailedContentItem(
     taskId: string,
-    prompt: GeoPrompt,
+    prompt: GeoContentPromptSource,
     error: unknown,
     companyId?: string
   ): Promise<ContentItem> {
@@ -1229,11 +1297,15 @@ export class ContentTasksService {
             id: taskId
           }
         },
-        geoPrompt: {
-          connect: {
-            id: prompt.id
-          }
-        },
+        ...(prompt.id
+          ? {
+              geoPrompt: {
+                connect: {
+                  id: prompt.id
+                }
+              }
+            }
+          : {}),
         title: `GEO内容生成失败：${prompt.promptText}`,
         body: "内容生成失败占位内容，用于保留 GEO 提示词与任务的重试关系。",
         status: "failed",
@@ -1266,7 +1338,7 @@ export class ContentTasksService {
     >,
     taskId: string,
     status: TaskStatus,
-    prompts: GeoPrompt[],
+    prompts: GeoContentPromptSource[],
     items: Array<ContentItem | { body?: string }>,
     usage?: AiUsageSummary,
     context?: ResourceAccessContext,
@@ -1374,7 +1446,9 @@ export class ContentTasksService {
     return this.aiProviderService;
   }
 
-  private toTaskResponse(task: ContentTask): ContentTaskResponse {
+  private toTaskResponse(task: ContentTask & { contentItems?: ContentItem[] }): ContentTaskResponse {
+    const primaryItem = task.contentItems?.[0];
+
     return {
       id: task.id,
       companyId: task.companyId ?? undefined,
@@ -1389,9 +1463,24 @@ export class ContentTasksService {
       status: task.status,
       provider: task.provider ?? undefined,
       model: task.model ?? undefined,
+      primaryItem: primaryItem ? this.toPrimaryItemResponse(primaryItem) : undefined,
       createdBy: task.createdById,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt
+    };
+  }
+
+  private toPrimaryItemResponse(item: ContentItem): PrimaryContentItemResponse {
+    return {
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      publishStatus: item.publishStatus as PublishStatus | undefined,
+      qualityGateResult: toQualityGateResult(item.qualityGateResult),
+      qualityCheckedAt: item.qualityCheckedAt ?? undefined,
+      publishPackageGeneratedAt: item.publishPackageGeneratedAt ?? undefined,
+      errorMessage: item.errorMessage ?? undefined,
+      updatedAt: item.updatedAt
     };
   }
 
