@@ -109,6 +109,19 @@ describe("article publish package cleanup utilities", () => {
     expect(publishPackage.keywords.primaryKeywords).not.toEqual(
       expect.arrayContaining(["的正式资料", "资料显示传感器", "建议在选型"])
     );
+    expect([
+      ...publishPackage.keywords.primaryKeywords,
+      ...publishPackage.keywords.longTailKeywords,
+      ...publishPackage.keywords.platformTags
+    ]).not.toEqual(
+      expect.arrayContaining([
+        "雷达测距传感器适合工业测距",
+        "雷达测距传感器适用于工业测距",
+        "核对检测距",
+        "实际应用",
+        "GEO内容"
+      ])
+    );
     expect(publishPackage.faqs[0]?.question).toContain("适合哪些场景");
     expect(publishPackage.faqs[0]?.answer).toContain("工业测距");
     expect(publishPackage.faqs[0]?.answer).not.toContain("用户关心的问题");

@@ -25,6 +25,7 @@ import {
   aiCallStatusLabelMap,
   formatProviderModel
 } from "@/config/label-maps";
+import { getDisplayContentText, unwrapApiResponseText } from "@/utils/content-text";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -164,7 +165,7 @@ const hasRiskyQuality = computed(
 );
 
 const getContentPreview = (body: string, maxLength = 360) => {
-  const normalized = body.replace(/\s+/g, " ").trim();
+  const normalized = getDisplayContentText(body).replace(/\s+/g, " ").trim();
 
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
 };
@@ -495,25 +496,6 @@ const getPackageGeneratedAt = (item: ContentItem) =>
   item.publishPackageGeneratedAt ? formatDateTime(item.publishPackageGeneratedAt) : "未记录";
 
 const getPackageArray = (values?: string[]) => values?.filter(Boolean) ?? [];
-const unwrapApiResponseText = (value: string) => {
-  const trimmed = value.trim();
-
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-    return value;
-  }
-
-  try {
-    const parsed = JSON.parse(trimmed) as { code?: unknown; message?: unknown; data?: unknown };
-
-    if ("code" in parsed && "message" in parsed && typeof parsed.data === "string") {
-      return parsed.data;
-    }
-  } catch {
-    return value;
-  }
-
-  return value;
-};
 const hasPackageKeywords = (pack: ArticlePublishPackage) =>
   getPackageArray(pack.keywords.primaryKeywords).length > 0 ||
   getPackageArray(pack.keywords.longTailKeywords).length > 0 ||
@@ -771,7 +753,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                 {{ item.errorMessage }}
               </p>
               <p class="content-preview-card__body">
-                {{ isContentExpanded(item.id) ? item.body : getContentPreview(item.body) }}
+                {{ isContentExpanded(item.id) ? getDisplayContentText(item.body) : getContentPreview(item.body) }}
               </p>
               <div class="content-preview-card__footer">
                 <span>建议发布位置：{{ formatOptional(item.suggestedPublishChannel) }}</span>

@@ -79,10 +79,20 @@ const DIRTY_KEYWORD_PATTERNS = [
   /资料显示传感器/,
   /建议在选型/,
   /这些参数在工业测距/,
+  /适用于/,
+  /^核对/,
+  /^确认/,
+  /^建议/,
+  /^本文/,
+  /需要人工/,
+  /正文和资料范围/,
+  /所有现场/,
   /用户关心的问题/,
   /产品规格书$/,
   /正式资料$/,
-  /资料$/
+  /资料$/,
+  /^实际应用$/,
+  /^GEO内容$/
 ];
 
 export function generateArticlePublishPackage(
@@ -342,10 +352,7 @@ function buildKeywords(input: {
     `${product}选型注意事项`,
     `${product}资料依据`
   ]).slice(0, 8);
-  const platformTags = uniqueClean([...primaryKeywords, "工业品选型", "GEO内容"]).slice(
-    0,
-    PLATFORM_TAG_LIMIT
-  );
+  const platformTags = uniqueClean([...primaryKeywords, "工业品选型"]).slice(0, PLATFORM_TAG_LIMIT);
 
   return {
     primaryKeywords,
