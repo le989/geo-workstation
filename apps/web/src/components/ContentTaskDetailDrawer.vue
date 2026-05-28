@@ -542,7 +542,8 @@ const riskTypeLabelMap: Record<string, string> = {
   over_marketing: "过度营销风险",
   brand_expression: "品牌表达风险",
   geo_structure: "GEO 结构风险",
-  knowledge_gap: "知识库缺口"
+  knowledge_gap: "知识库缺口",
+  publish_cleanliness: "发布稿洁净度"
 };
 
 const severityLabelMap: Record<string, string> = {
@@ -630,6 +631,10 @@ const getAssistantReviewIssues = () => {
   }
 
   const riskItems = gate.riskItems.map((risk) => {
+    if (risk.type === "publish_cleanliness") {
+      return "发布稿里包含内部说明，请先自动修复或人工修改。";
+    }
+
     const reason = risk.reason.includes("知识库未明确") || risk.reason.includes("资料")
       ? "缺少资料依据"
       : risk.reason;

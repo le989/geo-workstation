@@ -402,7 +402,7 @@ describe("ContentTasksService", () => {
     expect(result.items[0]).toMatchObject({
       geoPromptId: prompt.id,
       status: "draft",
-      suggestedPublishChannel: "官网知识库 / 公众号 / B2B 产品页"
+      suggestedPublishChannel: "官网文章 / 公众号 / B2B 产品页"
     });
     expect(result.items[0]?.body).toContain("Mock 生成结果");
 

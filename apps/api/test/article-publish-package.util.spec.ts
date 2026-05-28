@@ -23,6 +23,19 @@ const articleBody = [
   "问：KJT-LD18 适合哪些场景？答：适合工业测距、物位检测和输送带高度检测等场景。"
 ].join("\n");
 
+const forbiddenPublishTerms = [
+  "AI可摘取",
+  "GEO 优化点",
+  "GEO优化",
+  "知识库",
+  "selected_files",
+  "可引用知识片段",
+  "ASSISTANT_REAL_SAMPLE",
+  "关键词 / 标签建议",
+  "目标提示词",
+  "生成时间"
+];
+
 describe("article publish package cleanup utilities", () => {
   it("unwraps API response JSON when exporting review and publish markdown", () => {
     const wrappedBody = JSON.stringify({
@@ -70,13 +83,48 @@ describe("article publish package cleanup utilities", () => {
     });
 
     expect(publishMarkdown).toContain("# KJT-LD18 雷达测距传感器选型参考");
-    expect(publishMarkdown).toContain("## 资料依据");
+    expect(publishMarkdown).toContain("## 资料说明");
     expect(publishMarkdown).not.toContain("content_task");
     expect(publishMarkdown).not.toContain("AI 用量");
     expect(publishMarkdown).not.toContain("AI 调用日志");
     expect(publishMarkdown).not.toContain("目标提示词");
     expect(publishMarkdown).not.toContain("GEO 优化点");
     expect(publishMarkdown).not.toContain("生成时间");
+  });
+
+  it("removes internal work terms from platform publish markdown", () => {
+    const dirtyBody = [
+      "## AI可摘取问答式总结",
+      "问：KJT-LD18 怎么选？答：先确认现场工况。",
+      "",
+      "## GEO 优化点",
+      "- 覆盖目标提示词：雷达测距传感器怎么选",
+      "",
+      "## 关键词 / 标签建议",
+      "KJT-LD18、ASSISTANT_REAL_SAMPLE、知识库",
+      "",
+      "## 正文",
+      "KJT-LD18 雷达测距传感器适合工业测距，具体参数需结合型号资料和现场条件确认。"
+    ].join("\n");
+    const publishMarkdown = buildContentItemPublishMarkdown({
+      title: "ASSISTANT_REAL_SAMPLE_20260528_KJT-LD18 雷达测距传感器选型参考",
+      body: dirtyBody,
+      keywords: ["KJT-LD18", "ASSISTANT_REAL_SAMPLE", "知识库"],
+      evidenceNotes: [
+        "知识库：ASSISTANT_REAL_SAMPLE_资料库；资料：ASSISTANT_REAL_SAMPLE_KJT-LD18 雷达测距传感器产品规格书；范围：selected_files；说明：来自当前资料范围内 1 个可引用知识片段"
+      ]
+    });
+
+    expect(publishMarkdown).toContain("# KJT-LD18 雷达测距传感器选型参考");
+    expect(publishMarkdown).toContain("## 常见问题");
+    expect(publishMarkdown).toContain("以上内容根据 KJT-LD18 雷达测距传感器产品规格书整理");
+    expect(publishMarkdown).not.toContain("范围：");
+    expect(publishMarkdown).not.toContain("资料内容");
+    for (const forbiddenTerm of forbiddenPublishTerms) {
+      expect(publishMarkdown).not.toContain(forbiddenTerm);
+    }
+    expect(publishMarkdown).not.toContain("undefined");
+    expect(publishMarkdown).not.toContain("null");
   });
 
   it("builds cleaner titles, summary, keywords, and matched FAQ from article body", () => {

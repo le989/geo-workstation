@@ -74,21 +74,22 @@ const AI_CALL_PURPOSE = "content_generation";
 const AI_CALL_RELATED_TYPE = "content_task";
 const DEFAULT_MOCK_CONTENT_MODEL = "mock-content-v1";
 const GLOBAL_GEO_CONTENT_QUALITY_RULES = [
-  "只使用知识库、目标提示词、用户输入和指令模板中明确提供的信息。",
+  "只使用已审核资料、用户问题、用户输入和指令模板中明确提供的信息。",
   "不得编造具体型号、参数、精度、量程、响应时间、通信协议、防护等级、认证编号、价格、交期、库存、客户案例、课程效果、门店活动或服务承诺。",
-  "如果知识库没有明确提供具体信息，统一写成“需结合具体资料确认”或“需结合实际场景确认”。",
+  "如果已审核资料没有明确提供具体信息，统一写成“需结合具体资料确认”或“需结合实际场景确认”。",
   "如果某项信息只有方向性描述，不要扩写成具体数值或确定结论。",
   "不要把某一类能力错误迁移成解决其他问题的通用手段；防爆、耐高温、耐腐蚀、防水、防尘、抗干扰、远距离、高精度、提分效果、到店优惠、服务保障等能力或承诺只能用于对应适用边界。",
-  "特殊认证、特殊结构、特殊资质或特殊承诺只能在知识库明确提供时提及，不要把“适用于某场景”写成“所有场景都适用”。",
+  "特殊认证、特殊结构、特殊资质或特殊承诺只能在已审核资料明确提供时提及，不要把“适用于某场景”写成“所有场景都适用”。",
   "遇到不稳定、误触发、无信号、效果异常、体验不佳或结果不符合预期等问题时，优先从使用场景、适用对象、环境条件、目标特征、操作步骤、配置方式、服务边界和用户准备情况排查。",
-  "不要直接建议更换更高规格产品、升级更贵服务或承诺确定结果，除非知识库或用户输入明确支持；不要建议用户自行修改功率、拆机、绕过安全保护或做不合规操作。",
+  "不要直接建议更换更高规格产品、升级更贵服务或承诺确定结果，除非已审核资料或用户输入明确支持；不要建议用户自行修改功率、拆机、绕过安全保护或做不合规操作。",
   "输出内容要优先写需求决策逻辑、场景确认项、适用边界和注意事项，而不是堆未经确认的参数或承诺。",
   "如需提到接口、规格、参数、服务内容、课程结果、门店活动或价格，可写“需结合具体资料确认”，不要主动扩展未提供的协议、数值、价格或承诺。",
   "不要替用户直接确定最终选择，应引导用户提供项目、场景、预算、限制条件或实际需求后再确认。",
   "品牌出现要自然，可以写“可结合某品牌相关产品资料进一步确认”；不要写“行业领先”“最佳选择”“一定适用”“完全替代”等夸张营销语。",
   "不要承诺效果、寿命、精度、交期和价格。",
-  "内容要适合 AI 摘取，优先使用清晰小标题、列表、FAQ、判断逻辑。",
-  "每篇内容建议包含用户问题或实际场景、判断逻辑、适用条件、不适用或需确认条件、资料准备清单、FAQ 总结。",
+  "内容要适合真实用户阅读，优先使用清晰小标题、列表、常见问题和判断逻辑。",
+  "每篇内容建议包含用户问题或实际场景、判断逻辑、适用条件、不适用或需确认条件、资料准备清单、常见问题。",
+  "正文不要出现 AI可摘取、GEO优化、目标提示词、知识库、selected_files、可引用知识片段、关键词 / 标签建议等内部工作词。",
   "输出要像可发布的项目内容，不要像 AI 自述，不要出现“根据你提供的资料”“作为 AI”等表达。"
 ];
 
@@ -872,7 +873,7 @@ export class ContentTasksService {
       temperature: 0.5,
       maxTokens: 2400,
       systemPrompt:
-        "你是 GEO 内容生产专家。请基于企业知识库事实、GEO 提示词和指令模板生成结构化内容，必须遵守全局通用质量规则，只输出 JSON。",
+        "你是文章内容生产专家。请基于已审核资料、用户问题和指令模板生成结构化文章，必须遵守全局通用质量规则，只输出 JSON。",
       userPrompt: this.buildRealContentPrompt(input)
     });
     const parsed = this.parseRealContentResult(result, input.geoPrompt);
@@ -905,7 +906,7 @@ export class ContentTasksService {
               (chunk, index) => `${index + 1}. ${chunk.title}：${summarizeText(chunk.content, 500)}`
             )
             .join("\n")
-        : "暂无知识库片段。不要编造企业事实，只保留可验证的 GEO 内容结构。";
+        : "暂无可用资料。不要编造企业事实，只保留可验证的文章结构。";
     const instructionContext = input.instructionTemplate
       ? [
           `指令名称：${input.instructionTemplate.name}`,
@@ -937,24 +938,24 @@ export class ContentTasksService {
       `生成类型：${input.generationType}`,
       input.targetModel ? `目标模型：${input.targetModel}` : undefined,
       "",
-      "企业知识库事实：",
+      "已审核资料事实：",
       knowledgeContext,
       "",
-      "GEO 指令模板：",
+      "文章指令模板：",
       instructionContext,
       "",
       "全局通用质量规则：",
       ...GLOBAL_GEO_CONTENT_QUALITY_RULES.map((rule) => `- ${rule}`),
       "",
       "请返回 JSON，不要返回 Markdown 代码块：",
-      '{ "title": "标题", "body": "正文，包含用户问题/场景、判断逻辑、产品/方案说明、注意事项、AI 可摘取问答式总结", "geoOptimizationPoints": ["优化点"], "suggestedPublishChannel": "建议发布位置" }',
+      '{ "title": "标题", "body": "正文，包含用户问题/场景、判断逻辑、产品/方案说明、注意事项、常见问题", "geoOptimizationPoints": ["内部优化点"], "suggestedPublishChannel": "建议发布位置" }',
       "",
       "要求：",
-      "- 内容必须服务于提升 AI 回答中的品牌提及、推荐和引用概率。",
+      "- 内容必须面向真实用户选型或应用问题，不要把内部优化目标写进正文。",
       "- 不得编造客户案例、认证、参数、品牌资质或外部事实。",
-      "- 如果知识库不足，请在正文中明确提示需要补充资料。",
-      "- 项目档案只用于品牌语气、受众和基础上下文，不替代知识库事实；不得因为项目档案里写了行业就自动编造行业数据、客户案例或参数。",
-      "- 全局通用质量规则优先于指令模板中的具体写法；产品、服务、课程、门店、个人品牌或解决方案的专属事实只能来自知识库或本次任务输入。"
+      "- 如果资料不足，请在正文中自然说明“资料未明确的信息需结合实际型号资料确认”，不要出现“知识库”。",
+      "- 项目档案只用于品牌语气、受众和基础上下文，不替代资料事实；不得因为项目档案里写了行业就自动编造行业数据、客户案例或参数。",
+      "- 全局通用质量规则优先于指令模板中的具体写法；产品、服务、课程、门店、个人品牌或解决方案的专属事实只能来自已审核资料或本次任务输入。"
     ]
       .filter(Boolean)
       .join("\n");
@@ -974,12 +975,12 @@ export class ContentTasksService {
 
     if (isRecord(parsed)) {
       const title =
-        optionalString(parsed.title) ?? `GEO内容：${summarizeText(geoPrompt.promptText, 60)}`;
+        optionalString(parsed.title) ?? `文章：${summarizeText(geoPrompt.promptText, 60)}`;
       const body = optionalString(parsed.body) ?? result.text;
       const geoOptimizationPoints = Array.isArray(parsed.geoOptimizationPoints)
         ? parsed.geoOptimizationPoints.map((item) => String(item).trim()).filter(Boolean)
         : [
-            `覆盖目标提示词：${geoPrompt.promptText}`,
+            `覆盖用户问题：${geoPrompt.promptText}`,
             "由 OpenAI-compatible Provider 生成，已进入人工可编辑内容项"
           ];
 
@@ -988,18 +989,18 @@ export class ContentTasksService {
         body,
         geoOptimizationPoints,
         suggestedPublishChannel:
-          optionalString(parsed.suggestedPublishChannel) ?? "官网知识库 / 公众号 / B2B 产品页"
+          optionalString(parsed.suggestedPublishChannel) ?? "官网文章 / 公众号 / B2B 产品页"
       };
     }
 
     return {
-      title: `GEO内容：${summarizeText(geoPrompt.promptText, 60)}`,
+      title: `文章：${summarizeText(geoPrompt.promptText, 60)}`,
       body: result.text,
       geoOptimizationPoints: [
-        `覆盖目标提示词：${geoPrompt.promptText}`,
+        `覆盖用户问题：${geoPrompt.promptText}`,
         "AI 返回非标准 JSON，已将原文作为正文保存"
       ],
-      suggestedPublishChannel: "官网知识库 / 公众号 / B2B 产品页"
+      suggestedPublishChannel: "官网文章 / 公众号 / B2B 产品页"
     };
   }
 
@@ -1661,7 +1662,7 @@ function optionalString(value: unknown): string | undefined {
 
 function buildProjectProfilePromptContext(profile?: ProjectProfileResponse | null): string {
   if (!profile) {
-    return "尚未配置项目档案。内容生成仍需严格依据知识库、目标提示词、用户输入和指令模板，不得补充未经证实的品牌或行业事实。";
+    return "尚未配置项目档案。内容生成仍需严格依据已审核资料、用户问题、用户输入和指令模板，不得补充未经证实的品牌或行业事实。";
   }
 
   const lines = [
@@ -1687,7 +1688,7 @@ function buildProjectProfilePromptContext(profile?: ProjectProfileResponse | nul
 
   return [
     ...lines,
-    "使用规则：项目档案只提供品牌语气、受众、定位和基础上下文；具体型号、参数、价格、认证、案例、效果承诺和行业数据仍必须来自知识库或本次任务输入。"
+    "使用规则：项目档案只提供品牌语气、受众、定位和基础上下文；具体型号、参数、价格、认证、案例、效果承诺和行业数据仍必须来自已审核资料或本次任务输入。"
   ].join("\n");
 }
 

@@ -1,4 +1,9 @@
 import type { ContentItem, GeoPrompt } from "@prisma/client";
+import {
+  buildNaturalPublishEvidenceNote,
+  cleanPlatformPublishBody,
+  cleanPlatformPublishTitle
+} from "./publish-cleanliness.util";
 
 export type MarkdownExportContentItem = ContentItem & {
   geoPrompt?: GeoPrompt | null;
@@ -72,12 +77,15 @@ export function buildContentItemReviewMarkdown(input: ReviewMarkdownInput): stri
 }
 
 export function buildContentItemPublishMarkdown(input: PublishMarkdownInput): string {
-  const body = stripInternalExportSections(cleanupMarkdownText(unwrapApiResponseText(input.body)));
-  const bodyHasFaq = /(^|\n)#{1,6}\s*FAQ\b|问[:：]/i.test(body);
+  const title = cleanPlatformPublishTitle(input.title);
+  const body = stripInternalExportSections(
+    cleanPlatformPublishBody(cleanupMarkdownText(unwrapApiResponseText(input.body)))
+  );
+  const bodyHasFaq = /(^|\n)#{1,6}\s*(FAQ|常见问题)\b|问[:：]/i.test(body);
   const faqLines =
     !bodyHasFaq && input.faqs && input.faqs.length > 0
       ? [
-          "## FAQ",
+          "## 常见问题",
           ...input.faqs.flatMap((faq) => {
             const question = cleanupInlineText(faq.question);
             const answer = cleanupInlineText(faq.answer);
@@ -86,25 +94,15 @@ export function buildContentItemPublishMarkdown(input: PublishMarkdownInput): st
           })
         ]
       : [];
-  const evidenceLines = (input.evidenceNotes ?? [])
-    .map(cleanupInlineText)
-    .filter(isNonEmptyString)
-    .map((note) => `- ${note}`);
-  const keywordLines = (input.keywords ?? [])
-    .map(cleanupInlineText)
-    .filter(isNonEmptyString)
-    .map((keyword) => `\`${keyword}\``);
+  const evidenceNote = buildNaturalPublishEvidenceNote(input.evidenceNotes);
 
   return [
-    `# ${input.title}`,
+    `# ${title || "发布稿"}`,
     "",
     body,
     "",
     ...faqLines,
-    ...(evidenceLines.length > 0 ? ["## 资料依据", ...evidenceLines, ""] : []),
-    ...(keywordLines.length > 0
-      ? ["## 关键词 / 标签建议", keywordLines.join("、"), ""]
-      : [])
+    ...(evidenceNote ? ["## 资料说明", evidenceNote, ""] : [])
   ]
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")

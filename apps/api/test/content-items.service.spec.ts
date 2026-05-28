@@ -759,6 +759,103 @@ describe("ContentItemsService", () => {
     expect(usageAfter).toBe(usageBefore);
   });
 
+  it("flags and rule-fixes internal publish traces without AI logs", async () => {
+    const item = await createQualityCheckItem(
+      [
+        "## AI可摘取问答式总结",
+        "问：KJT-LD18 怎么选？答：先确认现场工况。",
+        "",
+        "## GEO 优化点",
+        "- 覆盖目标提示词：雷达测距传感器怎么选",
+        "",
+        "## 关键词 / 标签建议",
+        "ASSISTANT_REAL_SAMPLE、知识库、selected_files、可引用知识片段",
+        "",
+        "## 资料依据",
+        "知识库：ASSISTANT_REAL_SAMPLE_资料库；范围：selected_files；说明：来自当前资料范围内 1 个可引用知识片段",
+        "",
+        "## 正文",
+        "KJT-LD18 雷达测距传感器适合工业测距，具体参数需结合型号资料和现场条件确认。"
+      ].join("\n")
+    );
+    const checked = await itemsService.qualityCheck(item.id, {
+      provider: "mock"
+    });
+    const callLogsBeforeFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageBeforeFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+
+    expect(checked.publishStatus).toBe("needs_review");
+    expect(checked.riskItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness",
+          reason: "发布稿中包含内部工作词，请先修复后再复制。"
+        })
+      ])
+    );
+
+    const fixed = await itemsService.fixRiskWordsAndRecheck(item.id);
+    const publishMarkdown = await itemsService.exportContentItem(item.id, {
+      type: "publish",
+      format: "markdown"
+    });
+
+    expect(fixed.body).toContain("## 常见问题");
+    expect(fixed.body).not.toContain("AI可摘取");
+    expect(fixed.body).not.toContain("GEO 优化点");
+    expect(fixed.body).not.toContain("关键词 / 标签建议");
+    expect(fixed.body).not.toContain("## 资料依据");
+    expect(fixed.body).not.toContain("知识库");
+    expect(fixed.body).not.toContain("selected_files");
+    expect(fixed.body).not.toContain("可引用知识片段");
+    expect(fixed.body).not.toContain("范围：");
+    expect(fixed.qualityGateResult?.riskItems ?? []).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness"
+        })
+      ])
+    );
+    expect(publishMarkdown).toContain("#");
+    expect(publishMarkdown).toContain("KJT-LD18 雷达测距传感器");
+    expect(publishMarkdown).toContain("## 常见问题");
+    expect(publishMarkdown).not.toContain("AI可摘取");
+    expect(publishMarkdown).not.toContain("GEO 优化点");
+    expect(publishMarkdown).not.toContain("关键词 / 标签建议");
+    expect(publishMarkdown).not.toContain("## 资料依据");
+    expect(publishMarkdown).not.toContain("知识库");
+    expect(publishMarkdown).not.toContain("selected_files");
+    expect(publishMarkdown).not.toContain("可引用知识片段");
+    expect(publishMarkdown).not.toContain("ASSISTANT_REAL_SAMPLE");
+    expect(publishMarkdown).not.toContain("范围：");
+    expect(publishMarkdown).not.toContain("资料内容");
+    expect(publishMarkdown).not.toContain("undefined");
+    expect(publishMarkdown).not.toContain("null");
+
+    const callLogsAfterFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageAfterFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+    expect(callLogsAfterFix).toBe(callLogsBeforeFix);
+    expect(usageAfterFix).toBe(usageBeforeFix);
+  });
+
   it("can use the injected AI provider for publish optimization without external requests", async () => {
     const item = await createQualityCheckItem(
       "## 选型判断逻辑\n输出接口需结合具体型号资料确认。\n## FAQ\n问：怎么选？答：先确认工况。"

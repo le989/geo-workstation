@@ -178,7 +178,8 @@ export type ContentQualityRiskType =
   | "over_marketing"
   | "brand_expression"
   | "geo_structure"
-  | "knowledge_gap";
+  | "knowledge_gap"
+  | "publish_cleanliness";
 
 export type ContentQualitySeverity = "low" | "medium" | "high";
 export type ContentQualityLevel = "good" | "needs_review" | "risky";
@@ -217,7 +218,7 @@ export type QualityGateLevel = "low" | "medium" | "high";
 
 export type QualityGateTextHit = {
   word: string;
-  field: "title" | "body";
+  field: "title" | "body" | "publish";
   snippet: string;
 };
 
@@ -235,6 +236,7 @@ export type QualityGateResult = {
   forbiddenWordHits: QualityGateTextHit[];
   aiStyleIssues: QualityGateTextHit[];
   factBoundaryIssues: QualityGateTextHit[];
+  internalTraceHits?: QualityGateTextHit[];
   scopeSummary: {
     knowledgeBaseId?: string | null;
     scopeType: ContentScopeType;

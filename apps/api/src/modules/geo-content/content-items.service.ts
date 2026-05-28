@@ -32,6 +32,11 @@ import {
   buildContentItemReviewMarkdown
 } from "./utils/markdown-export.util";
 import {
+  cleanPlatformPublishBody,
+  cleanPlatformPublishTitle,
+  findForbiddenInternalPublishTerms
+} from "./utils/publish-cleanliness.util";
+import {
   jsonStringArray,
   normalizeQueryContentItems,
   normalizeUpdateContentItem,
@@ -114,7 +119,8 @@ export type ContentQualityRiskType =
   | "over_marketing"
   | "brand_expression"
   | "geo_structure"
-  | "knowledge_gap";
+  | "knowledge_gap"
+  | "publish_cleanliness";
 
 export type ContentQualitySeverity = "low" | "medium" | "high";
 export type ContentQualityLevel = "good" | "needs_review" | "risky";
@@ -745,6 +751,7 @@ export class ContentItemsService {
       qualityResult,
       title: context.item.title,
       body: context.item.body,
+      publishContent: this.buildPublishCheckText(context),
       provider,
       model,
       checkedAt,
@@ -1167,10 +1174,13 @@ export class ContentItemsService {
       body = body.replace(rule.pattern, rule.replacement);
     }
 
+    const cleanedTitle = this.cleanupFixedText(cleanPlatformPublishTitle(title));
+    const cleanedBody = this.cleanupFixedText(cleanPlatformPublishBody(body));
+
     return {
-      title: this.cleanupFixedText(title),
-      body: this.cleanupFixedText(body),
-      changed: title !== input.title || body !== input.body
+      title: cleanedTitle,
+      body: cleanedBody,
+      changed: cleanedTitle !== input.title || cleanedBody !== input.body
     };
   }
 
@@ -1188,6 +1198,7 @@ export class ContentItemsService {
     const positiveItems: string[] = [];
     const body = context.item.body;
     const knowledgeText = this.buildKnowledgeText(context.knowledgeChunks);
+    const publishText = this.buildPublishCheckText(context);
 
     for (const rule of UNSUPPORTED_FACT_RISK_RULES) {
       for (const match of body.matchAll(rule.pattern)) {
@@ -1231,6 +1242,10 @@ export class ContentItemsService {
 
     this.addBrandExpressionRisks(context, riskItems);
     this.addStructureRisksAndPositives(context, riskItems, positiveItems);
+    this.addPublishCleanlinessRisks(
+      [context.item.title, body, publishText].join("\n"),
+      riskItems
+    );
 
     if (context.knowledgeChunks.length === 0) {
       this.addUniqueRisk(riskItems, {
@@ -1630,7 +1645,8 @@ export class ContentItemsService {
       "over_marketing",
       "brand_expression",
       "geo_structure",
-      "knowledge_gap"
+      "knowledge_gap",
+      "publish_cleanliness"
     ];
 
     return allowed.includes(normalized as ContentQualityRiskType)
@@ -1677,6 +1693,39 @@ export class ContentItemsService {
     if (!exists) {
       riskItems.push(item);
     }
+  }
+
+  private addPublishCleanlinessRisks(
+    source: string,
+    riskItems: ContentQualityRiskItem[]
+  ): void {
+    const forbiddenTerms = findForbiddenInternalPublishTerms(source);
+
+    if (forbiddenTerms.length === 0) {
+      return;
+    }
+
+    // 对外发布稿不能出现内部工作词，助理只需要看到可执行的修复提示。
+    this.addUniqueRisk(riskItems, {
+      type: "publish_cleanliness",
+      severity: "medium",
+      text: [...new Set(forbiddenTerms)].slice(0, 6).join("、"),
+      reason: "发布稿中包含内部工作词，请先修复后再复制。",
+      suggestion: "点击自动修复风险词，或复制草稿后人工删除内部说明。"
+    });
+  }
+
+  private buildPublishCheckText(context: ContentQualityContext): string {
+    return buildContentItemPublishMarkdown({
+      title: context.item.title,
+      body: context.item.body,
+      faqs: toArticlePublishPackage(context.item.publishPackage)?.faqs,
+      keywords: [
+        ...(toArticlePublishPackage(context.item.publishPackage)?.keywords.primaryKeywords ?? []),
+        ...(toArticlePublishPackage(context.item.publishPackage)?.keywords.platformTags ?? [])
+      ],
+      evidenceNotes: this.buildPublishMarkdownEvidenceNotes(context.item)
+    });
   }
 
   private isTermSupportedByKnowledge(term: string, knowledgeText: string): boolean {
