@@ -1,4 +1,7 @@
-import { findForbiddenInternalPublishTerms } from "./publish-cleanliness.util";
+import {
+  findEditorTonePublishTerms,
+  findForbiddenInternalPublishTerms
+} from "./publish-cleanliness.util";
 
 export type PublishStatus = "publish_ready" | "needs_review" | "not_recommended";
 export type QualityGateLevel = "low" | "medium" | "high";
@@ -229,7 +232,14 @@ function buildManualReviewItems(input: {
   }
 
   if (input.internalTraceHits.length > 0) {
-    items.push("发布稿中包含内部工作词，请先修复后再复制。");
+    const hasEditorTone = input.internalTraceHits.some(
+      (hit) => findEditorTonePublishTerms(hit.word).length > 0
+    );
+    items.push(
+      hasEditorTone
+        ? "发布稿存在编辑口吻或资料口吻，请先修复后再复制。"
+        : "发布稿中包含内部工作词，请先修复后再复制。"
+    );
   }
 
   if (input.qualityResult.riskItems.length > 0) {

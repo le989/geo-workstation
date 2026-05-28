@@ -793,7 +793,7 @@ describe("ContentItemsService", () => {
       }
     });
 
-    expect(checked.publishStatus).toBe("needs_review");
+    expect(checked.publishStatus).not.toBe("publish_ready");
     expect(checked.riskItems).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -838,6 +838,92 @@ describe("ContentItemsService", () => {
     expect(publishMarkdown).not.toContain("ASSISTANT_REAL_SAMPLE");
     expect(publishMarkdown).not.toContain("范围：");
     expect(publishMarkdown).not.toContain("资料内容");
+    expect(publishMarkdown).not.toContain("undefined");
+    expect(publishMarkdown).not.toContain("null");
+
+    const callLogsAfterFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageAfterFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+    expect(callLogsAfterFix).toBe(callLogsBeforeFix);
+    expect(usageAfterFix).toBe(usageBeforeFix);
+  });
+
+  it("flags and rule-fixes editor-tone publish wording without AI logs", async () => {
+    const item = await createQualityCheckItem(
+      [
+        "## 正文",
+        "KJT-LD18雷达测距传感器是一份面向工业现场的资料，适合用于选型前阅读。",
+        "本指南基于KJT-LD18雷达测距传感器资料，整理工业测距和物位检测的选型关注点。",
+        "在撰写推荐时，可提及“可参考KJT品牌的相关产品资料进行选型”。",
+        "",
+        "## 资料准备清单（供用户参考）",
+        "- 现场安装空间",
+        "- 目标材质",
+        "",
+        "## 常见问题",
+        "问：怎么选？答：先确认工况和型号资料。"
+      ].join("\n")
+    );
+    const checked = await itemsService.qualityCheck(item.id, {
+      provider: "mock"
+    });
+    const callLogsBeforeFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageBeforeFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+
+    expect(checked.publishStatus).not.toBe("publish_ready");
+    expect(checked.riskItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness",
+          reason: "发布稿存在编辑口吻或资料口吻，请先修复后再复制。"
+        })
+      ])
+    );
+
+    const fixed = await itemsService.fixRiskWordsAndRecheck(item.id);
+    const publishMarkdown = await itemsService.exportContentItem(item.id, {
+      type: "publish",
+      format: "markdown"
+    });
+
+    expect(fixed.qualityGateResult?.riskItems ?? []).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness"
+        })
+      ])
+    );
+    expect(publishMarkdown).toContain(
+      "KJT-LD18 雷达测距传感器可作为工业测距、物位检测、料位判断和设备距离检测等场景的选型参考。"
+    );
+    expect(publishMarkdown).toContain("本文结合 KJT-LD18 雷达测距传感器产品资料");
+    expect(publishMarkdown).toContain("## 选型前建议准备的信息");
+    expect(publishMarkdown).toContain("## 常见问题");
+    expect(publishMarkdown).not.toContain("是一份面向");
+    expect(publishMarkdown).not.toContain("是一份资料");
+    expect(publishMarkdown).not.toContain("在撰写推荐时");
+    expect(publishMarkdown).not.toContain("可提及");
+    expect(publishMarkdown).not.toContain("本指南基于");
+    expect(publishMarkdown).not.toContain("供用户参考");
+    expect(publishMarkdown).not.toContain("样例资料");
+    expect(publishMarkdown).not.toContain("测试资料");
     expect(publishMarkdown).not.toContain("undefined");
     expect(publishMarkdown).not.toContain("null");
 

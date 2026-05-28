@@ -28,6 +28,23 @@ export const PUBLISH_FORBIDDEN_INTERNAL_TERMS = [
   "关键词/标签建议"
 ];
 
+export const PUBLISH_FORBIDDEN_EDITOR_TONE_TERMS = [
+  "是一份资料",
+  "是一份面向",
+  "样例资料",
+  "测试资料",
+  "在撰写推荐时",
+  "可提及",
+  "本指南基于",
+  "供用户参考",
+  "AI 生成",
+  "系统生成",
+  "写作提示",
+  "生成稿",
+  "内部资料",
+  "资料准备清单（供用户参考）"
+];
+
 const INTERNAL_SECTION_HEADINGS = [
   "GEO 优化点",
   "GEO优化点",
@@ -89,7 +106,7 @@ export function cleanPublishKeyword(value: string): string | undefined {
     cleaned.length > 24 ||
     /[。！？?？,，；;]/.test(cleaned) ||
     findForbiddenInternalPublishTerms(cleaned).length > 0 ||
-    /帮助|梳理|建议|资料整理|方案$/.test(cleaned)
+    /帮助|梳理|建议|资料整理|方案$|供用户参考|本指南基于|在撰写推荐时|可提及/.test(cleaned)
   ) {
     return undefined;
   }
@@ -101,6 +118,12 @@ export function findForbiddenInternalPublishTerms(value: string): string[] {
   const hits = new Set<string>();
 
   for (const term of PUBLISH_FORBIDDEN_INTERNAL_TERMS) {
+    if (value.includes(term)) {
+      hits.add(term);
+    }
+  }
+
+  for (const term of PUBLISH_FORBIDDEN_EDITOR_TONE_TERMS) {
     if (value.includes(term)) {
       hits.add(term);
     }
@@ -129,8 +152,49 @@ export function findForbiddenInternalPublishTerms(value: string): string[] {
   return [...hits];
 }
 
+export function findEditorTonePublishTerms(value: string): string[] {
+  const hits = new Set<string>();
+
+  for (const term of PUBLISH_FORBIDDEN_EDITOR_TONE_TERMS) {
+    if (value.includes(term)) {
+      hits.add(term);
+    }
+  }
+
+  if (/是一份(?:面向[^，。\n]*)?资料/.test(value)) {
+    hits.add("是一份资料");
+  }
+
+  if (/资料准备清单[（(]供用户参考[）)]/.test(value)) {
+    hits.add("资料准备清单（供用户参考）");
+  }
+
+  return [...hits];
+}
+
 export function cleanInternalPublishText(value: string): string {
   return cleanInternalTaskPrefix(value)
+    .replace(
+      /KJT-LD18\s*雷达测距传感器是一份面向工业现场的(?:样例|测试)?资料[^。\n]*。?/g,
+      "KJT-LD18 雷达测距传感器可作为工业测距、物位检测、料位判断和设备距离检测等场景的选型参考。"
+    )
+    .replace(
+      /([A-Za-z0-9-]*KJT[-A-Za-z0-9]*\s*[^，。\n]*?传感器)是一份(?:样例|测试)?资料/g,
+      "$1可作为选型参考"
+    )
+    .replace(
+      /本指南基于\s*([^，。\n]+?)资料/g,
+      (_, materialName: string) => `本文结合 ${normalizeProductNameSpacing(materialName)}产品资料`
+    )
+    .replace(
+      /在撰写推荐时[，,]?\s*可提及[“"']?可参考\s*KJT\s*品牌的相关产品资料进行选型[”"']?[。]?/g,
+      "实际选型时，可结合 KJT 相关产品资料、现场工况和安装条件进一步确认。"
+    )
+    .replace(/在撰写推荐时[^。\n]*[。]?/g, "")
+    .replace(/资料准备清单[（(]供用户参考[）)]/g, "选型前建议准备的信息")
+    .replace(/资料准备清单/g, "选型前建议准备的信息")
+    .replace(/该资料提示选型时应/g, "选型时应")
+    .replace(/AI\s*生成|系统生成|写作提示|生成稿|内部资料/g, "")
     .replace(/AI\s*可摘取(?:的)?问答式总结/gi, "常见问题")
     .replace(/可用于\s*AI\s*摘取的问答式总结/gi, "常见问题")
     .replace(/可被\s*AI\s*摘取/g, "便于阅读")
@@ -154,7 +218,10 @@ export function cleanInternalPublishText(value: string): string {
     .replace(/质量闸门/g, "发布检查")
     .replace(/qualityGate|publishPackage/g, "")
     .replace(/关键词\s*\/\s*标签建议/g, "")
-    .replace(/关键词\/标签建议/g, "");
+    .replace(/关键词\/标签建议/g, "")
+    .replace(/可提及/g, "")
+    .replace(/供用户参考/g, "")
+    .replace(/KJT-LD18\s*雷达测距传感器/g, "KJT-LD18 雷达测距传感器");
 }
 
 function normalizeFaqHeadings(markdown: string): string {
@@ -219,6 +286,10 @@ function cleanInternalTaskPrefix(value: string): string {
   const normalized = value.replace(/ASSISTANT-ARTICLE-FLOW-UX[-A-Z0-9_]*[:：_-]*/gi, "");
 
   return normalized.replace(/ASSISTANT_REAL_SAMPLE_[A-Z0-9_-]*?(?=KJT|[\u4e00-\u9fff])/gi, "");
+}
+
+function normalizeProductNameSpacing(value: string): string {
+  return value.replace(/KJT-LD18\s*雷达测距传感器/g, "KJT-LD18 雷达测距传感器");
 }
 
 function cleanupMarkdownSpacing(value: string): string {

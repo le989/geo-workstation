@@ -33,7 +33,21 @@ const forbiddenPublishTerms = [
   "ASSISTANT_REAL_SAMPLE",
   "关键词 / 标签建议",
   "目标提示词",
-  "生成时间"
+  "生成时间",
+  "是一份资料",
+  "是一份面向",
+  "样例资料",
+  "测试资料",
+  "在撰写推荐时",
+  "可提及",
+  "本指南基于",
+  "供用户参考",
+  "AI 生成",
+  "系统生成",
+  "写作提示",
+  "生成稿",
+  "内部资料",
+  "资料准备清单（供用户参考）"
 ];
 
 describe("article publish package cleanup utilities", () => {
@@ -125,6 +139,41 @@ describe("article publish package cleanup utilities", () => {
     }
     expect(publishMarkdown).not.toContain("undefined");
     expect(publishMarkdown).not.toContain("null");
+  });
+
+  it("rewrites editor-tone material wording in platform publish markdown", () => {
+    const dirtyBody = [
+      "## 正文",
+      "KJT-LD18雷达测距传感器是一份面向工业现场的资料，适合用于选型前阅读。",
+      "本指南基于KJT-LD18雷达测距传感器资料，整理工业测距和物位检测的选型关注点。",
+      "在撰写推荐时，可提及“可参考KJT品牌的相关产品资料进行选型”。",
+      "",
+      "## 资料准备清单（供用户参考）",
+      "- 现场安装空间",
+      "- 目标材质",
+      "",
+      "## 常见问题",
+      "问：怎么选？答：先确认工况和型号资料。"
+    ].join("\n");
+    const publishMarkdown = buildContentItemPublishMarkdown({
+      title: "KJT-LD18 雷达测距传感器选型参考",
+      body: dirtyBody,
+      keywords: ["帮助您梳理选型", "供用户参考", "KJT-LD18"],
+      evidenceNotes: ["资料依据：KJT-LD18 雷达测距传感器产品规格书"]
+    });
+
+    expect(publishMarkdown).toContain(
+      "KJT-LD18 雷达测距传感器可作为工业测距、物位检测、料位判断和设备距离检测等场景的选型参考。"
+    );
+    expect(publishMarkdown).toContain("本文结合 KJT-LD18 雷达测距传感器产品资料");
+    expect(publishMarkdown).toContain(
+      "实际选型时，可结合 KJT 相关产品资料、现场工况和安装条件进一步确认。"
+    );
+    expect(publishMarkdown).toContain("## 选型前建议准备的信息");
+    expect(publishMarkdown).toContain("## 常见问题");
+    for (const forbiddenTerm of forbiddenPublishTerms) {
+      expect(publishMarkdown).not.toContain(forbiddenTerm);
+    }
   });
 
   it("builds cleaner titles, summary, keywords, and matched FAQ from article body", () => {

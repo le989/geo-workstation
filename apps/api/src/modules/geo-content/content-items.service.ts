@@ -34,6 +34,7 @@ import {
 import {
   cleanPlatformPublishBody,
   cleanPlatformPublishTitle,
+  findEditorTonePublishTerms,
   findForbiddenInternalPublishTerms
 } from "./utils/publish-cleanliness.util";
 import {
@@ -1699,7 +1700,21 @@ export class ContentItemsService {
     source: string,
     riskItems: ContentQualityRiskItem[]
   ): void {
-    const forbiddenTerms = findForbiddenInternalPublishTerms(source);
+    const editorToneTerms = findEditorTonePublishTerms(source);
+    const forbiddenTerms = findForbiddenInternalPublishTerms(source).filter(
+      (term) => !editorToneTerms.includes(term)
+    );
+
+    if (editorToneTerms.length > 0) {
+      // 编辑口吻会让发布稿像写作提示，先拦住，避免助理直接复制发布。
+      this.addUniqueRisk(riskItems, {
+        type: "publish_cleanliness",
+        severity: "medium",
+        text: [...new Set(editorToneTerms)].slice(0, 6).join("、"),
+        reason: "发布稿存在编辑口吻或资料口吻，请先修复后再复制。",
+        suggestion: "点击自动修复风险词，或复制草稿后人工删除资料说明和写作提示口吻。"
+      });
+    }
 
     if (forbiddenTerms.length === 0) {
       return;

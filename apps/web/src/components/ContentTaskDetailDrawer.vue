@@ -632,7 +632,9 @@ const getAssistantReviewIssues = () => {
 
   const riskItems = gate.riskItems.map((risk) => {
     if (risk.type === "publish_cleanliness") {
-      return "发布稿里包含内部说明，请先自动修复或人工修改。";
+      return risk.reason.includes("编辑口吻") || risk.reason.includes("资料口吻")
+        ? "发布稿里还有资料说明或写作提示口吻，请先自动修复或人工修改。"
+        : "发布稿里包含内部说明，请先自动修复或人工修改。";
     }
 
     const reason = risk.reason.includes("知识库未明确") || risk.reason.includes("资料")
