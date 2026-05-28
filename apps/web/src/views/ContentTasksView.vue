@@ -629,6 +629,22 @@ const handleCopyDraftForEdit = async (task: ContentTask) => {
   }
 };
 
+const handleCopyDraftForEditItem = async (item: Pick<ContentItem, "id">) => {
+  try {
+    await withIdFlag(publishPackageExportingIds, item.id, async () => {
+      // 有风险的文章只能复制为草稿，避免助理误认为已经可发布。
+      const markdown = await exportContentItem(item.id, {
+        type: "publish",
+        format: "markdown"
+      });
+      await navigator.clipboard.writeText(markdown);
+    });
+    ElMessage.success("草稿已复制，请先人工修改后再发布。");
+  } catch (error) {
+    ElMessage.warning(error instanceof Error ? error.message : "草稿复制失败，请打开文章后手动复制。");
+  }
+};
+
 const handleAutoFixRiskWords = async (task: ContentTask) => {
   const primaryItem = getPrimaryItem(task);
 
@@ -663,7 +679,13 @@ const handleAutoFixRiskWordsForItem = async (item: ContentItem) => {
   }
 };
 
-const handleRegenerateTask = async (task: ContentTask) => {
+const handleRegenerateTask = async (task?: ContentTask) => {
+  const targetTask = task ?? detail.value?.task;
+
+  if (!targetTask) {
+    return;
+  }
+
   try {
     await ElMessageBox.confirm(
       "重新生成会消耗 AI token / 额度；当前 smoke 验证使用基础生成模式时不会调用真实 AI。确认后会新建一条同主题文章任务。",
@@ -675,21 +697,21 @@ const handleRegenerateTask = async (task: ContentTask) => {
       }
     );
 
-    const scope = task.knowledgeScope;
-    const provider = task.provider ?? "mock";
+    const scope = targetTask.knowledgeScope;
+    const provider = targetTask.provider ?? "mock";
     const created = await createContentTask({
-      generationType: task.generationType || "article",
+      generationType: targetTask.generationType || "article",
       geoPromptIds: [],
-      knowledgeBaseId: task.knowledgeBaseId ?? undefined,
-      model: task.model,
-      name: task.name,
-      productLine: task.productLine,
-      productLineId: task.productLineId,
+      knowledgeBaseId: targetTask.knowledgeBaseId ?? undefined,
+      model: targetTask.model,
+      name: targetTask.name,
+      productLine: targetTask.productLine,
+      productLineId: targetTask.productLineId,
       provider,
       scopeType: scope?.type ?? "all",
       selectedKnowledgeFileIds:
         scope?.type === "selected_files" ? scope.selectedKnowledgeFileIds : undefined,
-      targetModel: task.targetModel
+      targetModel: targetTask.targetModel
     });
     ElMessage.success("已重新生成文章任务。");
     await loadTasks();
@@ -986,7 +1008,7 @@ onMounted(() => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="主操作" width="300" fixed="right">
+        <el-table-column label="主操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="resolveAssistantStatus(row) === 'pending'"
@@ -1020,31 +1042,34 @@ onMounted(() => {
               :loading="riskFixingIds.includes(row.primaryItem.id)"
               @click="handleAutoFixRiskWords(row)"
             >
-              自动修复风险词
+              自动修复
             </el-button>
             <el-button :icon="View" @click="openDetailDrawer(row)">打开文章</el-button>
-            <el-button
-              v-if="resolveAssistantStatus(row) === 'needs_review' && row.primaryItem"
-              text
-              type="primary"
-              :loading="publishPackageExportingIds.includes(row.primaryItem.id)"
-              @click="handleCopyDraftForEdit(row)"
+            <el-dropdown
+              v-if="
+                canArchiveContentTask(row) ||
+                  (resolveAssistantStatus(row) === 'needs_review' && row.primaryItem)
+              "
+              trigger="click"
             >
-              复制草稿继续修改
-            </el-button>
-            <el-button
-              v-if="resolveAssistantStatus(row) === 'needs_review' && canManageContentActions"
-              text
-              type="warning"
-              @click="handleRegenerateTask(row)"
-            >
-              重新生成文章
-            </el-button>
-            <el-dropdown v-if="canArchiveContentTask(row)" trigger="click">
               <el-button text :icon="MoreFilled">更多</el-button>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item
+                    v-if="resolveAssistantStatus(row) === 'needs_review' && row.primaryItem"
+                    :disabled="publishPackageExportingIds.includes(row.primaryItem.id)"
+                    @click="handleCopyDraftForEdit(row)"
+                  >
+                    复制草稿继续修改
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="resolveAssistantStatus(row) === 'needs_review' && canManageContentActions"
+                    @click="handleRegenerateTask(row)"
+                  >
+                    重新生成文章
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canArchiveContentTask(row)"
                     :disabled="isArchiving(row.id)"
                     @click="handleArchiveTask(row)"
                   >
@@ -1144,6 +1169,8 @@ onMounted(() => {
       @delete="handleDeleteItem"
       @quality-check="handleQualityCheck"
       @fix-risk-words="handleAutoFixRiskWordsForItem"
+      @copy-draft="handleCopyDraftForEditItem"
+      @regenerate="handleRegenerateTask"
       @optimize="handleOptimizeForPublish"
       @format-publish="handleFormatForPublish"
       @generate-publish-package="handleGeneratePublishPackage"
