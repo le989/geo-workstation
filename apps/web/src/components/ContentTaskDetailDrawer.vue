@@ -25,7 +25,7 @@ import {
   aiCallStatusLabelMap,
   formatProviderModel
 } from "@/config/label-maps";
-import { getDisplayContentText, unwrapApiResponseText } from "@/utils/content-text";
+import { getDisplayContentText } from "@/utils/content-text";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -76,6 +76,7 @@ const emit = defineEmits<{
   optimize: [item: ContentItem];
   formatPublish: [item: ContentItem, payload: FormatContentItemForPublishPayload];
   generatePublishPackage: [item: ContentItem];
+  copyPublishPackage: [item: ContentItem];
   exportPublishPackage: [item: ContentItem, action: PublishPackageExportAction];
 }>();
 
@@ -501,71 +502,6 @@ const hasPackageKeywords = (pack: ArticlePublishPackage) =>
   getPackageArray(pack.keywords.longTailKeywords).length > 0 ||
   getPackageArray(pack.keywords.platformTags).length > 0;
 
-// 前端复制只整理已保存的发布包，不重新生成内容，避免误触发 AI。
-const buildPublishPackageMarkdown = (item: ContentItem) => {
-  const pack = item.publishPackage;
-
-  if (!pack) {
-    return "";
-  }
-
-  const evidenceLines =
-    pack.evidence.length > 0
-      ? pack.evidence.map((evidence) =>
-          [
-            evidence.knowledgeBaseName ? `知识库：${evidence.knowledgeBaseName}` : "",
-            evidence.fileName ? `资料：${evidence.fileName}` : "",
-            evidence.productLineName ? `产品线：${evidence.productLineName}` : "",
-            evidence.scopeType ? `范围：${evidence.scopeType}` : "",
-            evidence.sourceNote ? `说明：${evidence.sourceNote}` : ""
-          ]
-            .filter(Boolean)
-            .join("；")
-        )
-      : ["暂无可自动确认的资料依据，发布前需人工核对。"];
-  const body = unwrapApiResponseText(item.body).trim() || "正文待人工补充。";
-  const bodyHasFaq = /(^|\n)#{1,6}\s*FAQ\b|问[:：]/i.test(body);
-  const keywordTags = [
-    ...getPackageArray(pack.keywords.primaryKeywords),
-    ...getPackageArray(pack.keywords.platformTags)
-  ];
-
-  return [
-    `# ${pack.titles.standardTitle || item.title}`,
-    "",
-    body,
-    "",
-    ...(bodyHasFaq || pack.faqs.length === 0
-      ? []
-      : [
-          "## FAQ",
-          ...pack.faqs.flatMap((faq) => [`**问：${faq.question}**`, faq.answer, ""])
-        ]),
-    "## 资料依据",
-    ...evidenceLines.map((line) => `- ${line}`),
-    "",
-    ...(keywordTags.length > 0 ? ["## 关键词 / 标签建议", keywordTags.join("、")] : [])
-  ]
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-};
-
-const copyPublishPackageMarkdown = async (item: ContentItem) => {
-  const markdown = buildPublishPackageMarkdown(item);
-
-  if (!markdown) {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(markdown);
-    ElMessage.success("发布稿已复制。");
-  } catch {
-    ElMessage.warning("当前浏览器不支持自动复制，请手动导出后复制。");
-  }
-};
-
 const copyOptimizedBody = async () => {
   const text = props.publishOptimizationResult?.result.body;
 
@@ -831,7 +767,12 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
               <template v-if="item.publishPackage">
                 <div class="publish-package-actions">
-                  <el-button text type="primary" @click="copyPublishPackageMarkdown(item)">
+                  <el-button
+                    text
+                    type="primary"
+                    :loading="publishPackageExportingIds?.includes(item.id)"
+                    @click="emit('copyPublishPackage', item)"
+                  >
                     复制发布稿
                   </el-button>
                   <el-button

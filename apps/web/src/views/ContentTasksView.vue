@@ -500,6 +500,24 @@ const handleGeneratePublishPackage = async (item: ContentItem) => {
   }
 };
 
+const handleCopyPublishPackage = async (item: ContentItem) => {
+  try {
+    await withIdFlag(publishPackageExportingIds, item.id, async () => {
+      // 复制发布稿直接复用后端干净导出，避免历史发布包标题污染剪贴板。
+      const markdown = await exportContentItem(item.id, {
+        type: "publish",
+        format: "markdown"
+      });
+      await navigator.clipboard.writeText(markdown);
+    });
+    ElMessage.success("发布稿已复制。");
+  } catch (error) {
+    ElMessage.warning(
+      error instanceof Error ? error.message : "当前浏览器不支持自动复制，请导出发布稿后手动复制。"
+    );
+  }
+};
+
 const handleExportPublishPackage = async (
   item: ContentItem,
   action: PublishPackageExportAction
@@ -891,6 +909,7 @@ onMounted(() => {
       @optimize="handleOptimizeForPublish"
       @format-publish="handleFormatForPublish"
       @generate-publish-package="handleGeneratePublishPackage"
+      @copy-publish-package="handleCopyPublishPackage"
       @export-publish-package="handleExportPublishPackage"
     />
 
