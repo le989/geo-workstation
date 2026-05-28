@@ -60,9 +60,6 @@ export function normalizeCreateContentTask(
   assertRequired("GEO content task name", normalized.name);
   assertRequired("GEO content generation type", normalized.generationType);
 
-  if (normalized.geoPromptIds.length === 0) {
-    throw new BadRequestException("GEO content task requires at least one GEO prompt.");
-  }
   if (normalized.scopeType === "product_line" && !normalized.productLineId) {
     throw new BadRequestException("按产品线生成时必须选择产品线。");
   }

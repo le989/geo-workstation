@@ -11,7 +11,7 @@ export const GEO_MODULE_OPTIONS: Array<{
   { key: "expansion", label: "AI 拓词", group: "正式模块" },
   { key: "knowledge-bases", label: "知识库", group: "正式模块" },
   { key: "instruction-templates", label: "指令库", group: "正式模块" },
-  { key: "geo-content", label: "GEO 内容生成", group: "正式模块" },
+  { key: "geo-content", label: "发布文章工作台", group: "正式模块" },
   { key: "model-inclusion-records", label: "AI 模型覆盖记录", group: "正式模块" },
   { key: "geo-reports", label: "GEO 报表", group: "正式模块" },
   { key: "users", label: "用户管理", group: "正式模块" },

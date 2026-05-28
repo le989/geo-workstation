@@ -31,12 +31,14 @@ const apiRequiredSnippets = [
   "deleteContentItem",
   "exportContentItem",
   "qualityCheckContentItem",
+  "fixRiskWordsAndRecheckContentItem",
   "optimizeContentItemForPublish",
   "formatContentItemForPublish",
   "/api/content-tasks",
   "/api/content-items",
   "/archive",
   "/quality-check",
+  "/risk-word-fix",
   "/optimize-for-publish",
   "/format-for-publish",
   "/retry",
@@ -44,44 +46,60 @@ const apiRequiredSnippets = [
 ];
 
 const pageRequiredSnippets = [
-  "GEO 内容生成",
-  "提示词 / 知识库 / 指令模板",
-  "内容任务筛选",
-  "高级筛选",
-  "基础生成模式",
-  "AI 生成模式",
-  "生成方式与模型参数",
-  "内容任务已创建，但",
-  "失败原因",
-  "质量检查",
-  "生成发布优化版",
-  "内容质量检查与发布优化版",
-  "未发现明显高风险项",
-  "发布优化版正文已复制",
-  "发布稿排版",
-  "生成富文本发布稿",
+  "发布文章工作台",
+  "选择资料 → 生成文章 → 复制发布稿",
+  "新建发布文章",
+  "文章主题",
+  "选择资料",
+  "推荐资料卡片",
+  "最近可引用资料优先展示",
+  "待处理",
+  "生成中",
+  "可复制",
+  "需人工检查",
+  "生成文章",
+  "自动修复风险词",
+  "复制草稿继续修改",
+  "重新生成文章",
+  "重新生成会消耗 AI token",
   "复制富文本",
-  "复制 Markdown",
-  "复制纯文本",
-  "下载 HTML",
-  "下载 Markdown",
-  "通用发布稿",
-  "官网文章",
-  "知乎 / 百家号",
-  "公众号草稿",
+  "复制成功，可以粘贴到发布平台",
+  "当前浏览器不支持富文本剪贴板",
+  "打开文章",
+  "这篇文章已通过发布检查，可以复制发布稿",
+  "这篇文章暂不建议直接发布",
+  "发布稿预览",
+  "复制按钮会复制这版内容。",
+  "资料来源",
+  "高级信息（负责人查看）",
+  "发布检查",
+  "指定资料",
+  "按产品线",
+  "全部可引用资料",
   "ContentTaskFilters",
   "ContentTaskFormDialog",
   "ContentTaskDetailDrawer",
   "ContentItemTable",
   "ContentItemFormDialog",
-  "GeoPromptSelector",
-  "复制发布稿",
+  "PublishFormatPanel",
+  "助理只处理生成、检查和复制；高级配置由负责人维护。",
+  "查看发布稿和检查结果。",
+  "article-workbench-list",
+  "assistant-status-tabs",
+  "assistant-article-card",
+  "getAssistantArticleTitle",
+  "cleanAssistantTaskName",
+  "已通过检查，可以复制",
+  "发现问题，先修复或人工修改",
+  "primaryArticleBlocks",
+  "primaryArticlePreviewMarkdown",
+  "renderInlineArticleMarkdown",
   "导出评审稿",
   "导出发布稿",
-  "导出发布包 TXT",
+  "导出发布稿 TXT",
   "归档任务",
-  "重试不会重复生成已成功内容项",
-  "移除该内容项"
+  "重试不会重复生成已成功文章",
+  "移除该文章内容"
 ];
 
 const contentFields = [
@@ -94,7 +112,6 @@ const contentFields = [
   "model",
   "geoPromptIds",
   "knowledgeBaseId",
-  "instructionTemplateId",
   "title",
   "body",
   "geoOptimizationPoints",
@@ -138,6 +155,11 @@ for (const snippet of pageRequiredSnippets) {
 
 const contentTasksViewSource = await readSource("src/views/ContentTasksView.vue");
 const contentTaskDetailDrawerSource = await readSource("src/components/ContentTaskDetailDrawer.vue");
+const contentTaskFormDialogSource = await readSource("src/components/ContentTaskFormDialog.vue");
+const articlePreviewPanelSource =
+  contentTaskDetailDrawerSource.match(
+    /<section ref="articleBodyRef" class="assistant-article-panel">[\s\S]*?<\/section>/
+  )?.[0] ?? "";
 
 // 复制发布稿必须复用后端干净发布稿导出，避免继续复制历史 publishPackage。
 assert(
@@ -157,6 +179,66 @@ assert(
     contentTasksViewSource
   ),
   "Copy publish action must request /export?type=publish&format=markdown"
+);
+assert(
+  contentTasksViewSource.includes("publishPreviewMarkdownByItemId") &&
+    /loadPublishPreviewMarkdown[\s\S]*exportContentItem\(item\.id,\s*\{[\s\S]*type:\s*"publish"[\s\S]*format:\s*"markdown"/.test(
+      contentTasksViewSource
+    ),
+  "Detail preview must load the same publish markdown used by copy rich text"
+);
+assert(
+  contentTasksViewSource.includes("cleanAssistantTaskName(task.primaryItem?.title)") &&
+    contentTasksViewSource.includes("removeLeadingTimestampMarker") &&
+    contentTasksViewSource.includes("removeLeadingTimestampMarker(taskNameParts.slice"),
+  "Assistant list titles must hide smoke prefixes and leading timestamp markers"
+);
+assert(
+  contentTaskDetailDrawerSource.includes("publishPreviewMarkdownByItemId") &&
+    contentTaskDetailDrawerSource.includes("primaryArticlePreviewMarkdown") &&
+    !contentTaskDetailDrawerSource.includes(
+      'parseAssistantArticleBlocks(primaryArticleItem.value?.body ?? "")'
+    ),
+  "Detail drawer must preview clean publish markdown instead of raw generated body"
+);
+assert(
+  contentTaskDetailDrawerSource.includes("原始生成稿") &&
+    contentTaskDetailDrawerSource.includes("getDisplayContentText(item.body)"),
+  "Raw generated body must remain only in the advanced owner section"
+);
+assert(
+  !contentTaskDetailDrawerSource.includes(
+    "先看能不能发，再看正文和资料来源；负责人信息已收进高级信息。"
+  ) &&
+    !contentTaskDetailDrawerSource.includes("这里展示的是复制到发布平台的最终稿。") &&
+    !contentTaskDetailDrawerSource.includes(
+      "复制后可粘贴到百家号、头条、知乎等发布平台，发布前仍建议快速预览格式。"
+    ),
+  "Assistant detail drawer must use shorter helper copy"
+);
+assert(
+  articlePreviewPanelSource && !articlePreviewPanelSource.includes("copyPublishPackage"),
+  "Article preview panel must not duplicate the primary copy rich text action"
+);
+assert(
+  contentTasksViewSource.includes("ClipboardItem") &&
+    contentTasksViewSource.includes("text/html") &&
+    contentTasksViewSource.includes("text/plain"),
+  "Copy rich text action must try text/html and include text/plain fallback"
+);
+assert(
+  contentTaskFormDialogSource.includes('officialCitationStatus: "citable"') &&
+    contentTaskFormDialogSource.includes('applicableModule: "geo-content"'),
+  "Assistant material search must only request approved citable GEO content materials"
+);
+assert(
+  !contentTaskFormDialogSource.includes("GeoPromptSelector"),
+  "Assistant create dialog must not expose the GEO prompt selector"
+);
+assert(
+  !contentTaskFormDialogSource.includes("providerSafetyText") &&
+    !contentTaskFormDialogSource.includes("contentGenerationModeOptions"),
+  "Assistant create dialog must not expose provider or model controls"
 );
 
 for (const field of contentFields) {

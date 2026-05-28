@@ -1,4 +1,11 @@
 import type { PublishStatus, QualityGateResult } from "./quality-gate.util";
+import {
+  cleanInternalPublishText,
+  cleanPlatformPublishBody,
+  cleanPlatformPublishTitle,
+  cleanPublishKeyword,
+  findForbiddenInternalPublishTerms
+} from "./publish-cleanliness.util";
 
 export type ArticlePublishPackagePlatformTitles = {
   baijiahao: string;
@@ -92,7 +99,12 @@ const DIRTY_KEYWORD_PATTERNS = [
   /正式资料$/,
   /资料$/,
   /^实际应用$/,
-  /^GEO内容$/
+  /^GEO内容$/,
+  /^内容优化$/,
+  /帮助.*梳理/,
+  /工业测距方案$/,
+  /场景选型$/,
+  /可引用/
 ];
 
 export function generateArticlePublishPackage(
@@ -100,7 +112,7 @@ export function generateArticlePublishPackage(
 ): ArticlePublishPackage {
   // 第一版发布包只做规则整理，不调用 AI，避免生成发布包时产生额外额度消耗。
   const title = sanitizeTitle(input.title);
-  const body = unwrapMaybeApiResponseText(input.body);
+  const body = cleanPlatformPublishBody(unwrapMaybeApiResponseText(input.body));
   const productLineName = cleanText(input.productLineName) ?? inferProductLine(title, body);
   const summary = buildSummary(body);
   const keywords = buildKeywords({
@@ -164,7 +176,7 @@ export function buildArticlePublishPackageMarkdown(input: {
     `- 长尾关键词：${joinOrPlaceholder(publishPackage.keywords.longTailKeywords)}`,
     `- 平台标签：${joinOrPlaceholder(publishPackage.keywords.platformTags)}`,
     "",
-    "## FAQ",
+    "## 常见问题",
     ...publishPackage.faqs.flatMap((item, index) => [
       `${index + 1}. ${item.question}`,
       `   ${item.answer}`
@@ -460,7 +472,7 @@ function normalizeEvidence(evidence: ArticlePublishPackageEvidence[]): ArticlePu
 }
 
 function sanitizeTitle(value: string): string {
-  return sanitizeRiskWords(stripMarkdown(value).replace(/\s+/g, " ").trim());
+  return sanitizeRiskWords(cleanPlatformPublishTitle(stripMarkdown(value).replace(/\s+/g, " ")));
 }
 
 function unwrapMaybeApiResponseValue(value: unknown): unknown {
@@ -531,7 +543,7 @@ function clampText(value: string, maxLength: number): string {
 }
 
 function cleanSummaryText(value: string): string {
-  return value
+  return cleanInternalPublishText(value)
     .replace(/^用户关心的问题[:：]\s*/gm, "")
     .replace(/^问[:：]\s*/gm, "")
     .replace(/\s+/g, " ")
@@ -576,7 +588,7 @@ function uniqueClean(values: Array<string | undefined | null>): string[] {
   const seen = new Set<string>();
 
   for (const value of values) {
-    const normalized = cleanText(value);
+    const normalized = value ? cleanPublishKeyword(value) : undefined;
 
     if (!normalized || seen.has(normalized) || !isMeaningfulKeyword(normalized)) {
       continue;
@@ -594,6 +606,10 @@ function isMeaningfulKeyword(value: string): boolean {
     return false;
   }
 
+  if (findForbiddenInternalPublishTerms(value).length > 0) {
+    return false;
+  }
+
   return !DIRTY_KEYWORD_PATTERNS.some((pattern) => pattern.test(value));
 }
 
@@ -602,7 +618,7 @@ function cleanText(value: unknown): string | undefined {
     return undefined;
   }
 
-  const trimmed = value.replace(/\s+/g, " ").trim();
+  const trimmed = cleanInternalPublishText(value).replace(/\s+/g, " ").trim();
 
   return trimmed.length > 0 ? trimmed : undefined;
 }
@@ -634,10 +650,8 @@ function formatEvidenceLines(evidence: ArticlePublishPackageEvidence[]): string[
 
   return evidence.map((item) => {
     const parts = [
-      item.knowledgeBaseName ? `知识库：${item.knowledgeBaseName}` : "",
       item.fileName ? `资料：${item.fileName}` : "",
       item.productLineName ? `产品线：${item.productLineName}` : "",
-      item.scopeType ? `范围：${item.scopeType}` : "",
       item.sourceNote ? `说明：${item.sourceNote}` : ""
     ].filter(Boolean);
 

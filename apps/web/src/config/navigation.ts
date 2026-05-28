@@ -120,12 +120,12 @@ export const navigationItems: GeoPageMeta[] = [
   },
   {
     path: "/geo-content",
-    label: "GEO 内容生成",
-    title: "GEO 内容生成",
-    question: "应该生产什么内容来影响 AI 回答？",
-    description: "基于提示词、知识库和指令模板生成服务于 AI 问答可见度的内容资产。",
-    phaseNote: "已支持内容草稿生成、内容项编辑、软删除和 Markdown 导出。",
-    nextSteps: ["选择提示词、知识库和指令模板", "审核生成内容", "沉淀可发布的 GEO 内容资产"],
+    label: "发布文章工作台",
+    title: "发布文章工作台",
+    question: "今天要生成和复制哪些发布文章？",
+    description: "面向助理的文章生成、发布检查和富文本复制入口。",
+    phaseNote: "已复用内容生成底层能力，主流程收口到选择资料、生成文章和复制发布稿。",
+    nextSteps: ["新建发布文章", "检查文章状态", "复制富文本发布稿"],
     apiFocus: "已联调 /api/content-tasks 和 /api/content-items",
     icon: EditPen,
     allowedRoles: allRoles

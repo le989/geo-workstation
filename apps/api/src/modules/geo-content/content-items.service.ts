@@ -32,6 +32,12 @@ import {
   buildContentItemReviewMarkdown
 } from "./utils/markdown-export.util";
 import {
+  cleanPlatformPublishBody,
+  cleanPlatformPublishTitle,
+  findEditorTonePublishTerms,
+  findForbiddenInternalPublishTerms
+} from "./utils/publish-cleanliness.util";
+import {
   jsonStringArray,
   normalizeQueryContentItems,
   normalizeUpdateContentItem,
@@ -114,7 +120,8 @@ export type ContentQualityRiskType =
   | "over_marketing"
   | "brand_expression"
   | "geo_structure"
-  | "knowledge_gap";
+  | "knowledge_gap"
+  | "publish_cleanliness";
 
 export type ContentQualitySeverity = "low" | "medium" | "high";
 export type ContentQualityLevel = "good" | "needs_review" | "risky";
@@ -237,6 +244,19 @@ const UNSUPPORTED_FACT_RISK_RULES: Array<{
 
 const OVER_MARKETING_PATTERN =
   /行业领先|最佳选择|一定适用|保证|100%|完全替代|最好|第一|绝对|永久|零风险/gi;
+
+const RULE_RISK_FIX_REPLACEMENTS: Array<{ pattern: RegExp; replacement: string }> = [
+  { pattern: /行业领先|最佳选择|最好|最优|首选|必选/gi, replacement: "可结合资料评估" },
+  { pattern: /保证|确保|绝对|100%|百分百|零风险|包解决/gi, replacement: "需结合现场和资料确认" },
+  { pattern: /一定适用/gi, replacement: "适用性需结合现场确认" },
+  { pattern: /完全替代/gi, replacement: "可结合场景评估替代方案" },
+  { pattern: /第一|唯一/gi, replacement: "可选" },
+  { pattern: /最低价|全网最低/gi, replacement: "价格需以实际报价为准" },
+  { pattern: /永久/gi, replacement: "长期" },
+  { pattern: /随着行业发展|在当今时代|在现代工业中/gi, replacement: "" },
+  { pattern: /综上所述|总而言之/gi, replacement: "总体来看" },
+  { pattern: /不可或缺|赋能|大大提升|显著提升|助力企业降本增效/gi, replacement: "有助于现场判断" }
+];
 
 @Injectable()
 export class ContentItemsService {
@@ -732,6 +752,7 @@ export class ContentItemsService {
       qualityResult,
       title: context.item.title,
       body: context.item.body,
+      publishContent: this.buildPublishCheckText(context),
       provider,
       model,
       checkedAt,
@@ -788,6 +809,68 @@ export class ContentItemsService {
       selectedFileCount: 0,
       productLineId: task.productLineId
     };
+  }
+
+  async fixRiskWordsAndRecheck(
+    id: string,
+    context?: ResourceAccessContext
+  ): Promise<GeneratedContentItemResponse> {
+    const qualityContext = await this.loadQualityContext(id, context);
+    const fixedText = this.applyRuleRiskFixes({
+      title: qualityContext.item.title,
+      body: qualityContext.item.body
+    });
+
+    if (!fixedText.changed) {
+      throw new BadRequestException("未发现可自动修复的风险词，请人工检查文章。");
+    }
+
+    // 规则型修复只替换风险表达，不调用 AI，也不新增知识库没有的产品事实。
+    const updated = await this.prisma.contentItem.update({
+      where: {
+        id: qualityContext.item.id
+      },
+      data: {
+        title: fixedText.title,
+        body: fixedText.body
+      }
+    });
+    const updatedContext: ContentQualityContext = {
+      ...qualityContext,
+      item: {
+        ...qualityContext.item,
+        ...updated
+      }
+    };
+    const ruleResult = this.buildRuleQualityCheck(updatedContext);
+    await this.persistQualityGateResult(
+      updatedContext,
+      ruleResult,
+      "rule_fix",
+      "risk-word-fix-v1"
+    );
+    const persisted = await this.prisma.contentItem.findUniqueOrThrow({
+      where: {
+        id: qualityContext.item.id
+      }
+    });
+
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "rule_fix_risk_words",
+        targetType: "content_item",
+        targetId: persisted.id,
+        targetTitle: persisted.title,
+        success: true,
+        metadata: {
+          changed: true
+        }
+      },
+      context
+    );
+
+    return this.toResponse(persisted);
   }
 
   async optimizeForPublish(
@@ -1079,11 +1162,44 @@ export class ContentItemsService {
     };
   }
 
+  private applyRuleRiskFixes(input: { title: string; body: string }): {
+    title: string;
+    body: string;
+    changed: boolean;
+  } {
+    let title = input.title;
+    let body = input.body;
+
+    for (const rule of RULE_RISK_FIX_REPLACEMENTS) {
+      title = title.replace(rule.pattern, rule.replacement);
+      body = body.replace(rule.pattern, rule.replacement);
+    }
+
+    const cleanedTitle = this.cleanupFixedText(cleanPlatformPublishTitle(title));
+    const cleanedBody = this.cleanupFixedText(cleanPlatformPublishBody(body));
+
+    return {
+      title: cleanedTitle,
+      body: cleanedBody,
+      changed: cleanedTitle !== input.title || cleanedBody !== input.body
+    };
+  }
+
+  private cleanupFixedText(value: string): string {
+    return value
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/，\s*，/g, "，")
+      .replace(/。\s*。/g, "。")
+      .trim();
+  }
+
   private buildRuleQualityCheck(context: ContentQualityContext): ContentQualityCheckResponse {
     const riskItems: ContentQualityRiskItem[] = [];
     const positiveItems: string[] = [];
     const body = context.item.body;
     const knowledgeText = this.buildKnowledgeText(context.knowledgeChunks);
+    const publishText = this.buildPublishCheckText(context);
 
     for (const rule of UNSUPPORTED_FACT_RISK_RULES) {
       for (const match of body.matchAll(rule.pattern)) {
@@ -1127,6 +1243,10 @@ export class ContentItemsService {
 
     this.addBrandExpressionRisks(context, riskItems);
     this.addStructureRisksAndPositives(context, riskItems, positiveItems);
+    this.addPublishCleanlinessRisks(
+      [context.item.title, body, publishText].join("\n"),
+      riskItems
+    );
 
     if (context.knowledgeChunks.length === 0) {
       this.addUniqueRisk(riskItems, {
@@ -1526,7 +1646,8 @@ export class ContentItemsService {
       "over_marketing",
       "brand_expression",
       "geo_structure",
-      "knowledge_gap"
+      "knowledge_gap",
+      "publish_cleanliness"
     ];
 
     return allowed.includes(normalized as ContentQualityRiskType)
@@ -1573,6 +1694,53 @@ export class ContentItemsService {
     if (!exists) {
       riskItems.push(item);
     }
+  }
+
+  private addPublishCleanlinessRisks(
+    source: string,
+    riskItems: ContentQualityRiskItem[]
+  ): void {
+    const editorToneTerms = findEditorTonePublishTerms(source);
+    const forbiddenTerms = findForbiddenInternalPublishTerms(source).filter(
+      (term) => !editorToneTerms.includes(term)
+    );
+
+    if (editorToneTerms.length > 0) {
+      // 编辑口吻会让发布稿像写作提示，先拦住，避免助理直接复制发布。
+      this.addUniqueRisk(riskItems, {
+        type: "publish_cleanliness",
+        severity: "medium",
+        text: [...new Set(editorToneTerms)].slice(0, 6).join("、"),
+        reason: "发布稿存在编辑口吻或资料口吻，请先修复后再复制。",
+        suggestion: "点击自动修复风险词，或复制草稿后人工删除资料说明和写作提示口吻。"
+      });
+    }
+
+    if (forbiddenTerms.length === 0) {
+      return;
+    }
+
+    // 对外发布稿不能出现内部工作词，助理只需要看到可执行的修复提示。
+    this.addUniqueRisk(riskItems, {
+      type: "publish_cleanliness",
+      severity: "medium",
+      text: [...new Set(forbiddenTerms)].slice(0, 6).join("、"),
+      reason: "发布稿中包含内部工作词，请先修复后再复制。",
+      suggestion: "点击自动修复风险词，或复制草稿后人工删除内部说明。"
+    });
+  }
+
+  private buildPublishCheckText(context: ContentQualityContext): string {
+    return buildContentItemPublishMarkdown({
+      title: context.item.title,
+      body: context.item.body,
+      faqs: toArticlePublishPackage(context.item.publishPackage)?.faqs,
+      keywords: [
+        ...(toArticlePublishPackage(context.item.publishPackage)?.keywords.primaryKeywords ?? []),
+        ...(toArticlePublishPackage(context.item.publishPackage)?.keywords.platformTags ?? [])
+      ],
+      evidenceNotes: this.buildPublishMarkdownEvidenceNotes(context.item)
+    });
   }
 
   private isTermSupportedByKnowledge(term: string, knowledgeText: string): boolean {

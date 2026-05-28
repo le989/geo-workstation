@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { ForbiddenException } from "@nestjs/common";
 import {
   CompanyStatus,
   CompanyType,
@@ -402,7 +402,7 @@ describe("ContentTasksService", () => {
     expect(result.items[0]).toMatchObject({
       geoPromptId: prompt.id,
       status: "draft",
-      suggestedPublishChannel: "官网知识库 / 公众号 / B2B 产品页"
+      suggestedPublishChannel: "官网文章 / 公众号 / B2B 产品页"
     });
     expect(result.items[0]?.body).toContain("Mock 生成结果");
 
@@ -415,6 +415,36 @@ describe("ContentTasksService", () => {
       }
     });
     expect(aiCallLog?.status).toBe("succeeded");
+  });
+
+  it("creates an assistant article task from topic and selected citable files without exposed GEO prompts", async () => {
+    const knowledgeBase = await createKnowledgeBaseWithTrustedAndLowMaterials("助理文章工作台知识库");
+
+    const result = await service.create({
+      name: unique("助理发布文章主题"),
+      productLine: "激光测距传感器",
+      knowledgeBaseId: knowledgeBase.id,
+      generationType: "article",
+      scopeType: "all",
+      createdBy
+    });
+
+    expect(result.task).toMatchObject({
+      name: unique("助理发布文章主题"),
+      status: TaskStatus.succeeded,
+      provider: "mock",
+      model: "mock-content-v1"
+    });
+    expect(result.prompts).toHaveLength(0);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      geoPromptId: null,
+      status: "draft"
+    });
+    expect(result.items[0]?.title).toContain(unique("助理发布文章主题"));
+    expect(result.items[0]?.body).toContain(unique("助理发布文章主题"));
+    expect(result.items[0]?.body).toContain("正式可引用资料说明");
+    expect(result.items[0]?.body).not.toContain("低可信资料声称");
   });
 
   it("excludes low-trust materials from GEO content generation references", async () => {
@@ -870,16 +900,7 @@ describe("ContentTasksService", () => {
     expect(aiCallLog?.status).toBe("failed");
   });
 
-  it("rejects empty prompt selections, missing prompts, and deleted knowledge bases", async () => {
-    await expect(
-      service.create({
-        name: unique("空提示词失败"),
-        generationType: "faq",
-        geoPromptIds: [],
-        createdBy
-      })
-    ).rejects.toBeInstanceOf(BadRequestException);
-
+  it("rejects missing prompts and deleted knowledge bases", async () => {
     await expect(
       service.create({
         name: unique("不存在提示词失败"),

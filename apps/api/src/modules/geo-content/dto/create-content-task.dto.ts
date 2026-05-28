@@ -1,12 +1,5 @@
 import { Transform } from "class-transformer";
-import {
-  ArrayMinSize,
-  IsArray,
-  IsIn,
-  IsNotEmpty,
-  IsOptional,
-  IsString
-} from "class-validator";
+import { IsArray, IsIn, IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { toStringArray, trimOptionalString, trimRequiredString } from "./content-dto-transforms";
 
 export class CreateContentTaskDto {
@@ -65,10 +58,10 @@ export class CreateContentTaskDto {
   @Transform(({ value }) => toStringArray(value))
   selectedKnowledgeFileIds?: string[];
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @Transform(({ value }) => toStringArray(value))
-  geoPromptIds!: string[];
+  geoPromptIds?: string[];
 
   @IsOptional()
   @IsString()

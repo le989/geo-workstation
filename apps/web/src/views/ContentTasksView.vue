@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Plus, Refresh } from "@element-plus/icons-vue";
+import { DocumentCopy, MagicStick, MoreFilled, Plus, Refresh, View } from "@element-plus/icons-vue";
 import {
   archiveContentTask,
   createContentTask,
   deleteContentItem,
   exportContentItem,
   exportContentItemPublishPackage,
+  fixRiskWordsAndRecheckContentItem,
   formatContentItemForPublish,
   generateContentItemPublishPackage,
   getContentTask,
@@ -28,13 +29,10 @@ import {
   type UpdateContentItemPayload
 } from "@/api/content";
 import AppErrorState from "@/components/AppErrorState.vue";
-import ContentGenerationTypeTag from "@/components/ContentGenerationTypeTag.vue";
 import ContentItemFormDialog from "@/components/ContentItemFormDialog.vue";
 import ContentTaskDetailDrawer from "@/components/ContentTaskDetailDrawer.vue";
 import ContentTaskFilters from "@/components/ContentTaskFilters.vue";
 import ContentTaskFormDialog from "@/components/ContentTaskFormDialog.vue";
-import ContentTaskStatusTag from "@/components/ContentTaskStatusTag.vue";
-import { generationTypeLabelMap } from "@/config/content-options";
 import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import { useAuthStore } from "@/stores/auth";
 import { canUseAction } from "@/utils/permission";
@@ -73,10 +71,13 @@ const itemError = ref("");
 const exportingIds = ref<string[]>([]);
 const deletingIds = ref<string[]>([]);
 const qualityCheckingIds = ref<string[]>([]);
+const riskFixingIds = ref<string[]>([]);
 const optimizingIds = ref<string[]>([]);
 const formattingIds = ref<string[]>([]);
 const publishPackageGeneratingIds = ref<string[]>([]);
 const publishPackageExportingIds = ref<string[]>([]);
+const publishPreviewLoadingIds = ref<string[]>([]);
+const publishPreviewMarkdownByItemId = ref<Record<string, string>>({});
 const qualityCheckResult = ref<{
   itemId: string;
   itemTitle: string;
@@ -96,41 +97,66 @@ const publishFormatResult = ref<{
 } | null>(null);
 const publishFormatError = ref("");
 
+type AssistantArticleStatus = "pending" | "running" | "copyable" | "needs_review";
+
+const assistantStatusLabelMap: Record<AssistantArticleStatus, string> = {
+  copyable: "可复制",
+  needs_review: "需人工检查",
+  pending: "待处理",
+  running: "生成中"
+};
+
+const activeAssistantStatus = ref<AssistantArticleStatus | "all">("all");
 const hasTableError = computed(() => Boolean(tableError.value));
-const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
 const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
 const canManageContentActions = computed(() => canUseAction("create", currentRole.value));
 const selectedTaskArchiving = computed(() => archivingIds.value.includes(selectedTaskId.value));
 const contentOverviewStats = computed(() => {
-  const activeCount = tasks.value.filter((task) =>
-    ["pending", "running"].includes(task.status)
+  const pendingCount = tasks.value.filter((task) => resolveAssistantStatus(task) === "pending").length;
+  const runningCount = tasks.value.filter((task) => resolveAssistantStatus(task) === "running").length;
+  const copyableCount = tasks.value.filter((task) => resolveAssistantStatus(task) === "copyable").length;
+  const reviewCount = tasks.value.filter(
+    (task) => resolveAssistantStatus(task) === "needs_review"
   ).length;
-  const succeededCount = tasks.value.filter((task) => task.status === "succeeded").length;
-  const failedCount = tasks.value.filter((task) => task.status === "failed").length;
 
   return [
-    { label: "当前列表任务", value: total.value, hint: "按当前筛选范围统计" },
-    { label: "生成中 / 待执行", value: activeCount, hint: "需要继续关注进度" },
-    { label: "已完成任务", value: succeededCount, hint: "可进入详情审校草稿" },
-    { label: "待处理失败", value: failedCount, hint: "可查看原因后重试" }
+    { label: "待处理", value: pendingCount, hint: "还没有生成文章" },
+    { label: "生成中", value: runningCount, hint: "文章正在生成" },
+    { label: "可复制", value: copyableCount, hint: "发布检查已通过" },
+    { label: "需人工检查", value: reviewCount, hint: "存在风险词或需检查" }
   ];
 });
-const contentOverviewSummary = computed(() =>
-  contentOverviewStats.value.map((item) => `${item.label} ${item.value}`).join("｜")
-);
+const assistantStatusTabs = computed(() => [
+  { label: "全部", status: "all" as const, value: tasks.value.length },
+  { label: "待处理", status: "pending" as const, value: contentOverviewStats.value[0]?.value ?? 0 },
+  { label: "生成中", status: "running" as const, value: contentOverviewStats.value[1]?.value ?? 0 },
+  { label: "可复制", status: "copyable" as const, value: contentOverviewStats.value[2]?.value ?? 0 },
+  {
+    label: "需人工检查",
+    status: "needs_review" as const,
+    value: contentOverviewStats.value[3]?.value ?? 0
+  }
+]);
+const visibleAssistantTasks = computed(() => {
+  if (activeAssistantStatus.value === "all") {
+    return tasks.value;
+  }
+
+  return tasks.value.filter((task) => resolveAssistantStatus(task) === activeAssistantStatus.value);
+});
 
 const contentWorkflowSteps = [
   {
     title: "创建任务",
-    description: "选择 GEO 词、知识库和指令"
+    description: "选择资料并填写文章主题"
   },
   {
     title: "生成内容",
     description: "生成问答、指南、对比或方案"
   },
   {
-    title: "质量检查",
-    description: "检查事实边界和 GEO 结构"
+    title: "发布检查",
+    description: "检查事实边界和风险词"
   },
   {
     title: "发布优化",
@@ -146,20 +172,61 @@ const contentWorkflowSteps = [
   }
 ];
 
+const getPrimaryItem = (task: ContentTask) => task.primaryItem;
+
+const resolveAssistantStatus = (task: ContentTask): AssistantArticleStatus => {
+  const primaryItem = getPrimaryItem(task);
+  const publishStatus = primaryItem?.publishStatus;
+
+  if (task.status === "pending" || (!primaryItem && task.status !== "running")) {
+    return "pending";
+  }
+
+  if (task.status === "running") {
+    return "running";
+  }
+
+  if (publishStatus === "publish_ready") {
+    return "copyable";
+  }
+
+  return "needs_review";
+};
+
 const getTaskNextAction = (task: ContentTask) => {
-  if (task.status === "failed") {
-    return "查看失败原因 / 重试";
+  const status = resolveAssistantStatus(task);
+
+  if (status === "pending") {
+    return "还没有生成文章";
   }
 
-  if (task.status === "running" || task.status === "pending") {
-    return "刷新详情查看生成进度";
+  if (status === "running") {
+    return "文章正在生成，请稍后";
   }
 
-  if (task.status === "cancelled") {
-    return "查看任务记录";
+  if (status === "copyable") {
+    return "已通过检查，可以复制";
   }
 
-  return "进入详情做质检 / 发布优化";
+  return "发现问题，先修复或人工修改";
+};
+
+const getAssistantStatusTagType = (task: ContentTask) => {
+  const status = resolveAssistantStatus(task);
+
+  if (status === "copyable") {
+    return "success";
+  }
+
+  if (status === "needs_review") {
+    return "warning";
+  }
+
+  if (status === "running") {
+    return "primary";
+  }
+
+  return "info";
 };
 
 const canArchiveContentTask = (task?: ContentTask | null) =>
@@ -187,8 +254,35 @@ const trimOptional = (value?: string) => {
 const isTechnicalTaskName = (value: string) =>
   /\b(phase|smoke|mock|debug|test|batch)\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(value);
 
-const getDisplayTaskName = (task: ContentTask) =>
-  task.name && !isTechnicalTaskName(task.name) ? task.name : "GEO 内容生成任务";
+const removeLeadingTimestampMarker = (value: string) => value.replace(/^\d{10,}\s*/, "").trim();
+
+const cleanAssistantTaskName = (value?: string) => {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  const withoutColonPrefix = trimmed.replace(/^ASSISTANT[-_][^:：]*[:：]\s*/i, "").trim();
+  const taskName = removeLeadingTimestampMarker(withoutColonPrefix || trimmed);
+
+  // 列表主标题不展示 smoke 前缀，避免助理把内部测试标识当成文章标题。
+  if (/^ASSISTANT[-_]/i.test(taskName)) {
+    const taskNameParts = taskName.split("_");
+    const readablePartIndex = taskNameParts.findIndex((part) => /[\u4e00-\u9fff]/.test(part));
+
+    if (readablePartIndex > 0) {
+      return removeLeadingTimestampMarker(taskNameParts.slice(readablePartIndex).join("_").trim());
+    }
+
+    return "";
+  }
+
+  return isTechnicalTaskName(taskName) ? "" : taskName;
+};
+
+const getAssistantArticleTitle = (task: ContentTask) =>
+  cleanAssistantTaskName(task.primaryItem?.title) || cleanAssistantTaskName(task.name) || "文章任务";
 
 const isRealAiProvider = (provider?: string) => provider && provider !== "mock";
 
@@ -225,10 +319,10 @@ const getTaskKnowledgeScopeSummary = (task: ContentTask) => {
   }
 
   if (scope?.type === "product_line") {
-    return `产品线：${formatOptional(task.productLine)}`;
+    return `按产品线：${formatOptional(task.productLine)}`;
   }
 
-  return "全部资料";
+  return "全部可引用资料";
 };
 
 const buildQuery = (): ContentTaskQuery => ({
@@ -259,6 +353,41 @@ const loadTasks = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const isPreviewableContentItem = (item: ContentItem) =>
+  Boolean(item.title.trim() || item.body.trim()) &&
+  item.status !== "failed" &&
+  item.status !== "cancelled";
+
+const loadPublishPreviewMarkdown = async (items: ContentItem[]) => {
+  const previewableItems = items.filter(isPreviewableContentItem);
+  publishPreviewMarkdownByItemId.value = {};
+
+  if (previewableItems.length === 0) {
+    publishPreviewLoadingIds.value = [];
+    return;
+  }
+
+  publishPreviewLoadingIds.value = previewableItems.map((item) => item.id);
+
+  // 详情页发布稿预览复用复制富文本的后端导出，确保“看到的”和“复制的”一致。
+  const previewEntries = await Promise.all(
+    previewableItems.map(async (item) => {
+      try {
+        const markdown = await exportContentItem(item.id, {
+          type: "publish",
+          format: "markdown"
+        });
+        return [item.id, markdown] as const;
+      } catch {
+        return [item.id, ""] as const;
+      }
+    })
+  );
+
+  publishPreviewMarkdownByItemId.value = Object.fromEntries(previewEntries);
+  publishPreviewLoadingIds.value = [];
 };
 
 const handleSearch = () => {
@@ -293,7 +422,7 @@ const handlePageSizeChange = (nextPageSize: number) => {
 
 const openCreateDialog = () => {
   if (!canManageContentActions.value) {
-    ElMessage.warning("当前账号仅可查看内容任务，不能创建内容。");
+    ElMessage.warning("当前账号仅可查看文章任务，不能创建文章。");
     return;
   }
 
@@ -316,10 +445,14 @@ const loadDetail = async () => {
   detailLoading.value = true;
 
   try {
-    detail.value = await getContentTask(selectedTaskId.value);
+    const loadedDetail = await getContentTask(selectedTaskId.value);
+    detail.value = loadedDetail;
+    await loadPublishPreviewMarkdown(loadedDetail.items);
   } catch (error) {
     ElMessage.error(getErrorMessage(error));
     detail.value = null;
+    publishPreviewMarkdownByItemId.value = {};
+    publishPreviewLoadingIds.value = [];
   } finally {
     detailLoading.value = false;
   }
@@ -338,22 +471,23 @@ const handleCreateTask = async (payload: CreateContentTaskPayload) => {
     if (created.task.status === "failed" || failedItems.length > 0) {
       const isRealAiTask = created.task.provider === "openai_compatible";
       const message = isRealAiTask
-        ? "内容任务已创建，但真实 AI 生成失败，请查看失败原因。"
-        : "内容任务已创建，但部分内容项生成失败，请查看失败原因。";
+        ? "文章任务已创建，但真实 AI 生成失败，请查看失败原因。"
+        : "文章任务已创建，但部分文章内容生成失败，请查看失败原因。";
       ElMessage.warning({
         message: firstFailureReason ? `${message}${firstFailureReason}` : message,
         duration: 7000
       });
     } else {
-      ElMessage.success("GEO 内容任务已创建，内容项已生成。");
+      ElMessage.success("文章任务已创建，文章内容已生成。");
     }
 
     await loadTasks();
     selectedTaskId.value = created.task.id;
     detail.value = created;
+    await loadPublishPreviewMarkdown(created.items);
     detailVisible.value = true;
   } catch (error) {
-    createError.value = error instanceof Error ? error.message : "创建内容任务失败。";
+    createError.value = error instanceof Error ? error.message : "创建文章任务失败。";
   } finally {
     createSubmitting.value = false;
   }
@@ -368,7 +502,7 @@ const handleRetry = async (task?: ContentTask) => {
   }
 
   if (!canManageContentActions.value) {
-    ElMessage.warning("当前账号仅可查看内容任务，不能重试生成。");
+    ElMessage.warning("当前账号仅可查看文章任务，不能重试生成。");
     return;
   }
 
@@ -379,8 +513,8 @@ const handleRetry = async (task?: ContentTask) => {
       }
     } else {
       await ElMessageBox.confirm(
-        "确认重试失败内容任务吗？重试不会重复生成已成功内容项。",
-        "重试内容任务",
+        "确认重试失败文章任务吗？重试不会重复生成已成功文章。",
+        "重试文章任务",
         {
           cancelButtonText: "取消",
           confirmButtonText: "重试",
@@ -393,8 +527,9 @@ const handleRetry = async (task?: ContentTask) => {
     const result = await retryContentTask(targetTaskId);
     detail.value = result;
     selectedTaskId.value = result.task.id;
+    await loadPublishPreviewMarkdown(result.items);
     detailVisible.value = true;
-    ElMessage.success("已重试失败内容项。");
+    ElMessage.success("已重试失败文章。");
     await loadTasks();
   } catch (error) {
     if (error !== "cancel") {
@@ -423,10 +558,10 @@ const handleItemSubmit = async (payload: UpdateContentItemPayload) => {
   try {
     await updateContentItem(activeItem.value.id, payload);
     itemDialogVisible.value = false;
-    ElMessage.success("GEO 内容项已更新。");
+    ElMessage.success("文章内容已更新。");
     await loadDetail();
   } catch (error) {
-    itemError.value = error instanceof Error ? error.message : "内容项保存失败。";
+    itemError.value = error instanceof Error ? error.message : "文章内容保存失败。";
   } finally {
     itemSubmitting.value = false;
   }
@@ -494,27 +629,203 @@ const handleGeneratePublishPackage = async (item: ContentItem) => {
       await generateContentItemPublishPackage(item.id);
       await loadDetail();
     });
-    ElMessage.success("发布包已生成。");
+    ElMessage.success("发布稿已生成。");
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "发布包生成失败。");
+    ElMessage.error(error instanceof Error ? error.message : "发布稿生成失败。");
   }
 };
 
-const handleCopyPublishPackage = async (item: ContentItem) => {
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const inlineMarkdownToHtml = (value: string) =>
+  escapeHtml(value)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+const markdownToPublishHtml = (markdown: string) => {
+  const htmlLines = markdown.split("\n").map((line) => {
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+
+    if (heading) {
+      const level = Math.min(heading[1]?.length ?? 2, 3);
+      return `<h${level}>${inlineMarkdownToHtml(heading[2] ?? "")}</h${level}>`;
+    }
+
+    const listItem = line.match(/^\s*[-*]\s+(.+)$/);
+
+    if (listItem) {
+      return `<p>• ${inlineMarkdownToHtml(listItem[1] ?? "")}</p>`;
+    }
+
+    return line.trim() ? `<p>${inlineMarkdownToHtml(line)}</p>` : "";
+  });
+
+  return `<article>${htmlLines.join("\n")}</article>`;
+};
+
+const writePublishClipboard = async (markdown: string) => {
+  const clipboard = navigator.clipboard;
+  const clipboardItem = typeof ClipboardItem === "undefined" ? undefined : ClipboardItem;
+
+  if (clipboard?.write && clipboardItem) {
+    await clipboard.write([
+      new clipboardItem({
+        "text/html": new Blob([markdownToPublishHtml(markdown)], {
+          type: "text/html"
+        }),
+        "text/plain": new Blob([markdown], {
+          type: "text/plain"
+        })
+      })
+    ]);
+    return "rich";
+  }
+
+  await clipboard.writeText(markdown);
+  return "plain";
+};
+
+const handleCopyPublishPackage = async (item: Pick<ContentItem, "id">) => {
   try {
     await withIdFlag(publishPackageExportingIds, item.id, async () => {
-      // 复制发布稿直接复用后端干净导出，避免历史发布包标题污染剪贴板。
+      // 复制发布稿直接复用后端干净导出，避免历史发布稿标题污染剪贴板。
+      const markdown = await exportContentItem(item.id, {
+        type: "publish",
+        format: "markdown"
+      });
+      await writePublishClipboard(markdown);
+    });
+    ElMessage.success("复制成功，可以粘贴到发布平台。");
+  } catch (error) {
+    ElMessage.warning(
+      error instanceof Error
+        ? error.message
+        : "当前浏览器不支持富文本剪贴板，请导出发布稿后手动复制。"
+    );
+  }
+};
+
+const handleCopyDraftForEdit = async (task: ContentTask) => {
+  const primaryItem = getPrimaryItem(task);
+
+  if (!primaryItem) {
+    ElMessage.warning("当前文章还没有可复制的草稿。");
+    return;
+  }
+
+  try {
+    await withIdFlag(publishPackageExportingIds, primaryItem.id, async () => {
+      const markdown = await exportContentItem(primaryItem.id, {
+        type: "publish",
+        format: "markdown"
+      });
+      await navigator.clipboard.writeText(markdown);
+    });
+    ElMessage.success("草稿已复制，请先人工修改后再发布。");
+  } catch (error) {
+    ElMessage.warning(error instanceof Error ? error.message : "草稿复制失败，请打开文章后手动复制。");
+  }
+};
+
+const handleCopyDraftForEditItem = async (item: Pick<ContentItem, "id">) => {
+  try {
+    await withIdFlag(publishPackageExportingIds, item.id, async () => {
+      // 有风险的文章只能复制为草稿，避免助理误认为已经可发布。
       const markdown = await exportContentItem(item.id, {
         type: "publish",
         format: "markdown"
       });
       await navigator.clipboard.writeText(markdown);
     });
-    ElMessage.success("发布稿已复制。");
+    ElMessage.success("草稿已复制，请先人工修改后再发布。");
   } catch (error) {
-    ElMessage.warning(
-      error instanceof Error ? error.message : "当前浏览器不支持自动复制，请导出发布稿后手动复制。"
+    ElMessage.warning(error instanceof Error ? error.message : "草稿复制失败，请打开文章后手动复制。");
+  }
+};
+
+const handleAutoFixRiskWords = async (task: ContentTask) => {
+  const primaryItem = getPrimaryItem(task);
+
+  if (!primaryItem) {
+    ElMessage.warning("当前文章还没有可修复的正文。");
+    return;
+  }
+
+  try {
+    await withIdFlag(riskFixingIds, primaryItem.id, async () => {
+      await fixRiskWordsAndRecheckContentItem(primaryItem.id);
+    });
+    ElMessage.success("风险词已按规则修复，并已重新执行发布检查。");
+    await loadTasks();
+    if (detailVisible.value && selectedTaskId.value === task.id) {
+      await loadDetail();
+    }
+  } catch (error) {
+    ElMessage.warning(error instanceof Error ? error.message : "自动修复风险词失败，请人工检查。");
+  }
+};
+
+const handleAutoFixRiskWordsForItem = async (item: ContentItem) => {
+  try {
+    await withIdFlag(riskFixingIds, item.id, async () => {
+      await fixRiskWordsAndRecheckContentItem(item.id);
+    });
+    ElMessage.success("风险词已按规则修复，并已重新执行发布检查。");
+    await Promise.all([loadTasks(), loadDetail()]);
+  } catch (error) {
+    ElMessage.warning(error instanceof Error ? error.message : "自动修复风险词失败，请人工检查。");
+  }
+};
+
+const handleRegenerateTask = async (task?: ContentTask) => {
+  const targetTask = task ?? detail.value?.task;
+
+  if (!targetTask) {
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      "重新生成会消耗 AI token / 额度；当前 smoke 验证使用基础生成模式时不会调用真实 AI。确认后会新建一条同主题文章任务。",
+      "重新生成文章",
+      {
+        cancelButtonText: "取消",
+        confirmButtonText: "重新生成",
+        type: "warning"
+      }
     );
+
+    const scope = targetTask.knowledgeScope;
+    const provider = targetTask.provider ?? "mock";
+    const created = await createContentTask({
+      generationType: targetTask.generationType || "article",
+      geoPromptIds: [],
+      knowledgeBaseId: targetTask.knowledgeBaseId ?? undefined,
+      model: targetTask.model,
+      name: targetTask.name,
+      productLine: targetTask.productLine,
+      productLineId: targetTask.productLineId,
+      provider,
+      scopeType: scope?.type ?? "all",
+      selectedKnowledgeFileIds:
+        scope?.type === "selected_files" ? scope.selectedKnowledgeFileIds : undefined,
+      targetModel: targetTask.targetModel
+    });
+    ElMessage.success("已重新生成文章任务。");
+    await loadTasks();
+    selectedTaskId.value = created.task.id;
+    detail.value = created;
+    await loadPublishPreviewMarkdown(created.items);
+    detailVisible.value = true;
+  } catch (error) {
+    if (error !== "cancel") {
+      ElMessage.error(error instanceof Error ? error.message : "重新生成文章失败。");
+    }
   }
 };
 
@@ -549,7 +860,7 @@ const handleExportPublishPackage = async (
         ? "评审稿已导出。"
         : action === "publish-markdown"
           ? "发布稿已导出。"
-          : "TXT 发布包已导出。"
+          : "TXT 发布稿已导出。"
     );
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "导出失败。");
@@ -560,7 +871,7 @@ const handleQualityCheck = async (item: ContentItem) => {
   qualityCheckError.value = "";
 
   try {
-    if (!(await confirmRealAiTaskAction(detail.value?.task, "质量检查", "确认检查"))) {
+    if (!(await confirmRealAiTaskAction(detail.value?.task, "发布检查", "确认检查"))) {
       return;
     }
 
@@ -577,10 +888,10 @@ const handleQualityCheck = async (item: ContentItem) => {
       await loadDetail();
     });
 
-    ElMessage.success("内容质量检查完成。");
+    ElMessage.success("发布检查完成。");
   } catch (error) {
     qualityCheckError.value =
-      error instanceof Error ? error.message : "内容质量检查失败，请稍后重试或调整生成方式。";
+      error instanceof Error ? error.message : "发布检查失败，请稍后重试或调整生成方式。";
     ElMessage.error(qualityCheckError.value);
   }
 };
@@ -606,7 +917,7 @@ const handleOptimizeForPublish = async (item: ContentItem) => {
       };
     });
 
-    ElMessage.success("发布优化版已生成，原内容项未被覆盖。");
+    ElMessage.success("发布优化版已生成，原文章未被覆盖。");
   } catch (error) {
     publishOptimizationError.value =
       error instanceof Error ? error.message : "生成发布优化版失败，请稍后重试或调整生成方式。";
@@ -630,7 +941,7 @@ const handleFormatForPublish = async (
       };
     });
 
-    ElMessage.success("富文本发布稿已生成，原内容项未被覆盖。");
+    ElMessage.success("富文本发布稿已生成，原文章未被覆盖。");
   } catch (error) {
     publishFormatError.value =
       error instanceof Error ? error.message : "生成富文本发布稿失败，请稍后重试。";
@@ -640,7 +951,7 @@ const handleFormatForPublish = async (
 
 const handleDeleteItem = async (item: ContentItem) => {
   try {
-    await ElMessageBox.confirm(`确认移除该内容项吗？\n${item.title}`, "删除内容项", {
+    await ElMessageBox.confirm(`确认移除该文章内容吗？\n${item.title}`, "删除文章内容", {
       cancelButtonText: "取消",
       confirmButtonText: "移除",
       type: "warning"
@@ -649,11 +960,11 @@ const handleDeleteItem = async (item: ContentItem) => {
     await withIdFlag(deletingIds, item.id, async () => {
       await deleteContentItem(item.id);
     });
-    ElMessage.success("已移除该内容项。");
+    ElMessage.success("已移除该文章内容。");
     await Promise.all([loadDetail(), loadTasks()]);
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error instanceof Error ? error.message : "删除内容项失败。");
+      ElMessage.error(error instanceof Error ? error.message : "删除文章内容失败。");
     }
   }
 };
@@ -667,24 +978,24 @@ const handleArchiveTask = async (task?: ContentTask) => {
   }
 
   if (!canManageContentActions.value) {
-    ElMessage.warning("当前账号仅可查看内容任务，不能归档任务。");
+    ElMessage.warning("当前账号仅可查看文章任务，不能归档任务。");
     return;
   }
 
   if (targetTask?.status === "running") {
-    ElMessage.warning("生成中的 GEO 内容任务暂不能归档。");
+    ElMessage.warning("生成中的文章任务暂不能归档。");
     return;
   }
 
   if (targetTask?.status === "cancelled") {
-    ElMessage.info("该 GEO 内容任务已归档。");
+    ElMessage.info("该文章任务已归档。");
     return;
   }
 
   try {
     await ElMessageBox.confirm(
-      "归档后，该 GEO 内容任务将从默认列表隐藏，已生成的内容项和导出能力仍会保留。",
-      "归档 GEO 内容任务",
+      "归档后，该文章任务将从默认列表隐藏，已生成的文章和导出能力仍会保留。",
+      "归档文章任务",
       {
         cancelButtonText: "暂不归档",
         confirmButtonText: "归档任务",
@@ -695,14 +1006,14 @@ const handleArchiveTask = async (task?: ContentTask) => {
     await withIdFlag(archivingIds, targetTaskId, async () => {
       await archiveContentTask(targetTaskId);
     });
-    ElMessage.success("GEO 内容任务已归档。");
+    ElMessage.success("文章任务已归档。");
     await loadTasks();
     if (selectedTaskId.value === targetTaskId) {
       await loadDetail();
     }
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error instanceof Error ? error.message : "归档 GEO 内容任务失败。");
+      ElMessage.error(error instanceof Error ? error.message : "归档文章任务失败。");
     }
   }
 };
@@ -716,8 +1027,8 @@ onMounted(() => {
   <section class="content-page">
     <header class="content-hero content-hero--compact">
       <div class="content-hero__copy">
-        <h1>GEO 内容生成</h1>
-        <p>创建 GEO 内容任务，查看生成状态并进入详情审校。</p>
+        <h1>发布文章工作台</h1>
+        <p>选择资料 → 生成文章 → 复制发布稿</p>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -728,13 +1039,13 @@ onMounted(() => {
           :icon="Plus"
           @click="openCreateDialog"
         >
-          创建内容任务
+          新建发布文章
         </el-button>
       </div>
     </header>
 
     <p class="content-inline-note">
-      生成结果仍需人工确认事实、语气和样式；AI 生成模式会在创建弹窗内提示额度风险。
+      助理只处理生成、检查和复制；高级配置由负责人维护。
     </p>
 
     <ContentTaskFilters
@@ -745,86 +1056,141 @@ onMounted(() => {
       @reset="handleReset"
     />
 
-    <AppErrorState v-if="hasTableError" title="GEO 内容任务加载失败" :message="tableError" />
+    <AppErrorState v-if="hasTableError" title="文章任务加载失败" :message="tableError" />
 
-    <el-card class="content-table-card" shadow="never">
+    <el-card class="content-table-card article-workbench-list" shadow="never">
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">内容任务</p>
-            <h2>GEO 内容任务列表</h2>
-            <span>{{ contentOverviewSummary }}</span>
+            <p class="section-kicker">文章工作台</p>
+            <h2>待处理文章列表</h2>
+            <span>按状态处理下一步，历史和高级操作收在更多里。</span>
           </div>
-          <strong>{{ total }} 个任务</strong>
+          <strong>{{ total }} 篇文章</strong>
         </div>
       </template>
 
-      <el-table
-        v-loading="loading"
-        :data="tasks"
-        border
-        row-key="id"
-        empty-text="暂无 GEO 内容任务"
-      >
-        <el-table-column label="内容任务" min-width="280" fixed>
-          <template #default="{ row }">
-            <strong class="content-task-title">{{ getDisplayTaskName(row) }}</strong>
-            <p class="table-subtext">产品线：{{ formatOptional(row.productLine) }}</p>
-            <p class="table-subtext">资料范围：{{ getTaskKnowledgeScopeSummary(row) }}</p>
-          </template>
-        </el-table-column>
-        <el-table-column label="内容类型" width="150">
-          <template #default="{ row }">
-            <ContentGenerationTypeTag :type="row.generationType" />
-          </template>
-        </el-table-column>
-        <el-table-column label="任务状态" width="110">
-          <template #default="{ row }">
-            <ContentTaskStatusTag :status="row.status" />
-          </template>
-        </el-table-column>
-        <el-table-column label="草稿 / 内容数量" min-width="150">
-          <span class="content-provider-model">进入详情查看</span>
-        </el-table-column>
-        <el-table-column label="下一步" min-width="210">
-          <template #default="{ row }">
-            <div class="content-next-action">
-              <span>{{ generationTypeLabelMap[row.generationType] ?? row.generationType }}</span>
-              <strong>{{ getTaskNextAction(row) }}</strong>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="180">
-          <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="230" fixed="right">
-          <template #default="{ row }">
-            <el-button text type="primary" @click="openDetailDrawer(row)">查看详情</el-button>
-            <el-button
-              v-if="row.status === 'failed' && canManageContentActions"
-              text
-              type="warning"
-              :loading="retrying && selectedTaskId === row.id"
-              @click="handleRetry(row)"
-            >
-              重试
-            </el-button>
-            <el-button
-              v-if="canArchiveContentTask(row)"
-              text
-              :loading="isArchiving(row.id)"
-              @click="handleArchiveTask(row)"
-            >
-              归档
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <nav class="assistant-status-tabs" aria-label="文章状态筛选">
+        <button
+          v-for="tab in assistantStatusTabs"
+          :key="tab.status"
+          type="button"
+          :class="{ 'is-active': activeAssistantStatus === tab.status }"
+          @click="activeAssistantStatus = tab.status"
+        >
+          <span>{{ tab.label }}</span>
+          <strong>{{ tab.value }}</strong>
+        </button>
+      </nav>
 
-      <el-empty
-        v-if="isEmpty && !hasTableError"
-        description="暂无内容任务，请先选择 GEO 提示词、知识库和指令模板创建任务。"
-      />
+      <section v-loading="loading" class="assistant-article-list">
+        <article
+          v-for="row in visibleAssistantTasks"
+          :key="row.id"
+          class="assistant-article-card"
+          :class="`assistant-article-card--${resolveAssistantStatus(row)}`"
+        >
+          <div class="assistant-article-card__content">
+            <div class="assistant-article-card__title-row">
+              <el-tag :type="getAssistantStatusTagType(row)" effect="plain">
+                {{ assistantStatusLabelMap[resolveAssistantStatus(row)] }}
+              </el-tag>
+              <h3>{{ getAssistantArticleTitle(row) }}</h3>
+            </div>
+            <p class="assistant-article-card__source">
+              资料：{{ getTaskKnowledgeScopeSummary(row) }} ｜ 更新：{{ formatDateTime(row.updatedAt) }}
+            </p>
+            <p class="assistant-article-card__next">
+              <span>下一步：</span>
+              <strong>{{ getTaskNextAction(row) }}</strong>
+            </p>
+          </div>
+
+          <div class="assistant-article-card__actions">
+            <el-button
+              v-if="resolveAssistantStatus(row) === 'pending'"
+              type="primary"
+              :icon="MagicStick"
+              @click="handleRegenerateTask(row)"
+            >
+              生成文章
+            </el-button>
+            <el-button
+              v-else-if="resolveAssistantStatus(row) === 'running'"
+              type="primary"
+              loading
+              disabled
+            >
+              生成中
+            </el-button>
+            <el-button
+              v-else-if="resolveAssistantStatus(row) === 'copyable' && row.primaryItem"
+              type="success"
+              :icon="DocumentCopy"
+              :loading="publishPackageExportingIds.includes(row.primaryItem.id)"
+              @click="handleCopyPublishPackage(row.primaryItem)"
+            >
+              复制富文本
+            </el-button>
+            <el-button
+              v-else-if="row.primaryItem"
+              type="warning"
+              :icon="MagicStick"
+              :loading="riskFixingIds.includes(row.primaryItem.id)"
+              @click="handleAutoFixRiskWords(row)"
+            >
+              自动修复
+            </el-button>
+            <el-button
+              v-if="resolveAssistantStatus(row) === 'copyable' || resolveAssistantStatus(row) === 'needs_review'"
+              plain
+              :icon="View"
+              @click="openDetailDrawer(row)"
+            >
+              打开文章
+            </el-button>
+            <el-dropdown
+              v-if="
+                canArchiveContentTask(row) ||
+                  (resolveAssistantStatus(row) === 'needs_review' && row.primaryItem)
+              "
+              class="assistant-card-more"
+              trigger="click"
+            >
+              <el-button text :icon="MoreFilled">更多</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-if="resolveAssistantStatus(row) === 'needs_review' && row.primaryItem"
+                    :disabled="publishPackageExportingIds.includes(row.primaryItem.id)"
+                    @click="handleCopyDraftForEdit(row)"
+                  >
+                    复制草稿继续修改
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="resolveAssistantStatus(row) === 'needs_review' && canManageContentActions"
+                    @click="handleRegenerateTask(row)"
+                  >
+                    重新生成文章
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canArchiveContentTask(row)"
+                    :disabled="isArchiving(row.id)"
+                    @click="handleArchiveTask(row)"
+                  >
+                    归档
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </article>
+
+        <el-empty
+          v-if="!loading && visibleAssistantTasks.length === 0 && !hasTableError"
+          description="暂无匹配文章，请调整筛选或新建发布文章。"
+        />
+      </section>
 
       <div class="table-pagination">
         <el-pagination
@@ -844,8 +1210,8 @@ onMounted(() => {
         <section class="content-workflow-panel" aria-label="内容生产流程概览">
           <div class="content-workflow-panel__header">
             <div>
-              <p class="section-kicker">内容生产流程</p>
-              <h2>提示词 / 知识库 / 指令模板 → 创建内容任务 → 生成草稿 → 导出或归档</h2>
+              <p class="section-kicker">高级流程</p>
+              <h2>选择资料 → 创建文章任务 → 生成文章 → 发布检查 → 复制或归档</h2>
             </div>
             <span>用于排查状态和理解流程，默认收起。</span>
           </div>
@@ -887,10 +1253,13 @@ onMounted(() => {
       :exporting-ids="exportingIds"
       :deleting-ids="deletingIds"
       :quality-checking-ids="qualityCheckingIds"
+      :risk-fixing-ids="riskFixingIds"
       :optimizing-ids="optimizingIds"
       :formatting-ids="formattingIds"
       :publish-package-generating-ids="publishPackageGeneratingIds"
       :publish-package-exporting-ids="publishPackageExportingIds"
+      :publish-preview-loading-ids="publishPreviewLoadingIds"
+      :publish-preview-markdown-by-item-id="publishPreviewMarkdownByItemId"
       :quality-check-result="qualityCheckResult"
       :quality-check-error="qualityCheckError"
       :publish-optimization-result="publishOptimizationResult"
@@ -906,6 +1275,9 @@ onMounted(() => {
       @export="handleExportMarkdown"
       @delete="handleDeleteItem"
       @quality-check="handleQualityCheck"
+      @fix-risk-words="handleAutoFixRiskWordsForItem"
+      @copy-draft="handleCopyDraftForEditItem"
+      @regenerate="handleRegenerateTask"
       @optimize="handleOptimizeForPublish"
       @format-publish="handleFormatForPublish"
       @generate-publish-package="handleGeneratePublishPackage"

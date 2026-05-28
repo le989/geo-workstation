@@ -1,3 +1,8 @@
+import {
+  findEditorTonePublishTerms,
+  findForbiddenInternalPublishTerms
+} from "./publish-cleanliness.util";
+
 export type PublishStatus = "publish_ready" | "needs_review" | "not_recommended";
 export type QualityGateLevel = "low" | "medium" | "high";
 export type QualityGateScopeType = "all" | "product_line" | "selected_files";
@@ -12,7 +17,7 @@ export type QualityGateRiskItem = {
 
 export type QualityGateTextHit = {
   word: string;
-  field: "title" | "body";
+  field: "title" | "body" | "publish";
   snippet: string;
 };
 
@@ -37,6 +42,7 @@ export type QualityGateResult = {
   forbiddenWordHits: QualityGateTextHit[];
   aiStyleIssues: QualityGateTextHit[];
   factBoundaryIssues: QualityGateTextHit[];
+  internalTraceHits: QualityGateTextHit[];
   scopeSummary: QualityGateScopeSummary;
   recommendation: string;
 };
@@ -61,6 +67,7 @@ type BuildQualityGateResultInput = {
   model?: string;
   checkedAt?: Date;
   scopeSummary: QualityGateScopeSummary;
+  publishContent?: string;
 };
 
 const FORBIDDEN_WORDS = [
@@ -111,18 +118,25 @@ export function buildQualityGateResult(input: BuildQualityGateResultInput): Qual
   const forbiddenWordHits = findTextHits(input.title, input.body, FORBIDDEN_WORDS);
   const aiStyleIssues = findTextHits(input.title, input.body, AI_STYLE_PATTERNS);
   const factBoundaryIssues = findTextHits(input.title, input.body, FACT_BOUNDARY_TERMS);
+  const internalTraceHits = findInternalTraceHits({
+    title: input.title,
+    body: input.body,
+    publishContent: input.publishContent
+  });
   const manualReviewItems = buildManualReviewItems({
     qualityResult: input.qualityResult,
     forbiddenWordHits,
     aiStyleIssues,
     factBoundaryIssues,
+    internalTraceHits,
     scopeSummary: input.scopeSummary
   });
   const publishStatus = resolvePublishStatus({
     qualityResult: input.qualityResult,
     forbiddenWordHits,
     aiStyleIssues,
-    factBoundaryIssues
+    factBoundaryIssues,
+    internalTraceHits
   });
   const level = resolveGateLevel(input.qualityResult, publishStatus);
 
@@ -140,6 +154,7 @@ export function buildQualityGateResult(input: BuildQualityGateResultInput): Qual
     forbiddenWordHits,
     aiStyleIssues,
     factBoundaryIssues,
+    internalTraceHits,
     scopeSummary: input.scopeSummary,
     recommendation: buildRecommendation(publishStatus, manualReviewItems)
   };
@@ -150,6 +165,7 @@ function resolvePublishStatus(input: {
   forbiddenWordHits: QualityGateTextHit[];
   aiStyleIssues: QualityGateTextHit[];
   factBoundaryIssues: QualityGateTextHit[];
+  internalTraceHits: QualityGateTextHit[];
 }): PublishStatus {
   const hasHighRisk = input.qualityResult.riskItems.some((item) => item.severity === "high");
   const hasTitleForbiddenWord = input.forbiddenWordHits.some((hit) => hit.field === "title");
@@ -169,7 +185,8 @@ function resolvePublishStatus(input: {
     input.qualityResult.riskItems.length > 0 ||
     input.forbiddenWordHits.length > 0 ||
     input.aiStyleIssues.length > 0 ||
-    input.factBoundaryIssues.length > 0
+    input.factBoundaryIssues.length > 0 ||
+    input.internalTraceHits.length > 0
   ) {
     return "needs_review";
   }
@@ -197,6 +214,7 @@ function buildManualReviewItems(input: {
   forbiddenWordHits: QualityGateTextHit[];
   aiStyleIssues: QualityGateTextHit[];
   factBoundaryIssues: QualityGateTextHit[];
+  internalTraceHits: QualityGateTextHit[];
   scopeSummary: QualityGateScopeSummary;
 }): string[] {
   const items: string[] = [];
@@ -211,6 +229,17 @@ function buildManualReviewItems(input: {
 
   if (input.factBoundaryIssues.length > 0) {
     items.push("发现价格、案例、认证、排名或替代关系等事实边界表达，需人工核对资料依据。");
+  }
+
+  if (input.internalTraceHits.length > 0) {
+    const hasEditorTone = input.internalTraceHits.some(
+      (hit) => findEditorTonePublishTerms(hit.word).length > 0
+    );
+    items.push(
+      hasEditorTone
+        ? "发布稿存在编辑口吻或资料口吻，请先修复后再复制。"
+        : "发布稿中包含内部工作词，请先修复后再复制。"
+    );
   }
 
   if (input.qualityResult.riskItems.length > 0) {
@@ -255,6 +284,31 @@ function findTextHits(title: string, body: string, words: string[]): QualityGate
           snippet: buildSnippet(source, index, word.length)
         });
       }
+    }
+  }
+
+  return hits;
+}
+
+function findInternalTraceHits(input: {
+  title: string;
+  body: string;
+  publishContent?: string;
+}): QualityGateTextHit[] {
+  const hits: QualityGateTextHit[] = [];
+
+  for (const field of ["title", "body", "publish"] as const) {
+    const source =
+      field === "title" ? input.title : field === "body" ? input.body : (input.publishContent ?? "");
+    const terms = findForbiddenInternalPublishTerms(source);
+
+    for (const term of terms) {
+      const index = source.indexOf(term);
+      hits.push({
+        word: term,
+        field,
+        snippet: buildSnippet(source, Math.max(index, 0), term.length)
+      });
     }
   }
 

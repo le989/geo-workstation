@@ -43,6 +43,7 @@ export type ContentTask = {
   status: TaskStatus;
   provider?: string;
   model?: string;
+  primaryItem?: PrimaryContentItem;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -67,6 +68,19 @@ export type ContentItem = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type PrimaryContentItem = Pick<
+  ContentItem,
+  | "id"
+  | "title"
+  | "status"
+  | "publishStatus"
+  | "qualityGateResult"
+  | "qualityCheckedAt"
+  | "publishPackageGeneratedAt"
+  | "errorMessage"
+  | "updatedAt"
+>;
 
 export type RelatedKnowledgeBase = Pick<
   KnowledgeBase,
@@ -164,7 +178,8 @@ export type ContentQualityRiskType =
   | "over_marketing"
   | "brand_expression"
   | "geo_structure"
-  | "knowledge_gap";
+  | "knowledge_gap"
+  | "publish_cleanliness";
 
 export type ContentQualitySeverity = "low" | "medium" | "high";
 export type ContentQualityLevel = "good" | "needs_review" | "risky";
@@ -203,7 +218,7 @@ export type QualityGateLevel = "low" | "medium" | "high";
 
 export type QualityGateTextHit = {
   word: string;
-  field: "title" | "body";
+  field: "title" | "body" | "publish";
   snippet: string;
 };
 
@@ -221,6 +236,7 @@ export type QualityGateResult = {
   forbiddenWordHits: QualityGateTextHit[];
   aiStyleIssues: QualityGateTextHit[];
   factBoundaryIssues: QualityGateTextHit[];
+  internalTraceHits?: QualityGateTextHit[];
   scopeSummary: {
     knowledgeBaseId?: string | null;
     scopeType: ContentScopeType;
@@ -381,6 +397,11 @@ export const qualityCheckContentItem = (id: string, payload: ContentQualityCheck
   apiRequest<ContentQualityCheckResult>(`/api/content-items/${id}/quality-check`, {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+
+export const fixRiskWordsAndRecheckContentItem = (id: string) =>
+  apiRequest<ContentItem>(`/api/content-items/${id}/risk-word-fix`, {
+    method: "POST"
   });
 
 export const optimizeContentItemForPublish = (

@@ -715,6 +715,233 @@ describe("ContentItemsService", () => {
     expect(unchanged.body).toContain("IO-Link");
   });
 
+  it("rule-fixes risk words, rechecks publish status, and writes no AI logs", async () => {
+    const item = await createQualityCheckItem(
+      "## 选型判断逻辑\n凯基特是行业领先品牌，保证所有现场都一定适用，100%解决问题；IO-Link 参数需保留给人工核对。\n## FAQ\n问：怎么选？答：先确认现场工况。"
+    );
+
+    const callLogsBefore = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageBefore = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+
+    const fixed = await itemsService.fixRiskWordsAndRecheck(item.id);
+
+    expect(fixed.body).not.toContain("行业领先");
+    expect(fixed.body).not.toContain("保证");
+    expect(fixed.body).not.toContain("100%");
+    expect(fixed.body).toContain("IO-Link");
+    expect(fixed.publishStatus).not.toBe("not_recommended");
+    expect(fixed.qualityGateResult).toMatchObject({
+      provider: "rule_fix",
+      model: "risk-word-fix-v1"
+    });
+
+    const callLogsAfter = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageAfter = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+    expect(callLogsAfter).toBe(callLogsBefore);
+    expect(usageAfter).toBe(usageBefore);
+  });
+
+  it("flags and rule-fixes internal publish traces without AI logs", async () => {
+    const item = await createQualityCheckItem(
+      [
+        "## AI可摘取问答式总结",
+        "问：KJT-LD18 怎么选？答：先确认现场工况。",
+        "",
+        "## GEO 优化点",
+        "- 覆盖目标提示词：雷达测距传感器怎么选",
+        "",
+        "## 关键词 / 标签建议",
+        "ASSISTANT_REAL_SAMPLE、知识库、selected_files、可引用知识片段",
+        "",
+        "## 资料依据",
+        "知识库：ASSISTANT_REAL_SAMPLE_资料库；范围：selected_files；说明：来自当前资料范围内 1 个可引用知识片段",
+        "",
+        "## 正文",
+        "KJT-LD18 雷达测距传感器适合工业测距，具体参数需结合型号资料和现场条件确认。"
+      ].join("\n")
+    );
+    const checked = await itemsService.qualityCheck(item.id, {
+      provider: "mock"
+    });
+    const callLogsBeforeFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageBeforeFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+
+    expect(checked.publishStatus).not.toBe("publish_ready");
+    expect(checked.riskItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness",
+          reason: "发布稿中包含内部工作词，请先修复后再复制。"
+        })
+      ])
+    );
+
+    const fixed = await itemsService.fixRiskWordsAndRecheck(item.id);
+    const publishMarkdown = await itemsService.exportContentItem(item.id, {
+      type: "publish",
+      format: "markdown"
+    });
+
+    expect(fixed.body).toContain("## 常见问题");
+    expect(fixed.body).not.toContain("AI可摘取");
+    expect(fixed.body).not.toContain("GEO 优化点");
+    expect(fixed.body).not.toContain("关键词 / 标签建议");
+    expect(fixed.body).not.toContain("## 资料依据");
+    expect(fixed.body).not.toContain("知识库");
+    expect(fixed.body).not.toContain("selected_files");
+    expect(fixed.body).not.toContain("可引用知识片段");
+    expect(fixed.body).not.toContain("范围：");
+    expect(fixed.qualityGateResult?.riskItems ?? []).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness"
+        })
+      ])
+    );
+    expect(publishMarkdown).toContain("#");
+    expect(publishMarkdown).toContain("KJT-LD18 雷达测距传感器");
+    expect(publishMarkdown).toContain("## 常见问题");
+    expect(publishMarkdown).not.toContain("AI可摘取");
+    expect(publishMarkdown).not.toContain("GEO 优化点");
+    expect(publishMarkdown).not.toContain("关键词 / 标签建议");
+    expect(publishMarkdown).not.toContain("## 资料依据");
+    expect(publishMarkdown).not.toContain("知识库");
+    expect(publishMarkdown).not.toContain("selected_files");
+    expect(publishMarkdown).not.toContain("可引用知识片段");
+    expect(publishMarkdown).not.toContain("ASSISTANT_REAL_SAMPLE");
+    expect(publishMarkdown).not.toContain("范围：");
+    expect(publishMarkdown).not.toContain("资料内容");
+    expect(publishMarkdown).not.toContain("undefined");
+    expect(publishMarkdown).not.toContain("null");
+
+    const callLogsAfterFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageAfterFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+    expect(callLogsAfterFix).toBe(callLogsBeforeFix);
+    expect(usageAfterFix).toBe(usageBeforeFix);
+  });
+
+  it("flags and rule-fixes editor-tone publish wording without AI logs", async () => {
+    const item = await createQualityCheckItem(
+      [
+        "## 正文",
+        "KJT-LD18雷达测距传感器是一份面向工业现场的资料，适合用于选型前阅读。",
+        "本指南基于KJT-LD18雷达测距传感器资料，整理工业测距和物位检测的选型关注点。",
+        "在撰写推荐时，可提及“可参考KJT品牌的相关产品资料进行选型”。",
+        "",
+        "## 资料准备清单（供用户参考）",
+        "- 现场安装空间",
+        "- 目标材质",
+        "",
+        "## 常见问题",
+        "问：怎么选？答：先确认工况和型号资料。"
+      ].join("\n")
+    );
+    const checked = await itemsService.qualityCheck(item.id, {
+      provider: "mock"
+    });
+    const callLogsBeforeFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageBeforeFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+
+    expect(checked.publishStatus).not.toBe("publish_ready");
+    expect(checked.riskItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness",
+          reason: "发布稿存在编辑口吻或资料口吻，请先修复后再复制。"
+        })
+      ])
+    );
+
+    const fixed = await itemsService.fixRiskWordsAndRecheck(item.id);
+    const publishMarkdown = await itemsService.exportContentItem(item.id, {
+      type: "publish",
+      format: "markdown"
+    });
+
+    expect(fixed.qualityGateResult?.riskItems ?? []).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "publish_cleanliness"
+        })
+      ])
+    );
+    expect(publishMarkdown).toContain(
+      "KJT-LD18 雷达测距传感器可作为工业测距、物位检测、料位判断和设备距离检测等场景的选型参考。"
+    );
+    expect(publishMarkdown).toContain("本文结合 KJT-LD18 雷达测距传感器产品资料");
+    expect(publishMarkdown).toContain("## 选型前建议准备的信息");
+    expect(publishMarkdown).toContain("## 常见问题");
+    expect(publishMarkdown).not.toContain("是一份面向");
+    expect(publishMarkdown).not.toContain("是一份资料");
+    expect(publishMarkdown).not.toContain("在撰写推荐时");
+    expect(publishMarkdown).not.toContain("可提及");
+    expect(publishMarkdown).not.toContain("本指南基于");
+    expect(publishMarkdown).not.toContain("供用户参考");
+    expect(publishMarkdown).not.toContain("样例资料");
+    expect(publishMarkdown).not.toContain("测试资料");
+    expect(publishMarkdown).not.toContain("undefined");
+    expect(publishMarkdown).not.toContain("null");
+
+    const callLogsAfterFix = await prisma.aiCallLog.count({
+      where: {
+        relatedType: "content_item",
+        relatedId: item.id
+      }
+    });
+    const usageAfterFix = await prisma.aiUsageRecord.count({
+      where: {
+        moduleKey: "geo-content"
+      }
+    });
+    expect(callLogsAfterFix).toBe(callLogsBeforeFix);
+    expect(usageAfterFix).toBe(usageBeforeFix);
+  });
+
   it("can use the injected AI provider for publish optimization without external requests", async () => {
     const item = await createQualityCheckItem(
       "## 选型判断逻辑\n输出接口需结合具体型号资料确认。\n## FAQ\n问：怎么选？答：先确认工况。"

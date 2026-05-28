@@ -91,12 +91,12 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     subtitle: "管理内容生成模板和规则"
   },
   "/geo-content": {
-    title: "GEO 内容生成",
-    subtitle: "生成、审校、优化和发布稿"
+    title: "发布文章工作台",
+    subtitle: "生成、检查和复制发布稿"
   },
   "/content-tasks": {
-    title: "GEO 内容生成",
-    subtitle: "生成、审校、优化和发布稿"
+    title: "发布文章工作台",
+    subtitle: "生成、检查和复制发布稿"
   },
   "/model-inclusion-records": {
     title: "AI 模型覆盖记录",
