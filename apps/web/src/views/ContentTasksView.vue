@@ -104,8 +104,8 @@ const assistantStatusLabelMap: Record<AssistantArticleStatus, string> = {
   running: "生成中"
 };
 
+const activeAssistantStatus = ref<AssistantArticleStatus | "all">("all");
 const hasTableError = computed(() => Boolean(tableError.value));
-const isEmpty = computed(() => !loading.value && tasks.value.length === 0);
 const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
 const canManageContentActions = computed(() => canUseAction("create", currentRole.value));
 const selectedTaskArchiving = computed(() => archivingIds.value.includes(selectedTaskId.value));
@@ -124,9 +124,24 @@ const contentOverviewStats = computed(() => {
     { label: "需人工检查", value: reviewCount, hint: "存在风险词或需检查" }
   ];
 });
-const contentOverviewSummary = computed(() =>
-  contentOverviewStats.value.map((item) => `${item.label} ${item.value}`).join("｜")
-);
+const assistantStatusTabs = computed(() => [
+  { label: "全部", status: "all" as const, value: tasks.value.length },
+  { label: "待处理", status: "pending" as const, value: contentOverviewStats.value[0]?.value ?? 0 },
+  { label: "生成中", status: "running" as const, value: contentOverviewStats.value[1]?.value ?? 0 },
+  { label: "可复制", status: "copyable" as const, value: contentOverviewStats.value[2]?.value ?? 0 },
+  {
+    label: "需人工检查",
+    status: "needs_review" as const,
+    value: contentOverviewStats.value[3]?.value ?? 0
+  }
+]);
+const visibleAssistantTasks = computed(() => {
+  if (activeAssistantStatus.value === "all") {
+    return tasks.value;
+  }
+
+  return tasks.value.filter((task) => resolveAssistantStatus(task) === activeAssistantStatus.value);
+});
 
 const contentWorkflowSteps = [
   {
@@ -188,10 +203,28 @@ const getTaskNextAction = (task: ContentTask) => {
   }
 
   if (status === "copyable") {
-    return "发布检查已通过，可以复制发布稿";
+    return "已通过检查，可以复制";
   }
 
-  return "文章存在风险词或需要检查";
+  return "发现问题，先修复或人工修改";
+};
+
+const getAssistantStatusTagType = (task: ContentTask) => {
+  const status = resolveAssistantStatus(task);
+
+  if (status === "copyable") {
+    return "success";
+  }
+
+  if (status === "needs_review") {
+    return "warning";
+  }
+
+  if (status === "running") {
+    return "primary";
+  }
+
+  return "info";
 };
 
 const canArchiveContentTask = (task?: ContentTask | null) =>
@@ -219,8 +252,33 @@ const trimOptional = (value?: string) => {
 const isTechnicalTaskName = (value: string) =>
   /\b(phase|smoke|mock|debug|test|batch)\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(value);
 
-const getDisplayTaskName = (task: ContentTask) =>
-  task.name && !isTechnicalTaskName(task.name) ? task.name : "文章任务";
+const cleanAssistantTaskName = (value?: string) => {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  const withoutColonPrefix = trimmed.replace(/^ASSISTANT[-_][^:：]*[:：]\s*/i, "").trim();
+  const taskName = withoutColonPrefix || trimmed;
+
+  // 列表主标题不展示 smoke 前缀，避免助理把内部测试标识当成文章标题。
+  if (/^ASSISTANT[-_]/i.test(taskName)) {
+    const taskNameParts = taskName.split("_");
+    const readablePartIndex = taskNameParts.findIndex((part) => /[\u4e00-\u9fff]/.test(part));
+
+    if (readablePartIndex > 0) {
+      return taskNameParts.slice(readablePartIndex).join("_").trim();
+    }
+
+    return "";
+  }
+
+  return isTechnicalTaskName(taskName) ? "" : taskName;
+};
+
+const getAssistantArticleTitle = (task: ContentTask) =>
+  task.primaryItem?.title?.trim() || cleanAssistantTaskName(task.name) || "文章任务";
 
 const isRealAiProvider = (provider?: string) => provider && provider !== "mock";
 
@@ -941,7 +999,7 @@ onMounted(() => {
     </header>
 
     <p class="content-inline-note">
-      助理只处理生成、检查和复制；关键词、提示词、模型策略和知识库维护由负责人处理。
+      助理只需生成文章、检查结果并复制发布稿；高级配置由负责人维护。
     </p>
 
     <ContentTaskFilters
@@ -954,62 +1012,56 @@ onMounted(() => {
 
     <AppErrorState v-if="hasTableError" title="文章任务加载失败" :message="tableError" />
 
-    <el-card class="content-table-card" shadow="never">
+    <el-card class="content-table-card article-workbench-list" shadow="never">
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">文章任务</p>
+            <p class="section-kicker">文章工作台</p>
             <h2>待处理文章列表</h2>
-            <span>{{ contentOverviewSummary }}</span>
+            <span>按状态处理下一步，历史和高级操作收在更多里。</span>
           </div>
           <strong>{{ total }} 篇文章</strong>
         </div>
       </template>
 
-      <el-table
-        v-loading="loading"
-        :data="tasks"
-        border
-        row-key="id"
-        empty-text="暂无文章任务"
-      >
-        <el-table-column label="文章标题" min-width="300" fixed>
-          <template #default="{ row }">
-            <strong class="content-task-title">{{ getDisplayTaskName(row) }}</strong>
-            <p class="table-subtext">使用资料：{{ getTaskKnowledgeScopeSummary(row) }}</p>
-          </template>
-        </el-table-column>
-        <el-table-column label="当前状态" width="140">
-          <template #default="{ row }">
-            <el-tag
-              :type="
-                resolveAssistantStatus(row) === 'copyable'
-                  ? 'success'
-                  : resolveAssistantStatus(row) === 'needs_review'
-                    ? 'warning'
-                    : resolveAssistantStatus(row) === 'running'
-                      ? 'primary'
-                      : 'info'
-              "
-              effect="plain"
-            >
-              {{ assistantStatusLabelMap[resolveAssistantStatus(row)] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="180">
-          <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
-        </el-table-column>
-        <el-table-column label="下一步" min-width="240">
-          <template #default="{ row }">
-            <div class="content-next-action">
-              <span>{{ getTaskNextAction(row) }}</span>
-              <strong>{{ row.primaryItem?.title ?? "打开文章查看详情" }}</strong>
+      <nav class="assistant-status-tabs" aria-label="文章状态筛选">
+        <button
+          v-for="tab in assistantStatusTabs"
+          :key="tab.status"
+          type="button"
+          :class="{ 'is-active': activeAssistantStatus === tab.status }"
+          @click="activeAssistantStatus = tab.status"
+        >
+          <span>{{ tab.label }}</span>
+          <strong>{{ tab.value }}</strong>
+        </button>
+      </nav>
+
+      <section v-loading="loading" class="assistant-article-list">
+        <article
+          v-for="row in visibleAssistantTasks"
+          :key="row.id"
+          class="assistant-article-card"
+          :class="`assistant-article-card--${resolveAssistantStatus(row)}`"
+        >
+          <div class="assistant-article-card__content">
+            <div class="assistant-article-card__meta">
+              <el-tag :type="getAssistantStatusTagType(row)" effect="plain">
+                {{ assistantStatusLabelMap[resolveAssistantStatus(row)] }}
+              </el-tag>
+              <span>更新于 {{ formatDateTime(row.updatedAt) }}</span>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="主操作" width="260" fixed="right">
-          <template #default="{ row }">
+            <h3>{{ getAssistantArticleTitle(row) }}</h3>
+            <p class="assistant-article-card__source">
+              使用资料：{{ getTaskKnowledgeScopeSummary(row) }}
+            </p>
+            <div class="assistant-article-card__next">
+              <span>下一步</span>
+              <strong>{{ getTaskNextAction(row) }}</strong>
+            </div>
+          </div>
+
+          <div class="assistant-article-card__actions">
             <el-button
               v-if="resolveAssistantStatus(row) === 'pending'"
               type="primary"
@@ -1044,12 +1096,20 @@ onMounted(() => {
             >
               自动修复
             </el-button>
-            <el-button :icon="View" @click="openDetailDrawer(row)">打开文章</el-button>
+            <el-button
+              v-if="resolveAssistantStatus(row) === 'copyable' || resolveAssistantStatus(row) === 'needs_review'"
+              plain
+              :icon="View"
+              @click="openDetailDrawer(row)"
+            >
+              打开文章
+            </el-button>
             <el-dropdown
               v-if="
                 canArchiveContentTask(row) ||
                   (resolveAssistantStatus(row) === 'needs_review' && row.primaryItem)
               "
+              class="assistant-card-more"
               trigger="click"
             >
               <el-button text :icon="MoreFilled">更多</el-button>
@@ -1078,14 +1138,14 @@ onMounted(() => {
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
-          </template>
-        </el-table-column>
-      </el-table>
+          </div>
+        </article>
 
-      <el-empty
-        v-if="isEmpty && !hasTableError"
-        description="暂无文章任务，请点击新建发布文章。"
-      />
+        <el-empty
+          v-if="!loading && visibleAssistantTasks.length === 0 && !hasTableError"
+          description="暂无匹配文章，请调整筛选或新建发布文章。"
+        />
+      </section>
 
       <div class="table-pagination">
         <el-pagination

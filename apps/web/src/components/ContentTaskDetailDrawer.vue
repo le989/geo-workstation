@@ -128,6 +128,88 @@ const failureAlertDescription = computed(() => {
 const expandedContentItemIds = ref<string[]>([]);
 const articleBodyRef = ref<HTMLElement | null>(null);
 
+type ArticlePreviewBlock =
+  | {
+      type: "heading";
+      level: number;
+      html: string;
+    }
+  | {
+      type: "paragraph";
+      html: string;
+    }
+  | {
+      type: "list";
+      items: string[];
+    };
+
+const escapeArticleHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const renderInlineArticleMarkdown = (value: string) =>
+  escapeArticleHtml(value)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+const parseAssistantArticleBlocks = (body: string): ArticlePreviewBlock[] => {
+  const blocks: ArticlePreviewBlock[] = [];
+  let currentListItems: string[] = [];
+
+  const flushListItems = () => {
+    if (currentListItems.length === 0) {
+      return;
+    }
+
+    blocks.push({
+      type: "list",
+      items: currentListItems
+    });
+    currentListItems = [];
+  };
+
+  // 将正文里的 Markdown 标记转成阅读块，详情页只负责预览，不影响复制发布稿。
+  for (const rawLine of getDisplayContentText(body).split("\n")) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushListItems();
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+
+    if (headingMatch) {
+      flushListItems();
+      blocks.push({
+        type: "heading",
+        level: Math.min(headingMatch[1]?.length ?? 3, 4),
+        html: renderInlineArticleMarkdown(headingMatch[2] ?? "")
+      });
+      continue;
+    }
+
+    const listItemMatch = line.match(/^(?:[-*]\s+|\d+[.、]\s+)(.+)$/);
+
+    if (listItemMatch) {
+      currentListItems.push(renderInlineArticleMarkdown(listItemMatch[1] ?? ""));
+      continue;
+    }
+
+    flushListItems();
+    blocks.push({
+      type: "paragraph",
+      html: renderInlineArticleMarkdown(line)
+    });
+  }
+
+  flushListItems();
+  return blocks;
+};
+
 const isGeneratedContentItem = (item: ContentItem) => {
   const hasReadableContent = Boolean(item.title.trim() || item.body.trim());
 
@@ -148,6 +230,9 @@ const primaryArticleItem = computed(() => {
     null
   );
 });
+const primaryArticleBlocks = computed(() =>
+  parseAssistantArticleBlocks(primaryArticleItem.value?.body ?? "")
+);
 const persistedQualityGateItems = computed(
   () =>
     props.detail?.items
@@ -763,9 +848,24 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                 复制富文本
               </el-button>
             </div>
-            <pre class="assistant-article-body">{{
-              primaryArticleItem ? getDisplayContentText(primaryArticleItem.body) : "正文生成后会显示在这里。"
-            }}</pre>
+            <div class="assistant-article-body">
+              <template v-if="primaryArticleItem && primaryArticleBlocks.length > 0">
+                <!-- eslint-disable vue/no-v-html -->
+                <template v-for="(block, index) in primaryArticleBlocks" :key="`${block.type}-${index}`">
+                  <h4
+                    v-if="block.type === 'heading'"
+                    :class="`assistant-article-heading assistant-article-heading--${block.level}`"
+                    v-html="block.html"
+                  />
+                  <p v-else-if="block.type === 'paragraph'" v-html="block.html" />
+                  <ul v-else class="assistant-article-body-list">
+                    <li v-for="item in block.items" :key="item" v-html="item" />
+                  </ul>
+                </template>
+                <!-- eslint-enable vue/no-v-html -->
+              </template>
+              <p v-else class="assistant-muted-text">正文生成后会显示在这里。</p>
+            </div>
           </section>
 
           <section class="assistant-simple-section">
@@ -1666,7 +1766,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 .assistant-article-body {
-  background: #fbfcfe;
+  background: #ffffff;
   border: 1px solid #e3e7ee;
   border-radius: 8px;
   color: #1f2937;
@@ -1676,8 +1776,60 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   margin: 14px 0 0;
   max-height: none;
   overflow: visible;
-  padding: 22px;
-  white-space: pre-wrap;
+  padding: 24px;
+}
+
+.assistant-article-body :deep(strong) {
+  color: #101828;
+  font-weight: 850;
+}
+
+.assistant-article-body :deep(code) {
+  background: #f2f4f7;
+  border-radius: 4px;
+  color: #344054;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  padding: 1px 5px;
+}
+
+.assistant-article-body p,
+.assistant-article-body ul,
+.assistant-article-heading {
+  margin: 0;
+}
+
+.assistant-article-body p + p,
+.assistant-article-body p + ul,
+.assistant-article-body ul + p,
+.assistant-article-body ul + .assistant-article-heading,
+.assistant-article-heading + p,
+.assistant-article-heading + ul {
+  margin-top: 14px;
+}
+
+.assistant-article-heading {
+  color: #101828;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.assistant-article-heading--1,
+.assistant-article-heading--2 {
+  font-size: 22px;
+}
+
+.assistant-article-heading--3 {
+  font-size: 19px;
+}
+
+.assistant-article-heading--4 {
+  font-size: 17px;
+}
+
+.assistant-article-body-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 22px;
 }
 
 .assistant-check-grid {
