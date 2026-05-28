@@ -300,7 +300,7 @@ const assistantStatusCard = computed(() => {
     return {
       type: "success" as const,
       title: "这篇文章已通过发布检查，可以复制发布稿",
-      description: "复制后可粘贴到百家号、头条、知乎等发布平台，发布前仍建议快速预览格式。"
+      description: "复制后可粘贴到发布平台，发布前建议预览排版。"
     };
   }
 
@@ -771,9 +771,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             文章预览
           </el-tag>
           <h2>{{ primaryArticleItem?.title ?? getDisplayTaskName() }}</h2>
-          <p>
-            先看能不能发，再看正文和资料来源；负责人信息已收进高级信息。
-          </p>
+          <p>查看发布稿和检查结果。</p>
         </div>
         <div class="content-detail-actions">
           <el-button :loading="loading" @click="emit('refresh')">刷新详情</el-button>
@@ -856,16 +854,8 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               <div>
                 <p class="section-kicker">发布稿预览</p>
                 <h3>可复制发布稿</h3>
-                <p>这里展示的是复制到发布平台的最终稿。</p>
+                <p>复制按钮会复制这版内容。</p>
               </div>
-              <el-button
-                v-if="primaryArticleItem?.publishStatus === 'publish_ready'"
-                type="success"
-                :loading="publishPackageExportingIds?.includes(primaryArticleItem.id)"
-                @click="emit('copyPublishPackage', primaryArticleItem)"
-              >
-                复制富文本
-              </el-button>
             </div>
             <div class="assistant-article-body">
               <template v-if="primaryArticleItem && primaryArticleBlocks.length > 0">
@@ -1723,7 +1713,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 <style scoped>
 .assistant-reader-shell {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .assistant-status-card,
@@ -1738,9 +1728,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .assistant-status-card {
   align-items: flex-start;
   display: grid;
-  gap: 18px;
+  gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 20px;
+  padding: 14px 16px;
 }
 
 .assistant-status-card--success {
@@ -1765,28 +1755,29 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .assistant-status-card h3 {
   color: #101828;
-  font-size: 22px;
+  font-size: 19px;
   line-height: 1.35;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .assistant-status-card p,
 .assistant-muted-text {
   color: #667085;
-  line-height: 1.75;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .assistant-status-actions {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
 .assistant-article-panel,
 .assistant-simple-section {
-  padding: 20px;
+  padding: 16px;
 }
 
 .assistant-article-body {
@@ -1796,11 +1787,11 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   color: #1f2937;
   font-family: inherit;
   font-size: 15px;
-  line-height: 1.9;
-  margin: 14px 0 0;
+  line-height: 1.82;
+  margin: 10px 0 0;
   max-height: none;
   overflow: visible;
-  padding: 24px;
+  padding: 18px;
 }
 
 .assistant-article-body :deep(strong) {
@@ -1828,7 +1819,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .assistant-article-body ul + .assistant-article-heading,
 .assistant-article-heading + p,
 .assistant-article-heading + ul {
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .assistant-article-heading {
@@ -1852,15 +1843,15 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .assistant-article-body-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   padding-left: 22px;
 }
 
 .assistant-check-grid {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 12px 0 16px;
+  margin: 10px 0 12px;
 }
 
 .assistant-check-grid > div {
@@ -1868,8 +1859,8 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   border-radius: 8px;
   background: #fbfcfe;
   display: grid;
-  gap: 6px;
-  padding: 12px;
+  gap: 4px;
+  padding: 10px;
 }
 
 .assistant-check-grid span {
@@ -1879,12 +1870,12 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .assistant-check-grid strong {
   color: #101828;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .assistant-simple-section h4 {
   color: #101828;
-  margin: 14px 0 8px;
+  margin: 10px 0 6px;
 }
 
 .assistant-plain-list,
@@ -1906,11 +1897,11 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .assistant-advanced-collapse :deep(.el-collapse-item__header) {
   color: #101828;
   font-weight: 800;
-  padding: 0 18px;
+  padding: 0 14px;
 }
 
 .assistant-advanced-collapse :deep(.el-collapse-item__content) {
-  padding: 0 18px 18px;
+  padding: 0 14px 14px;
 }
 
 .advanced-task-actions {

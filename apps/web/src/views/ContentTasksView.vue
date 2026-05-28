@@ -254,6 +254,8 @@ const trimOptional = (value?: string) => {
 const isTechnicalTaskName = (value: string) =>
   /\b(phase|smoke|mock|debug|test|batch)\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(value);
 
+const removeLeadingTimestampMarker = (value: string) => value.replace(/^\d{10,}\s*/, "").trim();
+
 const cleanAssistantTaskName = (value?: string) => {
   const trimmed = value?.trim();
 
@@ -262,7 +264,7 @@ const cleanAssistantTaskName = (value?: string) => {
   }
 
   const withoutColonPrefix = trimmed.replace(/^ASSISTANT[-_][^:：]*[:：]\s*/i, "").trim();
-  const taskName = withoutColonPrefix || trimmed;
+  const taskName = removeLeadingTimestampMarker(withoutColonPrefix || trimmed);
 
   // 列表主标题不展示 smoke 前缀，避免助理把内部测试标识当成文章标题。
   if (/^ASSISTANT[-_]/i.test(taskName)) {
@@ -270,7 +272,7 @@ const cleanAssistantTaskName = (value?: string) => {
     const readablePartIndex = taskNameParts.findIndex((part) => /[\u4e00-\u9fff]/.test(part));
 
     if (readablePartIndex > 0) {
-      return taskNameParts.slice(readablePartIndex).join("_").trim();
+      return removeLeadingTimestampMarker(taskNameParts.slice(readablePartIndex).join("_").trim());
     }
 
     return "";
@@ -280,7 +282,7 @@ const cleanAssistantTaskName = (value?: string) => {
 };
 
 const getAssistantArticleTitle = (task: ContentTask) =>
-  task.primaryItem?.title?.trim() || cleanAssistantTaskName(task.name) || "文章任务";
+  cleanAssistantTaskName(task.primaryItem?.title) || cleanAssistantTaskName(task.name) || "文章任务";
 
 const isRealAiProvider = (provider?: string) => provider && provider !== "mock";
 
@@ -1026,7 +1028,7 @@ onMounted(() => {
     <header class="content-hero content-hero--compact">
       <div class="content-hero__copy">
         <h1>发布文章工作台</h1>
-        <p>每天只需要 3 步：1. 选择资料 2. 生成文章 3. 通过检查后复制发布稿</p>
+        <p>选择资料 → 生成文章 → 复制发布稿</p>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -1043,7 +1045,7 @@ onMounted(() => {
     </header>
 
     <p class="content-inline-note">
-      助理只需生成文章、检查结果并复制发布稿；高级配置由负责人维护。
+      助理只处理生成、检查和复制；高级配置由负责人维护。
     </p>
 
     <ContentTaskFilters
@@ -1089,20 +1091,19 @@ onMounted(() => {
           :class="`assistant-article-card--${resolveAssistantStatus(row)}`"
         >
           <div class="assistant-article-card__content">
-            <div class="assistant-article-card__meta">
+            <div class="assistant-article-card__title-row">
               <el-tag :type="getAssistantStatusTagType(row)" effect="plain">
                 {{ assistantStatusLabelMap[resolveAssistantStatus(row)] }}
               </el-tag>
-              <span>更新于 {{ formatDateTime(row.updatedAt) }}</span>
+              <h3>{{ getAssistantArticleTitle(row) }}</h3>
             </div>
-            <h3>{{ getAssistantArticleTitle(row) }}</h3>
             <p class="assistant-article-card__source">
-              使用资料：{{ getTaskKnowledgeScopeSummary(row) }}
+              资料：{{ getTaskKnowledgeScopeSummary(row) }} ｜ 更新：{{ formatDateTime(row.updatedAt) }}
             </p>
-            <div class="assistant-article-card__next">
-              <span>下一步</span>
+            <p class="assistant-article-card__next">
+              <span>下一步：</span>
               <strong>{{ getTaskNextAction(row) }}</strong>
-            </div>
+            </p>
           </div>
 
           <div class="assistant-article-card__actions">

@@ -5044,7 +5044,7 @@ a {
 }
 
 .content-hero__actions {
-  align-items: flex-end;
+  align-items: center;
 }
 
 .content-hero__actions .el-button--primary,
@@ -5057,7 +5057,7 @@ a {
 }
 
 .content-hero--compact {
-  padding: 18px 20px;
+  padding: 12px 16px;
   background: #ffffff;
 }
 
@@ -5066,23 +5066,22 @@ a {
 }
 
 .content-hero--compact h1 {
-  font-size: 28px;
+  font-size: 24px;
 }
 
 .content-hero--compact p {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .content-inline-note {
-  margin: -8px 0 0;
-  padding: 10px 12px;
-  border: 1px solid #e5e0ef;
-  border-radius: 12px;
-  background: #fbfaff;
+  margin: -6px 0 0;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
   color: #667586;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.5;
 }
 
@@ -5233,18 +5232,27 @@ a {
 }
 
 .content-filter-card--compact {
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 8px 12px;
 }
 
 .content-filter-card--compact .content-filters {
   grid-template-columns: minmax(220px, 1.4fr) minmax(140px, 0.72fr) minmax(180px, 0.9fr) auto;
-  gap: 10px;
+  gap: 8px;
+}
+
+.content-filter-card--compact .el-form-item {
+  margin-bottom: 0;
 }
 
 .content-filter-card--compact .el-form-item__label {
+  font-size: 12px;
   line-height: 1.2;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+}
+
+.content-filter-card--compact :where(.el-input__wrapper, .el-select__wrapper) {
+  min-height: 32px;
 }
 
 .content-filter-card--compact .filter-actions {
@@ -5310,12 +5318,16 @@ a {
 }
 
 .article-workbench-list {
-  padding: 14px;
+  padding: 10px;
+}
+
+.article-workbench-list :where(.el-card__header) {
+  padding: 10px 12px;
 }
 
 .article-workbench-list :where(.el-card__body) {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .content-table-card :where(.el-card__header) {
@@ -5354,7 +5366,7 @@ a {
 .assistant-status-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .assistant-status-tabs button {
@@ -5365,9 +5377,9 @@ a {
   color: #344054;
   cursor: pointer;
   display: inline-flex;
-  gap: 8px;
-  min-height: 34px;
-  padding: 7px 11px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 9px;
 }
 
 .assistant-status-tabs button:hover {
@@ -5388,7 +5400,7 @@ a {
 
 .assistant-article-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-height: 140px;
 }
 
@@ -5399,9 +5411,9 @@ a {
   border-left: 4px solid #98a2b3;
   border-radius: 8px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 16px;
+  padding: 12px;
 }
 
 .assistant-article-card--copyable {
@@ -5418,18 +5430,17 @@ a {
 
 .assistant-article-card__content {
   display: grid;
-  gap: 9px;
+  gap: 6px;
   min-width: 0;
 }
 
-.assistant-article-card__meta {
+.assistant-article-card__title-row {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
+  min-width: 0;
   gap: 8px;
 }
 
-.assistant-article-card__meta span,
 .assistant-article-card__source,
 .assistant-article-card__next span {
   color: #667085;
@@ -5439,14 +5450,16 @@ a {
 
 .assistant-article-card h3 {
   color: #101828;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
   line-height: 1.4;
   margin: 0;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.assistant-article-card__source {
+.assistant-article-card__source,
+.assistant-article-card__next {
   margin: 0;
 }
 
@@ -5467,9 +5480,9 @@ a {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
-  min-width: 260px;
+  min-width: 240px;
 }
 
 .assistant-card-more .el-button {

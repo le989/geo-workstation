@@ -63,7 +63,7 @@ const showAdvancedFilters = ref(false);
       <div class="filter-actions">
         <el-button type="primary" :loading="loading" @click="emit('search')">查询</el-button>
         <el-button @click="emit('reset')">重置</el-button>
-        <el-button text type="primary" @click="showAdvancedFilters = !showAdvancedFilters">
+        <el-button text @click="showAdvancedFilters = !showAdvancedFilters">
           {{ showAdvancedFilters ? "收起筛选" : "高级筛选" }}
         </el-button>
       </div>

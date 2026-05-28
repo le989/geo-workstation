@@ -47,7 +47,7 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "发布文章工作台",
-  "每天只需要 3 步",
+  "选择资料 → 生成文章 → 复制发布稿",
   "新建发布文章",
   "文章主题",
   "选择资料",
@@ -69,7 +69,7 @@ const pageRequiredSnippets = [
   "这篇文章已通过发布检查，可以复制发布稿",
   "这篇文章暂不建议直接发布",
   "发布稿预览",
-  "这里展示的是复制到发布平台的最终稿。",
+  "复制按钮会复制这版内容。",
   "资料来源",
   "高级信息（负责人查看）",
   "发布检查",
@@ -82,7 +82,8 @@ const pageRequiredSnippets = [
   "ContentItemTable",
   "ContentItemFormDialog",
   "PublishFormatPanel",
-  "助理只需生成文章、检查结果并复制发布稿；高级配置由负责人维护。",
+  "助理只处理生成、检查和复制；高级配置由负责人维护。",
+  "查看发布稿和检查结果。",
   "article-workbench-list",
   "assistant-status-tabs",
   "assistant-article-card",
@@ -155,6 +156,10 @@ for (const snippet of pageRequiredSnippets) {
 const contentTasksViewSource = await readSource("src/views/ContentTasksView.vue");
 const contentTaskDetailDrawerSource = await readSource("src/components/ContentTaskDetailDrawer.vue");
 const contentTaskFormDialogSource = await readSource("src/components/ContentTaskFormDialog.vue");
+const articlePreviewPanelSource =
+  contentTaskDetailDrawerSource.match(
+    /<section ref="articleBodyRef" class="assistant-article-panel">[\s\S]*?<\/section>/
+  )?.[0] ?? "";
 
 // 复制发布稿必须复用后端干净发布稿导出，避免继续复制历史 publishPackage。
 assert(
@@ -183,6 +188,12 @@ assert(
   "Detail preview must load the same publish markdown used by copy rich text"
 );
 assert(
+  contentTasksViewSource.includes("cleanAssistantTaskName(task.primaryItem?.title)") &&
+    contentTasksViewSource.includes("removeLeadingTimestampMarker") &&
+    contentTasksViewSource.includes("removeLeadingTimestampMarker(taskNameParts.slice"),
+  "Assistant list titles must hide smoke prefixes and leading timestamp markers"
+);
+assert(
   contentTaskDetailDrawerSource.includes("publishPreviewMarkdownByItemId") &&
     contentTaskDetailDrawerSource.includes("primaryArticlePreviewMarkdown") &&
     !contentTaskDetailDrawerSource.includes(
@@ -194,6 +205,20 @@ assert(
   contentTaskDetailDrawerSource.includes("原始生成稿") &&
     contentTaskDetailDrawerSource.includes("getDisplayContentText(item.body)"),
   "Raw generated body must remain only in the advanced owner section"
+);
+assert(
+  !contentTaskDetailDrawerSource.includes(
+    "先看能不能发，再看正文和资料来源；负责人信息已收进高级信息。"
+  ) &&
+    !contentTaskDetailDrawerSource.includes("这里展示的是复制到发布平台的最终稿。") &&
+    !contentTaskDetailDrawerSource.includes(
+      "复制后可粘贴到百家号、头条、知乎等发布平台，发布前仍建议快速预览格式。"
+    ),
+  "Assistant detail drawer must use shorter helper copy"
+);
+assert(
+  articlePreviewPanelSource && !articlePreviewPanelSource.includes("copyPublishPackage"),
+  "Article preview panel must not duplicate the primary copy rich text action"
 );
 assert(
   contentTasksViewSource.includes("ClipboardItem") &&
