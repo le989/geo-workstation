@@ -7785,8 +7785,8 @@ a {
   border: 1px solid var(--geo-border);
   border-radius: 8px;
   background:
-    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 24%),
-    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), var(--geo-surface);
+    linear-gradient(135deg, rgb(37 99 235 / 8%), transparent 44%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   box-shadow: var(--geo-shadow-sm);
 }
 
@@ -7797,8 +7797,12 @@ a {
   right: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  background: linear-gradient(90deg, #2563eb, #0891b2);
   content: "";
+}
+
+.help-page .section-kicker {
+  color: #2563eb;
 }
 
 .help-hero__copy {
@@ -7826,13 +7830,13 @@ a {
   flex: 0 0 auto;
   gap: 8px;
   padding: 18px;
-  border: 1px solid #e3ddf8;
+  border: 1px solid #dbe5f0;
   border-radius: var(--geo-radius);
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .help-hero__aside .el-icon {
-  color: var(--geo-accent);
+  color: #2563eb;
   font-size: 28px;
 }
 
@@ -7869,8 +7873,8 @@ a {
 
 .help-overview-card:nth-child(3),
 .help-boundary-grid article:nth-child(3) {
-  border-color: rgb(186 255 41 / 55%);
-  background: linear-gradient(135deg, rgb(186 255 41 / 16%), transparent 58%), #ffffff;
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, rgb(37 99 235 / 7%), transparent 58%), #ffffff;
 }
 
 .help-overview-card strong,
@@ -7988,7 +7992,7 @@ a {
 }
 
 .help-section--boundary {
-  background: linear-gradient(135deg, rgb(109 40 255 / 5%), transparent 40%), #ffffff;
+  background: linear-gradient(135deg, rgb(37 99 235 / 5%), transparent 40%), #ffffff;
 }
 
 .help-step-list {
@@ -8023,11 +8027,34 @@ a {
   height: 32px;
   place-items: center;
   border-radius: 50%;
-  background: var(--geo-accent-soft);
-  color: var(--geo-accent);
+  background: #dbeafe;
+  color: #2563eb;
   font-size: 13px;
   font-weight: 800;
   content: counter(help-step);
+}
+
+.help-page .el-step__head.is-process,
+.help-page .el-step__head.is-finish,
+.help-page .el-step__head.is-success {
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
+.help-page .el-step__title.is-process,
+.help-page .el-step__title.is-finish,
+.help-page .el-step__title.is-success {
+  color: #1d4ed8;
+}
+
+.help-page .el-step__description.is-process,
+.help-page .el-step__description.is-finish,
+.help-page .el-step__description.is-success {
+  color: #475569;
+}
+
+.help-page .el-step__line {
+  background-color: #dbeafe;
 }
 
 .help-step-list strong {

@@ -9,16 +9,16 @@ const totalSopSteps = computed(() =>
 
 const helpOverviewItems = [
   {
-    title: "普通用户快速上手",
-    text: "从 Dashboard 看缺口，再维护提示词、知识库、指令库、内容任务和模型覆盖记录。"
+    title: "新手快速开始",
+    text: "先看 Dashboard 待处理事项，再补提示词、知识库和发布稿。"
   },
   {
-    title: "从 0 搭建正式数据",
-    text: "按确认公司、维护产品线、建提示词、建知识库、建指令模板、建内容任务的顺序推进。"
+    title: "日常 GEO 运营",
+    text: "按诊断、拓词、补资料、生成发布稿、人工发布和报表复盘推进。"
   },
   {
-    title: "管理员维护重点",
-    text: "平台管理员和公司管理员负责公司、产品线、用户、权限和基础数据边界。"
+    title: "风险边界清楚",
+    text: "真实 AI、候选保存、反馈处理和系统设置保存都要先确认环境。"
   }
 ];
 </script>
@@ -27,18 +27,18 @@ const helpOverviewItems = [
   <main class="help-page">
     <section class="help-hero">
       <div class="help-hero__copy">
-        <el-tag effect="plain" type="success">帮助中心</el-tag>
-        <h1>使用教程</h1>
+        <el-tag effect="plain" type="primary">帮助中心</el-tag>
+        <h1>使用教程与操作边界</h1>
         <p>
-          查看 GEO 工作站的快速开始、从 0 搭建正式数据、日常 SOP、管理员维护重点和当前注意事项。
+          面向内部员工整理当前 GEO 工作站的日常运营流程、模块说明、高风险操作提醒和管理员设置边界。
         </p>
       </div>
       <div class="help-hero__aside">
         <el-icon>
           <Guide />
         </el-icon>
-        <strong>{{ helpNavItems.length }} 个说明板块</strong>
-        <span>{{ totalSopSteps }} 个操作步骤，覆盖正式数据搭建、内容生产、管理员维护和复盘。</span>
+        <strong>{{ helpNavItems.length }} 个帮助板块</strong>
+        <span>{{ totalSopSteps }} 条说明，覆盖 Dashboard、发布文章工作台、AI 拓词、售后问答和系统设置。</span>
       </div>
     </section>
 
@@ -62,21 +62,21 @@ const helpOverviewItems = [
           <div class="help-section__header">
             <div>
               <p class="section-kicker">Quick Start</p>
-              <h2>快速开始</h2>
-              <span>第一次使用时按这条线走，先完成一条正式公司数据和 GEO 内容闭环。</span>
+              <h2>新手快速开始</h2>
+              <span>第一次使用时先看 Dashboard，再按待处理事项补资料、做诊断、生成发布稿和复盘。</span>
             </div>
-            <el-tag type="success" effect="plain">建议从这里开始</el-tag>
+            <el-tag type="primary" effect="plain">建议从这里开始</el-tag>
           </div>
 
           <el-alert
-            title="先确认公司和产品线，再扩大提示词、知识库和内容规模。"
+            title="AI 结果需要人工复核，发布文章需要人工发布。"
             type="info"
             show-icon
             :closable="false"
             class="help-alert"
           />
 
-          <el-steps direction="vertical" :active="quickStartSteps.length" finish-status="success">
+          <el-steps direction="vertical" :active="quickStartSteps.length" finish-status="process">
             <el-step
               v-for="step in quickStartSteps"
               :key="step.title"
@@ -89,18 +89,18 @@ const helpOverviewItems = [
         <section id="sop-loop" class="help-section">
           <div class="help-section__header">
             <div>
-              <p class="section-kicker">SOP</p>
-              <h2>正式使用流程总览</h2>
-              <span>围绕公司、产品线、提示词、知识库、指令库、内容、覆盖记录和报表，把日常动作拆成可交接流程。</span>
+              <p class="section-kicker">Guide Map</p>
+              <h2>帮助目录总览</h2>
+              <span>按员工日常任务组织，先看流程，再查模块、风险、常见问题、术语和管理员设置。</span>
             </div>
-            <el-tag effect="plain">{{ sopSections.length }} 组 SOP</el-tag>
+            <el-tag effect="plain">{{ sopSections.length }} 组说明</el-tag>
           </div>
           <div class="help-sop-card-grid">
             <article v-for="section in sopSections" :key="section.id">
-              <p class="section-kicker">{{ section.steps.length }} 步</p>
+              <p class="section-kicker">{{ section.kicker }}</p>
               <h3>{{ section.title }}</h3>
               <span>{{ section.summary }}</span>
-              <a :href="`#${section.id}`">查看步骤</a>
+              <a :href="`#${section.id}`">查看说明</a>
             </article>
           </div>
         </section>
@@ -113,11 +113,11 @@ const helpOverviewItems = [
         >
           <div class="help-section__header">
             <div>
-              <p class="section-kicker">SOP</p>
+              <p class="section-kicker">{{ section.kicker }}</p>
               <h2>{{ section.title }}</h2>
               <span>{{ section.summary }}</span>
             </div>
-            <el-tag effect="plain">{{ section.steps.length }} 步</el-tag>
+            <el-tag effect="plain">{{ section.steps.length }} 项</el-tag>
           </div>
 
           <ol class="help-step-list">
@@ -155,7 +155,7 @@ const helpOverviewItems = [
             <div>
               <p class="section-kicker">Changelog</p>
               <h2>版本更新记录</h2>
-              <span>这里记录当前正式入口、基础管理、任务归档和数据初始化口径，便于内部演示和交接。</span>
+              <span>这里记录当前帮助页口径、发布文章工作台说明和关键操作边界，便于内部培训和交接。</span>
             </div>
             <el-tag type="info" effect="plain">版本说明</el-tag>
           </div>
