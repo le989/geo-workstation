@@ -152,28 +152,43 @@ const providerStatusItems = [
     status: "已接入检测入口",
     type: "success" as const,
     usage: "Kimi 联网 GEO 命中检测",
-    note: "Key 由后端 .env 管理，前端不读取。"
+    note: "密钥由后端 .env 管理，前端不展示完整值。"
   },
   {
     name: "豆包 / 火山方舟 Web Search",
     status: "已接入检测入口",
     type: "success" as const,
     usage: "豆包 / 火山生态方向 API 检测",
-    note: "可能不返回完整结构化来源。"
+    note: "真实调用取决于后端 Provider 配置，前端只展示接入状态。"
   },
   {
     name: "通义 / 阿里云百炼 Web Search",
     status: "已接入检测入口",
     type: "success" as const,
     usage: "通义方向回答型联网检测",
-    note: "引用主要从回答正文判断。"
+    note: "引用主要从回答正文判断，密钥不在前端维护。"
   },
   {
     name: "OpenAI Compatible Provider",
     status: "内容生成可用",
     type: "primary" as const,
     usage: "内容生成、质量检查或拓词 Provider",
-    note: "具体模型和密钥仅在后端配置。"
+    note: "具体模型和密钥仅在后端配置，前端只读展示。"
+  }
+];
+
+const settingsWriteBoundaryItems = [
+  {
+    title: "环境确认",
+    text: "新增、编辑、启停或保存前，先确认当前环境和公司范围。"
+  },
+  {
+    title: "写入动作",
+    text: "公司、产品线和项目档案会写入系统配置，本页不提供批量清理。"
+  },
+  {
+    title: "Provider 边界",
+    text: "真实 Provider 取决于后端 .env，前端不展示完整密钥。"
   }
 ];
 
@@ -536,7 +551,9 @@ watch(
         </el-icon>
         <div>
           <h1>系统设置</h1>
-          <p>维护公司、产品线和 Provider 状态。</p>
+          <p>
+            维护公司、产品线、项目档案和 Provider 状态；新增、编辑、启停、保存前请确认当前环境和数据范围。
+          </p>
         </div>
       </div>
       <div class="settings-hero__actions">
@@ -549,6 +566,13 @@ watch(
         <el-button v-if="canManageProjectProfile" type="primary" @click="openEditor">
           {{ profile ? "编辑项目档案" : "创建项目档案" }}
         </el-button>
+      </div>
+    </section>
+
+    <section class="settings-write-boundary" aria-label="系统设置写入边界">
+      <div v-for="item in settingsWriteBoundaryItems" :key="item.title">
+        <strong>{{ item.title }}</strong>
+        <span>{{ item.text }}</span>
       </div>
     </section>
 
@@ -573,7 +597,7 @@ watch(
         <div>
           <p class="section-kicker">组织基础</p>
           <h2>公司管理</h2>
-          <span>维护公司状态，停用不会删除历史数据。</span>
+          <span>维护公司状态，停用只改变可用状态，不删除历史数据。</span>
         </div>
         <el-button v-if="canManageCompanies" type="primary" @click="openCreateCompany">
           新增公司
@@ -603,8 +627,16 @@ watch(
           :data="companies"
           class="settings-management-table"
         >
-          <el-table-column prop="name" label="公司名称" min-width="180" />
-          <el-table-column prop="code" label="公司编码" min-width="160" />
+          <el-table-column label="公司名称" min-width="220">
+            <template #default="{ row }">
+              <span class="settings-table-primary" :title="row.name">{{ row.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="公司编码" min-width="170">
+            <template #default="{ row }">
+              <span class="settings-table-code" :title="row.code">{{ row.code }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="公司类型" width="130">
             <template #default="{ row }">
               {{ formatCompanyType(row.type) }}
@@ -625,11 +657,14 @@ watch(
           <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <div v-if="canManageCompanies" class="settings-table-actions">
-                <el-button size="small" @click="openEditCompany(row)">编辑</el-button>
+                <el-button size="small" class="settings-action-button" @click="openEditCompany(row)">
+                  编辑
+                </el-button>
                 <el-button
                   size="small"
                   :type="row.status === 'active' ? 'warning' : 'success'"
                   plain
+                  class="settings-action-button settings-action-button--status"
                   @click="changeCompanyStatus(row)"
                 >
                   {{ row.status === "active" ? "停用" : "启用" }}
@@ -677,11 +712,21 @@ watch(
           :data="productLines"
           class="settings-management-table"
         >
-          <el-table-column prop="name" label="产品线名称" min-width="200" />
-          <el-table-column prop="code" label="产品线编码" min-width="180" />
+          <el-table-column label="产品线名称" min-width="220">
+            <template #default="{ row }">
+              <span class="settings-table-primary" :title="row.name">{{ row.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="产品线编码" min-width="170">
+            <template #default="{ row }">
+              <span class="settings-table-code" :title="row.code">{{ row.code }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="产品线说明" min-width="240">
             <template #default="{ row }">
-              <span class="table-subtext">{{ row.description || "未填写" }}</span>
+              <span class="settings-table-description" :title="row.description || '未填写'">
+                {{ row.description || "未填写" }}
+              </span>
             </template>
           </el-table-column>
           <el-table-column label="状态" width="110">
@@ -699,11 +744,18 @@ watch(
           <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <div v-if="canManageProductLines" class="settings-table-actions">
-                <el-button size="small" @click="openEditProductLine(row)">编辑</el-button>
+                <el-button
+                  size="small"
+                  class="settings-action-button"
+                  @click="openEditProductLine(row)"
+                >
+                  编辑
+                </el-button>
                 <el-button
                   size="small"
                   :type="row.status === 'active' ? 'warning' : 'success'"
                   plain
+                  class="settings-action-button settings-action-button--status"
                   @click="changeProductLineStatus(row)"
                 >
                   {{ row.status === "active" ? "停用" : "启用" }}
@@ -849,7 +901,7 @@ watch(
               <p class="section-kicker">模型 / API 配置状态</p>
               <h2>Provider 状态只读</h2>
               <span>
-                API Key 只允许在后端 .env 配置，前端不保存密钥，也不展示 Secret 或 Token。
+                Provider 状态仅用于查看当前环境配置；API Key 只允许在后端 .env 配置，前端不保存密钥，也不展示 Secret 或 Token。
               </span>
             </div>
           </div>
