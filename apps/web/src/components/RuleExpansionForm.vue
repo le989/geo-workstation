@@ -89,12 +89,19 @@ const handleSubmit = () => {
     <div class="expansion-form-header">
       <div>
         <p class="section-kicker">规则拓词</p>
-        <h2>手动组合拓词</h2>
-        <p>按“前缀、训练词、品牌/服务后缀、应用后缀”生成七类 GEO 候选问法。</p>
+        <h2>规则拓词</h2>
+        <p>使用本地组合规则生成候选问法，适合快速覆盖产品、服务和应用场景方向。</p>
       </div>
-      <el-tag type="info" effect="plain">候选词不会直接入库</el-tag>
+      <el-tag type="info" effect="plain">本地规则组合</el-tag>
     </div>
 
+    <el-alert
+      title="规则拓词不会调用真实 AI Provider；候选词仍需人工确认后才能保存到提示词策略库。"
+      type="info"
+      :closable="false"
+      show-icon
+      class="dialog-alert"
+    />
     <el-alert
       v-if="localError"
       :title="localError"

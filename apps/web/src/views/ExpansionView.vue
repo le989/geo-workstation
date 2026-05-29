@@ -225,13 +225,18 @@ const goGeoPrompts = () => {
 <template>
   <section class="expansion-page">
     <header class="expansion-hero">
-      <div>
-        <el-tag type="warning" effect="plain">GEO 拓词</el-tag>
+      <div class="expansion-hero__copy">
+        <p class="section-kicker">提示词资产工具</p>
         <h1>AI 拓词</h1>
-        <p>基于产品、场景和规则组合扩展候选 GEO 词，筛选后沉淀到提示词策略库。</p>
-        <strong>
-          先生成候选词，再人工勾选可用结果并保存到提示词策略库，后续可用于 GEO 诊断、内容生产和模型覆盖复盘。
-        </strong>
+        <p>
+          围绕核心词生成场景词、产品词、竞品词和候选提示词，规则拓词可快速生成，AI
+          拓词需确认模型调用边界。
+        </p>
+        <div class="expansion-boundary-list" aria-label="AI 拓词操作边界">
+          <span>规则拓词：本地组合</span>
+          <span>AI 拓词：确认 Provider</span>
+          <span>保存候选：写入词库</span>
+        </div>
       </div>
       <div class="expansion-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -242,7 +247,7 @@ const goGeoPrompts = () => {
     </header>
 
     <el-collapse class="expansion-flow-collapse">
-      <el-collapse-item title="查看拓词流程" name="flow">
+      <el-collapse-item title="查看候选词入库流程" name="flow">
         <section class="expansion-flow-strip" aria-label="AI 拓词流程">
           <div>
             <p class="section-kicker">策略生产流程</p>
@@ -364,6 +369,12 @@ const goGeoPrompts = () => {
             v-if="selectedCount === 0"
             title="未勾选候选词时不会提交保存。可先点击“一键勾选非重复项”，再按需调整。"
             type="info"
+            :closable="false"
+            show-icon
+          />
+          <el-alert
+            title="保存后会写入提示词策略库，请先确认词意、分类和适用场景。"
+            type="warning"
             :closable="false"
             show-icon
           />
