@@ -296,7 +296,7 @@ const downloadMarkdown = () => {
 
     <div v-if="currentItemFormatResult" class="publish-format-result">
       <div class="publish-format-actions">
-        <el-button type="success" @click="copyRichText">复制富文本</el-button>
+        <el-button type="primary" @click="copyRichText">复制富文本</el-button>
         <el-button @click="copyText(currentItemFormatResult.markdown, 'Markdown 已复制。')">
           复制 Markdown
         </el-button>

@@ -300,7 +300,7 @@ const assistantStatusCard = computed(() => {
     return {
       type: "success" as const,
       title: "这篇文章已通过发布检查，可以复制发布稿",
-      description: "复制后可粘贴到发布平台，发布前建议预览排版。"
+      description: "复制后可粘贴到发布平台，发布前请人工核对事实、参数、引用和排版。"
     };
   }
 
@@ -771,7 +771,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             文章预览
           </el-tag>
           <h2>{{ primaryArticleItem?.title ?? getDisplayTaskName() }}</h2>
-          <p>查看发布稿和检查结果。</p>
+          <p>查看发布稿和检查结果，复制后仍需人工核对并手动发布。</p>
         </div>
         <div class="content-detail-actions">
           <el-button :loading="loading" @click="emit('refresh')">刷新详情</el-button>
@@ -816,7 +816,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
             <div class="assistant-status-actions">
               <template v-if="primaryArticleItem && isPrimaryArticleCopyable">
                 <el-button
-                  type="success"
+                  type="primary"
                   :loading="publishPackageExportingIds?.includes(primaryArticleItem.id)"
                   @click="emit('copyPublishPackage', primaryArticleItem)"
                 >
@@ -854,7 +854,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               <div>
                 <p class="section-kicker">发布稿预览</p>
                 <h3>可复制发布稿</h3>
-                <p>复制按钮会复制这版内容。</p>
+                <p>复制按钮只复制当前发布稿；发布前需人工核对事实、参数、引用和风险词。</p>
               </div>
             </div>
             <div class="assistant-article-body">
@@ -943,7 +943,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
         <el-collapse class="assistant-advanced-collapse">
           <el-collapse-item name="advanced">
             <template #title>
-              <span class="technical-collapse-title">高级信息（负责人查看）</span>
+              <span class="technical-collapse-title">高级信息，仅管理员排查时查看</span>
             </template>
 
             <el-alert
@@ -1054,7 +1054,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                 <div>
                   <p class="section-kicker">原始生成稿</p>
                   <h3>原始标题和正文</h3>
-                  <p>负责人查看原始 content body；助理默认看到的是上方发布稿预览。</p>
+                  <p>负责人查看原始正文；助理默认看到的是上方发布稿预览。</p>
                 </div>
               </div>
 
@@ -1080,7 +1080,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
                     <el-button
                       v-if="item.publishStatus === 'publish_ready'"
                       text
-                      type="success"
+                      type="primary"
                       :loading="publishPackageExportingIds?.includes(item.id)"
                       @click="emit('copyPublishPackage', item)"
                     >
@@ -1720,7 +1720,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .assistant-article-panel,
 .assistant-simple-section,
 .assistant-advanced-collapse {
-  border: 1px solid #e3e7ee;
+  border: 1px solid #dbe5ef;
   border-radius: 10px;
   background: #ffffff;
 }
@@ -1734,18 +1734,18 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 .assistant-status-card--success {
-  border-color: #c9e8d0;
-  background: #f6fff8;
+  border-color: #bbf7d0;
+  background: #f7fef9;
 }
 
 .assistant-status-card--warning {
-  border-color: #efd8aa;
+  border-color: #fed7aa;
   background: #fffaf0;
 }
 
 .assistant-status-card--info {
-  border-color: #d7e4f4;
-  background: #f7fbff;
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 
 .assistant-status-card h3,
@@ -1782,7 +1782,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .assistant-article-body {
   background: #ffffff;
-  border: 1px solid #e3e7ee;
+  border: 1px solid #dbe5ef;
   border-radius: 8px;
   color: #1f2937;
   font-family: inherit;
@@ -1855,9 +1855,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 .assistant-check-grid > div {
-  border: 1px solid #e3e7ee;
+  border: 1px solid #dbe5ef;
   border-radius: 8px;
-  background: #fbfcfe;
+  background: #f8fafc;
   display: grid;
   gap: 4px;
   padding: 10px;
@@ -1892,10 +1892,11 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .assistant-advanced-collapse {
   overflow: hidden;
+  background: #f8fafc;
 }
 
 .assistant-advanced-collapse :deep(.el-collapse-item__header) {
-  color: #101828;
+  color: #475569;
   font-weight: 800;
   padding: 0 14px;
 }
@@ -2258,7 +2259,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .content-detail {
   background:
-    radial-gradient(circle at 98% 0%, rgb(109 40 255 / 8%), transparent 24%),
+    radial-gradient(circle at 98% 0%, rgb(37 99 235 / 5%), transparent 26%),
     #f7f8fb;
 }
 
@@ -2272,10 +2273,10 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .quality-result-card,
 .publish-optimization-card,
 .review-empty-card {
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 10px 28px rgb(24 20 36 / 5%);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 5%);
 }
 
 .content-detail-header {
@@ -2283,8 +2284,8 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   overflow: hidden;
   align-items: center;
   background:
-    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 26%),
-    linear-gradient(135deg, #fbfaff, #ffffff 48%);
+    radial-gradient(circle at 90% 10%, rgb(37 99 235 / 7%), transparent 28%),
+    linear-gradient(135deg, #f8fafc, #ffffff 48%);
 }
 
 .content-detail-header::before {
@@ -2293,7 +2294,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   right: 0;
   left: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  background: linear-gradient(90deg, #2563eb, #0891b2);
   content: "";
 }
 
@@ -2305,15 +2306,15 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .content-detail-header__tag {
   width: fit-content;
-  border-color: #ded3ff;
+  border-color: #bfdbfe;
   border-radius: 999px;
-  background: #f5f1ff;
-  color: var(--geo-primary);
+  background: #eff6ff;
+  color: #1d4ed8;
   font-weight: 850;
 }
 
 .content-detail-header h2 {
-  color: #111019;
+  color: #0f172a;
   font-size: 28px;
   font-weight: 950;
 }
@@ -2331,8 +2332,8 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 .content-current-action-alert {
-  border-color: #e5e0ef;
-  background: #fbfaff;
+  border-color: #dbe5ef;
+  background: #f8fafc;
 }
 
 .content-flow-card :deep(.el-card__header),
@@ -2352,9 +2353,9 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 .publish-package-card {
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
   display: grid;
   gap: 14px;
   padding: 16px;
@@ -2378,7 +2379,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .publish-package-card__header strong,
 .publish-package-grid strong {
-  color: #111019;
+  color: #0f172a;
   font-weight: 900;
 }
 
@@ -2396,7 +2397,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .publish-package-grid > div,
 .publish-package-block,
 .publish-package-columns > div {
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 12px;
   background: #ffffff;
   padding: 12px;
@@ -2430,8 +2431,8 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 .content-flow-steps :deep(.el-step__head.is-success) {
-  color: #426600;
-  border-color: #b6e85a;
+  color: #15803d;
+  border-color: #86efac;
 }
 
 .content-flow-steps :deep(.el-step__head.is-process) {
@@ -2441,7 +2442,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 
 .content-flow-steps :deep(.el-step__title.is-process),
 .content-flow-steps :deep(.el-step__title.is-success) {
-  color: #111019;
+  color: #0f172a;
   font-weight: 850;
 }
 
@@ -2450,21 +2451,21 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 .content-preview-card,
 .risk-item,
 .quality-summary-grid > div {
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .content-flow-notes > div:nth-child(2n),
 .content-overview-grid > div:nth-child(4n) {
-  background: #f8ffe7;
-  border-color: #dff59c;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
 }
 
 .content-preview-card__header h4,
 .review-empty-card h4,
 .quality-card-header strong {
-  color: #111019;
+  color: #0f172a;
   font-weight: 900;
 }
 
@@ -2485,7 +2486,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   width: 108px;
   height: 18px;
   border-radius: 999px;
-  background: rgb(186 255 41 / 38%);
+  background: rgb(14 116 144 / 10%);
   content: "";
   transform: rotate(-10deg);
 }
@@ -2496,13 +2497,13 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 }
 
 .quality-summary-grid strong {
-  color: #111019;
+  color: #0f172a;
 }
 
 .positive-list :deep(.el-tag) {
-  --el-tag-bg-color: #f5ffd9;
-  --el-tag-border-color: #dff59c;
-  --el-tag-text-color: #426600;
+  --el-tag-bg-color: #f0fdf4;
+  --el-tag-border-color: #bbf7d0;
+  --el-tag-text-color: #15803d;
   border-radius: 999px;
 }
 

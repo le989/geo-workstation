@@ -1045,7 +1045,7 @@ onMounted(() => {
     </header>
 
     <p class="content-inline-note">
-      助理只处理生成、检查和复制；高级配置由负责人维护。
+      助理只处理生成、检查和复制；发布前请人工核对事实、参数、引用和排版，系统不自动发布到外部平台。
     </p>
 
     <ContentTaskFilters
@@ -1125,7 +1125,7 @@ onMounted(() => {
             </el-button>
             <el-button
               v-else-if="resolveAssistantStatus(row) === 'copyable' && row.primaryItem"
-              type="success"
+              type="primary"
               :icon="DocumentCopy"
               :loading="publishPackageExportingIds.includes(row.primaryItem.id)"
               @click="handleCopyPublishPackage(row.primaryItem)"
