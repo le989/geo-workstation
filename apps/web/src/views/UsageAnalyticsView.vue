@@ -199,7 +199,7 @@ onMounted(() => {
 
 <template>
   <section class="usage-page">
-    <div class="toolbar-row">
+    <div class="toolbar-row usage-toolbar-panel">
       <el-form inline>
         <el-form-item label="模块">
           <el-select v-model="filters.moduleKey" class="toolbar-control">
@@ -276,7 +276,7 @@ onMounted(() => {
       <section class="usage-ai-section">
         <div class="usage-section-header">
           <div>
-            <p class="section-kicker">AI Usage</p>
+            <p class="section-kicker">AI 用量</p>
             <h2>AI 用量统计</h2>
           </div>
           <el-tag type="info" effect="plain">
@@ -497,6 +497,29 @@ onMounted(() => {
   gap: 12px;
 }
 
+.usage-toolbar-panel {
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
+  padding: 14px;
+}
+
+.usage-toolbar-panel :deep(.el-form) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.usage-toolbar-panel :deep(.el-form-item) {
+  margin: 0;
+}
+
+.usage-toolbar-panel :deep(.el-input__wrapper),
+.usage-toolbar-panel :deep(.el-select__wrapper) {
+  background: #f8fafc;
+}
+
 .toolbar-control {
   width: 210px;
 }
@@ -507,28 +530,29 @@ onMounted(() => {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
 }
 
 .metric-card {
   min-height: 112px;
   padding: 16px;
-  border: 1px solid var(--el-border-color-light);
+  border: 1px solid #dbe5ef;
   border-radius: 8px;
-  background: var(--el-bg-color);
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
 }
 
 .metric-card span,
 .metric-card small {
   display: block;
-  color: var(--el-text-color-secondary);
+  color: #667586;
 }
 
 .metric-card strong {
   display: block;
   margin: 8px 0 4px;
-  color: var(--el-text-color-primary);
+  color: #172331;
   font-size: 28px;
   line-height: 1.15;
 }
@@ -541,6 +565,11 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
+  padding: 16px;
 }
 
 .usage-section-header {
@@ -552,15 +581,15 @@ onMounted(() => {
 
 .section-kicker {
   margin: 0 0 4px;
-  color: var(--el-text-color-secondary);
+  color: #2563eb;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
 }
 
 .usage-section-header h2 {
   margin: 0;
   font-size: 20px;
+  color: #172331;
 }
 
 .usage-ai-metrics {
@@ -576,6 +605,42 @@ onMounted(() => {
 .usage-detail-grid h3 {
   margin: 0 0 8px;
   font-size: 15px;
+  color: #33485c;
+}
+
+.usage-page :deep(.el-tabs) {
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
+  padding: 12px 14px 14px;
+}
+
+.usage-ai-section :deep(.el-tabs) {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.usage-page :deep(.el-tabs__header) {
+  margin-bottom: 12px;
+}
+
+.usage-page :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+  background: #dbe5ef;
+}
+
+.usage-page :deep(.el-tabs__active-bar) {
+  background: #2563eb;
+}
+
+.usage-page :deep(.el-table) {
+  --el-table-fixed-right-column: inset -1px 0 0 #dbe5ef;
+}
+
+.usage-page :deep(.el-table__cell) {
+  vertical-align: top;
 }
 
 @media (max-width: 860px) {

@@ -590,7 +590,7 @@ const getResetDisabledReason = (user: ManagedUser) =>
   <section class="users-page">
     <header class="users-page__heading">
       <div>
-        <el-tag effect="plain" type="success">
+        <el-tag class="users-page__scope-tag" effect="plain" type="primary">
           {{ isCompanyAdmin ? "公司权限" : "平台权限" }}
         </el-tag>
         <h1>用户管理</h1>
@@ -647,20 +647,20 @@ const getResetDisabledReason = (user: ManagedUser) =>
     <AppLoadingState v-else-if="loading" title="正在加载用户列表" />
 
     <section v-else class="users-table-panel">
-      <el-table v-if="users.length" :data="users" row-key="id" class="users-table">
-        <el-table-column prop="name" label="姓名" min-width="130" />
-        <el-table-column prop="email" label="邮箱" min-width="220" />
+      <el-table v-if="users.length" :data="users" row-key="id" class="users-table" border>
+        <el-table-column prop="name" label="姓名" min-width="130" show-overflow-tooltip />
+        <el-table-column prop="email" label="邮箱" min-width="220" show-overflow-tooltip />
         <el-table-column label="角色" width="120">
           <template #default="{ row }: { row: ManagedUser }">
-            <el-tag effect="plain">{{ getRoleLabel(row.role) }}</el-tag>
+            <el-tag effect="plain" type="primary">{{ getRoleLabel(row.role) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="所属公司" min-width="170">
+        <el-table-column label="所属公司" min-width="180" show-overflow-tooltip>
           <template #default="{ row }: { row: ManagedUser }">
             <span>{{ getDefaultMembership(row)?.companyName ?? "未分配" }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="所属部门" min-width="160">
+        <el-table-column label="所属部门" min-width="170" show-overflow-tooltip>
           <template #default="{ row }: { row: ManagedUser }">
             <span>{{ formatDepartment(getDefaultMembership(row)) }}</span>
           </template>
@@ -690,7 +690,7 @@ const getResetDisabledReason = (user: ManagedUser) =>
             {{ formatDateTime(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right" class-name="users-table__actions-column">
           <template #default="{ row }: { row: ManagedUser }">
             <div class="users-table__actions">
               <el-tooltip
@@ -943,52 +943,105 @@ const getResetDisabledReason = (user: ManagedUser) =>
 .users-page__heading,
 .users-filter-panel,
 .users-table-panel {
-  border: 1px solid var(--geo-border);
+  border: 1px solid #dbe5ef;
   border-radius: 8px;
-  background: var(--geo-card);
-  box-shadow: var(--geo-shadow-card);
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
 }
 
 .users-page__heading {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px;
+  overflow: hidden;
+  padding: 18px 20px;
+}
+
+.users-page__heading::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb, #0891b2);
+  content: "";
+}
+
+.users-page__scope-tag {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .users-page__heading h1 {
   margin: 8px 0 6px;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.2;
-  color: var(--geo-text-primary);
+  color: #172331;
 }
 
 .users-page__heading p {
   margin: 0;
-  color: var(--geo-text-secondary);
+  color: #667586;
 }
 
 .users-filter-panel {
   display: grid;
   grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(150px, 1fr)) auto;
   gap: 12px;
-  padding: 16px;
+  align-items: center;
+  padding: 14px;
+}
+
+.users-filter-panel :deep(.el-input__wrapper),
+.users-filter-panel :deep(.el-select__wrapper) {
+  background: #f8fafc;
 }
 
 .users-filter-panel__actions {
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .users-table-panel {
-  padding: 16px;
+  overflow: hidden;
+  padding: 14px;
+}
+
+.users-table {
+  --el-table-fixed-right-column: inset -1px 0 0 #dbe5ef;
+}
+
+.users-table :deep(.el-table__fixed-right::before) {
+  background: #dbe5ef;
+  box-shadow: -4px 0 10px rgb(15 23 42 / 3%);
+}
+
+.users-table :deep(.users-table__actions-column) {
+  background: #ffffff;
 }
 
 .users-table__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.users-table__actions :deep(.el-button) {
+  margin-left: 0;
+  border-color: #dbe5ef;
+  background: #ffffff;
+}
+
+.users-table__actions :deep(.el-button--danger.is-plain) {
+  border-color: #fecaca;
+  background: #fff7f7;
+  color: #b42318;
 }
 
 .users-pagination {
