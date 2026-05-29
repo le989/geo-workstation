@@ -7309,8 +7309,8 @@ a {
   gap: 18px;
   padding: 28px;
   background:
-    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 24%),
-    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), #ffffff;
+    radial-gradient(circle at 90% 10%, rgb(37 99 235 / 8%), transparent 24%),
+    linear-gradient(135deg, rgb(15 23 42 / 3%), transparent 42%), #ffffff;
 }
 
 .settings-hero--compact {
@@ -7326,7 +7326,7 @@ a {
   right: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  background: linear-gradient(90deg, #2563eb, #0891b2);
   content: "";
 }
 
@@ -7371,7 +7371,8 @@ a {
 }
 
 .settings-compact-summary,
-.settings-identity-strip {
+.settings-identity-strip,
+.settings-write-boundary {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -7387,7 +7388,8 @@ a {
 
 .settings-compact-summary span,
 .settings-identity-strip span,
-.settings-compact-summary strong {
+.settings-compact-summary strong,
+.settings-write-boundary div {
   padding: 4px 8px;
   border-radius: 999px;
   background: #f7fafc;
@@ -7395,8 +7397,38 @@ a {
 }
 
 .settings-compact-summary strong {
-  color: #426600;
-  background: #f8ffe7;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.settings-write-boundary {
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.settings-write-boundary div {
+  display: grid;
+  flex: 1 1 240px;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--geo-border);
+  background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.settings-write-boundary strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.settings-write-boundary span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.6;
 }
 
 .settings-section {
@@ -7455,8 +7487,8 @@ a {
 }
 
 .settings-overview-card:nth-child(4) {
-  border-color: rgb(186 255 41 / 55%);
-  background: linear-gradient(135deg, rgb(186 255 41 / 18%), transparent 58%), #ffffff;
+  border-color: rgb(14 165 233 / 28%);
+  background: linear-gradient(135deg, rgb(14 165 233 / 8%), transparent 58%), #ffffff;
 }
 
 .settings-overview-card span {
@@ -7641,8 +7673,37 @@ a {
   width: 100%;
 }
 
+.settings-management-table .el-table__fixed-right::before {
+  box-shadow: -4px 0 10px rgb(15 23 42 / 6%);
+}
+
+.settings-management-table .el-table__cell {
+  vertical-align: top;
+}
+
 .settings-management-table .el-table__empty-text {
   color: var(--geo-muted);
+}
+
+.settings-table-primary,
+.settings-table-code,
+.settings-table-description {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-table-primary {
+  color: #0f172a;
+  font-weight: 760;
+}
+
+.settings-table-code,
+.settings-table-description {
+  color: #64748b;
+  font-size: 13px;
 }
 
 .settings-table-actions {
@@ -7650,6 +7711,28 @@ a {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.settings-action-button {
+  min-width: 54px;
+}
+
+.settings-action-button--status.el-button--warning.is-plain {
+  --el-button-bg-color: #fff7ed;
+  --el-button-border-color: #fed7aa;
+  --el-button-text-color: #c2410c;
+  --el-button-hover-bg-color: #ffedd5;
+  --el-button-hover-border-color: #fb923c;
+  --el-button-hover-text-color: #9a3412;
+}
+
+.settings-action-button--status.el-button--success.is-plain {
+  --el-button-bg-color: #ecfdf5;
+  --el-button-border-color: #bbf7d0;
+  --el-button-text-color: #047857;
+  --el-button-hover-bg-color: #d1fae5;
+  --el-button-hover-border-color: #34d399;
+  --el-button-hover-text-color: #065f46;
 }
 
 .settings-management-form {
