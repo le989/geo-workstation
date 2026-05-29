@@ -1955,8 +1955,14 @@ a {
   gap: 20px;
   padding: 28px;
   background:
-    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 24%),
-    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), var(--geo-surface);
+    radial-gradient(circle at 90% 10%, rgb(37 99 235 / 8%), transparent 26%),
+    linear-gradient(135deg, rgb(8 145 178 / 5%), transparent 44%), var(--geo-surface);
+}
+
+.geo-prompts-hero .el-tag {
+  --el-tag-bg-color: #eff6ff;
+  --el-tag-border-color: #bfdbfe;
+  --el-tag-text-color: #1d4ed8;
 }
 
 .geo-prompts-hero h1 {
@@ -1996,8 +2002,8 @@ a {
 }
 
 .geo-prompts-asset-card:nth-child(4) {
-  border-color: rgb(186 255 41 / 55%);
-  background: linear-gradient(135deg, rgb(186 255 41 / 18%), transparent 58%), #ffffff;
+  border-color: rgb(217 119 6 / 26%);
+  background: linear-gradient(135deg, rgb(217 119 6 / 7%), transparent 58%), #ffffff;
 }
 
 .geo-prompts-asset-card span {
@@ -2124,7 +2130,19 @@ a {
 }
 
 .geo-prompts-table {
+  --el-table-fixed-left-column: inset 1px 0 0 #dbe5ef;
+  --el-table-fixed-right-column: inset -1px 0 0 #dbe5ef;
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-row-hover-bg-color: #f6f9fd;
   width: 100%;
+}
+
+.geo-prompts-table .el-table-fixed-column--right {
+  background: #ffffff;
+}
+
+.geo-prompts-table .el-table-fixed-column--right.is-first-column::before {
+  box-shadow: -4px 0 10px rgb(15 23 42 / 4%);
 }
 
 .prompt-main-cell {
@@ -3125,7 +3143,7 @@ a {
   max-height: min(680px, calc(100vh - 180px));
   overflow: auto;
   padding: 14px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   background: #ffffff;
 }
@@ -3147,7 +3165,7 @@ a {
 
 .knowledge-directory-sidebar__header h3 {
   margin: 0;
-  color: #111019;
+  color: #0f172a;
   font-size: 16px;
   font-weight: 900;
 }
@@ -3181,9 +3199,9 @@ a {
 }
 
 .knowledge-directory-node.is-selected-directory {
-  border-color: #cfc1ff;
-  background: #f5f1ff;
-  color: #2f1d77;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-weight: 850;
 }
 
@@ -3192,8 +3210,8 @@ a {
 }
 
 .knowledge-directory-node--all {
-  border-color: #dff59c;
-  background: #f8ffe7;
+  border-color: #dbeafe;
+  background: #f8fbff;
 }
 
 .knowledge-directory-node__marker,
@@ -3942,9 +3960,9 @@ a {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .instruction-form-grid {
@@ -4012,10 +4030,10 @@ a {
 .instruction-table-panel,
 .instruction-readable-block,
 .instruction-content-collapse {
-  border-color: #e5e0ef;
+  border-color: #e2e8f0;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
+  box-shadow: 0 12px 32px rgb(15 23 42 / 4%);
 }
 
 .knowledge-hero,
@@ -4024,14 +4042,14 @@ a {
   overflow: hidden;
   align-items: center;
   background:
-    radial-gradient(circle at 88% 8%, rgb(109 40 255 / 14%), transparent 26%),
-    linear-gradient(135deg, rgb(243 239 255 / 90%), transparent 40%), #ffffff;
+    radial-gradient(circle at 88% 8%, rgb(37 99 235 / 8%), transparent 28%),
+    linear-gradient(135deg, rgb(8 145 178 / 5%), transparent 42%), #ffffff;
 }
 
 .knowledge-hero::before,
 .instruction-hero::before {
   height: 4px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  background: linear-gradient(90deg, #2563eb, #0891b2);
 }
 
 .knowledge-hero::after,
@@ -4042,8 +4060,9 @@ a {
   width: 150px;
   height: 24px;
   border-radius: 999px;
-  background: rgb(186 255 41 / 38%);
+  background: rgb(37 99 235 / 8%);
   content: "";
+  opacity: 0.65;
   transform: rotate(-10deg);
 }
 
@@ -4073,16 +4092,16 @@ a {
 .instruction-hero__tag,
 .instruction-detail-header__tag {
   width: fit-content;
-  border-color: #ded3ff;
-  background: #f5f1ff;
-  color: var(--geo-primary);
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .knowledge-hero h1,
 .instruction-hero h1 {
-  color: #111019;
-  font-size: clamp(32px, 3.4vw, 44px);
-  font-weight: 950;
+  color: #0f172a;
+  font-size: clamp(28px, 2.8vw, 38px);
+  font-weight: 900;
   letter-spacing: 0;
 }
 
@@ -4105,7 +4124,7 @@ a {
   --el-button-border-color: var(--geo-primary);
   --el-button-hover-bg-color: var(--geo-primary-deep);
   --el-button-hover-border-color: var(--geo-primary-deep);
-  box-shadow: 0 14px 26px rgb(91 32 234 / 16%);
+  box-shadow: 0 14px 26px rgb(37 99 235 / 12%);
 }
 
 .knowledge-asset-overview,
@@ -4123,7 +4142,7 @@ a {
   min-width: 0;
   overflow: hidden;
   padding: 18px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   background: #ffffff;
   box-shadow: var(--geo-shadow-sm);
@@ -4134,22 +4153,23 @@ a {
   position: absolute;
   top: 14px;
   right: 14px;
-  width: 38px;
-  height: 38px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: #f3efff;
+  background: #dbeafe;
   content: "";
+  opacity: 0.45;
 }
 
 .knowledge-asset-overview article.is-warning,
 .instruction-asset-overview article.is-accent {
-  border-color: #dff59c;
-  background: radial-gradient(circle at 88% 14%, rgb(186 255 41 / 22%), transparent 28%), #ffffff;
+  border-color: #fed7aa;
+  background: linear-gradient(135deg, rgb(217 119 6 / 6%), transparent 58%), #ffffff;
 }
 
 .knowledge-asset-overview article.is-warning::before,
 .instruction-asset-overview article.is-accent::before {
-  background: #f5ffd9;
+  background: #fed7aa;
 }
 
 .knowledge-asset-overview article > *,
@@ -4167,15 +4187,15 @@ a {
 
 .knowledge-asset-overview strong,
 .instruction-asset-overview strong {
-  color: #111019;
+  color: #0f172a;
   font-size: 34px;
-  font-weight: 950;
+  font-weight: 900;
   line-height: 1.08;
 }
 
 .knowledge-asset-overview small,
 .instruction-asset-overview small {
-  color: var(--geo-primary);
+  color: #475569;
   font-size: 13px;
   font-weight: 750;
   line-height: 1.45;
@@ -4183,7 +4203,7 @@ a {
 
 .knowledge-filter-panel,
 .instruction-filter-panel {
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .knowledge-filter-copy h2,
@@ -4192,7 +4212,7 @@ a {
 .instruction-filter-copy h2,
 .instruction-table-header h2,
 .instruction-detail-header h2 {
-  color: #111019;
+  color: #0f172a;
   font-weight: 900;
 }
 
@@ -4218,7 +4238,7 @@ a {
 .instruction-filter-note {
   align-self: end;
   padding: 9px 12px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #ffffff;
   color: #667586;
@@ -4235,18 +4255,34 @@ a {
 .knowledge-file-table,
 .knowledge-chunk-table,
 .instruction-template-table {
-  --el-table-header-bg-color: #fbfaff;
-  --el-table-row-hover-bg-color: #faf8ff;
+  --el-table-fixed-left-column: inset 1px 0 0 #dbe5ef;
+  --el-table-fixed-right-column: inset -1px 0 0 #dbe5ef;
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-row-hover-bg-color: #f6f9fd;
   overflow: hidden;
-  border: 1px solid #eee9f5;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
+}
+
+.knowledge-base-table .el-table-fixed-column--right,
+.knowledge-file-table .el-table-fixed-column--right,
+.knowledge-chunk-table .el-table-fixed-column--right,
+.instruction-template-table .el-table-fixed-column--right {
+  background: #ffffff;
+}
+
+.knowledge-base-table .el-table-fixed-column--right.is-first-column::before,
+.knowledge-file-table .el-table-fixed-column--right.is-first-column::before,
+.knowledge-chunk-table .el-table-fixed-column--right.is-first-column::before,
+.instruction-template-table .el-table-fixed-column--right.is-first-column::before {
+  box-shadow: -4px 0 10px rgb(15 23 42 / 4%);
 }
 
 .knowledge-main-text,
 .instruction-main-text {
   display: -webkit-box;
   overflow: hidden;
-  color: #111019;
+  color: #0f172a;
   font-weight: 900;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -4265,9 +4301,9 @@ a {
   align-items: center;
   min-height: 28px;
   padding: 0 10px;
-  border: 1px solid #eee9f5;
+  border: 1px solid #e2e8f0;
   border-radius: 999px;
-  background: #fbfaff;
+  background: #f8fafc;
   color: #667586;
   font-size: 12px;
   font-weight: 750;
@@ -4276,18 +4312,18 @@ a {
 .knowledge-status-tag.el-tag--success,
 .knowledge-source-tag,
 .instruction-rule-tag.el-tag--success {
-  --el-tag-bg-color: #f5ffd9;
-  --el-tag-border-color: #dff59c;
-  --el-tag-text-color: #426600;
+  --el-tag-bg-color: #ecfdf5;
+  --el-tag-border-color: #a7f3d0;
+  --el-tag-text-color: #047857;
 }
 
 .knowledge-status-tag.el-tag--info,
 .knowledge-action-tag,
 .instruction-content-type-tag,
 .instruction-rule-tag.el-tag--info {
-  --el-tag-bg-color: #f5f1ff;
-  --el-tag-border-color: #ded3ff;
-  --el-tag-text-color: var(--geo-primary);
+  --el-tag-bg-color: #eff6ff;
+  --el-tag-border-color: #bfdbfe;
+  --el-tag-text-color: #1d4ed8;
 }
 
 .instruction-rule-tag.el-tag--warning {
@@ -4298,7 +4334,7 @@ a {
 
 .knowledge-detail,
 .instruction-detail {
-  background: radial-gradient(circle at 98% 0%, rgb(109 40 255 / 7%), transparent 24%), #f7f8fb;
+  background: #f8fafc;
 }
 
 .knowledge-detail-header,
@@ -4307,12 +4343,12 @@ a {
   overflow: hidden;
   align-items: center;
   padding: 24px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   background:
-    radial-gradient(circle at 90% 10%, rgb(109 40 255 / 12%), transparent 26%),
-    linear-gradient(135deg, #fbfaff, #ffffff 48%);
-  box-shadow: 0 10px 28px rgb(24 20 36 / 5%);
+    radial-gradient(circle at 90% 10%, rgb(37 99 235 / 7%), transparent 26%),
+    linear-gradient(135deg, #f8fafc, #ffffff 48%);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 4%);
 }
 
 .knowledge-detail-header::before,
@@ -4322,7 +4358,7 @@ a {
   right: 0;
   left: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  background: linear-gradient(90deg, #2563eb, #0891b2);
   content: "";
 }
 
@@ -4339,7 +4375,7 @@ a {
 .knowledge-technical-collapse,
 .instruction-readable-block,
 .instruction-content-collapse {
-  border-color: #e5e0ef;
+  border-color: #e2e8f0;
   border-radius: 16px;
   background: #ffffff;
 }
@@ -4348,16 +4384,16 @@ a {
 .instruction-summary-grid article,
 .instruction-rule-checklist article,
 .knowledge-operation-card {
-  border-color: #e5e0ef;
+  border-color: #e2e8f0;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .knowledge-detail-card-grid article:nth-child(3),
 .instruction-summary-grid article:nth-child(2),
 .instruction-rule-checklist article.is-active {
-  border-color: #dff59c;
-  background: #f8ffe7;
+  border-color: #a7f3d0;
+  background: #f0fdf9;
 }
 
 .knowledge-operation-card {
@@ -4396,17 +4432,17 @@ a {
   align-items: center;
   min-height: 30px;
   padding: 0 12px;
-  border: 1px solid #dff59c;
+  border: 1px solid #bfdbfe;
   border-radius: 999px;
-  background: #f8ffe7;
-  color: #304f00;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-size: 12px;
   font-weight: 850;
 }
 
 .knowledge-flow-cue span:not(:last-child)::after {
   margin-left: 8px;
-  color: #7a8e5a;
+  color: #94a3b8;
   content: "→";
 }
 
@@ -4414,14 +4450,14 @@ a {
   display: block;
   max-width: 760px;
   margin-top: 12px;
-  color: #2a3a23;
+  color: #334155;
   font-size: 14px;
   line-height: 1.7;
 }
 
 .knowledge-operation-card:hover {
-  border-color: #cfc1ff;
-  box-shadow: 0 14px 34px rgb(24 20 36 / 7%);
+  border-color: #bfdbfe;
+  box-shadow: 0 14px 34px rgb(15 23 42 / 7%);
 }
 
 .knowledge-operation-card span,
@@ -4435,7 +4471,7 @@ a {
 .knowledge-tab-header h3,
 .instruction-readable-block h3,
 .instruction-rule-checklist strong {
-  color: #111019;
+  color: #0f172a;
   font-weight: 900;
 }
 
@@ -4456,15 +4492,15 @@ a {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid #dff59c;
+  border: 1px solid #bfdbfe;
   border-radius: 14px;
-  background: linear-gradient(100deg, rgb(186 255 41 / 14%), transparent 55%), #ffffff;
+  background: linear-gradient(100deg, rgb(37 99 235 / 6%), transparent 55%), #ffffff;
   color: #53606c;
   line-height: 1.7;
 }
 
 .knowledge-detail-flow-note strong {
-  color: #253a00;
+  color: #1d4ed8;
   font-weight: 900;
 }
 
@@ -4538,13 +4574,13 @@ a {
 
 .knowledge-add-source-grid .knowledge-text-import-form,
 .knowledge-file-upload {
-  border-color: #e5e0ef;
+  border-color: #e2e8f0;
   border-radius: 16px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .knowledge-upload-box {
-  border-color: #ded3ff;
+  border-color: #bfdbfe;
   border-radius: 14px;
   background: #ffffff;
 }
@@ -4556,14 +4592,14 @@ a {
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid #dff59c;
+  border: 1px solid #bfdbfe;
   border-radius: 16px;
-  background: linear-gradient(100deg, rgb(186 255 41 / 18%), transparent 48%), #ffffff;
+  background: linear-gradient(100deg, rgb(37 99 235 / 6%), transparent 48%), #ffffff;
   box-shadow: var(--geo-shadow-sm);
 }
 
 .instruction-position-note strong {
-  color: #111019;
+  color: #0f172a;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -4589,14 +4625,14 @@ a {
 
 .instruction-readable-block pre,
 .knowledge-full-content pre {
-  border: 1px solid #eee9f5;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .knowledge-technical-collapse .el-collapse-item__header,
 .instruction-content-collapse .el-collapse-item__header {
-  color: #111019;
+  color: #0f172a;
   font-weight: 850;
 }
 
@@ -7955,10 +7991,10 @@ a {
   justify-content: space-between;
   gap: 14px;
   padding: 10px 12px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 8px 22px rgb(24 20 36 / 3%);
+  box-shadow: 0 8px 22px rgb(15 23 42 / 3%);
 }
 
 .knowledge-workbench-bar__main {
@@ -7978,7 +8014,7 @@ a {
 
 .knowledge-workbench-titleline h1 {
   margin: 0;
-  color: #141219;
+  color: #0f172a;
   font-size: 20px;
   line-height: 1.2;
 }
@@ -8044,7 +8080,7 @@ a {
 
 .knowledge-workbench-toolbar h2 {
   margin: 0;
-  color: #141219;
+  color: #0f172a;
   font-size: 22px;
 }
 
