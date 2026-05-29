@@ -51,6 +51,11 @@ const providerSafetyAlert = computed(() =>
       ? "正式环境已禁用内部 Mock 生成。"
     : "内部生成：使用本地规则，不消耗真实模型额度。"
 );
+const providerActionBoundaryText = computed(() =>
+  form.provider === "openai_compatible"
+    ? "当前选择真实 AI 接口，点击生成前请确认环境、模型和额度。"
+    : "当前选择内部候选生成；切换生成方式后请重新确认 Provider 边界。"
+);
 
 const trimOptional = (value: string) => {
   const trimmed = value.trim();
@@ -116,17 +121,18 @@ const handleSubmit = () => {
       <div>
         <p class="section-kicker">AI 拓词</p>
         <h2>AI 拓词</h2>
-        <p>生成用户可能会向 AI 提出的问题候选，人工筛选后再保存到提示词策略库。</p>
+        <p>通过模型或内部候选生成器扩展用户可能会问的问题，保存前仍需人工筛选。</p>
       </div>
       <el-tag type="warning" effect="plain">候选词不会自动入库</el-tag>
     </div>
 
     <el-alert
-      title="拓词结果用于辅助筛选候选提示词，保存后可进入提示词策略库。建议输入具体产品、服务或场景，结果太泛时可补充限制条件。"
-      type="info"
+      :title="providerSafetyAlert"
+      description="AI 拓词可能调用真实 Provider 并消耗额度，请确认当前环境和模型配置后再生成。当前是否调用真实模型取决于后端 Provider 配置。"
+      type="warning"
       :closable="false"
       show-icon
-      class="dialog-alert"
+      class="dialog-alert expansion-provider-warning"
     />
     <el-alert
       v-if="localError"
@@ -219,6 +225,7 @@ const handleSubmit = () => {
     </el-form>
 
     <div class="expansion-form-actions">
+      <p class="expansion-action-boundary">{{ providerActionBoundaryText }}</p>
       <el-button type="primary" :loading="props.loading" @click="handleSubmit">
         AI 生成候选词
       </el-button>

@@ -110,7 +110,7 @@ const resolveSaveStatus = (candidate: ExpansionCandidate) => {
       <div>
         <p class="section-kicker">候选词</p>
         <h2>候选词结果</h2>
-        <p>候选词不会自动进入策略库，重复项默认不建议保存，需要人工勾选后提交。</p>
+        <p>候选词不会自动进入策略库，重复项默认不建议保存，确认词意和分类后再勾选提交。</p>
       </div>
       <div class="expansion-candidate-actions">
         <el-tag type="info" effect="plain">候选 {{ candidates.length }}</el-tag>
