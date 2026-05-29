@@ -127,7 +127,7 @@ onMounted(() => {
 
 <template>
   <section class="operation-log-page">
-    <div class="toolbar-row">
+    <div class="toolbar-row operation-log-toolbar-panel">
       <el-form inline>
         <el-form-item label="模块">
           <el-select v-model="filters.moduleKey" class="toolbar-control">
@@ -176,50 +176,52 @@ onMounted(() => {
     <AppErrorState v-if="errorMessage" :message="errorMessage" @retry="loadLogs" />
 
     <template v-else>
-      <el-table :data="logs" :loading="loading" border>
-        <el-table-column label="时间" min-width="170">
-          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
-        </el-table-column>
-        <el-table-column label="用户" min-width="150">
-          <template #default="{ row }">{{ row.userName ?? row.userId ?? "系统" }}</template>
-        </el-table-column>
-        <el-table-column label="部门" min-width="140">
-          <template #default="{ row }">{{ row.departmentName ?? row.departmentId ?? "-" }}</template>
-        </el-table-column>
-        <el-table-column label="模块" min-width="150">
-          <template #default="{ row }">{{ getModuleLabel(row.moduleKey) }}</template>
-        </el-table-column>
-        <el-table-column label="动作" min-width="150">
-          <template #default="{ row }">{{ getActionLabel(row.action) }}</template>
-        </el-table-column>
-        <el-table-column label="对象" min-width="180">
-          <template #default="{ row }">{{ formatTarget(row) }}</template>
-        </el-table-column>
-        <el-table-column label="结果" width="110">
-          <template #default="{ row }">
-            <el-tag :type="row.success ? 'success' : 'danger'" effect="plain">
-              {{ row.success ? "成功" : "失败" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="错误摘要" min-width="180">
-          <template #default="{ row }">{{ row.errorMessage ?? "-" }}</template>
-        </el-table-column>
-        <el-table-column label="元信息" min-width="240">
-          <template #default="{ row }">{{ formatMetadata(row.metadata) }}</template>
-        </el-table-column>
-      </el-table>
+      <section class="operation-log-table-panel">
+        <el-table :data="logs" :loading="loading" border class="operation-log-table">
+          <el-table-column label="时间" min-width="170">
+            <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column label="用户" min-width="150">
+            <template #default="{ row }">{{ row.userName ?? row.userId ?? "系统" }}</template>
+          </el-table-column>
+          <el-table-column label="部门" min-width="140">
+            <template #default="{ row }">{{ row.departmentName ?? row.departmentId ?? "-" }}</template>
+          </el-table-column>
+          <el-table-column label="模块" min-width="150" show-overflow-tooltip>
+            <template #default="{ row }">{{ getModuleLabel(row.moduleKey) }}</template>
+          </el-table-column>
+          <el-table-column label="动作" min-width="160" show-overflow-tooltip>
+            <template #default="{ row }">{{ getActionLabel(row.action) }}</template>
+          </el-table-column>
+          <el-table-column label="对象" min-width="240" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatTarget(row) }}</template>
+          </el-table-column>
+          <el-table-column label="结果" width="110">
+            <template #default="{ row }">
+              <el-tag :type="row.success ? 'success' : 'danger'" effect="plain">
+                {{ row.success ? "成功" : "失败" }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="错误摘要" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.errorMessage ?? "-" }}</template>
+          </el-table-column>
+          <el-table-column label="元信息" min-width="260" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatMetadata(row.metadata) }}</template>
+          </el-table-column>
+        </el-table>
 
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="filters.page"
-          v-model:page-size="filters.pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next"
-          :total="total"
-          @current-change="loadLogs"
-        />
-      </div>
+        <div class="pagination-row">
+          <el-pagination
+            v-model:current-page="filters.page"
+            v-model:page-size="filters.pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next"
+            :total="total"
+            @current-change="loadLogs"
+          />
+        </div>
+      </section>
     </template>
   </section>
 </template>
@@ -238,6 +240,34 @@ onMounted(() => {
   gap: 12px;
 }
 
+.operation-log-toolbar-panel,
+.operation-log-table-panel {
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
+}
+
+.operation-log-toolbar-panel {
+  padding: 14px;
+}
+
+.operation-log-toolbar-panel :deep(.el-form) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  flex: 1 1 auto;
+}
+
+.operation-log-toolbar-panel :deep(.el-form-item) {
+  margin: 0;
+}
+
+.operation-log-toolbar-panel :deep(.el-input__wrapper),
+.operation-log-toolbar-panel :deep(.el-select__wrapper) {
+  background: #f8fafc;
+}
+
 .toolbar-actions {
   display: flex;
   gap: 8px;
@@ -252,12 +282,26 @@ onMounted(() => {
 }
 
 .date-control {
-  width: 280px;
+  width: 340px;
+}
+
+.operation-log-table-panel {
+  overflow: hidden;
+  padding: 14px;
+}
+
+.operation-log-table :deep(.el-table__cell) {
+  vertical-align: top;
+}
+
+.operation-log-table :deep(.cell) {
+  word-break: break-word;
 }
 
 .pagination-row {
   display: flex;
   justify-content: flex-end;
+  padding-top: 14px;
 }
 
 @media (max-width: 960px) {

@@ -211,7 +211,7 @@ onMounted(() => {
   <section class="departments-page">
     <header class="departments-page__heading">
       <div>
-        <el-tag effect="plain" type="success">部门权限</el-tag>
+        <el-tag class="departments-page__scope-tag" effect="plain" type="primary">部门权限</el-tag>
         <h1>部门管理</h1>
         <p>维护部门，并控制部门成员能进入哪些 GEO 模块。</p>
       </div>
@@ -222,9 +222,9 @@ onMounted(() => {
     <AppLoadingState v-else-if="loading" title="正在加载部门列表" />
 
     <section v-else class="departments-table-panel">
-      <el-table v-if="departments.length" :data="departments" row-key="id">
-        <el-table-column prop="name" label="部门名称" min-width="160" />
-        <el-table-column prop="code" label="部门编码" min-width="150" />
+      <el-table v-if="departments.length" :data="departments" row-key="id" class="departments-table" border>
+        <el-table-column prop="name" label="部门名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="code" label="部门编码" min-width="160" show-overflow-tooltip />
         <el-table-column label="状态" width="100">
           <template #default="{ row }: { row: Department }">
             <el-tag :type="statusTagType(row.status)" effect="plain">
@@ -237,7 +237,12 @@ onMounted(() => {
             {{ formatDateTime(row.updatedAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
+        <el-table-column
+          label="操作"
+          width="320"
+          fixed="right"
+          class-name="departments-table__actions-column"
+        >
           <template #default="{ row }: { row: Department }">
             <div class="departments-table__actions">
               <el-button size="small" :icon="Edit" @click="openEditDialog(row)">编辑</el-button>
@@ -338,40 +343,84 @@ onMounted(() => {
 
 .departments-page__heading,
 .departments-table-panel {
-  border: 1px solid var(--geo-border);
+  border: 1px solid #dbe5ef;
   border-radius: 8px;
-  background: var(--geo-card);
-  box-shadow: var(--geo-shadow-card);
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
 }
 
 .departments-page__heading {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px;
+  overflow: hidden;
+  padding: 18px 20px;
+}
+
+.departments-page__heading::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb, #0891b2);
+  content: "";
+}
+
+.departments-page__scope-tag {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .departments-page__heading h1 {
   margin: 8px 0 6px;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.2;
-  color: var(--geo-text-primary);
+  color: #172331;
 }
 
 .departments-page__heading p {
   margin: 0;
-  color: var(--geo-text-secondary);
+  color: #667586;
 }
 
 .departments-table-panel {
-  padding: 16px;
+  overflow: hidden;
+  padding: 14px;
+}
+
+.departments-table {
+  --el-table-fixed-right-column: inset -1px 0 0 #dbe5ef;
+}
+
+.departments-table :deep(.el-table__fixed-right::before) {
+  background: #dbe5ef;
+  box-shadow: -4px 0 10px rgb(15 23 42 / 3%);
+}
+
+.departments-table :deep(.departments-table__actions-column) {
+  background: #ffffff;
 }
 
 .departments-table__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+}
+
+.departments-table__actions :deep(.el-button) {
+  margin-left: 0;
+  border-color: #dbe5ef;
+  background: #ffffff;
+}
+
+.departments-table__actions :deep(.el-button--warning.is-plain) {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9c6b25;
 }
 
 .departments-dialog-alert {
@@ -391,15 +440,16 @@ onMounted(() => {
 }
 
 .module-permission-group {
-  border: 1px solid var(--geo-border);
+  border: 1px solid #dbe5ef;
   border-radius: 8px;
   padding: 14px;
+  background: #ffffff;
 }
 
 .module-permission-group h3 {
   margin: 0 0 12px;
   font-size: 15px;
-  color: var(--geo-text-primary);
+  color: #172331;
 }
 
 .module-permission-grid {
