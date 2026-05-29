@@ -366,9 +366,7 @@ const formatSummaryValue = (key: string, value: unknown) => {
   padding: 20px;
   border: 1px solid var(--geo-border);
   border-radius: 8px;
-  background:
-    radial-gradient(circle at 90% 12%, rgb(109 40 255 / 12%), transparent 24%),
-    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 42%), #ffffff;
+  background: #ffffff;
   box-shadow: var(--geo-shadow-sm);
 }
 
@@ -378,7 +376,8 @@ const formatSummaryValue = (key: string, value: unknown) => {
   right: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  background: linear-gradient(90deg, #2563eb, #0e7490);
+  opacity: 0.72;
   content: "";
 }
 
@@ -420,7 +419,7 @@ const formatSummaryValue = (key: string, value: unknown) => {
   padding: 18px;
   border: 1px solid var(--geo-border);
   border-radius: 8px;
-  background: linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 44%), #ffffff;
+  background: #fbfdff;
   box-shadow: var(--geo-shadow-sm);
 }
 

@@ -5978,10 +5978,10 @@ a {
 .model-risk-card,
 .model-record-table-card,
 .uncovered-card {
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 5%);
 }
 
 .model-inclusion-hero {
@@ -5989,26 +5989,17 @@ a {
   padding: 26px 28px;
   overflow: hidden;
   border-radius: 18px;
-  background:
-    radial-gradient(circle at 88% 10%, rgb(109 40 255 / 14%), transparent 26%),
-    linear-gradient(135deg, rgb(243 239 255 / 92%), transparent 42%), #ffffff;
+  background: #ffffff;
 }
 
 .model-inclusion-hero::before {
-  height: 4px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb, #0e7490);
+  opacity: 0.72;
 }
 
 .model-inclusion-hero::after {
-  position: absolute;
-  right: 34px;
-  bottom: -18px;
-  width: 170px;
-  height: 28px;
-  border-radius: 999px;
-  background: rgb(186 255 41 / 40%);
-  content: "";
-  transform: rotate(-10deg);
+  display: none;
 }
 
 .model-inclusion-hero__copy,
@@ -6018,8 +6009,8 @@ a {
 }
 
 .model-inclusion-hero__tag {
-  border-color: #ded3ff;
-  background: #f5f1ff;
+  border-color: #bfdbfe;
+  background: #eff6ff;
   color: var(--geo-primary);
   font-weight: 850;
 }
@@ -6076,16 +6067,16 @@ a {
 .model-inclusion-hero__models strong {
   margin: 0;
   padding: 6px 10px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 999px;
   background: #ffffff;
-  color: #3f355f;
+  color: #334155;
   font-size: 13px;
   line-height: 1.2;
 }
 
 .model-inclusion-hero__models span {
-  background: #fbfaff;
+  background: #f8fafc;
   color: #667586;
   font-weight: 800;
 }
@@ -6095,9 +6086,9 @@ a {
   max-width: 100%;
   margin-top: 10px !important;
   padding: 8px 10px;
-  border-left: 3px solid var(--geo-lime);
-  background: rgb(186 255 41 / 14%);
-  color: #3f355f !important;
+  border-left: 3px solid #0891b2;
+  background: #f0f9ff;
+  color: #334155 !important;
   font-size: 13px !important;
   font-weight: 850;
 }
@@ -6151,13 +6142,13 @@ a {
 }
 
 .model-boundary-alert {
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .model-boundary-alert .el-alert__title {
-  color: #3f355f;
+  color: #334155;
 }
 
 .model-inclusion-page .table-card-header {
@@ -6191,10 +6182,10 @@ a {
 }
 
 .model-analysis-collapse {
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 8px 20px rgb(24 20 36 / 4%);
+  box-shadow: 0 8px 20px rgb(15 23 42 / 4%);
   overflow: hidden;
 }
 
@@ -6217,7 +6208,7 @@ a {
 .enabled-models-card :where(.el-card__header),
 .model-record-table-card :where(.el-card__header),
 .uncovered-card :where(.el-card__header) {
-  border-bottom-color: #eee9f5;
+  border-bottom-color: #e2e8f0;
 }
 
 .model-risk-grid {
@@ -6230,7 +6221,7 @@ a {
   min-height: 132px;
   padding: 16px;
   overflow: hidden;
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
   box-shadow: var(--geo-shadow-sm);
@@ -6243,7 +6234,7 @@ a {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #f3efff;
+  background: #eff6ff;
   content: "";
 }
 
@@ -6267,12 +6258,12 @@ a {
 
 .model-risk-metric--recommended,
 .model-risk-metric--mentioned {
-  border-color: #dff59c;
+  border-color: #bbf7d0;
 }
 
 .model-risk-metric--recommended::before,
 .model-risk-metric--mentioned::before {
-  background: #f5ffd9;
+  background: #dcfce7;
 }
 
 .model-risk-metric strong {
@@ -6289,7 +6280,7 @@ a {
 .model-summary-metric {
   position: relative;
   overflow: hidden;
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
 }
@@ -6301,7 +6292,7 @@ a {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #f3efff;
+  background: #eff6ff;
   content: "";
 }
 
@@ -6327,7 +6318,7 @@ a {
 .model-distribution-collapse,
 .uncovered-collapse {
   margin-top: 14px;
-  border-top: 1px solid #eee9f5;
+  border-top: 1px solid #e2e8f0;
   border-bottom: 0;
 }
 
@@ -6339,13 +6330,13 @@ a {
 }
 
 .model-summary-metric .el-progress-bar__inner {
-  background: linear-gradient(90deg, var(--geo-primary), #9b7cff);
+  background: linear-gradient(90deg, var(--geo-primary), #0891b2);
 }
 
 .model-distribution-grid section {
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .model-distribution-grid h3 {
@@ -6353,11 +6344,11 @@ a {
 }
 
 .distribution-row {
-  border-top-color: #eee9f5;
+  border-top-color: #e2e8f0;
 }
 
 .model-filter-card {
-  background: #fbfaff;
+  background: #ffffff;
 }
 
 .model-filter-header h2 {
@@ -6390,10 +6381,38 @@ a {
 
 .model-record-table,
 .uncovered-prompt-table {
-  --el-table-header-bg-color: #fbfaff;
-  --el-table-row-hover-bg-color: #faf8ff;
-  border: 1px solid #eee9f5;
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-row-hover-bg-color: #f6f9fd;
+  --el-table-fixed-left-column: inset 1px 0 0 #dbe5ef;
+  --el-table-fixed-right-column: inset -1px 0 0 #dbe5ef;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
+}
+
+.model-record-table .el-table-fixed-column--right {
+  background: #ffffff;
+}
+
+.model-record-table .el-table-fixed-column--right.is-first-column::before {
+  left: -4px;
+  width: 4px;
+}
+
+.model-record-table .cell {
+  padding-right: 14px;
+  padding-left: 14px;
+}
+
+.model-record-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.model-record-actions .el-button + .el-button {
+  margin-left: 0;
 }
 
 .model-record-row--risk td {
@@ -6421,14 +6440,14 @@ a {
 .model-record-detail {
   gap: 12px;
   padding: 14px;
-  background: linear-gradient(135deg, rgb(243 239 255 / 56%), transparent 38%), #fbfaff;
+  background: #fbfdff;
 }
 
 .model-record-detail section {
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 8px 22px rgb(24 20 36 / 4%);
+  box-shadow: 0 8px 22px rgb(15 23 42 / 4%);
 }
 
 .model-record-detail__header h3 {
@@ -6463,13 +6482,13 @@ a {
 }
 
 .model-record-detail pre {
-  border: 1px solid #eee9f5;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .uncovered-card {
-  background: linear-gradient(135deg, rgb(186 255 41 / 9%), transparent 28%), #ffffff;
+  background: #ffffff;
 }
 
 .uncovered-filters {
@@ -6556,10 +6575,10 @@ a {
 .report-table-card,
 .report-distribution-card,
 .suggestion-limit-card {
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 5%);
 }
 
 .reports-hero {
@@ -6570,9 +6589,7 @@ a {
   gap: 18px;
   overflow: hidden;
   padding: 26px 28px;
-  background:
-    radial-gradient(circle at 88% 8%, rgb(109 40 255 / 14%), transparent 26%),
-    linear-gradient(135deg, rgb(243 239 255 / 90%), transparent 40%), #ffffff;
+  background: #ffffff;
 }
 
 .reports-hero::before {
@@ -6580,21 +6597,14 @@ a {
   top: 0;
   left: 0;
   width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb, #0e7490);
+  opacity: 0.72;
   content: "";
 }
 
 .reports-hero::after {
-  position: absolute;
-  right: 28px;
-  bottom: -18px;
-  width: 164px;
-  height: 28px;
-  border-radius: 999px;
-  background: rgb(186 255 41 / 42%);
-  content: "";
-  transform: rotate(-10deg);
+  display: none;
 }
 
 .reports-hero__copy,
@@ -6645,18 +6655,18 @@ a {
 
 .reports-hero__signals span {
   padding: 7px 10px;
-  border: 1px solid #ded7f3;
+  border: 1px solid #dbe5ef;
   border-radius: 999px;
-  background: rgb(255 255 255 / 72%);
-  color: #3f355f;
+  background: #f8fafc;
+  color: #334155;
   font-size: 12px;
   font-weight: 750;
 }
 
 .reports-hero__signals span:first-child {
-  border-color: #dff59c;
-  background: #f7ffe4;
-  color: #426600;
+  border-color: #bae6fd;
+  background: #f0f9ff;
+  color: #0e7490;
 }
 
 .reports-hero__actions {
@@ -6678,7 +6688,7 @@ a {
 
 .reports-hero__actions .el-button {
   --el-button-bg-color: #ffffff;
-  --el-button-border-color: #d9d1f2;
+  --el-button-border-color: #cbd5e1;
   --el-button-hover-bg-color: var(--geo-primary);
   --el-button-hover-border-color: var(--geo-primary);
   --el-button-hover-text-color: #ffffff;
@@ -6695,9 +6705,9 @@ a {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
   color: #667586;
   line-height: 1.55;
 }
@@ -6727,18 +6737,18 @@ a {
 .geo-hit-summary-panel__diagnostic {
   --el-collapse-border-color: transparent;
   margin-top: 12px;
-  border: 1px solid #eee9f5;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .report-filter-advanced :where(.el-collapse-item__header),
 .report-secondary-collapse :where(.el-collapse-item__header),
 .geo-hit-summary-panel__diagnostic :where(.el-collapse-item__header) {
   padding: 0 14px;
-  border-bottom-color: #eee9f5;
+  border-bottom-color: #e2e8f0;
   background: transparent;
-  color: #3f355f;
+  color: #334155;
   font-weight: 850;
 }
 
@@ -6772,9 +6782,9 @@ a {
   gap: 6px;
   min-height: 82px;
   padding: 14px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
   color: #3d4b5d;
   text-align: left;
   cursor: pointer;
@@ -6787,16 +6797,16 @@ a {
 
 .report-group-nav__item:hover,
 .report-group-nav__item.is-active {
-  border-color: #cfc1ff;
-  background: radial-gradient(circle at 90% 18%, rgb(109 40 255 / 12%), transparent 32%), #ffffff;
-  box-shadow: 0 14px 34px rgb(24 20 36 / 7%);
+  border-color: #93c5fd;
+  background: #eff6ff;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 7%);
   transform: translateY(-1px);
 }
 
 .report-group-nav__item.is-active {
   box-shadow:
     inset 4px 0 0 var(--geo-primary),
-    0 14px 34px rgb(24 20 36 / 7%);
+    0 12px 28px rgb(15 23 42 / 7%);
 }
 
 .report-group-nav__item strong {
@@ -6820,7 +6830,7 @@ a {
 
 .reports-sub-tabs .el-tabs__nav-wrap::after {
   height: 1px;
-  background: #e5e0ef;
+  background: #e2e8f0;
 }
 
 .reports-sub-tabs .el-tabs__item {
@@ -6908,7 +6918,7 @@ a {
   min-height: 132px;
   padding: 16px;
   overflow: hidden;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
   box-shadow: var(--geo-shadow-sm);
@@ -6916,12 +6926,13 @@ a {
 
 .report-metric-card::before {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 34px;
-  height: 34px;
+  top: 16px;
+  right: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: #f3efff;
+  background: #eff6ff;
+  opacity: 0.48;
   content: "";
 }
 
@@ -6931,7 +6942,7 @@ a {
 }
 
 .report-metric-card--good {
-  border-color: #dff59c;
+  border-color: #bbf7d0;
   background: #ffffff;
 }
 
@@ -6946,7 +6957,7 @@ a {
 }
 
 .report-metric-card--good::before {
-  background: #f5ffd9;
+  background: #dcfce7;
 }
 
 .report-metric-card--warning::before {
@@ -6976,7 +6987,7 @@ a {
 }
 
 .report-metric-card .el-progress-bar__inner {
-  background: linear-gradient(90deg, var(--geo-primary), #9b7cff);
+  background: linear-gradient(90deg, var(--geo-primary), #0891b2);
 }
 
 .report-overview-brief {
@@ -6989,15 +7000,15 @@ a {
 .report-overview-actions,
 .report-inline-note {
   min-width: 0;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 12px 32px rgb(24 20 36 / 5%);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 5%);
 }
 
 .report-overview-conclusion {
   padding: 18px;
-  background: linear-gradient(135deg, rgb(243 239 255 / 76%), transparent 44%), #ffffff;
+  background: #f8fafc;
 }
 
 .report-overview-conclusion h3,
@@ -7022,14 +7033,14 @@ a {
   gap: 5px;
   min-width: 0;
   padding: 13px;
-  border: 1px solid #eee9f5;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
   background: rgb(255 255 255 / 76%);
 }
 
 .report-overview-conclusion li.is-good {
-  border-color: #dff59c;
-  background: #fbfff0;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
 }
 
 .report-overview-conclusion li.is-warning {
@@ -7080,9 +7091,9 @@ a {
   min-width: 0;
   min-height: 96px;
   padding: 14px;
-  border: 1px solid #e5e0ef;
+  border: 1px solid #dbe5ef;
   border-radius: 14px;
-  background: #fbfaff;
+  background: #f8fafc;
   color: inherit;
   text-align: left;
   text-decoration: none;
@@ -7094,8 +7105,8 @@ a {
 }
 
 .report-overview-action:hover {
-  border-color: #cfc1ff;
-  box-shadow: 0 12px 30px rgb(24 20 36 / 7%);
+  border-color: #93c5fd;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 7%);
   transform: translateY(-1px);
 }
 
@@ -7106,8 +7117,8 @@ a {
 }
 
 .report-overview-actions__grid .report-overview-action:last-child {
-  border-color: #dff59c;
-  background: #f8ffe7;
+  border-color: #bfdbfe;
+  background: #eff6ff;
 }
 
 .report-inline-note {
@@ -7116,7 +7127,7 @@ a {
   justify-content: space-between;
   gap: 14px;
   padding: 14px 16px;
-  background: #fbfaff;
+  background: #f8fafc;
 }
 
 .report-inline-note > div {
@@ -7145,8 +7156,8 @@ a {
 }
 
 .report-inline-note--actions {
-  background: #f8ffe7;
-  border-color: #dff59c;
+  background: #eff6ff;
+  border-color: #bfdbfe;
 }
 
 .report-distribution-grid {
@@ -7165,19 +7176,19 @@ a {
 
 .report-table-card,
 .report-distribution-card {
-  border-color: #e5e0ef;
+  border-color: #dbe5ef;
 }
 
 .report-table-card :where(.el-card__header),
 .report-distribution-card :where(.el-card__header),
 .suggestion-limit-card :where(.el-card__header) {
-  border-bottom-color: #eee9f5;
+  border-bottom-color: #e2e8f0;
 }
 
 .report-table-card .el-table,
 .report-distribution-card .el-table {
-  --el-table-header-bg-color: #fbfaff;
-  --el-table-row-hover-bg-color: #faf8ff;
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-row-hover-bg-color: #f6f9fd;
 }
 
 .report-tag-list {
