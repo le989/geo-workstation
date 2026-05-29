@@ -909,6 +909,21 @@ onMounted(() => {
 
 <template>
   <div class="aftersales-page-shell">
+    <header class="aftersales-hero">
+      <div>
+        <p class="aftersales-hero__eyebrow">售后知识问答</p>
+        <h1>售后问答</h1>
+        <p>
+          基于已审核售后资料和产品资料辅助排查现场问题，未命中资料时转人工确认。
+        </p>
+      </div>
+      <div class="aftersales-boundary-list" aria-label="售后问答边界">
+        <span>库内知识：仅依据已审核售后资料辅助回答</span>
+        <span>引用来源：尽量展示知识库、文件和片段来源</span>
+        <span>人工复核：未命中或不确定时转人工确认</span>
+      </div>
+    </header>
+
     <nav v-if="isAdmin" class="aftersales-panel-tabs" aria-label="售后问答工作台">
       <button
         type="button"
@@ -1122,6 +1137,12 @@ onMounted(() => {
                     </article>
                   </el-collapse-item>
                 </el-collapse>
+                <p
+                  v-else-if="message.role === 'assistant' && !message.isLoading"
+                  class="source-empty-note"
+                >
+                  暂无可引用资料，建议补充售后知识库或转人工确认。
+                </p>
 
                 <div
                   v-if="message.role === 'assistant' && !message.isLoading && message.recordId"
@@ -1176,7 +1197,9 @@ onMounted(() => {
             @keydown.ctrl.enter.prevent="handleAsk"
           />
           <div class="composer-actions">
-            <span>仅依据已审核资料辅助排查；未命中资料时，将提示补充资料或转人工确认。</span>
+            <span>
+              请尽量输入产品型号、现场现象、工况条件。系统只基于已审核售后资料辅助回答，未命中时应转人工确认。
+            </span>
             <el-button :loading="asking" type="primary" :disabled="!canSend" @click="handleAsk">
               发送
             </el-button>
@@ -1193,6 +1216,14 @@ onMounted(() => {
         </div>
         <el-button :loading="loadingFeedbacks" @click="loadFeedbacks">刷新</el-button>
       </header>
+
+      <el-alert
+        title="反馈处理可能更新状态或生成知识库草稿，请确认后操作。"
+        class="feedback-boundary-alert"
+        type="warning"
+        show-icon
+        :closable="false"
+      />
 
       <el-alert
         v-if="feedbackErrorMessage"
@@ -1260,10 +1291,14 @@ onMounted(() => {
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="110">
+        <el-table-column label="操作" fixed="right" width="128">
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="openFeedbackDetail(row)">
-              查看详情
+            <el-button
+              class="feedback-detail-button"
+              size="small"
+              @click="openFeedbackDetail(row)"
+            >
+              查看反馈
             </el-button>
           </template>
         </el-table-column>
@@ -1333,6 +1368,13 @@ onMounted(() => {
     <el-dialog v-model="feedbackDetailVisible" title="反馈详情" width="720px">
       <div v-loading="loadingFeedbackDetail" class="feedback-detail">
         <template v-if="feedbackDetail">
+          <el-alert
+            title="处理反馈、转为知识库草稿都会写入状态或资料草稿，请确认后再操作。"
+            class="feedback-boundary-alert"
+            type="warning"
+            show-icon
+            :closable="false"
+          />
           <div class="feedback-detail-grid">
             <section>
               <strong>处理状态</strong>
@@ -1522,8 +1564,71 @@ onMounted(() => {
 .aftersales-page-shell {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
+}
+
+.aftersales-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 18px;
+  align-items: stretch;
+  padding: 18px 20px;
+  border: 1px solid #dbe5f0;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgb(37 99 235 / 5%), transparent 45%),
+    #ffffff;
+  box-shadow: 0 14px 30px rgb(15 23 42 / 6%);
+}
+
+.aftersales-hero__eyebrow {
+  margin: 0 0 8px;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.aftersales-hero h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 26px;
+  line-height: 1.25;
+}
+
+.aftersales-hero p:not(.aftersales-hero__eyebrow) {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.aftersales-boundary-list {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.aftersales-boundary-list span {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.aftersales-boundary-list span::before {
+  width: 7px;
+  height: 7px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: #2563eb;
+  content: "";
 }
 
 .aftersales-panel-tabs {
@@ -1548,14 +1653,14 @@ onMounted(() => {
 }
 
 .panel-tab:hover {
-  border-color: #aebbe8;
+  border-color: #93c5fd;
   box-shadow: 0 10px 24px rgb(15 23 42 / 6%);
 }
 
 .panel-tab.is-active {
-  border-color: #7c8cf8;
-  background: #f8f9ff;
-  box-shadow: inset 3px 0 0 #6f7df5;
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: inset 3px 0 0 #2563eb;
 }
 
 .panel-tab span {
@@ -1584,9 +1689,9 @@ onMounted(() => {
 
 .aftersales-chat-page {
   display: flex;
-  height: calc(100vh - 132px);
+  height: calc(100vh - 250px);
   min-height: 560px;
-  max-height: calc(100vh - 132px);
+  max-height: calc(100vh - 250px);
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
@@ -1676,14 +1781,16 @@ onMounted(() => {
 .conversation-item:hover,
 .conversation-item.is-active,
 .conversation-item:focus-visible {
-  border-color: #c8c2f0;
+  border-color: #93c5fd;
   background: #fff;
   box-shadow: 0 8px 22px rgb(15 23 42 / 8%);
   outline: none;
 }
 
 .conversation-item.is-active {
-  box-shadow: inset 3px 0 0 #6d40d7, 0 8px 22px rgb(15 23 42 / 8%);
+  border-color: #2563eb;
+  background: #f8fbff;
+  box-shadow: inset 3px 0 0 #2563eb, 0 8px 22px rgb(15 23 42 / 7%);
 }
 
 .conversation-item:hover {
@@ -1758,7 +1865,8 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 18px 20px 14px;
+  padding: 18px 20px 92px;
+  scroll-padding-bottom: 92px;
   background: linear-gradient(180deg, #fff, #f8fafc 52%, #f1f5f9);
 }
 
@@ -1786,7 +1894,7 @@ onMounted(() => {
 }
 
 .chat-message.is-assistant .message-avatar {
-  color: #24514a;
+  color: #0f766e;
   background: #dff4ed;
 }
 
@@ -1838,13 +1946,13 @@ onMounted(() => {
 }
 
 .message-bubble.is-no-source {
-  border-color: #f5dc91;
-  background: #fffaf0;
+  border-color: #facc15;
+  background: #fffbea;
 }
 
 .message-bubble.is-clarification {
-  border-color: #c7d2fe;
-  background: #f8faff;
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 
 .loading-icon {
@@ -1859,6 +1967,13 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.source-collapse :deep(.el-collapse-item__header) {
+  padding: 0 12px;
+  color: #1d4ed8;
+  font-weight: 700;
+  background: #f8fafc;
+}
+
 .source-item {
   display: flex;
   flex-direction: column;
@@ -1868,6 +1983,14 @@ onMounted(() => {
   border: 1px solid #eef1f5;
   border-radius: 8px;
   background: #fbfcfe;
+}
+
+.source-item::before {
+  width: 42px;
+  height: 3px;
+  border-radius: 999px;
+  background: #2563eb;
+  content: "";
 }
 
 .source-item:last-child {
@@ -1882,6 +2005,17 @@ onMounted(() => {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+.source-empty-note {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.55;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
 }
 
 .composer {
@@ -1900,6 +2034,21 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+.composer-actions span {
+  max-width: min(720px, 100%);
+}
+
+.aftersales-page-shell :deep(.el-button--primary) {
+  border-color: #2563eb;
+  background-color: #2563eb;
+}
+
+.aftersales-page-shell :deep(.el-button--primary:hover),
+.aftersales-page-shell :deep(.el-button--primary:focus-visible) {
+  border-color: #1d4ed8;
+  background-color: #1d4ed8;
+}
+
 .message-feedback-row {
   display: flex;
   gap: 8px;
@@ -1915,8 +2064,8 @@ onMounted(() => {
 .feedback-workbench {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 172px);
-  min-height: 540px;
+  height: auto;
+  min-height: 0;
   padding: 18px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -1957,13 +2106,31 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
+.feedback-boundary-alert {
+  margin-bottom: 12px;
+}
+
 .feedback-filters .el-select {
   width: 180px;
 }
 
 .feedback-table {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
+}
+
+.feedback-detail-button {
+  min-width: 78px;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.feedback-detail-button:hover,
+.feedback-detail-button:focus-visible {
+  color: #1e40af;
+  border-color: #93c5fd;
+  background: #dbeafe;
 }
 
 .feedback-pagination {
@@ -2015,6 +2182,10 @@ onMounted(() => {
   background: #fbfcfe;
 }
 
+.feedback-detail :deep(.el-alert) {
+  margin-bottom: 12px;
+}
+
 .knowledge-draft-status p {
   display: flex;
   flex-wrap: wrap;
@@ -2051,6 +2222,10 @@ onMounted(() => {
 }
 
 @media (max-width: 960px) {
+  .aftersales-hero {
+    grid-template-columns: 1fr;
+  }
+
   .aftersales-panel-tabs {
     grid-template-columns: 1fr;
   }
