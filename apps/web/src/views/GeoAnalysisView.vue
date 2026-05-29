@@ -691,7 +691,7 @@ onMounted(() => {
 <style scoped>
 .geo-analysis-page {
   display: grid;
-  gap: 22px;
+  gap: 18px;
 }
 
 .geo-analysis-hero,
@@ -704,14 +704,12 @@ onMounted(() => {
   align-items: flex-start;
   border: 1px solid var(--geo-border);
   border-radius: 8px;
-  background:
-    radial-gradient(circle at 90% 12%, rgb(109 40 255 / 12%), transparent 24%),
-    linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 40%), var(--geo-surface);
+  background: var(--geo-surface);
   box-shadow: var(--geo-shadow-sm);
 }
 
 .geo-analysis-hero {
-  padding: 28px;
+  padding: 22px 24px;
 }
 
 .geo-analysis-hero::before {
@@ -720,7 +718,8 @@ onMounted(() => {
   right: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--geo-primary), var(--geo-lime));
+  background: linear-gradient(90deg, #2563eb, #0e7490);
+  opacity: 0.72;
   content: "";
 }
 
@@ -732,7 +731,7 @@ onMounted(() => {
 }
 
 .geo-analysis-hero h1 {
-  font-size: 30px;
+  font-size: 28px;
   line-height: 1.18;
 }
 
@@ -752,7 +751,9 @@ onMounted(() => {
 }
 
 .geo-analysis-alert {
+  border: 1px solid #dbeafe;
   border-radius: 8px;
+  background: #eff6ff;
 }
 
 .analysis-relation-collapse {
@@ -782,7 +783,7 @@ onMounted(() => {
   display: grid;
   gap: 8px;
   min-height: 126px;
-  padding: 18px;
+  padding: 16px;
   border: 1px solid var(--geo-border);
   border-radius: 8px;
   background: #ffffff;
@@ -790,8 +791,8 @@ onMounted(() => {
 }
 
 .geo-analysis-metric:nth-child(4) {
-  border-color: rgb(186 255 41 / 55%);
-  background: linear-gradient(135deg, rgb(186 255 41 / 20%), transparent 58%), #ffffff;
+  border-color: #fed7aa;
+  background: #fffaf2;
 }
 
 .geo-analysis-metric span {
@@ -819,7 +820,7 @@ onMounted(() => {
   gap: 16px;
   padding: 20px;
   border-top: 1px solid var(--geo-border);
-  background: linear-gradient(135deg, rgb(109 40 255 / 7%), transparent 44%), #ffffff;
+  background: #fbfdff;
 }
 
 .analysis-relation-panel__copy h2 {
@@ -848,10 +849,10 @@ onMounted(() => {
   align-items: center;
   min-height: 34px;
   padding: 0 13px;
-  border: 1px solid #ded8f6;
+  border: 1px solid #dbe5ef;
   border-radius: 999px;
-  background: #fbfaff;
-  color: #24144a;
+  background: #f8fafc;
+  color: #334155;
   font-size: 13px;
   font-weight: 700;
 }
@@ -860,7 +861,7 @@ onMounted(() => {
   width: 18px;
   height: 1px;
   margin-left: 10px;
-  background: linear-gradient(90deg, rgb(109 40 255 / 50%), rgb(186 255 41 / 70%));
+  background: #cbd5e1;
   content: "";
 }
 

@@ -253,7 +253,7 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
       </template>
     </el-table-column>
 
-    <el-table-column label="回答摘要" min-width="260">
+    <el-table-column label="回答摘要" min-width="340">
       <template #default="{ row }">
         <p class="model-record-summary">{{ truncateSummary(row.answerSummary, 140) }}</p>
       </template>
@@ -270,7 +270,7 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
       </template>
     </el-table-column>
 
-    <el-table-column v-if="canManageRecords" label="操作" width="180" fixed="right">
+    <el-table-column v-if="canManageRecords" label="操作" width="156" fixed="right">
       <template #default="{ row }">
         <div class="model-record-actions">
           <el-button size="small" text type="primary" @click="emit('edit', row)">
