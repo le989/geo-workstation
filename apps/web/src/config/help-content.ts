@@ -13,13 +13,6 @@ export type HelpSection = {
   pendingNotes?: string[];
 };
 
-export type VersionNote = {
-  name: string;
-  capabilities: string[];
-  usage: string;
-  notes: string;
-};
-
 export const helpNavItems = [
   { id: "quick-start", title: "新手快速开始" },
   { id: "daily-geo-loop", title: "日常 GEO 运营流程" },
@@ -27,8 +20,7 @@ export const helpNavItems = [
   { id: "risk-boundaries", title: "高风险操作提醒" },
   { id: "faq", title: "常见问题" },
   { id: "glossary", title: "术语说明" },
-  { id: "admin-settings", title: "管理员设置说明" },
-  { id: "version-log", title: "版本更新记录" }
+  { id: "admin-settings", title: "管理员设置说明" }
 ] as const;
 
 export const quickStartSteps: HelpStep[] = [
@@ -403,32 +395,5 @@ export const sopSections: HelpSection[] = [
       "不要在帮助内容、截图或交接材料中暴露完整密钥。",
       "管理员说明要面向业务使用者，不写成部署或开发文档。"
     ]
-  }
-];
-
-export const versionNotes: VersionNote[] = [
-  {
-    name: "当前帮助口径",
-    capabilities: [
-      "帮助页已按当前蓝灰后台样板重新整理为新手快速开始、日常 GEO 运营流程、核心模块说明、高风险操作提醒、常见问题、术语说明和管理员设置说明。"
-    ],
-    usage: "用于内部员工培训、日常操作前确认和管理员交接。",
-    notes: "帮助页只说明当前已经存在的功能，不写自动发布、自动处理或前端配置完整密钥等不存在能力。"
-  },
-  {
-    name: "发布文章工作台",
-    capabilities: [
-      "发布文章工作台用于选择资料、生成发布稿、查看发布检查、复制富文本和人工发布。"
-    ],
-    usage: "用于围绕提示词和知识库产出可发布内容资产。",
-    notes: "AI 结果必须人工复核，系统当前不自动发布到外部平台。"
-  },
-  {
-    name: "操作边界",
-    capabilities: [
-      "AI 拓词可能调用真实 Provider，候选词保存会写入提示词策略库，售后问答反馈处理可能写入状态或知识库草稿，系统设置保存会影响公司、产品线和项目档案。"
-    ],
-    usage: "用于提醒员工在写入、调用和复盘前确认环境、公司和数据范围。",
-    notes: "Provider 密钥由后端环境变量管理，前端不展示完整 API Key、Token 或 Secret。"
   }
 ];

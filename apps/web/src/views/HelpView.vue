@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Guide } from "@element-plus/icons-vue";
-import { helpNavItems, quickStartSteps, sopSections, versionNotes } from "@/config/help-content";
+import { helpNavItems, quickStartSteps, sopSections } from "@/config/help-content";
 
 const totalSopSteps = computed(() =>
   sopSections.reduce((total, section) => total + section.steps.length, 0)
@@ -148,43 +148,6 @@ const helpOverviewItems = [
               :closable="false"
             />
           </div>
-        </section>
-
-        <section id="version-log" class="help-section">
-          <div class="help-section__header">
-            <div>
-              <p class="section-kicker">Changelog</p>
-              <h2>版本更新记录</h2>
-              <span>这里记录当前帮助页口径、发布文章工作台说明和关键操作边界，便于内部培训和交接。</span>
-            </div>
-            <el-tag type="info" effect="plain">版本说明</el-tag>
-          </div>
-
-          <el-timeline class="help-version-timeline">
-            <el-timeline-item
-              v-for="version in versionNotes"
-              :key="version.name"
-              :timestamp="version.name"
-              placement="top"
-            >
-              <div class="help-version-card">
-                <div>
-                  <p class="section-kicker">主要能力</p>
-                  <ul>
-                    <li v-for="item in version.capabilities" :key="item">{{ item }}</li>
-                  </ul>
-                </div>
-                <div>
-                  <p class="section-kicker">适合用途</p>
-                  <p>{{ version.usage }}</p>
-                </div>
-                <div>
-                  <p class="section-kicker">注意事项</p>
-                  <p>{{ version.notes }}</p>
-                </div>
-              </div>
-            </el-timeline-item>
-          </el-timeline>
         </section>
       </div>
     </section>
