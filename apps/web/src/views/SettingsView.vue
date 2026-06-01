@@ -152,94 +152,38 @@ const providerStatusItems = [
     status: "已接入检测入口",
     type: "success" as const,
     usage: "Kimi 联网 GEO 命中检测",
-    note: "密钥由后端 .env 管理，前端不展示完整值。"
+    note: "只读状态，不展示密钥。"
   },
   {
     name: "豆包 / 火山方舟 Web Search",
     status: "已接入检测入口",
     type: "success" as const,
     usage: "豆包 / 火山生态方向 API 检测",
-    note: "真实调用取决于后端 Provider 配置，前端只展示接入状态。"
+    note: "只读状态，不展示密钥。"
   },
   {
     name: "通义 / 阿里云百炼 Web Search",
     status: "已接入检测入口",
     type: "success" as const,
     usage: "通义方向回答型联网检测",
-    note: "引用主要从回答正文判断，密钥不在前端维护。"
+    note: "只读状态，不展示密钥。"
   },
   {
     name: "OpenAI Compatible Provider",
     status: "内容生成可用",
     type: "primary" as const,
     usage: "内容生成、质量检查或拓词 Provider",
-    note: "具体模型和密钥仅在后端配置，前端只读展示。"
-  }
-];
-
-const settingsWriteBoundaryItems = [
-  {
-    title: "环境确认",
-    text: "新增、编辑、启停或保存前，先确认当前环境和公司范围。"
-  },
-  {
-    title: "写入动作",
-    text: "公司、产品线和项目档案会写入系统配置，本页不提供批量清理。"
-  },
-  {
-    title: "Provider 边界",
-    text: "真实 Provider 取决于后端 .env，前端不展示完整密钥。"
-  }
-];
-
-const dataMaintenanceItems = [
-  {
-    title: "本地验收数据",
-    text: "本地验收产生的提示词和检测记录暂时保留，正式使用前可统一复核。"
-  },
-  {
-    title: "数据维护说明",
-    text: "正式使用前可统一复核测试数据，本页不提供清理按钮。"
-  },
-  {
-    title: "备份 / 导出",
-    text: "后续可增加备份、导出和清理入口；当前仅保留说明。"
+    note: "只读状态，不展示密钥。"
   }
 ];
 
 const systemInfoItems = computed(() => [
+  { label: "当前用户", value: currentUser.value?.name ?? "--" },
+  { label: "角色", value: getRoleLabel(authStore.currentRole ?? currentUser.value?.role) },
+  { label: "公司", value: authStore.currentCompany?.name ?? "--" },
   { label: "运行环境", value: appStore.environmentLabel },
   { label: "API 地址", value: appStore.apiBaseUrl || "同域 /api" },
-  { label: "当前版本", value: "内部 MVP" },
-  { label: "最近 UI 收口", value: "首页、登录、工作台、报表、内容、资产和策略页" }
-]);
-
-const settingsOverviewItems = computed(() => [
-  {
-    label: "公司",
-    value: `${companies.value.length} 个`,
-    hint: authStore.currentCompany?.name ?? "当前公司上下文"
-  },
-  {
-    label: "产品线",
-    value: `${productLines.value.length} 条`,
-    hint: "归属于当前公司"
-  },
-  {
-    label: "项目档案",
-    value: profile.value ? "已配置" : "待配置",
-    hint: "品牌与项目上下文"
-  },
-  {
-    label: "Provider 状态",
-    value: `${providerStatusItems.length} 项`,
-    hint: "只展示状态，不展示密钥"
-  },
-  {
-    label: "当前身份",
-    value: getRoleLabel(authStore.currentRole ?? currentUser.value?.role),
-    hint: currentUser.value?.name ?? "未读取当前用户"
-  }
+  { label: "当前版本", value: "内部 MVP" }
 ]);
 
 const resetForm = () => {
@@ -551,9 +495,7 @@ watch(
         </el-icon>
         <div>
           <h1>系统设置</h1>
-          <p>
-            维护公司、产品线、项目档案和 Provider 状态；新增、编辑、启停、保存前请确认当前环境和数据范围。
-          </p>
+          <p>维护公司、Provider 状态和低频配置。</p>
         </div>
       </div>
       <div class="settings-hero__actions">
@@ -563,34 +505,20 @@ watch(
         >
           刷新
         </el-button>
-        <el-button v-if="canManageProjectProfile" type="primary" @click="openEditor">
-          {{ profile ? "编辑项目档案" : "创建项目档案" }}
-        </el-button>
       </div>
     </section>
 
     <section class="settings-write-boundary" aria-label="系统设置写入边界">
-      <div v-for="item in settingsWriteBoundaryItems" :key="item.title">
-        <strong>{{ item.title }}</strong>
-        <span>{{ item.text }}</span>
+      <div>
+        <strong>环境与写入边界</strong>
+        <span>
+          当前环境：{{ appStore.environmentLabel }}。公司、产品线和项目档案会写入系统配置；Provider 密钥由后端环境变量管理，前端不展示完整值。
+        </span>
       </div>
     </section>
 
     <AppErrorState v-if="errorMessage" :message="errorMessage" />
     <AppLoadingState v-if="loading && !profile" title="正在加载项目档案" />
-
-    <section class="settings-compact-summary" aria-label="设置状态概览">
-      <span v-for="item in settingsOverviewItems" :key="item.label">
-        {{ item.label }} {{ item.value }}
-      </span>
-      <strong>密钥仅由后端环境变量读取，前端不展示。</strong>
-    </section>
-
-    <section class="settings-identity-strip" aria-label="当前登录身份">
-      <span>当前用户：{{ currentUser?.name ?? "--" }}</span>
-      <span>角色：{{ getRoleLabel(authStore.currentRole ?? currentUser?.role) }}</span>
-      <span>公司：{{ authStore.currentCompany?.name ?? "--" }}</span>
-    </section>
 
     <section class="settings-section">
       <div class="settings-section__header">
@@ -677,211 +605,243 @@ watch(
       </el-card>
     </section>
 
-    <section class="settings-section">
+    <section class="settings-section settings-section--secondary">
       <div class="settings-section__header">
         <div>
-          <p class="section-kicker">业务基础</p>
-          <h2>产品线管理</h2>
-          <span>用于提示词、知识库、内容任务和模型覆盖记录分组。</span>
+          <p class="section-kicker">低频维护</p>
+          <h2>高级配置</h2>
+          <span>低频配置，按需展开维护。</span>
         </div>
-        <el-button v-if="canManageProductLines" type="primary" @click="openCreateProductLine">
-          新增产品线
-        </el-button>
       </div>
 
-      <el-card shadow="never" class="settings-panel settings-panel--wide">
-        <template #header>
-          <div class="settings-card-header">
-            <div>
-              <p class="section-kicker">Product Line</p>
-              <h2>当前公司产品线</h2>
-              <span>可补充用途、适用场景和内部识别信息。</span>
-            </div>
+      <details class="settings-advanced-panel">
+        <summary class="settings-advanced-panel__summary">
+          <div>
+            <p class="section-kicker">业务分类</p>
+            <h2>产品线管理</h2>
+            <span>用于统计、筛选和归类；资料分类优先用知识库目录。</span>
           </div>
-        </template>
+          <div class="settings-advanced-panel__meta">
+            <el-tag type="info" effect="plain">{{ productLines.length }} 条</el-tag>
+            <span>展开管理</span>
+          </div>
+        </summary>
 
-        <AppErrorState v-if="productLineErrorMessage" :message="productLineErrorMessage" />
-        <AppEmptyState
-          v-else-if="!productLinesLoading && productLines.length === 0"
-          title="当前公司暂无产品线"
-          description="公司管理员或平台管理员可以新增产品线，作为后续 GEO 资产的业务分组。"
-        />
-        <el-table
-          v-else
-          v-loading="productLinesLoading"
-          :data="productLines"
-          class="settings-management-table"
-        >
-          <el-table-column label="产品线名称" min-width="220">
-            <template #default="{ row }">
-              <span class="settings-table-primary" :title="row.name">{{ row.name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="产品线编码" min-width="170">
-            <template #default="{ row }">
-              <span class="settings-table-code" :title="row.code">{{ row.code }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="产品线说明" min-width="240">
-            <template #default="{ row }">
-              <span class="settings-table-description" :title="row.description || '未填写'">
-                {{ row.description || "未填写" }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="110">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)" effect="plain">
-                {{ formatStatus(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="更新时间" min-width="170">
-            <template #default="{ row }">
-              {{ formatDateTime(row.updatedAt) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
-            <template #default="{ row }">
-              <div v-if="canManageProductLines" class="settings-table-actions">
-                <el-button
-                  size="small"
-                  class="settings-action-button"
-                  @click="openEditProductLine(row)"
-                >
-                  编辑
-                </el-button>
-                <el-button
-                  size="small"
-                  :type="row.status === 'active' ? 'warning' : 'success'"
-                  plain
-                  class="settings-action-button settings-action-button--status"
-                  @click="changeProductLineStatus(row)"
-                >
-                  {{ row.status === "active" ? "停用" : "启用" }}
-                </el-button>
+        <el-card shadow="never" class="settings-panel settings-panel--wide">
+          <template #header>
+            <div class="settings-card-header">
+              <div>
+                <p class="section-kicker">Product Line</p>
+                <h2>当前公司产品线</h2>
+                <span>用于跨模块统计、筛选和归类，不是知识库目录。</span>
               </div>
-              <el-tag v-else type="info" effect="plain">只读</el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+              <el-button v-if="canManageProductLines" type="primary" @click="openCreateProductLine">
+                新增产品线
+              </el-button>
+            </div>
+          </template>
+
+          <AppErrorState v-if="productLineErrorMessage" :message="productLineErrorMessage" />
+          <AppEmptyState
+            v-else-if="!productLinesLoading && productLines.length === 0"
+            title="当前公司暂无产品线"
+            description="公司管理员或平台管理员可以新增产品线，作为跨模块统计、筛选和归类配置。"
+          />
+          <el-table
+            v-else
+            v-loading="productLinesLoading"
+            :data="productLines"
+            class="settings-management-table"
+          >
+            <el-table-column label="产品线名称" min-width="220">
+              <template #default="{ row }">
+                <span class="settings-table-primary" :title="row.name">{{ row.name }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="产品线编码" min-width="170">
+              <template #default="{ row }">
+                <span class="settings-table-code" :title="row.code">{{ row.code }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="产品线说明" min-width="240">
+              <template #default="{ row }">
+                <span class="settings-table-description" :title="row.description || '未填写'">
+                  {{ row.description || "未填写" }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(row.status)" effect="plain">
+                  {{ formatStatus(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="更新时间" min-width="170">
+              <template #default="{ row }">
+                {{ formatDateTime(row.updatedAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="{ row }">
+                <div v-if="canManageProductLines" class="settings-table-actions">
+                  <el-button
+                    size="small"
+                    class="settings-action-button"
+                    @click="openEditProductLine(row)"
+                  >
+                    编辑
+                  </el-button>
+                  <el-button
+                    size="small"
+                    :type="row.status === 'active' ? 'warning' : 'success'"
+                    plain
+                    class="settings-action-button settings-action-button--status"
+                    @click="changeProductLineStatus(row)"
+                  >
+                    {{ row.status === "active" ? "停用" : "启用" }}
+                  </el-button>
+                </div>
+                <el-tag v-else type="info" effect="plain">只读</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </details>
     </section>
 
     <section class="settings-section settings-section--secondary">
       <div class="settings-section__header">
         <div>
-          <p class="section-kicker">基础信息</p>
-          <h2>项目档案</h2>
-          <span>项目上下文用于内容生成、拓词和检测，可按需维护。</span>
+          <p class="section-kicker">AI 口径</p>
+          <h2>AI 口径档案 / 项目档案</h2>
+          <span>约束品牌口径、事实边界和禁用表达。</span>
         </div>
         <el-tag v-if="profile" type="success" effect="plain">已配置</el-tag>
         <el-tag v-else type="warning" effect="plain">未配置</el-tag>
       </div>
 
-      <div class="settings-grid settings-grid--profile">
-        <el-card shadow="never" class="settings-panel">
-          <template #header>
-            <div class="settings-card-header">
-              <div>
-                <p class="section-kicker">项目档案</p>
-                <h2>当前项目基础信息</h2>
-                <span>GEO 生成和检测的基础上下文。</span>
-              </div>
-            </div>
-          </template>
+      <details class="settings-advanced-panel">
+        <summary class="settings-advanced-panel__summary">
+          <div>
+            <p class="section-kicker">Project Profile</p>
+            <h2>{{ profile ? "查看项目档案字段" : "当前未配置项目档案" }}</h2>
+            <span>AI 口径参考；事实仍以知识库为准。</span>
+          </div>
+          <div class="settings-advanced-panel__meta">
+            <el-tag v-if="profile" type="success" effect="plain">已配置</el-tag>
+            <el-tag v-else type="warning" effect="plain">未配置</el-tag>
+            <span>展开查看字段</span>
+          </div>
+        </summary>
 
-          <template v-if="!loading && !profile">
-            <AppEmptyState
-              title="尚未配置项目档案"
-              description="点击页面顶部的“创建项目档案”，系统会在内容生成和 AI 拓词时参考这些基础信息。"
-            />
-          </template>
+        <div class="settings-grid settings-grid--profile">
+          <el-card shadow="never" class="settings-panel">
+            <template #header>
+              <div class="settings-card-header">
+                <div>
+                  <p class="section-kicker">项目档案</p>
+                  <h2>AI 口径档案 / 项目档案</h2>
+                  <span>GEO 生成和检测的低频上下文。</span>
+                </div>
+                <el-button v-if="canManageProjectProfile" type="primary" @click="openEditor">
+                  {{ profile ? "编辑项目档案" : "创建项目档案" }}
+                </el-button>
+              </div>
+            </template>
 
-          <template v-else-if="profile">
-            <div class="settings-info-grid">
-              <div>
-                <span>项目名称</span>
-                <strong>{{ profile.projectName }}</strong>
+            <template v-if="!loading && !profile">
+              <div class="settings-profile-summary">
+                <strong>当前未配置项目档案。</strong>
+                <span>用于约束品牌口径和禁用表达；事实仍以知识库为准。</span>
               </div>
-              <div>
-                <span>品牌名称</span>
-                <strong>{{ formatOptional(profile.brandName) }}</strong>
-              </div>
-              <div>
-                <span>官网地址</span>
-                <strong>{{ formatOptional(profile.websiteUrl) }}</strong>
-              </div>
-              <div>
-                <span>所属行业</span>
-                <strong>{{ formatOptional(profile.industry) }}</strong>
-              </div>
-              <div class="settings-info-grid__full">
-                <span>核心产品线</span>
-                <div class="settings-tag-list">
-                  <el-tag
-                    v-for="item in profile.mainProducts"
-                    :key="item"
-                    type="primary"
-                    effect="plain"
-                  >
-                    {{ item }}
-                  </el-tag>
-                  <strong v-if="profile.mainProducts.length === 0">--</strong>
+            </template>
+
+            <template v-else-if="profile">
+              <div class="settings-info-grid">
+                <div>
+                  <span>项目名称</span>
+                  <strong>{{ profile.projectName }}</strong>
+                </div>
+                <div>
+                  <span>品牌名称</span>
+                  <strong>{{ formatOptional(profile.brandName) }}</strong>
+                </div>
+                <div>
+                  <span>官网地址</span>
+                  <strong>{{ formatOptional(profile.websiteUrl) }}</strong>
+                </div>
+                <div>
+                  <span>所属行业</span>
+                  <strong>{{ formatOptional(profile.industry) }}</strong>
+                </div>
+                <div class="settings-info-grid__full">
+                  <span>核心产品线</span>
+                  <div class="settings-tag-list">
+                    <el-tag
+                      v-for="item in profile.mainProducts"
+                      :key="item"
+                      type="primary"
+                      effect="plain"
+                    >
+                      {{ item }}
+                    </el-tag>
+                    <strong v-if="profile.mainProducts.length === 0">--</strong>
+                  </div>
+                </div>
+                <div class="settings-info-grid__full">
+                  <span>项目说明</span>
+                  <strong>{{ formatOptional(profile.notes) }}</strong>
+                </div>
+                <div>
+                  <span>更新时间</span>
+                  <strong>{{ formatDateTime(profile.updatedAt) }}</strong>
                 </div>
               </div>
-              <div class="settings-info-grid__full">
-                <span>项目说明</span>
-                <strong>{{ formatOptional(profile.notes) }}</strong>
-              </div>
-              <div>
-                <span>更新时间</span>
-                <strong>{{ formatDateTime(profile.updatedAt) }}</strong>
-              </div>
-            </div>
-          </template>
-        </el-card>
+            </template>
+          </el-card>
 
-        <el-card shadow="never" class="settings-panel">
-          <template #header>
-            <div class="settings-card-header">
+          <el-card shadow="never" class="settings-panel">
+            <template #header>
+              <div class="settings-card-header">
+                <div>
+                  <p class="section-kicker">品牌上下文</p>
+                  <h2>表达边界与事实底座</h2>
+                  <span>参数、认证、价格和效果承诺仍以知识库为准。</span>
+                </div>
+              </div>
+            </template>
+            <div class="settings-boundary-list settings-boundary-list--compact">
               <div>
-                <p class="section-kicker">品牌上下文</p>
-                <h2>表达边界与事实底座</h2>
-                <span>参数、认证、价格和效果承诺仍以知识库为准。</span>
+                <strong>品牌定位</strong>
+                <span>{{ formatOptional(profile?.positioning) }}</span>
+              </div>
+              <div>
+                <strong>主营产品</strong>
+                <span>{{ profile?.mainProducts.length ? profile.mainProducts.join("、") : "--" }}</span>
+              </div>
+              <div>
+                <strong>目标场景</strong>
+                <span>{{ formatOptional(profile?.targetCustomers) }}</span>
+              </div>
+              <div>
+                <strong>GEO 内容使用边界</strong>
+                <span>{{ formatOptional(profile?.tone) }}；具体事实仍以知识库为准。</span>
+              </div>
+              <div>
+                <strong>事实边界提醒</strong>
+                <span>参数、认证、价格、效果承诺必须来自知识库或任务输入。</span>
+              </div>
+              <div>
+                <strong>禁止表达</strong>
+                <span>{{
+                  profile?.forbiddenClaims.length ? profile.forbiddenClaims.join("、") : "--"
+                }}</span>
               </div>
             </div>
-          </template>
-          <div class="settings-boundary-list settings-boundary-list--compact">
-            <div>
-              <strong>品牌定位</strong>
-              <span>{{ formatOptional(profile?.positioning) }}</span>
-            </div>
-            <div>
-              <strong>主营产品</strong>
-              <span>{{ profile?.mainProducts.length ? profile.mainProducts.join("、") : "--" }}</span>
-            </div>
-            <div>
-              <strong>目标场景</strong>
-              <span>{{ formatOptional(profile?.targetCustomers) }}</span>
-            </div>
-            <div>
-              <strong>GEO 内容使用边界</strong>
-              <span>{{ formatOptional(profile?.tone) }}；具体事实仍以知识库为准。</span>
-            </div>
-            <div>
-              <strong>事实边界提醒</strong>
-              <span>参数、认证、价格、效果承诺必须来自知识库或任务输入。</span>
-            </div>
-            <div>
-              <strong>禁止表达</strong>
-              <span>{{
-                profile?.forbiddenClaims.length ? profile.forbiddenClaims.join("、") : "--"
-              }}</span>
-            </div>
-          </div>
-        </el-card>
-      </div>
+          </el-card>
+        </div>
+      </details>
     </section>
 
     <section class="settings-section">
@@ -922,81 +882,30 @@ watch(
     <section class="settings-section settings-section--secondary">
       <div class="settings-section__header">
         <div>
-          <p class="section-kicker">帮助与边界</p>
-          <h2>说明与入口</h2>
-          <span>低频说明保留在底部，不影响产品线和 Provider 维护。</span>
+          <p class="section-kicker">系统信息与帮助</p>
+          <h2>低频系统信息</h2>
+          <span>当前身份、运行环境和帮助入口保留在底部，不占用主操作区域。</span>
         </div>
       </div>
 
-      <div class="settings-grid">
-        <el-card shadow="never" class="settings-panel settings-panel--muted">
-          <template #header>
-            <div class="settings-card-header">
-              <div>
-                <p class="section-kicker">用户与权限</p>
-                <h2>当前登录身份</h2>
-                <span>复用现有登录鉴权，不新增角色或密钥管理。</span>
-              </div>
-            </div>
-          </template>
-          <div class="settings-info-grid settings-info-grid--single">
+      <el-card shadow="never" class="settings-panel settings-panel--muted settings-panel--wide">
+        <template #header>
+          <div class="settings-card-header">
             <div>
-              <span>当前用户</span>
-              <strong>{{ currentUser?.name ?? "--" }}</strong>
-            </div>
-            <div>
-              <span>邮箱</span>
-              <strong>{{ currentUser?.email ?? "--" }}</strong>
-            </div>
-            <div>
-              <span>角色</span>
-              <strong>{{ getRoleLabel(authStore.currentRole ?? currentUser?.role) }}</strong>
-            </div>
-            <div class="settings-info-grid__full">
-              <span>权限说明</span>
-              <strong>当前 MVP 复用既有登录鉴权；本页不新增用户、角色或审批配置。</strong>
+              <p class="section-kicker">System</p>
+              <h2>身份、版本与帮助入口</h2>
+              <span>复用现有登录鉴权，不新增角色、密钥管理或帮助页路由。</span>
             </div>
           </div>
-        </el-card>
-
-        <el-card shadow="never" class="settings-panel settings-panel--muted">
-          <template #header>
-            <div class="settings-card-header">
-              <div>
-                <p class="section-kicker">系统信息</p>
-                <h2>版本、帮助和边界入口</h2>
-                <span>能力说明和 SOP 集中放到使用教程，设置页只保留入口。</span>
-              </div>
-            </div>
-          </template>
-          <div class="settings-info-grid settings-info-grid--single">
-            <div v-for="item in systemInfoItems" :key="item.label">
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </div>
-            <div class="settings-link-row">
-              <router-link to="/help">查看使用教程</router-link>
-              <router-link to="/geo-reports">查看 GEO 报表</router-link>
-            </div>
+        </template>
+        <div class="settings-info-grid settings-info-grid--system">
+          <div v-for="item in systemInfoItems" :key="item.label">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
           </div>
-        </el-card>
-      </div>
-    </section>
-
-    <section class="settings-section settings-section--maintenance settings-section--secondary">
-      <div class="settings-section__header">
-        <div>
-          <p class="section-kicker">数据维护 / 风险操作</p>
-          <h2>本地验收数据与后续清理</h2>
-          <span>维护类说明放在底部，当前不提供删除、备份或清理按钮。</span>
-        </div>
-      </div>
-
-      <el-card shadow="never" class="settings-panel settings-panel--wide">
-        <div class="settings-boundary-list settings-boundary-list--maintenance">
-          <div v-for="item in dataMaintenanceItems" :key="item.title">
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.text }}</span>
+          <div class="settings-link-row settings-info-grid__full">
+            <router-link to="/help">查看使用教程</router-link>
+            <router-link to="/geo-reports">查看 GEO 报表</router-link>
           </div>
         </div>
       </el-card>
