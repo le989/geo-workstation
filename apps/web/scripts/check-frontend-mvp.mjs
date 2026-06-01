@@ -1,7 +1,9 @@
 /* global fetch, setTimeout, URL, WebSocket */
-import { access, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { createServer as createNetServer } from "node:net";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -12,9 +14,17 @@ const port = Number(process.env.FRONTEND_MVP_PORT || 5174);
 const stubApiPort = Number(process.env.FRONTEND_MVP_API_PORT || port + 2000);
 const baseUrl = process.env.FRONTEND_BASE_URL || `http://127.0.0.1:${port}`;
 const stubApiBaseUrl = `http://127.0.0.1:${stubApiPort}`;
-const chromePath =
-  process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || stubApiBaseUrl;
+const chromeStartTimeoutMs = Number(process.env.FRONTEND_MVP_CHROME_TIMEOUT_MS || 30000);
+const chromeStartAttempts = Math.max(1, Number(process.env.FRONTEND_MVP_CHROME_ATTEMPTS || 3));
+const shouldRunChromeHeadful = process.env.MVP_TEST_HEADFUL === "1";
+const chromeCandidatePaths = [
+  process.env.CHROME_BIN,
+  process.env.CHROME_PATH,
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+  "/Applications/Chromium.app/Contents/MacOS/Chromium"
+].filter(Boolean);
 
 const requiredFiles = [
   "docs/frontend/frontend-mvp-guide.md",
@@ -37,15 +47,15 @@ const requiredFiles = [
 ];
 
 const routeChecks = [
-  ["/", "让 AI 搜索看见你"],
+  ["/", "企业 AI 搜索曝光与内容运营中枢"],
   ["/dashboard", "工作台"],
   ["/geo-analysis", "GEO 诊断"],
   ["/geo-prompts", "提示词库"],
   ["/expansion", "AI 拓词"],
   ["/knowledge-bases", "知识库"],
   ["/instruction-templates", "指令库"],
-  ["/geo-content", "GEO 内容生成"],
-  ["/content-tasks", "GEO 内容生成"],
+  ["/geo-content", "发布文章工作台"],
+  ["/content-tasks", "发布文章工作台"],
   ["/model-inclusion-records", "AI 模型覆盖记录"],
   ["/geo-reports", "GEO 报表"],
   ["/reports", "GEO 报表"],
@@ -92,6 +102,64 @@ const requiredAftersalesKbLoopSnippets = [
 const assert = (condition, message) => {
   if (!condition) {
     throw new Error(message);
+  }
+};
+
+const sleep = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+const fileExists = async (filePath) => {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const resolveChromePath = async () => {
+  for (const candidatePath of chromeCandidatePaths) {
+    if (await fileExists(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  throw new Error(
+    `Chrome executable not found. Tried: ${chromeCandidatePaths.join(", ")}. You can set CHROME_BIN or CHROME_PATH for test:mvp.`
+  );
+};
+
+const getAvailablePort = async () =>
+  new Promise((resolve, reject) => {
+    const server = createNetServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => {
+        if (address && typeof address === "object") {
+          resolve(address.port);
+        } else {
+          reject(new Error("Unable to allocate a local Chrome debugging port"));
+        }
+      });
+    });
+  });
+
+const fetchJson = async (url) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`${url} responded with HTTP ${response.status}`);
+  }
+  return response.json();
+};
+
+const removeDirectoryBestEffort = async (directoryPath) => {
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    try {
+      await rm(directoryPath, { force: true, recursive: true });
+      return;
+    } catch {
+      await sleep(250);
+    }
   }
 };
 
@@ -235,41 +303,97 @@ const startVite = async () => {
 };
 
 const startChrome = async () => {
-  const debuggingPort = port + 1000;
-  const child = spawn(
-    chromePath,
-    [
-      "--headless=new",
+  const resolvedChromePath = await resolveChromePath();
+  const attemptSummaries = [];
+
+  for (let attempt = 1; attempt <= chromeStartAttempts; attempt += 1) {
+    const debuggingPort = await getAvailablePort();
+    const userDataDir = await mkdtemp(path.join(tmpdir(), "geo-workstation-mvp-chrome-"));
+    const chromeArgs = [
+      ...(shouldRunChromeHeadful ? [] : ["--headless=new"]),
       "--disable-gpu",
+      "--disable-background-networking",
+      "--disable-extensions",
+      "--disable-popup-blocking",
+      "--disable-sync",
+      "--disable-dev-shm-usage",
+      "--enable-automation",
       "--no-first-run",
       "--no-default-browser-check",
-      `--user-data-dir=/tmp/geo-frontend-mvp-chrome-${Date.now()}`,
+      `--user-data-dir=${userDataDir}`,
+      "--remote-debugging-address=127.0.0.1",
       `--remote-debugging-port=${debuggingPort}`,
       "--window-size=1440,1200",
-      `${baseUrl}/dashboard`
-    ],
-    {
-      stdio: "ignore"
-    }
-  );
+      "about:blank"
+    ];
+    const stderrChunks = [];
+    let chromeExit = null;
+    const child = spawn(resolvedChromePath, chromeArgs, { stdio: ["ignore", "ignore", "pipe"] });
 
-  const pagesUrl = `http://127.0.0.1:${debuggingPort}/json/list`;
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < 15000) {
+    child.stderr?.on("data", (chunk) => {
+      stderrChunks.push(chunk.toString());
+    });
+    child.on("exit", (code, signal) => {
+      chromeExit = { code, signal };
+    });
+
+    const stopChrome = async () => {
+      child.kill("SIGTERM");
+      // 按本次独立用户目录兜底清理 Chrome 进程，避免残留测试浏览器。
+      await runCommand("pkill", ["-f", userDataDir]).catch(() => undefined);
+      await removeDirectoryBestEffort(userDataDir);
+    };
+
     try {
-      const pages = await fetch(pagesUrl).then((response) => response.json());
-      const page = pages.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
-      if (page) {
-        return { child, wsUrl: page.webSocketDebuggerUrl };
+      const startedAt = Date.now();
+      const versionUrl = `http://127.0.0.1:${debuggingPort}/json/version`;
+      const pagesUrl = `http://127.0.0.1:${debuggingPort}/json/list`;
+      let lastError = "";
+
+      while (Date.now() - startedAt < chromeStartTimeoutMs) {
+        if (chromeExit) {
+          throw new Error(
+            `Chrome exited before DevTools endpoint became available. code=${chromeExit.code ?? "null"} signal=${chromeExit.signal ?? "null"}`
+          );
+        }
+
+        try {
+          await fetchJson(versionUrl);
+          const pages = await fetchJson(pagesUrl);
+          const page = pages.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
+          if (page) {
+            return { close: stopChrome, wsUrl: page.webSocketDebuggerUrl };
+          }
+          lastError = `DevTools endpoint is up, but no page target was found on ${pagesUrl}`;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+        await sleep(300);
       }
-    } catch {
-      // keep waiting
+
+      throw new Error(lastError || "DevTools endpoint did not become ready");
+    } catch (error) {
+      const stderrSummary = stderrChunks.join("").trim().slice(-1200);
+      attemptSummaries.push(
+        [
+          `attempt=${attempt}`,
+          `chrome=${resolvedChromePath}`,
+          `port=${debuggingPort}`,
+          `userDataDir=${userDataDir}`,
+          `mode=${shouldRunChromeHeadful ? "headful" : "headless"}`,
+          `reason=${error instanceof Error ? error.message : String(error)}`,
+          stderrSummary ? `stderr=${stderrSummary}` : ""
+        ]
+          .filter(Boolean)
+          .join(" | ")
+      );
+      await stopChrome();
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  child.kill("SIGTERM");
-  throw new Error("Timed out waiting for Chrome DevTools endpoint");
+  throw new Error(
+    `Timed out waiting for Chrome DevTools endpoint after ${chromeStartAttempts} attempt(s).\n${attemptSummaries.join("\n")}`
+  );
 };
 
 const connectCdp = (url) =>
@@ -348,10 +472,29 @@ const waitForBodyText = async (client, predicate, timeoutMs = 8000) => {
   return text;
 };
 
+const readCurrentUrl = async (client) => {
+  const result = await client.send("Runtime.evaluate", {
+    expression: "window.location.href",
+    returnByValue: true
+  });
+  return result.result.value || "";
+};
+
 const clearAuthSession = async (client) => {
   await client.send("Runtime.evaluate", {
     expression:
-      "localStorage.removeItem('geo-workstation.auth-token'); localStorage.removeItem('geo-workstation.auth-user');",
+      `
+        localStorage.removeItem('geo-workstation.auth-token');
+        localStorage.removeItem('geo-workstation.auth-user');
+        localStorage.removeItem('geo-workstation.auth-current-company-id');
+        sessionStorage.clear();
+        document.cookie.split(';').forEach((cookie) => {
+          const name = cookie.split('=')[0]?.trim();
+          if (name) {
+            document.cookie = name + '=; Max-Age=0; path=/';
+          }
+        });
+      `,
     returnByValue: true
   });
 };
@@ -406,11 +549,15 @@ try {
   await client.send("Page.navigate", { url: `${baseUrl}/dashboard` });
   const unauthenticatedText = await waitForBodyText(
     client,
-    (text) => text.includes("内部访问控制") && text.includes("登录")
+    (text) => text.includes("登录 GEO 工作站") && text.includes("欢迎回来")
   );
+  const unauthenticatedUrl = await readCurrentUrl(client);
+  const unauthenticatedPath = new URL(unauthenticatedUrl).pathname;
   assert(
-    unauthenticatedText.includes("内部访问控制") && unauthenticatedText.includes("登录"),
-    "Unauthenticated /dashboard visit must redirect to /login"
+    unauthenticatedPath === "/login" &&
+      unauthenticatedText.includes("登录 GEO 工作站") &&
+      unauthenticatedText.includes("欢迎回来"),
+    `Unauthenticated /dashboard visit must enter the login page. Current URL: ${unauthenticatedUrl}. Text sample: ${unauthenticatedText.slice(0, 400)}`
   );
   assert(
     unauthenticatedText.includes("邮箱") && unauthenticatedText.includes("密码"),
@@ -451,7 +598,7 @@ try {
 
   client.close();
 } finally {
-  chrome?.child.kill("SIGTERM");
+  await chrome?.close();
   vite.kill("SIGTERM");
   stubApi?.close();
 }
