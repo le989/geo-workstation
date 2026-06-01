@@ -221,9 +221,9 @@ export const navigationItems: GeoPageMeta[] = [
     label: "使用教程",
     title: "使用教程",
     question: "新项目、日常生产和交接演示应该按什么流程走？",
-    description: "查看 GEO 工作站的快速开始、日常 SOP、功能说明和版本更新记录。",
+    description: "查看 GEO 工作站的快速开始、日常 SOP、功能说明和操作边界。",
     phaseNote: "本页只整理前端帮助文档和说明，不新增后端 API、不修改数据模型或业务字段。",
-    nextSteps: ["查看快速开始", "按 SOP 跑通日常流程", "对照版本记录做交接说明"],
+    nextSteps: ["查看快速开始", "按 SOP 跑通日常流程", "对照操作说明做交接"],
     apiFocus: "前端静态帮助页面，不调用后端业务 API",
     icon: Guide,
     allowedRoles: allRoles

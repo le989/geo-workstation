@@ -124,11 +124,6 @@ export const hitLevelTypeMap = Object.fromEntries(
   hitLevelOptions.map((item) => [item.value, item.type ?? "info"])
 ) as Record<GeoHitLevel, string>;
 
-export const formatBooleanLabel = (
-  value: boolean,
-  labels: { trueLabel: string; falseLabel: string }
-) => (value ? labels.trueLabel : labels.falseLabel);
-
 export const formatRate = (value?: number) => {
   if (value === undefined || Number.isNaN(value)) {
     return "--";
@@ -166,31 +161,4 @@ export const truncateSummary = (value?: string, maxLength = 110) => {
   }
 
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
-};
-
-export const parseBooleanLike = (value: unknown): boolean | undefined => {
-  if (typeof value === "boolean") {
-    return value;
-  }
-
-  if (typeof value === "number") {
-    if (value === 1) {
-      return true;
-    }
-    if (value === 0) {
-      return false;
-    }
-  }
-
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "1", "yes", "y", "是"].includes(normalized)) {
-      return true;
-    }
-    if (["false", "0", "no", "n", "否"].includes(normalized)) {
-      return false;
-    }
-  }
-
-  return undefined;
 };

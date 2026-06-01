@@ -48,7 +48,7 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 - 前端 MVP 使用指南：`docs/frontend/frontend-mvp-guide.md`
 - 使用教程文档：`docs/help/user-guide.md`
 - 常用 SOP：`docs/help/sop.md`
-- 版本更新记录：`docs/help/changelog.md`
+- 内部版本记录：`docs/help/changelog.md`
 - 内部演示指南：`docs/demo/internal-demo-guide.md`
 - MVP 功能清单：`docs/demo/mvp-feature-checklist.md`
 - 演示数据说明：`docs/demo/demo-data-notes.md`
@@ -77,7 +77,7 @@ GEO 工作站是一套 GEO 营销运营系统，用于围绕生成式 AI 搜索/
 
 - 使用教程：`docs/help/user-guide.md`
 - 常用 SOP：`docs/help/sop.md`
-- 版本更新记录：`docs/help/changelog.md`
+- 内部版本记录保留在：`docs/help/changelog.md`
 
 这些文档面向长期自用、内部演示和交接说明，不新增后端 API、不修改 Prisma schema，也不改变现有业务数据。
 
@@ -342,7 +342,7 @@ pnpm dev:api
 - `/geo-reports`：GEO 报表正式入口，支持总览、提示词覆盖、模型覆盖、GEO 命中汇总、内容覆盖、知识库覆盖、优化建议和 CSV 导出。GEO 命中汇总默认按每个提示词 + 平台 + 入口的最新检测结果统计，避免历史测试和重复检测干扰判断，并提供品牌提及率、品牌推荐率、平台对比、提示词矩阵和待优化清单。
 - `/reports`：GEO 报表历史兼容入口，指向同一页面。
 - `/settings`：系统设置，维护单项目档案、AI 接口配置边界和事实来源说明；不包含团队管理、Provider Key 管理或复杂权限配置。
-- `/help`：使用教程，整理快速开始、日常 SOP、AI 拓词、知识库维护、内容质检、富文本发布稿和版本更新记录。
+- `/help`：使用教程，整理快速开始、日常 SOP、AI 拓词、知识库维护、内容质检、富文本发布稿和操作边界。
 
 完整前端使用说明见 `docs/frontend/frontend-mvp-guide.md`；日常教程和交接说明见 `docs/help/user-guide.md`。
 

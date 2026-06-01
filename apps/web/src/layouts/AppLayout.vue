@@ -132,7 +132,7 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
   },
   "/help": {
     title: "使用教程",
-    subtitle: "查看 SOP、版本说明和操作指南"
+    subtitle: "查看 SOP、帮助中心和操作指南"
   },
   "/403": {
     title: "无权访问",
