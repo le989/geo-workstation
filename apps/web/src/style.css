@@ -7433,6 +7433,59 @@ a {
   opacity: 0.92;
 }
 
+.settings-advanced-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--geo-shadow-sm);
+}
+
+.settings-advanced-panel__summary {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-advanced-panel__summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-advanced-panel__summary h2 {
+  margin: 4px 0;
+  color: var(--geo-ink);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.settings-advanced-panel__summary span {
+  display: block;
+  color: var(--geo-muted);
+  line-height: 1.6;
+}
+
+.settings-advanced-panel__meta {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  align-items: center;
+  color: var(--geo-muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.settings-advanced-panel > .settings-panel,
+.settings-advanced-panel > .settings-grid {
+  border-top: 1px solid var(--geo-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .settings-overview-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -7528,6 +7581,10 @@ a {
   grid-template-columns: 1fr;
 }
 
+.settings-info-grid--system {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .settings-info-grid div,
 .settings-provider-row {
   min-width: 0;
@@ -7580,6 +7637,24 @@ a {
 
 .settings-boundary-list--compact div {
   padding: 12px;
+}
+
+.settings-profile-summary {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--geo-border);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.settings-profile-summary strong {
+  color: var(--geo-ink);
+}
+
+.settings-profile-summary span {
+  color: var(--geo-muted);
+  line-height: 1.7;
 }
 
 .settings-provider-list {
@@ -8493,6 +8568,7 @@ a {
   .report-inline-note,
   .report-tab-toolbar,
   .settings-section__header,
+  .settings-advanced-panel__summary,
   .settings-hero,
   .settings-hero__copy,
   .help-hero,
