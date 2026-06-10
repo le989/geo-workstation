@@ -311,11 +311,126 @@ const assistantStatusCard = computed(() => {
   };
 });
 
+type AiCitationCheckStatus = "ready" | "suggest" | "confirm";
+
+type AiCitationCheckItem = {
+  label: string;
+  status: AiCitationCheckStatus;
+};
+
+const aiCitationStatusLabelMap: Record<AiCitationCheckStatus, string> = {
+  confirm: "需人工确认",
+  ready: "已具备",
+  suggest: "建议补充"
+};
+
+const aiCitationStatusTypeMap: Record<AiCitationCheckStatus, "success" | "warning" | "info"> = {
+  confirm: "info",
+  ready: "success",
+  suggest: "warning"
+};
+
+const articleCitationCheckText = computed(() =>
+  normalizeCitationCheckText(primaryArticlePreviewMarkdown.value || primaryArticleItem.value?.body || "")
+);
+
+const hasSelectedKnowledgeFileScope = computed(
+  () =>
+    props.detail?.task.knowledgeScope?.type === "selected_files" &&
+    props.detail.task.knowledgeScope.selectedKnowledgeFileIds.length > 0
+);
+
+const hasCitationEvidence = computed(
+  () =>
+    Boolean(primaryArticleItem.value?.publishPackage?.evidence.length) ||
+    getAssistantEvidenceNames().length > 0 ||
+    hasSelectedKnowledgeFileScope.value
+);
+
+const aiCitationCheckItems = computed<AiCitationCheckItem[]>(() => {
+  const text = articleCitationCheckText.value;
+  const firstParagraph = getFirstReadableParagraph(text);
+  const qualityGate = primaryQualityGateResult.value;
+  const publishPackage = primaryArticleItem.value?.publishPackage;
+  const hasBrandExpressionRisk = qualityGate?.riskItems.some(
+    (risk) => risk.type === "brand_expression"
+  );
+  const hasRiskPrompt =
+    Boolean(qualityGate?.riskItems.length) ||
+    Boolean(qualityGate?.manualReviewItems.length) ||
+    Boolean(publishPackage?.riskTips.length) ||
+    Boolean(publishPackage?.manualCheckItems.length) ||
+    /注意|风险|避坑|避免|不建议|不适合|需要确认|以实际工况为准|需结合.*确认/.test(text);
+
+  // 这些检查只做发布前结构自查，不保存结果，也不影响原有发布流程。
+  return [
+    {
+      label: "首段直接回答核心问题",
+      status:
+        firstParagraph.length >= 24 &&
+        firstParagraph.length <= 220 &&
+        /适合|主要用于|可以用于|可用于|需要关注|选型时|建议|适用/.test(firstParagraph)
+          ? "ready"
+          : "suggest"
+    },
+    {
+      label: "包含 FAQ 问答块",
+      status:
+        Boolean(publishPackage?.faqs.length) || /FAQ|常见问题|问[:：]|Q[:：]/i.test(text)
+          ? "ready"
+          : "suggest"
+    },
+    {
+      label: "包含适用场景",
+      status: /适用场景|应用场景|适合用于|可用于|场景|工况/.test(text) ? "ready" : "suggest"
+    },
+    {
+      label: "包含选型参数 / 参数解释",
+      status: /量程|精度|分辨率|输出|响应时间|防护等级|安装距离|参数|选型/.test(text)
+        ? "ready"
+        : "suggest"
+    },
+    {
+      label: "包含风险 / 避坑提醒",
+      status: hasRiskPrompt ? "ready" : "suggest"
+    },
+    {
+      label: "品牌表达自然",
+      status: !qualityGate || hasBrandExpressionRisk ? "confirm" : "ready"
+    },
+    {
+      label: "包含可摘取结论句",
+      status: /因此|总体来看|综上|选型时建议|可以优先考虑|更适合|建议优先|结论/.test(text)
+        ? "ready"
+        : "suggest"
+    },
+    {
+      label: "包含资料依据",
+      status: hasCitationEvidence.value ? "ready" : "suggest"
+    }
+  ];
+});
+
 const getContentPreview = (body: string, maxLength = 360) => {
   const normalized = getDisplayContentText(body).replace(/\s+/g, " ").trim();
 
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
 };
+
+const normalizeCitationCheckText = (value: string) =>
+  getDisplayContentText(value).replace(/\r\n?/g, "\n").trim();
+
+const getFirstReadableParagraph = (value: string) =>
+  normalizeCitationCheckText(value)
+    .split("\n")
+    .map((line) => line.trim())
+    .find(
+      (line) =>
+        line.length > 0 &&
+        !/^#{1,6}\s+/.test(line) &&
+        !/^[-*]\s+/.test(line) &&
+        !/^\d+[.)、]\s+/.test(line)
+    ) ?? "";
 
 const isTechnicalTaskName = (value: string) =>
   /\b(phase|smoke|mock|debug|test|batch)\b|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(value);
@@ -605,6 +720,8 @@ const getQualityLevelLabel = (level: string) => qualityLevelLabelMap[level] ?? l
 const getQualityLevelType = (level: string) => qualityLevelTagMap[level] ?? "info";
 const getContentItemStatusLabel = (status: string) => contentItemStatusLabelMap[status] ?? status;
 const getContentItemStatusType = (status: string) => contentItemStatusTypeMap[status] ?? "info";
+const getAiCitationStatusLabel = (status: AiCitationCheckStatus) => aiCitationStatusLabelMap[status];
+const getAiCitationStatusType = (status: AiCitationCheckStatus) => aiCitationStatusTypeMap[status];
 const getPublishStatusLabel = (status?: PublishStatus) =>
   status ? (publishStatusLabelMap[status] ?? status) : "未检查";
 const getPublishStatusType = (status?: PublishStatus) =>
@@ -847,6 +964,31 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
               </template>
               <el-button v-else @click="close">返回列表</el-button>
             </div>
+          </section>
+
+          <section class="assistant-simple-section assistant-citation-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">GEO 结构自查</p>
+                <h3>AI 引用友好检查</h3>
+                <p>用于发布前辅助判断文章是否便于 AI 摘取、理解、引用和推荐，不替代人工审核。</p>
+              </div>
+            </div>
+            <div class="assistant-citation-check-list">
+              <div
+                v-for="item in aiCitationCheckItems"
+                :key="item.label"
+                class="assistant-citation-check-item"
+              >
+                <span>{{ item.label }}</span>
+                <el-tag :type="getAiCitationStatusType(item.status)" effect="plain">
+                  {{ getAiCitationStatusLabel(item.status) }}
+                </el-tag>
+              </div>
+            </div>
+            <p class="assistant-citation-note">
+              仅作为发布前 GEO 结构自查，最终仍需结合资料依据和人工判断。
+            </p>
           </section>
 
           <section ref="articleBodyRef" class="assistant-article-panel">
@@ -1873,6 +2015,43 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
   font-size: 16px;
 }
 
+.assistant-citation-card {
+  background: #fbfdff;
+}
+
+.assistant-citation-check-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.assistant-citation-check-item {
+  align-items: center;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #ffffff;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.assistant-citation-check-item span {
+  color: #344054;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.assistant-citation-note {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
+
 .assistant-simple-section h4 {
   color: #101828;
   margin: 10px 0 6px;
@@ -2510,6 +2689,7 @@ const handleFormatPublish = (item: ContentItem, payload: FormatContentItemForPub
 @media (max-width: 900px) {
   .assistant-status-card,
   .assistant-check-grid,
+  .assistant-citation-check-list,
   .assistant-status-actions {
     grid-template-columns: 1fr;
   }
