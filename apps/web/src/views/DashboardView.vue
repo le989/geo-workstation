@@ -38,6 +38,15 @@ type DashboardListItem = {
   to: string;
 };
 
+type DashboardDecisionCard = {
+  label: string;
+  title: string;
+  description: string;
+  action: string;
+  to: string;
+  tone: DashboardTone;
+};
+
 const authStore = useAuthStore();
 const overview = ref<GeoOverviewReport | null>(null);
 const suggestions = ref<OptimizationSuggestion[]>([]);
@@ -45,7 +54,6 @@ const loading = ref(false);
 const overviewError = ref("");
 const suggestionsError = ref("");
 const lastLoadedAt = ref("");
-const selectedRange = ref("近 30 天");
 
 const emptyOverview: GeoOverviewReport = {
   basePromptCount: 0,
@@ -128,6 +136,14 @@ const getErrorMessage = (error: unknown) => {
   return "后端未连接，可先启动 API 服务。";
 };
 
+const getMissRate = () => {
+  if (report.value.modelInclusionRecordCount <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, 1 - (report.value.brandMentionRate ?? 0));
+};
+
 const loadDashboard = async () => {
   loading.value = true;
   overviewError.value = "";
@@ -172,43 +188,6 @@ watch(
   }
 );
 
-const visibilityMetrics = computed(() => [
-  {
-    label: "品牌提及率",
-    value: formatPercent(report.value.brandMentionRate),
-    description: `${formatNumber(report.value.brandMentionedCount)} 条记录提及品牌`,
-    percent: getPercentValue(report.value.brandMentionRate),
-    to: "/geo-reports",
-    tone: "good" as DashboardTone
-  },
-  {
-    label: "品牌推荐率",
-    value: formatPercent(report.value.brandRecommendRate),
-    description: `${formatNumber(report.value.brandRecommendedCount)} 条记录推荐品牌`,
-    percent: getPercentValue(report.value.brandRecommendRate),
-    to: "/geo-reports",
-    tone: report.value.brandRecommendRate > 0 ? ("good" as DashboardTone) : ("warning" as DashboardTone)
-  },
-  {
-    label: "官网引用率",
-    value: formatPercent(report.value.citedOfficialSiteRate),
-    description: `${formatNumber(report.value.citedOfficialSiteCount)} 条记录引用官网`,
-    percent: getPercentValue(report.value.citedOfficialSiteRate),
-    to: "/model-inclusion-records",
-    tone: "default" as DashboardTone
-  },
-  {
-    label: "未覆盖问题",
-    value: formatNumber(report.value.uncoveredTrackedPromptCount),
-    description: `${formatNumber(report.value.trackedPromptCount)} 个追踪词中的待补项`,
-    percent: report.value.trackedPromptCount
-      ? (report.value.uncoveredTrackedPromptCount / report.value.trackedPromptCount) * 100
-      : 0,
-    to: "/model-inclusion-records",
-    tone: getCountTone(report.value.uncoveredTrackedPromptCount)
-  }
-]);
-
 const secondaryMetrics = computed(() => [
   {
     label: "GEO 提示词",
@@ -236,45 +215,6 @@ const secondaryMetrics = computed(() => [
     value: formatNumber(report.value.modelInclusionRecordCount),
     description: `竞品提及率 ${formatPercent(report.value.competitorMentionRate)}`,
     to: "/model-inclusion-records"
-  }
-]);
-
-const todayTasks = computed<DashboardTask[]>(() => [
-  {
-    title: "待补检测词",
-    count: formatNumber(report.value.uncoveredTrackedPromptCount),
-    description: "优先补高优先级追踪词的模型覆盖记录。",
-    status: report.value.uncoveredTrackedPromptCount > 0 ? "需处理" : "相对完整",
-    to: "/model-inclusion-records",
-    tone: getCountTone(report.value.uncoveredTrackedPromptCount),
-    icon: TrendCharts
-  },
-  {
-    title: "待审核资料",
-    count: "暂无数据",
-    description: "待接入资料审核统计。",
-    status: "当前总览接口未提供",
-    to: "/knowledge-bases",
-    tone: "muted",
-    icon: Files
-  },
-  {
-    title: "待优化内容",
-    count: formatNumber(report.value.failedContentTaskCount),
-    description: "失败或需复盘的内容任务应先处理。",
-    status: report.value.failedContentTaskCount > 0 ? "需处理" : "暂无失败",
-    to: "/geo-content",
-    tone: report.value.failedContentTaskCount > 0 ? "danger" : "default",
-    icon: EditPen
-  },
-  {
-    title: "售后反馈",
-    count: "暂无数据",
-    description: "待接入售后反馈统计。",
-    status: "当前总览接口未提供",
-    to: "/aftersales-qa",
-    tone: "muted",
-    icon: ChatDotRound
   }
 ]);
 
@@ -407,6 +347,209 @@ const knowledgeGapItems = computed<DashboardListItem[]>(() =>
     }))
 );
 
+const contentGapCount = computed(
+  () =>
+    groupedSuggestionPreview.value.filter((item) =>
+      ["prompt_without_content", "prompt_not_mentioned"].includes(item.type)
+    ).length
+);
+
+const visibilityMetrics = computed(() => [
+  {
+    label: "品牌推荐率",
+    value: formatPercent(report.value.brandRecommendRate),
+    badge: "smoke 实数",
+    description: `${formatNumber(report.value.brandRecommendedCount)} 条记录推荐品牌`,
+    percent: getPercentValue(report.value.brandRecommendRate),
+    to: "/geo-reports",
+    tone: report.value.brandRecommendRate > 0 ? ("good" as DashboardTone) : ("warning" as DashboardTone)
+  },
+  {
+    label: "品牌提及率",
+    value: formatPercent(report.value.brandMentionRate),
+    badge: "smoke 实数",
+    description: `${formatNumber(report.value.brandMentionedCount)} 条记录提及品牌`,
+    percent: getPercentValue(report.value.brandMentionRate),
+    to: "/geo-reports",
+    tone: "good" as DashboardTone
+  },
+  {
+    label: "官网引用率",
+    value: formatPercent(report.value.citedOfficialSiteRate),
+    badge: "smoke 实数",
+    description: `${formatNumber(report.value.citedOfficialSiteCount)} 条记录引用官网`,
+    percent: getPercentValue(report.value.citedOfficialSiteRate),
+    to: "/model-inclusion-records",
+    tone: "default" as DashboardTone
+  },
+  {
+    label: "未命中率",
+    value: formatPercent(getMissRate()),
+    badge: "前端换算",
+    description: `${formatNumber(Math.max(0, report.value.modelInclusionRecordCount - report.value.brandMentionedCount))} 条记录未提及品牌`,
+    percent: getPercentValue(getMissRate()),
+    to: "/model-inclusion-records",
+    tone: getMissRate() > 0 ? ("warning" as DashboardTone) : ("default" as DashboardTone)
+  },
+  {
+    label: "竞品占位率",
+    value: formatPercent(report.value.competitorMentionRate),
+    badge: "smoke 实数",
+    description: `${formatNumber(report.value.competitorMentionedCount)} 条记录出现竞品`,
+    percent: getPercentValue(report.value.competitorMentionRate),
+    to: "/model-inclusion-records",
+    tone: getCountTone(report.value.competitorMentionedCount)
+  },
+  {
+    label: "待补救问题",
+    value: formatNumber(
+      report.value.uncoveredTrackedPromptCount +
+        knowledgeGapItems.value.length +
+        contentGapCount.value +
+        report.value.failedContentTaskCount
+    ),
+    badge: "前端汇总",
+    description: "汇总待补问法、证据、文章和复盘项",
+    percent: Math.min(
+      100,
+      (report.value.uncoveredTrackedPromptCount +
+        knowledgeGapItems.value.length +
+        contentGapCount.value +
+        report.value.failedContentTaskCount) *
+        20
+    ),
+    to: "/model-inclusion-records",
+    tone: getCountTone(
+      report.value.uncoveredTrackedPromptCount +
+        knowledgeGapItems.value.length +
+        contentGapCount.value +
+        report.value.failedContentTaskCount
+    )
+  }
+]);
+
+const getPrimaryRecoveryAction = () => {
+  if (report.value.uncoveredTrackedPromptCount > 0) {
+    return {
+      title: "先复盘模型覆盖",
+      description: "有追踪问法还缺检测记录，先补模型覆盖结果，再判断补问法、证据或文章。",
+      action: "去模型覆盖记录",
+      to: "/model-inclusion-records"
+    };
+  }
+
+  if (knowledgeGapItems.value.length > 0) {
+    return {
+      title: "先补知识库证据",
+      description: "当前建议里已有知识库缺口，优先补产品参数、场景、案例等可引用资料。",
+      action: "去知识库",
+      to: "/knowledge-bases"
+    };
+  }
+
+  if (contentGapCount.value > 0 || report.value.failedContentTaskCount > 0) {
+    return {
+      title: "先补发布文章",
+      description: "已有问法或内容任务需要补内容资产，优先处理 AI 引用友好度和发布稿。",
+      action: "去发布文章",
+      to: "/geo-content"
+    };
+  }
+
+  return {
+    title: "继续补真实问法",
+    description: "当前没有明显阻断项，可以从用户真实问法和拓词候选继续扩展覆盖面。",
+    action: "去提示词库",
+    to: "/geo-prompts"
+  };
+};
+
+// Dashboard 只基于现有总览字段给出方向，不伪造模型级明细或正式线上结论。
+const visibilityDecisionCards = computed<DashboardDecisionCard[]>(() => {
+  const recommendedCount = report.value.brandRecommendedCount;
+  const recordCount = report.value.modelInclusionRecordCount;
+  const competitorCount = report.value.competitorMentionedCount;
+  const primaryAction = getPrimaryRecoveryAction();
+
+  return [
+    {
+      label: "AI 有没有推荐我",
+      title: recommendedCount > 0 ? "已有推荐记录" : "暂无推荐记录",
+      description: `当前 ${formatNumber(recommendedCount)} / ${formatNumber(recordCount)} 条覆盖记录推荐品牌。`,
+      action: "查看推荐记录",
+      to: "/model-inclusion-records",
+      tone: recommendedCount > 0 ? "good" : "warning"
+    },
+    {
+      label: "哪些模型推荐 / 没推荐",
+      title: recordCount > 0 ? "按模型筛选查看" : "先补检测记录",
+      description: "总览只展示整体结果；模型级明细请进入覆盖记录按模型、入口和问法筛选。",
+      action: "去覆盖记录",
+      to: "/model-inclusion-records",
+      tone: recordCount > 0 ? "default" : "muted"
+    },
+    {
+      label: "为什么没推荐",
+      title: competitorCount > 0 ? "优先看竞品占位" : "展开记录复盘",
+      description:
+        competitorCount > 0
+          ? `${formatNumber(competitorCount)} 条记录出现竞品，先看未推荐原因和建议补充方向。`
+          : "单条记录展开后可看未推荐原因复盘，判断缺问法、缺证据还是缺文章。",
+      action: "查看原因",
+      to: "/model-inclusion-records",
+      tone: competitorCount > 0 ? "warning" : "default"
+    },
+    {
+      label: "下一步该补什么",
+      title: primaryAction.title,
+      description: primaryAction.description,
+      action: primaryAction.action,
+      to: primaryAction.to,
+      tone: "good"
+    }
+  ];
+});
+
+const todayTasks = computed<DashboardTask[]>(() => [
+  {
+    title: "需补问法",
+    count: formatNumber(report.value.promptTotal),
+    description: "真实用户问题不足时，先去提示词库或 AI 拓词补问法。",
+    status: `${formatNumber(report.value.trackedPromptCount)} 个追踪中`,
+    to: "/geo-prompts",
+    tone: report.value.promptTotal > 0 ? "default" : "warning",
+    icon: ChatDotRound
+  },
+  {
+    title: "需补证据",
+    count: formatNumber(knowledgeGapItems.value.length),
+    description: "资料不足时，先补产品参数、场景、案例和可引用证据。",
+    status: knowledgeGapItems.value.length > 0 ? "有缺口" : "看证据类型",
+    to: "/knowledge-bases",
+    tone: getCountTone(knowledgeGapItems.value.length),
+    icon: Files
+  },
+  {
+    title: "需补文章",
+    count: formatNumber(contentGapCount.value + report.value.failedContentTaskCount),
+    description: "内容不足时，优先处理发布稿和 AI 引用友好检查。",
+    status: contentGapCount.value + report.value.failedContentTaskCount > 0 ? "需处理" : "暂无阻断",
+    to: "/geo-content",
+    tone:
+      contentGapCount.value + report.value.failedContentTaskCount > 0 ? "warning" : "default",
+    icon: EditPen
+  },
+  {
+    title: "需复盘模型",
+    count: formatNumber(report.value.uncoveredTrackedPromptCount),
+    description: "未推荐或未命中时，展开覆盖记录看未推荐原因复盘。",
+    status: report.value.uncoveredTrackedPromptCount > 0 ? "需处理" : "相对完整",
+    to: "/model-inclusion-records",
+    tone: getCountTone(report.value.uncoveredTrackedPromptCount),
+    icon: TrendCharts
+  }
+]);
+
 const recentActivities = computed(() => [
   {
     time: "当前",
@@ -434,19 +577,32 @@ const recentActivities = computed(() => [
   }
 ]);
 
-const modelCoverageDistribution = [
-  { label: "豆包", value: 34, color: "#2563eb" },
-  { label: "通义", value: 26, color: "#0891b2" },
-  { label: "Kimi", value: 21, color: "#0d9488" },
-  { label: "DeepSeek", value: 12, color: "#059669" },
-  { label: "其他", value: 7, color: "#94a3b8" }
+const modelComparisonRows = [
+  { label: "豆包", mentioned: 72, recommended: 46, missed: 28 },
+  { label: "通义 / 千问", mentioned: 64, recommended: 38, missed: 36 },
+  { label: "Kimi", mentioned: 58, recommended: 31, missed: 42 }
 ];
 
-const contentStatusDistribution = [
-  { label: "可复制", value: 42, color: "#2563eb" },
-  { label: "需人工检查", value: 26, color: "#d97706" },
-  { label: "生成中", value: 18, color: "#0891b2" },
-  { label: "待处理", value: 14, color: "#64748b" }
+const reasonDistributionItems = [
+  { label: "证据不足", value: 28, color: "#2563eb", action: "补知识库证据" },
+  { label: "问法覆盖不足", value: 22, color: "#0891b2", action: "补真实问法" },
+  { label: "文章引用友好度不足", value: 18, color: "#0d9488", action: "优化发布文章" },
+  { label: "竞品占位", value: 14, color: "#d97706", action: "复盘竞品原因" },
+  { label: "官网引用弱", value: 10, color: "#64748b", action: "补官网可引用段落" },
+  { label: "模型未抓取", value: 8, color: "#94a3b8", action: "重新复测" }
+];
+
+const scenarioTags = [
+  { label: "粉尘", size: "large" },
+  { label: "水汽", size: "medium" },
+  { label: "激光测距", size: "large" },
+  { label: "料位", size: "medium" },
+  { label: "防撞", size: "medium" },
+  { label: "替代 ifm", size: "large" },
+  { label: "长距离检测", size: "medium" },
+  { label: "AGV", size: "small" },
+  { label: "反光物体", size: "small" },
+  { label: "输出方式", size: "medium" }
 ];
 </script>
 
@@ -455,14 +611,21 @@ const contentStatusDistribution = [
     <header class="dashboard-refresh-header">
       <div>
         <p>工作台</p>
-        <h1>AI 可见度驾驶舱：查看品牌表现与下一步动作</h1>
+        <h1>AI 可见度驾驶舱</h1>
+        <p class="dashboard-refresh-header-subtitle">
+          用于判断 GEO 运营下一步该补问法、补证据、补文章还是复盘模型覆盖。
+        </p>
         <span>{{ dashboardScopeText }}</span>
         <small class="dashboard-refresh-stage-note">
-          本地测试版使用 smoke 数据；标注为示例的趋势 / 分布仅用于页面走查，不代表正式结果。
+          本地测试版使用 smoke 数据，不代表正式线上结论。
         </small>
       </div>
       <div class="dashboard-refresh-header-actions">
-        <el-segmented v-model="selectedRange" :options="['近 7 天', '近 30 天']" />
+        <div class="dashboard-refresh-view-tags" aria-label="当前视图说明">
+          <span>当前公司</span>
+          <span>smoke 数据</span>
+          <span>非正式结论</span>
+        </div>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadDashboard">
           刷新
@@ -481,14 +644,31 @@ const contentStatusDistribution = [
       >
         <el-skeleton v-if="isInitialLoading" animated :rows="2" />
         <template v-else>
-          <span>{{ metric.label }}</span>
+          <div class="dashboard-refresh-kpi-label-row">
+            <span>{{ metric.label }}</span>
+            <small>{{ metric.badge }}</small>
+          </div>
           <strong>{{ metric.value }}</strong>
           <p>{{ metric.description }}</p>
           <div class="dashboard-refresh-kpi-progress" aria-hidden="true">
             <i :style="{ width: `${metric.percent}%` }" />
           </div>
-          <small>来自 GEO 总览接口</small>
+          <small>点击查看相关记录</small>
         </template>
+      </RouterLink>
+    </section>
+
+    <section class="dashboard-refresh-decision-grid" aria-label="AI 可见度判断">
+      <RouterLink
+        v-for="card in visibilityDecisionCards"
+        :key="card.label"
+        :to="card.to"
+        :class="['dashboard-refresh-decision-card', `dashboard-refresh-card--${card.tone}`]"
+      >
+        <span>{{ card.label }}</span>
+        <strong>{{ card.title }}</strong>
+        <p>{{ card.description }}</p>
+        <em>{{ card.action }}</em>
       </RouterLink>
     </section>
 
@@ -496,12 +676,12 @@ const contentStatusDistribution = [
       <article class="dashboard-refresh-panel dashboard-refresh-trend-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
-            <h2>品牌表现趋势</h2>
-            <p>本地测试版仅展示趋势图样式；真实趋势需后续接入周期数据。</p>
+            <h2>AI 可见度趋势</h2>
+            <p>展示推荐、提及、官网引用和未命中率的趋势样式；真实周期趋势待后续接入。</p>
           </div>
-          <el-tag effect="plain" type="info">测试示例</el-tag>
+          <el-tag effect="plain" type="info">smoke / 测试示例</el-tag>
         </div>
-        <svg viewBox="0 0 720 260" role="img" aria-label="品牌提及率、推荐率和官网引用率示例趋势图">
+        <svg viewBox="0 0 720 260" role="img" aria-label="AI 可见度示例趋势图">
           <path class="dashboard-refresh-grid-line" d="M36 42H690" />
           <path class="dashboard-refresh-grid-line" d="M36 96H690" />
           <path class="dashboard-refresh-grid-line" d="M36 150H690" />
@@ -514,6 +694,7 @@ const contentStatusDistribution = [
           <path class="dashboard-refresh-chart-line dashboard-refresh-chart-line--mention" d="M38 194C112 168 146 150 224 132C310 112 376 120 452 88C538 52 608 64 688 36" />
           <path class="dashboard-refresh-chart-line dashboard-refresh-chart-line--recommend" d="M38 214C120 198 160 178 230 166C312 150 386 132 464 106C540 78 606 88 688 72" />
           <path class="dashboard-refresh-chart-line dashboard-refresh-chart-line--cite" d="M38 226C118 218 172 200 238 188C310 174 390 168 464 142C548 112 608 126 688 102" />
+          <path class="dashboard-refresh-chart-line dashboard-refresh-chart-line--miss" d="M38 74C116 88 166 112 236 130C318 150 392 156 466 174C548 192 616 188 688 202" />
           <g class="dashboard-refresh-axis-labels" aria-hidden="true">
             <text x="36" y="244">D-6</text>
             <text x="146" y="244">D-5</text>
@@ -530,33 +711,37 @@ const contentStatusDistribution = [
           <span><i class="dashboard-refresh-dot--mention" />品牌提及率 {{ formatPercent(report.brandMentionRate) }}</span>
           <span><i class="dashboard-refresh-dot--recommend" />品牌推荐率 {{ formatPercent(report.brandRecommendRate) }}</span>
           <span><i class="dashboard-refresh-dot--cite" />官网引用率 {{ formatPercent(report.citedOfficialSiteRate) }}</span>
+          <span><i class="dashboard-refresh-dot--miss" />未命中率 {{ formatPercent(getMissRate()) }}</span>
         </div>
       </article>
 
-      <article class="dashboard-refresh-panel dashboard-refresh-task-panel">
+      <article class="dashboard-refresh-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
-            <h2>今日待处理</h2>
-            <p>先判断该补问法、补证据、补文章，还是复盘模型覆盖。</p>
+            <h2>模型推荐对比</h2>
+            <p>横向对比豆包、通义 / 千问和 Kimi 的提及、推荐、未推荐样式。</p>
           </div>
+          <el-tag effect="plain" type="info">测试示例</el-tag>
         </div>
-        <div class="dashboard-refresh-task-list">
-          <RouterLink
-            v-for="task in todayTasks"
-            :key="task.title"
-            :to="task.to"
-            :class="['dashboard-refresh-task-item', `dashboard-refresh-card--${task.tone}`]"
-          >
-            <el-icon>
-              <component :is="task.icon" />
-            </el-icon>
-            <span>
-              <strong>{{ task.title }}</strong>
-              <small>{{ task.description }}</small>
-            </span>
-            <em>{{ task.count }}</em>
-            <b>{{ task.status }}</b>
-          </RouterLink>
+        <div class="dashboard-refresh-model-bars">
+          <article v-for="model in modelComparisonRows" :key="model.label">
+            <strong>{{ model.label }}</strong>
+            <div>
+              <span>提及</span>
+              <i><b class="dashboard-refresh-bar--mention" :style="{ width: `${model.mentioned}%` }" /></i>
+              <em>{{ model.mentioned }}%</em>
+            </div>
+            <div>
+              <span>推荐</span>
+              <i><b class="dashboard-refresh-bar--recommend" :style="{ width: `${model.recommended}%` }" /></i>
+              <em>{{ model.recommended }}%</em>
+            </div>
+            <div>
+              <span>未推荐</span>
+              <i><b class="dashboard-refresh-bar--miss" :style="{ width: `${model.missed}%` }" /></i>
+              <em>{{ model.missed }}%</em>
+            </div>
+          </article>
         </div>
       </article>
     </section>
@@ -565,45 +750,84 @@ const contentStatusDistribution = [
       <article class="dashboard-refresh-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
-            <h2>模型覆盖占比</h2>
-            <p>测试阶段分布样式，不代表真实模型占比。</p>
+            <h2>未推荐原因分布</h2>
+            <p>测试阶段原因分布，用于提示下一步补救方向，非真实模型诊断。</p>
           </div>
           <el-tag effect="plain" type="info">测试示例</el-tag>
         </div>
-        <div class="dashboard-refresh-donut-row">
-          <div class="dashboard-refresh-donut dashboard-refresh-donut--model" aria-hidden="true">
-            <span>4 个</span>
-            <small>模型</small>
-          </div>
-          <ul class="dashboard-refresh-distribution-list">
-            <li v-for="item in modelCoverageDistribution" :key="item.label">
-              <span :style="{ background: item.color }" />
-              <strong>{{ item.label }}</strong>
-              <em>{{ item.value }}%</em>
-            </li>
-          </ul>
-        </div>
-      </article>
-
-      <article class="dashboard-refresh-panel">
-        <div class="dashboard-refresh-panel-header">
-          <div>
-            <h2>内容状态分布</h2>
-            <p>测试阶段分布样式，用于确认内容运营视图。</p>
-          </div>
-          <el-tag effect="plain" type="info">测试示例</el-tag>
-        </div>
-        <div class="dashboard-refresh-bar-list">
-          <div v-for="item in contentStatusDistribution" :key="item.label">
+        <div class="dashboard-refresh-reason-list">
+          <div v-for="item in reasonDistributionItems" :key="item.label">
             <span>{{ item.label }}</span>
             <strong>{{ item.value }}%</strong>
             <i>
               <b :style="{ width: `${item.value}%`, background: item.color }" />
             </i>
+            <small>{{ item.action }}</small>
           </div>
         </div>
       </article>
+
+      <article class="dashboard-refresh-panel dashboard-refresh-tag-panel">
+        <div class="dashboard-refresh-panel-header">
+          <div>
+            <h2>高频问法 / 场景词</h2>
+            <p>标签云仅用于本地测试阶段识别问题集中方向，后续可接入真实问法统计。</p>
+          </div>
+          <el-tag effect="plain" type="info">测试示例</el-tag>
+        </div>
+        <div class="dashboard-refresh-tag-cloud">
+          <span
+            v-for="tag in scenarioTags"
+            :key="tag.label"
+            :class="`dashboard-refresh-tag--${tag.size}`"
+          >
+            {{ tag.label }}
+          </span>
+        </div>
+      </article>
     </section>
+
+    <article class="dashboard-refresh-panel dashboard-refresh-action-panel">
+      <div class="dashboard-refresh-panel-header">
+        <div>
+          <h2>下一步建议动作</h2>
+          <p>把可见度结果落到四类运营动作，竞品占位原因分析作为后续阶段处理。</p>
+        </div>
+        <el-tag effect="plain" type="success">行动清单</el-tag>
+      </div>
+      <div class="dashboard-refresh-task-list dashboard-refresh-task-list--actions">
+        <RouterLink
+          v-for="task in todayTasks"
+          :key="task.title"
+          :to="task.to"
+          :class="['dashboard-refresh-task-item', `dashboard-refresh-card--${task.tone}`]"
+        >
+          <el-icon>
+            <component :is="task.icon" />
+          </el-icon>
+          <span>
+            <strong>{{ task.title }}</strong>
+            <small>{{ task.description }}</small>
+          </span>
+          <em>{{ task.count }}</em>
+          <b>{{ task.status }}</b>
+        </RouterLink>
+        <RouterLink
+          to="/model-inclusion-records"
+          class="dashboard-refresh-task-item dashboard-refresh-card--muted"
+        >
+          <el-icon>
+            <TrendCharts />
+          </el-icon>
+          <span>
+            <strong>竞品占位</strong>
+            <small>后续进入竞品占位原因分析阶段，当前先在覆盖记录里人工复盘。</small>
+          </span>
+          <em>后续</em>
+          <b>暂缓</b>
+        </RouterLink>
+      </div>
+    </article>
 
     <section class="dashboard-refresh-lists-grid">
       <article class="dashboard-refresh-panel">
@@ -736,6 +960,14 @@ const contentStatusDistribution = [
   line-height: 1.2;
 }
 
+.dashboard-refresh-header .dashboard-refresh-header-subtitle {
+  max-width: 760px;
+  margin-top: 7px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 750;
+}
+
 .dashboard-refresh-header span {
   display: block;
   margin-top: 6px;
@@ -764,7 +996,28 @@ const contentStatusDistribution = [
   margin: 0;
 }
 
+.dashboard-refresh-view-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.dashboard-refresh-view-tags span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #d8e3f2;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #52647a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .dashboard-refresh-kpi-grid,
+.dashboard-refresh-decision-grid,
 .dashboard-refresh-overview-grid,
 .dashboard-refresh-distribution-grid,
 .dashboard-refresh-lists-grid,
@@ -774,10 +1027,15 @@ const contentStatusDistribution = [
 }
 
 .dashboard-refresh-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.dashboard-refresh-decision-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .dashboard-refresh-kpi-card,
+.dashboard-refresh-decision-card,
 .dashboard-refresh-panel,
 .dashboard-refresh-secondary-grid a {
   border: 1px solid #dfe7f1;
@@ -787,6 +1045,7 @@ const contentStatusDistribution = [
 }
 
 .dashboard-refresh-kpi-card,
+.dashboard-refresh-decision-card,
 .dashboard-refresh-task-item,
 .dashboard-refresh-rank-list a,
 .dashboard-refresh-secondary-grid a {
@@ -808,6 +1067,23 @@ const contentStatusDistribution = [
   font-weight: 750;
 }
 
+.dashboard-refresh-kpi-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-refresh-kpi-label-row small {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 850;
+}
+
 .dashboard-refresh-kpi-card strong {
   color: #111827;
   font-size: 34px;
@@ -826,6 +1102,40 @@ const contentStatusDistribution = [
 .dashboard-refresh-kpi-card small {
   color: #8796aa;
   font-size: 12px;
+}
+
+.dashboard-refresh-decision-card {
+  display: grid;
+  gap: 7px;
+  min-height: 132px;
+  padding: 16px;
+}
+
+.dashboard-refresh-decision-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-refresh-decision-card strong {
+  color: #111827;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.dashboard-refresh-decision-card p {
+  margin: 0;
+  color: #5d6f86;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dashboard-refresh-decision-card em {
+  align-self: end;
+  color: #2563eb;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
 }
 
 .dashboard-refresh-kpi-progress {
@@ -943,6 +1253,12 @@ const contentStatusDistribution = [
   background: #059669;
 }
 
+.dashboard-refresh-chart-line--miss,
+.dashboard-refresh-dot--miss {
+  stroke: #d97706;
+  background: #d97706;
+}
+
 .dashboard-refresh-chart-legend {
   display: flex;
   flex-wrap: wrap;
@@ -968,6 +1284,10 @@ const contentStatusDistribution = [
 .dashboard-refresh-task-list {
   display: grid;
   gap: 10px;
+}
+
+.dashboard-refresh-task-list--actions {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .dashboard-refresh-task-item {
@@ -1041,107 +1361,115 @@ const contentStatusDistribution = [
   font-size: 12px;
 }
 
-.dashboard-refresh-donut-row {
-  display: grid;
-  grid-template-columns: 170px minmax(0, 1fr);
-  gap: 18px;
-  align-items: center;
-}
-
-.dashboard-refresh-donut {
-  display: grid;
-  width: 154px;
-  height: 154px;
-  place-items: center;
-  border-radius: 50%;
-}
-
-.dashboard-refresh-donut--model {
-  background:
-    radial-gradient(circle, #ffffff 0 47%, transparent 48%),
-    conic-gradient(#2563eb 0 34%, #0891b2 34% 60%, #0d9488 60% 81%, #059669 81% 93%, #94a3b8 93% 100%);
-}
-
-.dashboard-refresh-donut span,
-.dashboard-refresh-donut small {
-  grid-area: 1 / 1;
-}
-
-.dashboard-refresh-donut span {
-  margin-top: -12px;
-  color: #111827;
-  font-size: 25px;
-  font-weight: 950;
-}
-
-.dashboard-refresh-donut small {
-  margin-top: 32px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.dashboard-refresh-distribution-list,
-.dashboard-refresh-bar-list,
+.dashboard-refresh-model-bars,
+.dashboard-refresh-reason-list,
 .dashboard-refresh-activity-list,
 .dashboard-refresh-rank-list {
   display: grid;
   gap: 10px;
 }
 
-.dashboard-refresh-distribution-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.dashboard-refresh-distribution-list li {
+.dashboard-refresh-model-bars article {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 9px;
-  align-items: center;
-  color: #52647a;
-  font-size: 13px;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e3eaf4;
+  border-radius: 14px;
+  background: #fbfdff;
 }
 
-.dashboard-refresh-distribution-list li span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-}
-
-.dashboard-refresh-distribution-list em,
-.dashboard-refresh-bar-list strong {
+.dashboard-refresh-model-bars article > strong {
   color: #111827;
-  font-style: normal;
-  font-weight: 850;
+  font-size: 14px;
 }
 
-.dashboard-refresh-bar-list div {
+.dashboard-refresh-model-bars article > div,
+.dashboard-refresh-reason-list div {
   display: grid;
-  grid-template-columns: 92px auto;
-  gap: 8px 12px;
+  grid-template-columns: 72px minmax(0, 1fr) 42px;
+  gap: 8px;
   align-items: center;
 }
 
-.dashboard-refresh-bar-list span {
+.dashboard-refresh-model-bars span,
+.dashboard-refresh-reason-list span {
   color: #52647a;
   font-size: 13px;
   font-weight: 750;
 }
 
-.dashboard-refresh-bar-list i {
-  grid-column: 1 / -1;
+.dashboard-refresh-model-bars i,
+.dashboard-refresh-reason-list i {
   overflow: hidden;
   height: 9px;
   border-radius: 999px;
   background: #edf2f7;
 }
 
-.dashboard-refresh-bar-list b {
+.dashboard-refresh-model-bars b,
+.dashboard-refresh-reason-list b {
   display: block;
   height: 100%;
   border-radius: inherit;
+}
+
+.dashboard-refresh-model-bars em,
+.dashboard-refresh-reason-list strong {
+  color: #111827;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.dashboard-refresh-bar--mention {
+  background: #2563eb;
+}
+
+.dashboard-refresh-bar--recommend {
+  background: #059669;
+}
+
+.dashboard-refresh-bar--miss {
+  background: #d97706;
+}
+
+.dashboard-refresh-reason-list div {
+  grid-template-columns: 116px minmax(0, 1fr) 42px;
+}
+
+.dashboard-refresh-reason-list small {
+  grid-column: 2 / -1;
+  color: #7c8da3;
+  font-size: 12px;
+}
+
+.dashboard-refresh-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dashboard-refresh-tag-cloud span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid #d8e3f2;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #2563eb;
+  font-weight: 850;
+}
+
+.dashboard-refresh-tag--small {
+  font-size: 12px;
+}
+
+.dashboard-refresh-tag--medium {
+  font-size: 14px;
+}
+
+.dashboard-refresh-tag--large {
+  font-size: 16px;
 }
 
 .dashboard-refresh-rank-list a {
@@ -1268,8 +1596,9 @@ const contentStatusDistribution = [
 }
 
 @media (max-width: 1280px) {
-  .dashboard-refresh-kpi-grid,
-  .dashboard-refresh-secondary-grid {
+  .dashboard-refresh-decision-grid,
+  .dashboard-refresh-secondary-grid,
+  .dashboard-refresh-task-list--actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1283,12 +1612,19 @@ const contentStatusDistribution = [
 @media (max-width: 720px) {
   .dashboard-refresh-header,
   .dashboard-refresh-kpi-grid,
+  .dashboard-refresh-decision-grid,
   .dashboard-refresh-secondary-grid,
-  .dashboard-refresh-donut-row {
+  .dashboard-refresh-model-bars article > div,
+  .dashboard-refresh-reason-list div,
+  .dashboard-refresh-task-list--actions {
     grid-template-columns: 1fr;
   }
 
   .dashboard-refresh-header-actions {
+    justify-content: flex-start;
+  }
+
+  .dashboard-refresh-view-tags {
     justify-content: flex-start;
   }
 
@@ -1300,8 +1636,8 @@ const contentStatusDistribution = [
     grid-column: 2;
   }
 
-  .dashboard-refresh-donut {
-    margin: 0 auto;
+  .dashboard-refresh-reason-list small {
+    grid-column: auto;
   }
 }
 </style>
