@@ -56,6 +56,193 @@ type MonitoringModelRecord = {
   platform?: string;
 };
 
+export type CoverageReviewStatus = "good" | "needs_attention" | "manual_review";
+
+export type CoverageReviewResult = {
+  status: CoverageReviewStatus;
+  reasons: string[];
+  nextActions: string[];
+  contentTypes: string[];
+  evidenceTypes: string[];
+};
+
+type CoverageReviewRecord = {
+  brandMentioned?: boolean;
+  brandRecommended?: boolean;
+  citedOfficialSite?: boolean;
+  citedContentAsset?: boolean;
+  competitorMentioned?: boolean;
+  hitLevel?: string;
+  errorMessage?: string;
+  isWebSearchEnabled?: boolean;
+  entryPoint?: string;
+  detectionMethod?: string;
+  geoPrompt?: {
+    promptText?: string;
+  };
+};
+
+const positiveCoverageReview: CoverageReviewResult = {
+  status: "good",
+  reasons: ["当前记录表现较好"],
+  nextActions: ["继续跟踪复测，暂不需要优先补救"],
+  contentTypes: ["持续观察"],
+  evidenceTypes: ["持续观察"]
+};
+
+const manualCoverageReviewDefaults = {
+  reasons: ["检测结果无法判断或检测异常"],
+  nextActions: ["人工复核原始回答后重新复测该提示词"],
+  contentTypes: ["暂不判断"],
+  evidenceTypes: ["暂不判断"]
+};
+
+const addUniqueItems = (target: string[], items: string[]) => {
+  for (const item of items) {
+    if (!target.includes(item)) {
+      target.push(item);
+    }
+  }
+};
+
+const hasAnyKeyword = (text: string, keywords: string[]) =>
+  keywords.some((keyword) => text.includes(keyword.toLowerCase()));
+
+const isWebSearchLikeRecord = (record: CoverageReviewRecord) =>
+  Boolean(record.isWebSearchEnabled) ||
+  record.entryPoint === "web_search_api" ||
+  record.entryPoint === "web_pc" ||
+  record.entryPoint === "web_mobile" ||
+  record.detectionMethod === "web_search" ||
+  record.detectionMethod === "browser_capture";
+
+const applyPromptTextReviewHints = (
+  promptText: string,
+  review: Pick<CoverageReviewResult, "contentTypes" | "evidenceTypes">
+) => {
+  const normalizedPromptText = promptText.toLowerCase();
+
+  // 根据提示词文本补充建议，避免只看命中布尔值导致复盘太粗。
+  if (hasAnyKeyword(normalizedPromptText, ["参数", "量程", "精度", "分辨率", "输出", "响应时间"])) {
+    addUniqueItems(review.contentTypes, ["产品参数内容"]);
+    addUniqueItems(review.evidenceTypes, ["产品参数"]);
+  }
+
+  if (
+    hasAnyKeyword(normalizedPromptText, [
+      "场景",
+      "工况",
+      "粉尘",
+      "水汽",
+      "强光",
+      "输送线",
+      "料位",
+      "液位"
+    ])
+  ) {
+    addUniqueItems(review.contentTypes, ["应用场景内容"]);
+    addUniqueItems(review.evidenceTypes, ["应用场景"]);
+  }
+
+  if (
+    hasAnyKeyword(normalizedPromptText, [
+      "对比",
+      "替代",
+      "品牌",
+      "ifm",
+      "baumer",
+      "keyence",
+      "基恩士"
+    ])
+  ) {
+    addUniqueItems(review.contentTypes, ["品牌对比内容", "替代型号内容"]);
+    addUniqueItems(review.evidenceTypes, ["产品参数", "选型建议"]);
+  }
+
+  if (hasAnyKeyword(normalizedPromptText, ["案例", "项目", "方案", "边坡", "桥梁", "矿山"])) {
+    addUniqueItems(review.contentTypes, ["案例 / 项目内容"]);
+    addUniqueItems(review.evidenceTypes, ["案例 / 项目"]);
+  }
+
+  if (hasAnyKeyword(normalizedPromptText, ["故障", "不稳定", "不准", "误报", "排查"])) {
+    addUniqueItems(review.contentTypes, ["FAQ 问答内容"]);
+    addUniqueItems(review.evidenceTypes, ["故障排查"]);
+  }
+};
+
+export const inferCoverageReview = (record: CoverageReviewRecord): CoverageReviewResult => {
+  if (record.hitLevel === "unclear" || record.errorMessage) {
+    return {
+      status: "manual_review",
+      ...manualCoverageReviewDefaults
+    };
+  }
+
+  if (record.brandMentioned && record.brandRecommended && record.citedOfficialSite) {
+    return positiveCoverageReview;
+  }
+
+  const review: CoverageReviewResult = {
+    status: "needs_attention",
+    reasons: [],
+    nextActions: [],
+    contentTypes: [],
+    evidenceTypes: []
+  };
+
+  if (record.competitorMentioned && !record.brandMentioned) {
+    addUniqueItems(review.reasons, ["模型回答偏向竞品"]);
+    addUniqueItems(review.nextActions, ["生成品牌对比 / 替代型号文章"]);
+    addUniqueItems(review.contentTypes, ["品牌对比内容", "替代型号内容"]);
+    addUniqueItems(review.evidenceTypes, ["产品参数", "选型建议", "案例 / 项目"]);
+  }
+
+  if (record.brandMentioned && !record.brandRecommended) {
+    addUniqueItems(review.reasons, ["品牌露出不自然 / 缺少选型理由"]);
+    addUniqueItems(review.nextActions, ["补充选型指南内容和应用场景说明"]);
+    addUniqueItems(review.contentTypes, ["选型指南内容", "应用场景内容", "FAQ 问答内容"]);
+    addUniqueItems(review.evidenceTypes, ["选型建议", "应用场景", "产品参数"]);
+  }
+
+  if (!record.citedOfficialSite) {
+    if (isWebSearchLikeRecord(record)) {
+      addUniqueItems(review.reasons, ["官网权威度不足或官网内容不可引用"]);
+      addUniqueItems(review.nextActions, ["补官网可引用段落，并优化文章结构化内容"]);
+      addUniqueItems(review.contentTypes, ["官网可引用内容", "FAQ 问答内容"]);
+      addUniqueItems(review.evidenceTypes, ["品牌介绍", "产品参数", "应用场景"]);
+    } else {
+      addUniqueItems(review.reasons, ["当前检测环境可能未启用联网或引用链路不完整"]);
+      addUniqueItems(review.nextActions, ["人工复核检测上下文后再判断官网引用情况"]);
+    }
+  }
+
+  if (record.hitLevel === "not_mentioned" || !record.brandMentioned) {
+    addUniqueItems(review.reasons, ["资料依据不足 / 内容覆盖不足"]);
+    addUniqueItems(review.nextActions, ["补充知识库证据，并生成对应问法的文章"]);
+    addUniqueItems(review.contentTypes, ["选型指南内容", "应用场景内容", "FAQ 问答内容"]);
+    addUniqueItems(review.evidenceTypes, ["产品参数", "应用场景", "选型建议"]);
+  }
+
+  if (!record.citedContentAsset) {
+    addUniqueItems(review.reasons, ["缺少第三方平台内容或已发布内容未进入回答链路"]);
+    addUniqueItems(review.nextActions, ["补第三方平台内容，并围绕真实问法发布结构化文章"]);
+    addUniqueItems(review.contentTypes, ["第三方平台内容", "品牌对比内容", "案例 / 项目内容"]);
+    addUniqueItems(review.evidenceTypes, ["案例 / 项目", "品牌介绍", "选型建议"]);
+  }
+
+  applyPromptTextReviewHints(record.geoPrompt?.promptText ?? "", review);
+
+  if (review.reasons.length === 0) {
+    addUniqueItems(review.reasons, ["需要人工复核"]);
+    addUniqueItems(review.nextActions, ["人工复核原始回答"]);
+    addUniqueItems(review.contentTypes, ["暂不判断"]);
+    addUniqueItems(review.evidenceTypes, ["暂不判断"]);
+    review.status = "manual_review";
+  }
+
+  return review;
+};
+
 export const isEnabledMonitoringRecord = (record: MonitoringModelRecord) => {
   const text = `${record.model ?? ""} ${record.platform ?? ""}`.toLowerCase();
 
