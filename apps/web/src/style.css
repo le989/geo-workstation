@@ -6541,6 +6541,89 @@ a {
   background: #f8fafc;
 }
 
+.model-record-review {
+  border-color: #c9d8ea !important;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%) !important;
+}
+
+.model-record-review.is-good {
+  border-color: #c7ddcf !important;
+}
+
+.model-record-review.is-manual_review {
+  border-color: #f1d5a8 !important;
+}
+
+.model-record-review__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-start;
+}
+
+.model-record-review__header p:not(.section-kicker) {
+  margin: 4px 0 0;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.model-record-review__good {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #c7ddcf;
+  border-radius: 12px;
+  background: #f0fdf4;
+  color: #166534;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.model-record-review__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.model-record-review__grid article {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.model-record-review__grid span {
+  display: block;
+  margin-bottom: 8px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.model-record-review__grid ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: #273849;
+  line-height: 1.6;
+}
+
+.model-record-review__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.model-record-review__tags .el-tag {
+  border-radius: 999px;
+}
+
+.model-record-review__note {
+  margin: 12px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .uncovered-card {
   background: #ffffff;
 }
@@ -8461,7 +8544,8 @@ a {
 
 @media (max-width: 1320px) {
   .model-record-detail__grid,
-  .model-record-tech-grid {
+  .model-record-tech-grid,
+  .model-record-review__grid {
     grid-template-columns: minmax(92px, 0.35fr) minmax(0, 1fr);
   }
 }

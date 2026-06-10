@@ -12,7 +12,9 @@ import {
   formatDisplayLabel,
   hitLevelLabelMap,
   hitLevelTypeMap,
-  truncateSummary
+  inferCoverageReview,
+  truncateSummary,
+  type CoverageReviewStatus
 } from "@/config/model-inclusion-options";
 
 defineProps<{
@@ -70,6 +72,30 @@ const formatBrandSignals = (record: ModelInclusionRecord) => {
   return signals.join(" / ");
 };
 
+const getCoverageReview = (record: ModelInclusionRecord) => inferCoverageReview(record);
+
+const getCoverageReviewType = (status: CoverageReviewStatus) => {
+  if (status === "good") {
+    return "success";
+  }
+  if (status === "manual_review") {
+    return "warning";
+  }
+
+  return "danger";
+};
+
+const getCoverageReviewLabel = (status: CoverageReviewStatus) => {
+  if (status === "good") {
+    return "表现较好";
+  }
+  if (status === "manual_review") {
+    return "需人工复核";
+  }
+
+  return "建议补救";
+};
+
 const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
   row.voidedAt
     ? "model-record-row--voided"
@@ -118,6 +144,73 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
               <span v-if="row.restoredAt">最近恢复</span>
               <strong v-if="row.restoredAt">{{ formatDateTime(row.restoredAt) }}</strong>
             </div>
+          </section>
+
+          <section
+            v-for="review in [getCoverageReview(row)]"
+            :key="review.status"
+            :class="['model-record-review', `is-${review.status}`]"
+          >
+            <div class="model-record-detail__header model-record-review__header">
+              <div>
+                <p class="section-kicker">复盘建议</p>
+                <h3>未推荐原因复盘</h3>
+                <p>基于当前检测结果做优化参考，不代表真实模型内部判断。</p>
+              </div>
+              <el-tag :type="getCoverageReviewType(review.status)" effect="plain">
+                {{ getCoverageReviewLabel(review.status) }}
+              </el-tag>
+            </div>
+
+            <p v-if="review.status === 'good'" class="model-record-review__good">
+              当前记录表现较好，可继续跟踪复测，暂不需要优先补救。
+            </p>
+
+            <div class="model-record-review__grid">
+              <article>
+                <span>可能原因</span>
+                <ul>
+                  <li v-for="reason in review.reasons" :key="reason">
+                    {{ reason }}
+                  </li>
+                </ul>
+              </article>
+              <article>
+                <span>下一步建议</span>
+                <ul>
+                  <li v-for="action in review.nextActions" :key="action">
+                    {{ action }}
+                  </li>
+                </ul>
+              </article>
+              <article>
+                <span>建议补充内容类型</span>
+                <div class="model-record-review__tags">
+                  <el-tag
+                    v-for="contentType in review.contentTypes"
+                    :key="contentType"
+                    effect="plain"
+                  >
+                    {{ contentType }}
+                  </el-tag>
+                </div>
+              </article>
+              <article>
+                <span>建议补充证据类型</span>
+                <div class="model-record-review__tags">
+                  <el-tag
+                    v-for="evidenceType in review.evidenceTypes"
+                    :key="evidenceType"
+                    effect="plain"
+                  >
+                    {{ evidenceType }}
+                  </el-tag>
+                </div>
+              </article>
+            </div>
+            <p class="model-record-review__note">
+              该复盘仅基于当前检测字段做辅助判断，最终仍需结合原始回答和人工判断。
+            </p>
           </section>
 
           <section>
