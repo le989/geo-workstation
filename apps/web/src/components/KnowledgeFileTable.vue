@@ -4,6 +4,7 @@ import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   applicableModuleLabelMap,
   formatFileSize,
+  inferEvidenceType,
   materialTopicLabelMap,
   materialTypeLabelMap,
   reviewStatusLabelMap,
@@ -55,6 +56,11 @@ const formatMaterialTopic = (value?: string) =>
 
 const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
   formatOptional(file.directoryName ?? fallbackName);
+
+const getEvidenceType = (file: KnowledgeFile) => inferEvidenceType(file);
+
+const isForbiddenEvidence = (file: KnowledgeFile) =>
+  getEvidenceType(file).value === "forbidden_expression";
 </script>
 
 <template>
@@ -79,6 +85,21 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
               <div>
                 <dt>资料主题</dt>
                 <dd>{{ formatMaterialTopic(row.materialTopic) }}</dd>
+              </div>
+              <div>
+                <dt>证据类型</dt>
+                <dd class="knowledge-evidence-cell">
+                  <el-tag
+                    size="small"
+                    :type="isForbiddenEvidence(row) ? 'warning' : 'info'"
+                    effect="plain"
+                  >
+                    证据类型：{{ getEvidenceType(row).label }}
+                  </el-tag>
+                  <small v-if="isForbiddenEvidence(row)">
+                    约束类资料：用于生成内容时避开，不作为正向引用依据。
+                  </small>
+                </dd>
               </div>
               <div>
                 <dt>来源说明</dt>
@@ -134,6 +155,20 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
     <el-table-column v-if="displayMode === 'management'" prop="materialTopic" label="资料主题" min-width="126">
       <template #default="{ row }: { row: KnowledgeFile }">
         {{ formatMaterialTopic(row.materialTopic) }}
+      </template>
+    </el-table-column>
+    <el-table-column label="证据类型" min-width="150">
+      <template #default="{ row }: { row: KnowledgeFile }">
+        <div class="knowledge-evidence-cell">
+          <el-tag
+            size="small"
+            :type="isForbiddenEvidence(row) ? 'warning' : 'info'"
+            effect="plain"
+          >
+            {{ getEvidenceType(row).label }}
+          </el-tag>
+          <small v-if="isForbiddenEvidence(row)">约束类资料</small>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="所属目录" min-width="150">
@@ -261,5 +296,18 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+}
+
+.knowledge-evidence-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.25;
+}
+
+.knowledge-evidence-cell small {
+  color: #6b7280;
+  line-height: 1.35;
 }
 </style>

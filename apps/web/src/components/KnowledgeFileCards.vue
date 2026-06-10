@@ -4,6 +4,7 @@ import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   applicableModuleLabelMap,
   formatFileSize,
+  inferEvidenceType,
   materialTopicLabelMap,
   materialTypeLabelMap,
   reviewStatusLabelMap,
@@ -52,6 +53,11 @@ const formatMaterialTopic = (value?: string) =>
 
 const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
   formatOptional(file.directoryName ?? fallbackName);
+
+const getEvidenceType = (file: KnowledgeFile) => inferEvidenceType(file);
+
+const isForbiddenEvidence = (file: KnowledgeFile) =>
+  getEvidenceType(file).value === "forbidden_expression";
 </script>
 
 <template>
@@ -114,6 +120,21 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
           <div>
             <dt>AI 可引用状态</dt>
             <dd>{{ getKnowledgeFileCitationDescription(file) }}</dd>
+          </div>
+          <div>
+            <dt>证据类型</dt>
+            <dd class="knowledge-file-card__evidence">
+              <el-tag
+                size="small"
+                :type="isForbiddenEvidence(file) ? 'warning' : 'info'"
+                effect="plain"
+              >
+                证据类型：{{ getEvidenceType(file).label }}
+              </el-tag>
+              <small v-if="isForbiddenEvidence(file)">
+                约束类资料：用于生成内容时避开，不作为正向引用依据。
+              </small>
+            </dd>
           </div>
           <div v-if="displayMode === 'management'">
             <dt>资料类型</dt>
@@ -242,6 +263,18 @@ const formatDirectoryName = (file: KnowledgeFile, fallbackName?: string) =>
   font-size: 13px;
   line-height: 1.5;
   word-break: break-word;
+}
+
+.knowledge-file-card__evidence {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.knowledge-file-card__evidence small {
+  color: #6b7280;
+  line-height: 1.4;
 }
 
 .knowledge-file-card__side {
