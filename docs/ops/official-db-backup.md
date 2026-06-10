@@ -52,6 +52,42 @@ pnpm db:backup:smoke
 
 如果当前机器没有 `pg_dump`，smoke 命令会给出清晰提示并安全停止，不会改库。安装 PostgreSQL client tools 后可重新执行。
 
+## macOS PostgreSQL client tools 准备
+
+macOS 首次执行真实 smoke 备份前，先确认 Homebrew 可用：
+
+```bash
+brew --version
+```
+
+如果缺少 PostgreSQL 客户端工具，优先安装 `libpq`：
+
+```bash
+brew install libpq
+```
+
+Apple Silicon 常见 Homebrew 路径为：
+
+```text
+/opt/homebrew/bin/brew
+```
+
+`libpq` 是 keg-only，安装后可能需要临时加入当前终端 PATH：
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+```
+
+执行备份前确认三个客户端命令都能输出版本：
+
+```bash
+pg_dump --version
+pg_restore --version
+psql --version
+```
+
+如果官方 GitHub 源下载不稳定，可以使用稳定网络或镜像源重试。本阶段只允许验证 smoke 真实备份，不允许连接、导出或修改 official。smoke 验证通过后，下一阶段才考虑 official 首次人工备份。
+
 ## official 本阶段禁止执行
 
 当前阶段禁止对 `geo_workstation_official` 执行真实备份。脚本检测到 official 库名时会直接阻断，避免误操作正式库。
