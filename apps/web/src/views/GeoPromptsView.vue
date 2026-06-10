@@ -28,6 +28,8 @@ import {
   formatDateTime,
   formatGeoPromptDisplayText,
   formatTargetModels,
+  inferBuyingStage,
+  inferPromptBusinessValue,
   inferQuestionType,
   userIntentLabelMap
 } from "@/config/geo-prompt-options";
@@ -89,6 +91,43 @@ const promptAssetCards = computed(() => [
     hint: "可进入模型覆盖记录复测"
   }
 ]);
+const promptBusinessInsights = computed(() => {
+  const promptBusinessItems = prompts.value.map((prompt) => {
+    const questionType = inferQuestionType(prompt.promptText, prompt.userIntent);
+
+    return {
+      businessValue: inferPromptBusinessValue(prompt.promptText, questionType.value, prompt.userIntent),
+      buyingStage: inferBuyingStage(prompt.promptText, questionType.value, prompt.userIntent)
+    };
+  });
+
+  return [
+    {
+      label: "高意向问法",
+      value: promptBusinessItems.filter((item) => item.businessValue.value === "high").length,
+      hint: "优先监测、补证据和写文章"
+    },
+    {
+      label: "采购 / 对比阶段",
+      value: promptBusinessItems.filter((item) =>
+        ["purchase", "comparison"].includes(item.buyingStage.value)
+      ).length,
+      hint: "更接近转化和品牌替代"
+    },
+    {
+      label: "售后阶段",
+      value: promptBusinessItems.filter((item) => item.buyingStage.value === "aftersales").length,
+      hint: "适合沉淀 FAQ 和排查内容"
+    },
+    {
+      label: "待判断问法",
+      value: promptBusinessItems.filter(
+        (item) => item.businessValue.value === "unknown" || item.buyingStage.value === "unknown"
+      ).length,
+      hint: "需要人工补充上下文"
+    }
+  ];
+});
 
 const visibilityLabelMap = {
   COMPANY: "公司公共",
@@ -101,6 +140,18 @@ const formatPromptTitle = (prompt: GeoPrompt) =>
 
 const getQuestionTypeLabel = (prompt: GeoPrompt) =>
   inferQuestionType(prompt.promptText, prompt.userIntent).label;
+
+const getPromptBusinessValue = (prompt: GeoPrompt) => {
+  const questionType = inferQuestionType(prompt.promptText, prompt.userIntent);
+
+  return inferPromptBusinessValue(prompt.promptText, questionType.value, prompt.userIntent);
+};
+
+const getBuyingStage = (prompt: GeoPrompt) => {
+  const questionType = inferQuestionType(prompt.promptText, prompt.userIntent);
+
+  return inferBuyingStage(prompt.promptText, questionType.value, prompt.userIntent);
+};
 
 const formatPromptContext = (prompt: GeoPrompt) => {
   const parts = [
@@ -403,6 +454,27 @@ onMounted(() => {
       </article>
     </section>
 
+    <section class="geo-prompts-value-panel" aria-label="问法业务价值概览">
+      <div>
+        <p class="section-kicker">业务判断</p>
+        <h2>先看哪些问法值得优先处理</h2>
+        <p>
+          业务价值和购买阶段由前端根据问句文本轻量推断，只用于运营排序参考，不写入数据库。
+        </p>
+      </div>
+      <div class="geo-prompts-value-grid">
+        <article
+          v-for="insight in promptBusinessInsights"
+          :key="insight.label"
+          class="geo-prompts-value-card"
+        >
+          <span>{{ insight.label }}</span>
+          <strong>{{ insight.value }}</strong>
+          <p>{{ insight.hint }}</p>
+        </article>
+      </div>
+    </section>
+
     <GeoPromptFilters
       :model-value="filters"
       :active-type="activeType"
@@ -421,7 +493,7 @@ onMounted(() => {
           <p class="section-kicker">提示词资产</p>
           <h2>GEO 提示词列表</h2>
           <p>
-            问法类型用于识别用户会怎么问 AI；再结合追踪状态和覆盖结果判断补词、补内容还是补检测。
+            问法类型用于识别用户会怎么问 AI；业务价值和购买阶段帮助判断先补问法、补证据、写文章还是复盘模型。
           </p>
         </div>
       </div>
@@ -460,6 +532,14 @@ onMounted(() => {
                     <dt>问法类型</dt>
                     <dd>{{ getQuestionTypeLabel(row) }}</dd>
                   </div>
+                  <div>
+                    <dt>业务价值</dt>
+                    <dd>{{ getPromptBusinessValue(row).label }}</dd>
+                  </div>
+                  <div>
+                    <dt>购买阶段</dt>
+                    <dd>{{ getBuyingStage(row).label }}</dd>
+                  </div>
                 </dl>
               </section>
               <section>
@@ -489,7 +569,23 @@ onMounted(() => {
                 {{ formatPromptTitle(row) }}
               </strong>
               <span>{{ visibilityLabelMap[row.visibility] }}</span>
-              <small class="question-type-chip">问法类型：{{ getQuestionTypeLabel(row) }}</small>
+              <div class="prompt-insight-chip-row">
+                <small class="question-type-chip">问法类型：{{ getQuestionTypeLabel(row) }}</small>
+                <small
+                  class="prompt-insight-chip"
+                  :class="`prompt-insight-chip--value-${getPromptBusinessValue(row).value}`"
+                  :title="getPromptBusinessValue(row).description"
+                >
+                  业务价值：{{ getPromptBusinessValue(row).label }}
+                </small>
+                <small
+                  class="prompt-insight-chip"
+                  :class="`prompt-insight-chip--stage-${getBuyingStage(row).value}`"
+                  :title="getBuyingStage(row).description"
+                >
+                  购买阶段：{{ getBuyingStage(row).label }}
+                </small>
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -545,7 +641,7 @@ onMounted(() => {
           <el-empty
             :description="
               isEmpty
-                ? '暂无 GEO 提示词，可先新增、批量导入，或前往 AI 拓词生成候选。'
+                ? '暂无 GEO 提示词，可先添加采购、选型、替代、场景或售后排查类真实问法。'
                 : '正在加载 GEO 提示词'
             "
           >

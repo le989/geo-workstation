@@ -15,6 +15,28 @@ export type QuestionTypeOption = {
   value: QuestionTypeValue;
 };
 
+export type PromptBusinessValueValue = "high" | "medium" | "low" | "unknown";
+
+export type PromptBusinessValueOption = {
+  label: string;
+  value: PromptBusinessValueValue;
+  description: string;
+};
+
+export type BuyingStageValue =
+  | "awareness"
+  | "selection"
+  | "comparison"
+  | "purchase"
+  | "aftersales"
+  | "unknown";
+
+export type BuyingStageOption = {
+  label: string;
+  value: BuyingStageValue;
+  description: string;
+};
+
 export const geoPromptTypeOptions: Array<{ label: string; value: GeoPromptType }> = [
   { label: "训练词", value: "base" },
   { label: "蒸馏词", value: "distilled" },
@@ -51,6 +73,62 @@ export const questionTypeOptions: QuestionTypeOption[] = [
   { label: "行业方案问题", value: "industry_solution" }
 ];
 
+export const promptBusinessValueOptions: PromptBusinessValueOption[] = [
+  {
+    label: "高意向",
+    value: "high",
+    description: "更接近采购、转化或品牌替代，建议优先监测、补证据和写文章。"
+  },
+  {
+    label: "中意向",
+    value: "medium",
+    description: "适合做内容覆盖和知识库补证据，常见于选型、参数、场景和排查问题。"
+  },
+  {
+    label: "低意向",
+    value: "low",
+    description: "偏认知科普，可做基础覆盖，但优先级通常低于采购和选型问题。"
+  },
+  {
+    label: "待判断",
+    value: "unknown",
+    description: "规则暂时无法稳定判断，需要人工结合业务上下文确认。"
+  }
+];
+
+export const buyingStageOptions: BuyingStageOption[] = [
+  {
+    label: "认知阶段",
+    value: "awareness",
+    description: "用户在了解概念、原理或基础区别。"
+  },
+  {
+    label: "选型阶段",
+    value: "selection",
+    description: "用户在比较参数、工况和方案适配性。"
+  },
+  {
+    label: "对比阶段",
+    value: "comparison",
+    description: "用户在比较品牌、竞品或替代型号。"
+  },
+  {
+    label: "采购阶段",
+    value: "purchase",
+    description: "用户接近询价、采购、厂家或供应商选择。"
+  },
+  {
+    label: "售后阶段",
+    value: "aftersales",
+    description: "用户关注故障、调试、维修和使用异常。"
+  },
+  {
+    label: "待判断",
+    value: "unknown",
+    description: "当前问法缺少稳定意图词，需要人工确认。"
+  }
+];
+
 export const geoPromptTypeLabelMap = Object.fromEntries(
   geoPromptTypeOptions.map((item) => [item.value, item.label])
 ) as Record<GeoPromptType, string>;
@@ -62,6 +140,22 @@ export const userIntentLabelMap = Object.fromEntries(
 export const questionTypeLabelMap = Object.fromEntries(
   questionTypeOptions.map((item) => [item.value, item.label])
 ) as Record<QuestionTypeValue, string>;
+
+export const promptBusinessValueLabelMap = Object.fromEntries(
+  promptBusinessValueOptions.map((item) => [item.value, item.label])
+) as Record<PromptBusinessValueValue, string>;
+
+export const promptBusinessValueDescriptionMap = Object.fromEntries(
+  promptBusinessValueOptions.map((item) => [item.value, item.description])
+) as Record<PromptBusinessValueValue, string>;
+
+export const buyingStageLabelMap = Object.fromEntries(
+  buyingStageOptions.map((item) => [item.value, item.label])
+) as Record<BuyingStageValue, string>;
+
+export const buyingStageDescriptionMap = Object.fromEntries(
+  buyingStageOptions.map((item) => [item.value, item.description])
+) as Record<BuyingStageValue, string>;
 
 export const coverageStatusLabelMap: Record<string, string> = {
   mentioned: "已提及",
@@ -173,6 +267,159 @@ const userIntentQuestionTypeMap: Partial<Record<UserIntent, QuestionTypeValue>> 
   troubleshooting: "troubleshooting"
 };
 
+const promptBusinessValueKeywordRules: Array<{
+  value: PromptBusinessValueValue;
+  keywords: string[];
+}> = [
+  {
+    value: "high",
+    keywords: [
+      "厂家",
+      "推荐",
+      "哪家好",
+      "价格",
+      "报价",
+      "采购",
+      "购买",
+      "供应商",
+      "国产替代",
+      "替代",
+      "替换",
+      "方案推荐",
+      "型号推荐",
+      "ifm",
+      "baumer",
+      "keyence",
+      "基恩士",
+      "堡盟"
+    ]
+  },
+  {
+    value: "medium",
+    keywords: [
+      "怎么选",
+      "选型",
+      "应用",
+      "场景",
+      "工况",
+      "参数",
+      "量程",
+      "输出方式",
+      "输出",
+      "安装",
+      "接线",
+      "检测距离",
+      "粉尘",
+      "水汽",
+      "料位",
+      "防撞",
+      "对比",
+      "区别",
+      "故障",
+      "排查"
+    ]
+  },
+  {
+    value: "low",
+    keywords: ["是什么", "原理", "工作原理", "定义", "基础", "百科", "简介"]
+  }
+];
+
+const questionTypeBusinessValueMap: Partial<Record<QuestionTypeValue, PromptBusinessValueValue>> = {
+  application: "medium",
+  brand_comparison: "medium",
+  industry_solution: "medium",
+  parameter: "medium",
+  purchase: "high",
+  replacement: "high",
+  selection: "medium",
+  troubleshooting: "medium"
+};
+
+const userIntentBusinessValueMap: Partial<Record<UserIntent, PromptBusinessValueValue>> = {
+  application_solution: "medium",
+  brand_verification: "medium",
+  comparison: "medium",
+  domestic_alternative: "high",
+  manufacturer_recommendation: "high",
+  purchase: "high",
+  selection: "medium",
+  troubleshooting: "medium"
+};
+
+const buyingStageKeywordRules: Array<{
+  value: BuyingStageValue;
+  keywords: string[];
+}> = [
+  {
+    value: "aftersales",
+    keywords: ["故障", "不稳定", "没信号", "无信号", "误检", "误报", "不准", "调试", "维修", "接线问题", "报警"]
+  },
+  {
+    value: "comparison",
+    keywords: [
+      "对比",
+      "区别",
+      "替代",
+      "替换",
+      "国产替代",
+      "ifm",
+      "baumer",
+      "keyence",
+      "基恩士",
+      "堡盟",
+      "sick",
+      "西克",
+      "omron",
+      "欧姆龙"
+    ]
+  },
+  {
+    value: "purchase",
+    keywords: ["厂家", "供应商", "报价", "价格", "采购", "购买", "哪家好", "推荐", "选哪家"]
+  },
+  {
+    value: "selection",
+    keywords: ["怎么选", "选型", "参数", "量程", "输出", "安装", "工况", "应用场景", "方案", "检测距离"]
+  },
+  {
+    value: "awareness",
+    keywords: ["是什么", "原理", "工作原理", "区别", "简介", "基础介绍"]
+  }
+];
+
+const questionTypeBuyingStageMap: Partial<Record<QuestionTypeValue, BuyingStageValue>> = {
+  application: "selection",
+  brand_comparison: "comparison",
+  industry_solution: "selection",
+  parameter: "selection",
+  purchase: "purchase",
+  replacement: "comparison",
+  selection: "selection",
+  troubleshooting: "aftersales"
+};
+
+const userIntentBuyingStageMap: Partial<Record<UserIntent, BuyingStageValue>> = {
+  application_solution: "selection",
+  brand_verification: "comparison",
+  comparison: "comparison",
+  domestic_alternative: "comparison",
+  manufacturer_recommendation: "purchase",
+  purchase: "purchase",
+  selection: "selection",
+  troubleshooting: "aftersales"
+};
+
+const normalizePromptForInference = (...values: Array<string | undefined | null>) =>
+  values
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .trim()
+    .toLowerCase();
+
+const matchesKeywords = (normalizedText: string, keywords: string[]) =>
+  keywords.some((keyword) => normalizedText.includes(keyword.toLowerCase()));
+
 export const inferQuestionType = (
   promptText: string,
   userIntent?: string
@@ -195,6 +442,66 @@ export const inferQuestionType = (
   return {
     label: questionTypeLabelMap[questionTypeValue],
     value: questionTypeValue
+  };
+};
+
+export const inferPromptBusinessValue = (
+  promptText: string,
+  questionType?: string,
+  userIntent?: string
+): PromptBusinessValueOption => {
+  const normalizedPromptText = normalizePromptForInference(promptText);
+
+  // 业务价值只是前端轻量判断，不等于正式商机评分或后端数据结论。
+  for (const rule of promptBusinessValueKeywordRules) {
+    if (matchesKeywords(normalizedPromptText, rule.keywords)) {
+      return {
+        description: promptBusinessValueDescriptionMap[rule.value],
+        label: promptBusinessValueLabelMap[rule.value],
+        value: rule.value
+      };
+    }
+  }
+
+  const fallbackValue =
+    questionTypeBusinessValueMap[questionType as QuestionTypeValue] ??
+    (userIntent ? userIntentBusinessValueMap[userIntent as UserIntent] : undefined) ??
+    "unknown";
+
+  return {
+    description: promptBusinessValueDescriptionMap[fallbackValue],
+    label: promptBusinessValueLabelMap[fallbackValue],
+    value: fallbackValue
+  };
+};
+
+export const inferBuyingStage = (
+  promptText: string,
+  questionType?: string,
+  userIntent?: string
+): BuyingStageOption => {
+  const normalizedPromptText = normalizePromptForInference(promptText);
+
+  // 购买阶段按售后、对比、采购、选型、认知的顺序判断，避免竞品和故障问题被泛化。
+  for (const rule of buyingStageKeywordRules) {
+    if (matchesKeywords(normalizedPromptText, rule.keywords)) {
+      return {
+        description: buyingStageDescriptionMap[rule.value],
+        label: buyingStageLabelMap[rule.value],
+        value: rule.value
+      };
+    }
+  }
+
+  const fallbackValue =
+    questionTypeBuyingStageMap[questionType as QuestionTypeValue] ??
+    (userIntent ? userIntentBuyingStageMap[userIntent as UserIntent] : undefined) ??
+    "unknown";
+
+  return {
+    description: buyingStageDescriptionMap[fallbackValue],
+    label: buyingStageLabelMap[fallbackValue],
+    value: fallbackValue
   };
 };
 
