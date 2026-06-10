@@ -582,7 +582,9 @@ onMounted(() => {
         <div>
           <p class="section-kicker">GEO 监测台账</p>
           <h1>AI 模型覆盖记录</h1>
-          <span>{{ inclusionScopeLabel }} · {{ total }} 条记录</span>
+          <span>
+            {{ inclusionScopeLabel }} · {{ total }} 条记录 · 展开记录查看未推荐原因和建议补充方向
+          </span>
         </div>
         <div class="model-inclusion-hero__models" aria-label="当前启用监测模型">
           <span>启用模型</span>

@@ -455,8 +455,11 @@ const contentStatusDistribution = [
     <header class="dashboard-refresh-header">
       <div>
         <p>工作台</p>
-        <h1>查看品牌表现、待处理任务与内容运营进度</h1>
+        <h1>AI 可见度驾驶舱：查看品牌表现与下一步动作</h1>
         <span>{{ dashboardScopeText }}</span>
+        <small class="dashboard-refresh-stage-note">
+          本地测试版使用 smoke 数据；标注为示例的趋势 / 分布仅用于页面走查，不代表正式结果。
+        </small>
       </div>
       <div class="dashboard-refresh-header-actions">
         <el-segmented v-model="selectedRange" :options="['近 7 天', '近 30 天']" />
@@ -494,9 +497,9 @@ const contentStatusDistribution = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>品牌表现趋势</h2>
-            <p>示例趋势，仅展示趋势图样式；当前值来自总览接口。</p>
+            <p>本地测试版仅展示趋势图样式；真实趋势需后续接入周期数据。</p>
           </div>
-          <el-tag effect="plain" type="info">示例趋势</el-tag>
+          <el-tag effect="plain" type="info">测试示例</el-tag>
         </div>
         <svg viewBox="0 0 720 260" role="img" aria-label="品牌提及率、推荐率和官网引用率示例趋势图">
           <path class="dashboard-refresh-grid-line" d="M36 42H690" />
@@ -534,7 +537,7 @@ const contentStatusDistribution = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>今日待处理</h2>
-            <p>优先处理会影响 GEO 闭环的事项。</p>
+            <p>先判断该补问法、补证据、补文章，还是复盘模型覆盖。</p>
           </div>
         </div>
         <div class="dashboard-refresh-task-list">
@@ -563,9 +566,9 @@ const contentStatusDistribution = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>模型覆盖占比</h2>
-            <p>示例分布，不代表真实模型占比。</p>
+            <p>测试阶段分布样式，不代表真实模型占比。</p>
           </div>
-          <el-tag effect="plain" type="info">示例分布</el-tag>
+          <el-tag effect="plain" type="info">测试示例</el-tag>
         </div>
         <div class="dashboard-refresh-donut-row">
           <div class="dashboard-refresh-donut dashboard-refresh-donut--model" aria-hidden="true">
@@ -586,9 +589,9 @@ const contentStatusDistribution = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>内容状态分布</h2>
-            <p>示例分布，用于表达内容运营状态。</p>
+            <p>测试阶段分布样式，用于确认内容运营视图。</p>
           </div>
-          <el-tag effect="plain" type="info">示例分布</el-tag>
+          <el-tag effect="plain" type="info">测试示例</el-tag>
         </div>
         <div class="dashboard-refresh-bar-list">
           <div v-for="item in contentStatusDistribution" :key="item.label">
@@ -738,6 +741,15 @@ const contentStatusDistribution = [
   margin-top: 6px;
   color: #7c8da3;
   font-size: 12px;
+}
+
+.dashboard-refresh-stage-note {
+  display: block;
+  max-width: 720px;
+  margin-top: 6px;
+  color: #52647a;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .dashboard-refresh-header-actions {
