@@ -142,7 +142,7 @@ const handleSubmit = () => {
         <div class="form-section-heading">
           <p class="section-kicker">基础信息</p>
           <h3>提示词与场景</h3>
-          <span>GEO 提示词用于模拟用户向 AI 提问的问题，场景和意图用于后续监测与内容生产。</span>
+          <span>建议填写用户可能直接问 AI 的完整自然问题，便于后续监测与内容生产。</span>
         </div>
         <div class="geo-prompt-form-grid">
           <el-form-item label="GEO 提示词" required class="form-span-2">
@@ -150,8 +150,11 @@ const handleSubmit = () => {
               v-model="form.promptText"
               type="textarea"
               :rows="3"
-              placeholder="例如：某产品怎么选、某服务适合什么人、某场景适合什么方案"
+              placeholder="例如：雷达测距传感器怎么选？粉尘环境下用激光测距还是雷达测距？"
             />
+            <p class="form-help">
+              GEO 更关注用户会如何向 AI 提问，优先沉淀完整自然问句。
+            </p>
           </el-form-item>
           <el-form-item label="词类型" required>
             <el-select v-model="form.type">

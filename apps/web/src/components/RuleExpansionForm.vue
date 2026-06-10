@@ -19,12 +19,12 @@ const emit = defineEmits<{
 const form = reactive({
   applicationSuffixesText: "",
   baseWord: "",
-  prefixesText: "怎么选\n适合谁\n怎么比较",
+  prefixesText: "怎么选\n需要看哪些参数\n检测不稳定怎么排查",
   priority: 3,
   productLine: "",
   promptType: "distilled" as GeoPromptType,
   scenario: "",
-  serviceSuffixesText: "品牌\n服务方\n替代方案",
+  serviceSuffixesText: "替代某品牌型号\n采购前要问什么\n和其他品牌有什么区别",
   source: "规则拓词",
   targetModelsText: "",
   trackEnabled: false,
@@ -90,13 +90,13 @@ const handleSubmit = () => {
       <div>
         <p class="section-kicker">规则拓词</p>
         <h2>规则拓词</h2>
-        <p>使用本地组合规则生成候选问法，适合快速覆盖产品、服务和应用场景方向。</p>
+        <p>使用本地组合规则生成候选问法，优先围绕选型、参数、工况、替代和排查问题展开。</p>
       </div>
       <el-tag type="info" effect="plain">本地规则组合</el-tag>
     </div>
 
     <el-alert
-      title="规则拓词不会调用真实 AI Provider；候选词仍需人工确认后才能保存到提示词策略库。"
+      title="规则拓词不会调用真实 AI Provider；候选词应像用户真实问题，保存前仍需人工确认。"
       type="info"
       :closable="false"
       show-icon
@@ -122,7 +122,7 @@ const handleSubmit = () => {
     <el-form label-position="top" class="expansion-form-grid">
       <div class="expansion-form-subtitle form-span-4">
         <strong>基础配置</strong>
-        <span>先填写训练词、输出方向和场景信息，即可生成候选词。</span>
+        <span>先填写训练词、输出方向和场景信息，即可生成完整问句候选。</span>
       </div>
 
       <el-form-item label="训练词" required>
@@ -175,7 +175,7 @@ const handleSubmit = () => {
                 v-model="form.prefixesText"
                 type="textarea"
                 :rows="4"
-                placeholder="多行或逗号分隔，例如：怎么选、适合谁、怎么比较"
+                placeholder="多行或逗号分隔，例如：怎么选、需要看哪些参数、检测不稳定怎么排查"
               />
             </el-form-item>
             <el-form-item label="品牌 / 服务后缀" class="form-span-2">
@@ -183,7 +183,7 @@ const handleSubmit = () => {
                 v-model="form.serviceSuffixesText"
                 type="textarea"
                 :rows="4"
-                placeholder="多行或逗号分隔，例如：品牌、服务方、替代方案"
+                placeholder="多行或逗号分隔，例如：替代某品牌型号、采购前要问什么、和其他品牌有什么区别"
               />
             </el-form-item>
             <el-form-item label="应用后缀" class="form-span-2">
@@ -191,7 +191,7 @@ const handleSubmit = () => {
                 v-model="form.applicationSuffixesText"
                 type="textarea"
                 :rows="4"
-                placeholder="多行或逗号分隔，例如：用于行车防撞、应用在仓储测距"
+                placeholder="多行或逗号分隔，例如：适合什么工况、用于粉尘现场、某行业监测方案怎么配置"
               />
             </el-form-item>
             <el-form-item label="目标模型" class="form-span-2">

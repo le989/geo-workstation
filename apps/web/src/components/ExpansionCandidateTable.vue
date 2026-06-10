@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { ExpansionCandidate } from "@/api/expansion";
-import { formatDateTime, formatOptional, userIntentLabelMap } from "@/config/geo-prompt-options";
+import {
+  formatDateTime,
+  formatOptional,
+  inferQuestionType,
+  userIntentLabelMap
+} from "@/config/geo-prompt-options";
 import {
   contentTypeLabelMap,
   duplicateReasonLabelMap,
@@ -102,6 +107,12 @@ const resolveSaveStatus = (candidate: ExpansionCandidate) => {
     type: "warning" as const
   };
 };
+
+const getCandidateQuestionTypeLabel = (candidate: ExpansionCandidate) =>
+  inferQuestionType(
+    [candidate.promptText, candidate.recommendedContentType ?? ""].join(" "),
+    candidate.userIntent
+  ).label;
 </script>
 
 <template>
@@ -151,6 +162,10 @@ const resolveSaveStatus = (candidate: ExpansionCandidate) => {
                   </dd>
                 </div>
                 <div>
+                  <dt>问法类型</dt>
+                  <dd>{{ getCandidateQuestionTypeLabel(row) }}</dd>
+                </div>
+                <div>
                   <dt>创建时间</dt>
                   <dd>{{ formatDateTime(row.createdAt) }}</dd>
                 </div>
@@ -190,6 +205,7 @@ const resolveSaveStatus = (candidate: ExpansionCandidate) => {
           <div class="candidate-intent-cell">
             <span>用户问题</span>
             <strong>{{ row.userIntent ? userIntentLabelMap[row.userIntent] : "--" }}</strong>
+            <small class="question-type-chip">问法类型：{{ getCandidateQuestionTypeLabel(row) }}</small>
           </div>
         </template>
       </el-table-column>

@@ -28,6 +28,7 @@ import {
   formatDateTime,
   formatGeoPromptDisplayText,
   formatTargetModels,
+  inferQuestionType,
   userIntentLabelMap
 } from "@/config/geo-prompt-options";
 import { useAuthStore } from "@/stores/auth";
@@ -97,6 +98,9 @@ const visibilityLabelMap = {
 
 const formatPromptTitle = (prompt: GeoPrompt) =>
   formatGeoPromptDisplayText(prompt.promptText, "GEO 提示词");
+
+const getQuestionTypeLabel = (prompt: GeoPrompt) =>
+  inferQuestionType(prompt.promptText, prompt.userIntent).label;
 
 const formatPromptContext = (prompt: GeoPrompt) => {
   const parts = [
@@ -355,7 +359,7 @@ onMounted(() => {
         <p>管理品牌词、产品词、场景词和问题词，作为 GEO 内容生产与模型检测的基础资产。</p>
         <strong>
           {{ "用户会怎么问 AI？" }}
-          沉淀训练词、蒸馏词、品牌词和场景词，判断哪些词需要追踪、哪些产品线要补词。
+          GEO 更关注真实问法，建议优先沉淀完整自然问句。
         </strong>
       </div>
       <div class="geo-prompts-hero__actions">
@@ -450,6 +454,10 @@ onMounted(() => {
                     <dt>适用模型</dt>
                     <dd>{{ formatTargetModels(row.targetModels) }}</dd>
                   </div>
+                  <div>
+                    <dt>问法类型</dt>
+                    <dd>{{ getQuestionTypeLabel(row) }}</dd>
+                  </div>
                 </dl>
               </section>
               <section>
@@ -479,6 +487,7 @@ onMounted(() => {
                 {{ formatPromptTitle(row) }}
               </strong>
               <span>{{ visibilityLabelMap[row.visibility] }}</span>
+              <small class="question-type-chip">问法类型：{{ getQuestionTypeLabel(row) }}</small>
             </div>
           </template>
         </el-table-column>
