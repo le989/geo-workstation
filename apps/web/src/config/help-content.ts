@@ -27,7 +27,7 @@ export const quickStartSteps: HelpStep[] = [
   {
     title: "登录并进入 Dashboard",
     description:
-      "登录后先查看 /dashboard。这里是 AI 可见度驾驶舱，用来判断品牌是否被推荐、哪些模型没推荐，以及下一步补问法、证据、文章还是复盘模型。"
+      "登录后先查看 /dashboard。这里是 AI 可见度驾驶舱，优先看本轮结论和下一步动作，再判断补问法、补证据、补文章还是复盘模型。"
   },
   {
     title: "先看待处理事项",
@@ -115,7 +115,7 @@ export const sopSections: HelpSection[] = [
       {
         title: "Dashboard",
         description:
-          "AI 可见度驾驶舱，用指标卡、趋势图、模型对比、原因分布和动作清单判断下一步 GEO 运营重点。"
+          "AI 可见度驾驶舱，先用 KPI、本轮结论和下一步动作判断优先级，再查看趋势、模型对比和原因分布。"
       },
       {
         title: "GEO 诊断",
@@ -246,7 +246,7 @@ export const sopSections: HelpSection[] = [
       {
         title: "为什么 Dashboard 里有示例或空数据？",
         description:
-          "Dashboard 会优先展示当前公司数据；趋势图、模型对比、原因分布和标签云里的测试示例只用于本地走查，不能当成真实线上 GEO 结果。"
+          "Dashboard 会优先展示当前公司数据；页面顶部统一标明本地 smoke 数据，趋势图、模型对比、原因分布和标签云里的测试示例只用于本地走查，不能当成真实线上 GEO 结果。"
       },
       {
         title: "本地测试版推荐怎么走一遍闭环？",

@@ -38,13 +38,15 @@ type DashboardListItem = {
   to: string;
 };
 
-type DashboardDecisionCard = {
-  label: string;
+type DashboardConclusion = {
   title: string;
   description: string;
-  action: string;
-  to: string;
-  tone: DashboardTone;
+  weakness: string[];
+  primaryAction: {
+    title: string;
+    action: string;
+    to: string;
+  };
 };
 
 const authStore = useAuthStore();
@@ -358,7 +360,6 @@ const visibilityMetrics = computed(() => [
   {
     label: "品牌推荐率",
     value: formatPercent(report.value.brandRecommendRate),
-    badge: "smoke 实数",
     description: `${formatNumber(report.value.brandRecommendedCount)} 条记录推荐品牌`,
     percent: getPercentValue(report.value.brandRecommendRate),
     to: "/geo-reports",
@@ -367,7 +368,6 @@ const visibilityMetrics = computed(() => [
   {
     label: "品牌提及率",
     value: formatPercent(report.value.brandMentionRate),
-    badge: "smoke 实数",
     description: `${formatNumber(report.value.brandMentionedCount)} 条记录提及品牌`,
     percent: getPercentValue(report.value.brandMentionRate),
     to: "/geo-reports",
@@ -376,25 +376,14 @@ const visibilityMetrics = computed(() => [
   {
     label: "官网引用率",
     value: formatPercent(report.value.citedOfficialSiteRate),
-    badge: "smoke 实数",
     description: `${formatNumber(report.value.citedOfficialSiteCount)} 条记录引用官网`,
     percent: getPercentValue(report.value.citedOfficialSiteRate),
     to: "/model-inclusion-records",
     tone: "default" as DashboardTone
   },
   {
-    label: "未命中率",
-    value: formatPercent(getMissRate()),
-    badge: "前端换算",
-    description: `${formatNumber(Math.max(0, report.value.modelInclusionRecordCount - report.value.brandMentionedCount))} 条记录未提及品牌`,
-    percent: getPercentValue(getMissRate()),
-    to: "/model-inclusion-records",
-    tone: getMissRate() > 0 ? ("warning" as DashboardTone) : ("default" as DashboardTone)
-  },
-  {
     label: "竞品占位率",
     value: formatPercent(report.value.competitorMentionRate),
-    badge: "smoke 实数",
     description: `${formatNumber(report.value.competitorMentionedCount)} 条记录出现竞品`,
     percent: getPercentValue(report.value.competitorMentionRate),
     to: "/model-inclusion-records",
@@ -408,7 +397,6 @@ const visibilityMetrics = computed(() => [
         contentGapCount.value +
         report.value.failedContentTaskCount
     ),
-    badge: "前端汇总",
     description: "汇总待补问法、证据、文章和复盘项",
     percent: Math.min(
       100,
@@ -464,50 +452,48 @@ const getPrimaryRecoveryAction = () => {
   };
 };
 
-// Dashboard 只基于现有总览字段给出方向，不伪造模型级明细或正式线上结论。
-const visibilityDecisionCards = computed<DashboardDecisionCard[]>(() => {
-  const recommendedCount = report.value.brandRecommendedCount;
-  const recordCount = report.value.modelInclusionRecordCount;
-  const competitorCount = report.value.competitorMentionedCount;
+const dashboardConclusion = computed<DashboardConclusion>(() => {
   const primaryAction = getPrimaryRecoveryAction();
+  const weakness: string[] = [];
 
-  return [
-    {
-      label: "AI 有没有推荐我",
-      title: recommendedCount > 0 ? "已有推荐记录" : "暂无推荐记录",
-      description: `当前 ${formatNumber(recommendedCount)} / ${formatNumber(recordCount)} 条覆盖记录推荐品牌。`,
-      action: "查看推荐记录",
-      to: "/model-inclusion-records",
-      tone: recommendedCount > 0 ? "good" : "warning"
-    },
-    {
-      label: "哪些模型推荐 / 没推荐",
-      title: recordCount > 0 ? "按模型筛选查看" : "先补检测记录",
-      description: "总览只展示整体结果；模型级明细请进入覆盖记录按模型、入口和问法筛选。",
-      action: "去覆盖记录",
-      to: "/model-inclusion-records",
-      tone: recordCount > 0 ? "default" : "muted"
-    },
-    {
-      label: "为什么没推荐",
-      title: competitorCount > 0 ? "优先看竞品占位" : "展开记录复盘",
-      description:
-        competitorCount > 0
-          ? `${formatNumber(competitorCount)} 条记录出现竞品，先看未推荐原因和建议补充方向。`
-          : "单条记录展开后可看未推荐原因复盘，判断缺问法、缺证据还是缺文章。",
-      action: "查看原因",
-      to: "/model-inclusion-records",
-      tone: competitorCount > 0 ? "warning" : "default"
-    },
-    {
-      label: "下一步该补什么",
+  // 结论只基于当前总览字段做运营提示，不写入数据也不替代人工判断。
+  if (report.value.brandRecommendedCount <= 0) {
+    weakness.push("品牌推荐仍需补强");
+  }
+  if (report.value.citedOfficialSiteCount <= 0) {
+    weakness.push("官网引用需要继续补可引用段落");
+  }
+  if (report.value.uncoveredTrackedPromptCount > 0) {
+    weakness.push("部分追踪问法缺少模型覆盖记录");
+  }
+  if (knowledgeGapItems.value.length > 0) {
+    weakness.push("知识库证据存在缺口");
+  }
+  if (contentGapCount.value > 0 || report.value.failedContentTaskCount > 0) {
+    weakness.push("发布文章和内容资产需要补齐");
+  }
+  if (report.value.competitorMentionedCount > 0) {
+    weakness.push("存在竞品占位，需要单条记录复盘");
+  }
+
+  const title =
+    report.value.brandMentionedCount > 0
+      ? "品牌已被提及，推荐和引用仍需持续补强"
+      : "品牌提及不足，先补问法、证据和模型覆盖";
+
+  return {
+    title,
+    description:
+      report.value.modelInclusionRecordCount > 0
+        ? `当前 ${formatNumber(report.value.brandRecommendedCount)} / ${formatNumber(report.value.modelInclusionRecordCount)} 条覆盖记录推荐品牌。`
+        : "当前缺少模型覆盖记录，先补检测结果再判断真实可见度。",
+    weakness: weakness.length > 0 ? weakness.slice(0, 4) : ["当前没有明显阻断项，继续扩大真实问法覆盖。"],
+    primaryAction: {
       title: primaryAction.title,
-      description: primaryAction.description,
       action: primaryAction.action,
-      to: primaryAction.to,
-      tone: "good"
+      to: primaryAction.to
     }
-  ];
+  };
 });
 
 const todayTasks = computed<DashboardTask[]>(() => [
@@ -621,11 +607,7 @@ const scenarioTags = [
         </small>
       </div>
       <div class="dashboard-refresh-header-actions">
-        <div class="dashboard-refresh-view-tags" aria-label="当前视图说明">
-          <span>当前公司</span>
-          <span>smoke 数据</span>
-          <span>非正式结论</span>
-        </div>
+        <small>本地测试版 · smoke 数据 · 非正式结论</small>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadDashboard">
           刷新
@@ -646,40 +628,61 @@ const scenarioTags = [
         <template v-else>
           <div class="dashboard-refresh-kpi-label-row">
             <span>{{ metric.label }}</span>
-            <small>{{ metric.badge }}</small>
           </div>
           <strong>{{ metric.value }}</strong>
           <p>{{ metric.description }}</p>
           <div class="dashboard-refresh-kpi-progress" aria-hidden="true">
             <i :style="{ width: `${metric.percent}%` }" />
           </div>
-          <small>点击查看相关记录</small>
+          <small>查看详情</small>
         </template>
       </RouterLink>
     </section>
 
-    <section class="dashboard-refresh-decision-grid" aria-label="AI 可见度判断">
-      <RouterLink
-        v-for="card in visibilityDecisionCards"
-        :key="card.label"
-        :to="card.to"
-        :class="['dashboard-refresh-decision-card', `dashboard-refresh-card--${card.tone}`]"
-      >
-        <span>{{ card.label }}</span>
-        <strong>{{ card.title }}</strong>
-        <p>{{ card.description }}</p>
-        <em>{{ card.action }}</em>
-      </RouterLink>
-    </section>
+    <section class="dashboard-refresh-priority-grid">
+      <article class="dashboard-refresh-panel dashboard-refresh-conclusion-panel">
+        <div class="dashboard-refresh-panel-header">
+          <div>
+            <h2>本轮结论</h2>
+            <p>先看当前 GEO 状态，再决定补问法、补证据、补文章还是复盘模型。</p>
+          </div>
+          <RouterLink :to="dashboardConclusion.primaryAction.to">
+            {{ dashboardConclusion.primaryAction.action }}
+          </RouterLink>
+        </div>
+        <div class="dashboard-refresh-conclusion-body">
+          <strong>{{ dashboardConclusion.title }}</strong>
+          <p>{{ dashboardConclusion.description }}</p>
+          <div class="dashboard-refresh-weakness-list" aria-label="主要短板">
+            <span v-for="item in dashboardConclusion.weakness" :key="item">{{ item }}</span>
+          </div>
+        </div>
+        <div class="dashboard-refresh-action-list" aria-label="下一步建议动作">
+          <RouterLink
+            v-for="task in todayTasks"
+            :key="task.title"
+            :to="task.to"
+            :class="['dashboard-refresh-action-row', `dashboard-refresh-card--${task.tone}`]"
+          >
+            <el-icon>
+              <component :is="task.icon" />
+            </el-icon>
+            <span>
+              <strong>{{ task.title }}</strong>
+              <small>{{ task.description }}</small>
+            </span>
+            <b>{{ task.status }}</b>
+          </RouterLink>
+        </div>
+      </article>
 
-    <section class="dashboard-refresh-overview-grid">
       <article class="dashboard-refresh-panel dashboard-refresh-trend-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>AI 可见度趋势</h2>
-            <p>展示推荐、提及、官网引用和未命中率的趋势样式；真实周期趋势待后续接入。</p>
+            <p>回答最近趋势如何；当前曲线为测试示例，数值来自本地 smoke 总览。</p>
           </div>
-          <el-tag effect="plain" type="info">smoke / 测试示例</el-tag>
+          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <svg viewBox="0 0 720 260" role="img" aria-label="AI 可见度示例趋势图">
           <path class="dashboard-refresh-grid-line" d="M36 42H690" />
@@ -714,14 +717,16 @@ const scenarioTags = [
           <span><i class="dashboard-refresh-dot--miss" />未命中率 {{ formatPercent(getMissRate()) }}</span>
         </div>
       </article>
+    </section>
 
+    <section class="dashboard-refresh-diagnostic-grid" aria-label="辅助诊断分析">
       <article class="dashboard-refresh-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>模型推荐对比</h2>
-            <p>横向对比豆包、通义 / 千问和 Kimi 的提及、推荐、未推荐样式。</p>
+            <p>回答哪些模型推荐 / 没推荐；当前为模型对比展示样式。</p>
           </div>
-          <el-tag effect="plain" type="info">测试示例</el-tag>
+          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <div class="dashboard-refresh-model-bars">
           <article v-for="model in modelComparisonRows" :key="model.label">
@@ -744,16 +749,14 @@ const scenarioTags = [
           </article>
         </div>
       </article>
-    </section>
 
-    <section class="dashboard-refresh-distribution-grid">
       <article class="dashboard-refresh-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>未推荐原因分布</h2>
-            <p>测试阶段原因分布，用于提示下一步补救方向，非真实模型诊断。</p>
+            <p>回答为什么没推荐；分布仅用于提示补救方向，非真实模型诊断。</p>
           </div>
-          <el-tag effect="plain" type="info">测试示例</el-tag>
+          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <div class="dashboard-refresh-reason-list">
           <div v-for="item in reasonDistributionItems" :key="item.label">
@@ -771,9 +774,9 @@ const scenarioTags = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>高频问法 / 场景词</h2>
-            <p>标签云仅用于本地测试阶段识别问题集中方向，后续可接入真实问法统计。</p>
+            <p>回答高频问题集中在哪里；当前标签用于本地走查和方向识别。</p>
           </div>
-          <el-tag effect="plain" type="info">测试示例</el-tag>
+          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <div class="dashboard-refresh-tag-cloud">
           <span
@@ -787,114 +790,78 @@ const scenarioTags = [
       </article>
     </section>
 
-    <article class="dashboard-refresh-panel dashboard-refresh-action-panel">
-      <div class="dashboard-refresh-panel-header">
-        <div>
-          <h2>下一步建议动作</h2>
-          <p>把可见度结果落到四类运营动作，竞品占位原因分析作为后续阶段处理。</p>
-        </div>
-        <el-tag effect="plain" type="success">行动清单</el-tag>
-      </div>
-      <div class="dashboard-refresh-task-list dashboard-refresh-task-list--actions">
-        <RouterLink
-          v-for="task in todayTasks"
-          :key="task.title"
-          :to="task.to"
-          :class="['dashboard-refresh-task-item', `dashboard-refresh-card--${task.tone}`]"
-        >
-          <el-icon>
-            <component :is="task.icon" />
-          </el-icon>
-          <span>
-            <strong>{{ task.title }}</strong>
-            <small>{{ task.description }}</small>
-          </span>
-          <em>{{ task.count }}</em>
-          <b>{{ task.status }}</b>
-        </RouterLink>
-        <RouterLink
-          to="/model-inclusion-records"
-          class="dashboard-refresh-task-item dashboard-refresh-card--muted"
-        >
-          <el-icon>
-            <TrendCharts />
-          </el-icon>
-          <span>
-            <strong>竞品占位</strong>
-            <small>后续进入竞品占位原因分析阶段，当前先在覆盖记录里人工复盘。</small>
-          </span>
-          <em>后续</em>
-          <b>暂缓</b>
-        </RouterLink>
-      </div>
-    </article>
-
-    <section class="dashboard-refresh-lists-grid">
-      <article class="dashboard-refresh-panel">
-        <div class="dashboard-refresh-panel-header">
-          <div>
-            <h2>未覆盖问题 TOP 5</h2>
-            <p>优先使用待优化建议接口；无数据时显示空状态。</p>
-          </div>
-        </div>
-        <AppErrorState v-if="suggestionsError" title="待优化建议加载失败" :message="suggestionsError" />
-        <div v-else-if="uncoveredProblemItems.length" class="dashboard-refresh-rank-list">
-          <RouterLink v-for="item in uncoveredProblemItems" :key="item.title" :to="item.to">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.description }}</p>
-            <span>{{ item.action }}</span>
-          </RouterLink>
-        </div>
-        <div v-else class="dashboard-refresh-compact-empty">
-          <strong>暂无未覆盖问题排行</strong>
-          <small>当前接口没有返回可展示项，未使用示例问题填充。</small>
-        </div>
-      </article>
-
-      <article class="dashboard-refresh-panel">
-        <div class="dashboard-refresh-panel-header">
-          <div>
-            <h2>知识库缺口 TOP 5</h2>
-            <p>只展示接口返回的知识库缺口，不用示例数据冒充真实排行。</p>
-          </div>
-        </div>
-        <div v-if="knowledgeGapItems.length" class="dashboard-refresh-rank-list">
-          <RouterLink v-for="item in knowledgeGapItems" :key="item.title" :to="item.to">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.description }}</p>
-            <span>{{ item.action }}</span>
-          </RouterLink>
-        </div>
-        <div v-else class="dashboard-refresh-compact-empty">
-          <strong>暂无知识库缺口排行</strong>
-          <small>当前接口没有返回可展示项，未使用示例缺口填充。</small>
-        </div>
-      </article>
-
-      <article class="dashboard-refresh-panel">
-        <div class="dashboard-refresh-panel-header">
-          <div>
-            <h2>最近动态</h2>
-            <p>基于当前总览数据生成的运营摘要，不是审计日志。</p>
-          </div>
-        </div>
-        <div class="dashboard-refresh-activity-list">
-          <article v-for="activity in recentActivities" :key="activity.title">
-            <time>{{ activity.time }}</time>
+    <DashboardSection
+      class="dashboard-refresh-section dashboard-refresh-section--compact"
+      title="辅助信息"
+      description="TOP5 与最近动态用于补充判断，已下沉到第二屏之后。"
+    >
+      <section class="dashboard-refresh-lists-grid">
+        <article class="dashboard-refresh-panel">
+          <div class="dashboard-refresh-panel-header">
             <div>
-              <span>{{ activity.title }}</span>
-              <strong>{{ activity.description }}</strong>
-              <small>{{ activity.meta }}</small>
+              <h2>未覆盖问题 TOP 5</h2>
+              <p>优先使用待优化建议接口；无数据时显示空状态。</p>
             </div>
-          </article>
-        </div>
-      </article>
-    </section>
+          </div>
+          <AppErrorState v-if="suggestionsError" title="待优化建议加载失败" :message="suggestionsError" />
+          <div v-else-if="uncoveredProblemItems.length" class="dashboard-refresh-rank-list">
+            <RouterLink v-for="item in uncoveredProblemItems" :key="item.title" :to="item.to">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+              <span>{{ item.action }}</span>
+            </RouterLink>
+          </div>
+          <div v-else class="dashboard-refresh-compact-empty">
+            <strong>暂无未覆盖问题排行</strong>
+            <small>当前接口没有返回可展示项，未使用示例问题填充。</small>
+          </div>
+        </article>
+
+        <article class="dashboard-refresh-panel">
+          <div class="dashboard-refresh-panel-header">
+            <div>
+              <h2>知识库缺口 TOP 5</h2>
+              <p>只展示接口返回的知识库缺口，不用示例数据冒充真实排行。</p>
+            </div>
+          </div>
+          <div v-if="knowledgeGapItems.length" class="dashboard-refresh-rank-list">
+            <RouterLink v-for="item in knowledgeGapItems" :key="item.title" :to="item.to">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.description }}</p>
+              <span>{{ item.action }}</span>
+            </RouterLink>
+          </div>
+          <div v-else class="dashboard-refresh-compact-empty">
+            <strong>暂无知识库缺口排行</strong>
+            <small>当前接口没有返回可展示项，未使用示例缺口填充。</small>
+          </div>
+        </article>
+
+        <article class="dashboard-refresh-panel">
+          <div class="dashboard-refresh-panel-header">
+            <div>
+              <h2>最近动态</h2>
+              <p>基于当前总览数据生成的运营摘要，不是审计日志。</p>
+            </div>
+          </div>
+          <div class="dashboard-refresh-activity-list">
+            <article v-for="activity in recentActivities" :key="activity.title">
+              <time>{{ activity.time }}</time>
+              <div>
+                <span>{{ activity.title }}</span>
+                <strong>{{ activity.description }}</strong>
+                <small>{{ activity.meta }}</small>
+              </div>
+            </article>
+          </div>
+        </article>
+      </section>
+    </DashboardSection>
 
     <DashboardSection
       class="dashboard-refresh-section"
-      title="第二层统计"
-      description="保留原有资产规模指标，但下沉为辅助信息。"
+      title="辅助统计"
+      description="保留原有资产规模指标，作为底部补充信息。"
     >
       <div class="dashboard-refresh-secondary-grid">
         <RouterLink v-for="metric in secondaryMetrics" :key="metric.label" :to="metric.to">
@@ -907,7 +874,7 @@ const scenarioTags = [
 
     <DashboardSection
       class="dashboard-refresh-section"
-      title="快捷入口"
+      title="处理入口"
       description="常用动作保留在页面后半部分，避免抢占首屏。"
     >
       <QuickActionGrid />
@@ -996,18 +963,11 @@ const scenarioTags = [
   margin: 0;
 }
 
-.dashboard-refresh-view-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 7px;
-}
-
-.dashboard-refresh-view-tags span {
+.dashboard-refresh-header-actions small {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 5px 9px;
+  min-height: 26px;
+  padding: 4px 9px;
   border: 1px solid #d8e3f2;
   border-radius: 999px;
   background: #f8fbff;
@@ -1017,9 +977,8 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-kpi-grid,
-.dashboard-refresh-decision-grid,
-.dashboard-refresh-overview-grid,
-.dashboard-refresh-distribution-grid,
+.dashboard-refresh-priority-grid,
+.dashboard-refresh-diagnostic-grid,
 .dashboard-refresh-lists-grid,
 .dashboard-refresh-secondary-grid {
   display: grid;
@@ -1030,12 +989,7 @@ const scenarioTags = [
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
-.dashboard-refresh-decision-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
 .dashboard-refresh-kpi-card,
-.dashboard-refresh-decision-card,
 .dashboard-refresh-panel,
 .dashboard-refresh-secondary-grid a {
   border: 1px solid #dfe7f1;
@@ -1045,8 +999,7 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-kpi-card,
-.dashboard-refresh-decision-card,
-.dashboard-refresh-task-item,
+.dashboard-refresh-action-row,
 .dashboard-refresh-rank-list a,
 .dashboard-refresh-secondary-grid a {
   color: inherit;
@@ -1055,9 +1008,9 @@ const scenarioTags = [
 
 .dashboard-refresh-kpi-card {
   display: grid;
-  gap: 8px;
-  min-height: 174px;
-  padding: 18px;
+  gap: 7px;
+  min-height: 136px;
+  padding: 14px;
 }
 
 .dashboard-refresh-kpi-card span,
@@ -1070,23 +1023,12 @@ const scenarioTags = [
 .dashboard-refresh-kpi-label-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.dashboard-refresh-kpi-label-row small {
-  flex: 0 0 auto;
-  padding: 4px 7px;
-  border-radius: 999px;
-  background: #eef4ff;
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 850;
+  gap: 6px;
 }
 
 .dashboard-refresh-kpi-card strong {
   color: #111827;
-  font-size: 34px;
+  font-size: 28px;
   font-weight: 950;
   line-height: 1;
 }
@@ -1104,43 +1046,9 @@ const scenarioTags = [
   font-size: 12px;
 }
 
-.dashboard-refresh-decision-card {
-  display: grid;
-  gap: 7px;
-  min-height: 132px;
-  padding: 16px;
-}
-
-.dashboard-refresh-decision-card span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.dashboard-refresh-decision-card strong {
-  color: #111827;
-  font-size: 17px;
-  line-height: 1.35;
-}
-
-.dashboard-refresh-decision-card p {
-  margin: 0;
-  color: #5d6f86;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.dashboard-refresh-decision-card em {
-  align-self: end;
-  color: #2563eb;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 850;
-}
-
 .dashboard-refresh-kpi-progress {
   overflow: hidden;
-  height: 7px;
+  height: 5px;
   border-radius: 999px;
   background: #edf2f7;
 }
@@ -1173,13 +1081,13 @@ const scenarioTags = [
   background: #fbfcfe;
 }
 
-.dashboard-refresh-overview-grid {
-  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.75fr);
+.dashboard-refresh-priority-grid {
+  grid-template-columns: minmax(320px, 0.78fr) minmax(0, 1.22fr);
+  align-items: stretch;
 }
 
-.dashboard-refresh-distribution-grid,
-.dashboard-refresh-lists-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.dashboard-refresh-diagnostic-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .dashboard-refresh-lists-grid {
@@ -1206,6 +1114,120 @@ const scenarioTags = [
   font-size: 18px;
   font-weight: 900;
   line-height: 1.35;
+}
+
+.dashboard-refresh-panel-header a {
+  flex: 0 0 auto;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.dashboard-refresh-soft-note {
+  flex: 0 0 auto;
+  color: #7c8da3;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-refresh-conclusion-panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.dashboard-refresh-conclusion-body {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dfe7f1;
+  border-radius: 14px;
+  background: #fbfdff;
+}
+
+.dashboard-refresh-conclusion-body strong {
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.dashboard-refresh-conclusion-body p {
+  margin: 0;
+  color: #52647a;
+  line-height: 1.6;
+}
+
+.dashboard-refresh-weakness-list,
+.dashboard-refresh-action-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-refresh-weakness-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-refresh-weakness-list span {
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #315681;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.dashboard-refresh-action-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e3eaf4;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.dashboard-refresh-action-row .el-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  background: #eef4ff;
+  color: #2563eb;
+  font-size: 17px;
+}
+
+.dashboard-refresh-action-row span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.dashboard-refresh-action-row strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.dashboard-refresh-action-row small {
+  overflow: hidden;
+  color: #65758a;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-refresh-action-row b {
+  width: fit-content;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #52647a;
+  font-size: 12px;
 }
 
 .dashboard-refresh-trend-panel svg {
@@ -1279,86 +1301,6 @@ const scenarioTags = [
   width: 9px;
   height: 9px;
   border-radius: 50%;
-}
-
-.dashboard-refresh-task-list {
-  display: grid;
-  gap: 10px;
-}
-
-.dashboard-refresh-task-list--actions {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.dashboard-refresh-task-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 13px;
-  border: 1px solid #e3eaf4;
-  border-radius: 14px;
-  background: #ffffff;
-}
-
-.dashboard-refresh-task-item .el-icon {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 12px;
-  background: #eef4ff;
-  color: #2563eb;
-  font-size: 18px;
-}
-
-.dashboard-refresh-task-item span {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.dashboard-refresh-task-item strong {
-  color: #111827;
-  font-size: 14px;
-}
-
-.dashboard-refresh-task-item small {
-  overflow: hidden;
-  color: #65758a;
-  font-size: 12px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dashboard-refresh-task-item em {
-  color: #111827;
-  font-size: 25px;
-  font-style: normal;
-  font-weight: 950;
-}
-
-.dashboard-refresh-card--muted.dashboard-refresh-task-item .el-icon {
-  background: #f3f6fa;
-  color: #64748b;
-}
-
-.dashboard-refresh-card--muted.dashboard-refresh-task-item em {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 850;
-  white-space: nowrap;
-}
-
-.dashboard-refresh-task-item b {
-  grid-column: 2 / -1;
-  width: fit-content;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #52647a;
-  font-size: 12px;
 }
 
 .dashboard-refresh-model-bars,
@@ -1596,14 +1538,11 @@ const scenarioTags = [
 }
 
 @media (max-width: 1280px) {
-  .dashboard-refresh-decision-grid,
-  .dashboard-refresh-secondary-grid,
-  .dashboard-refresh-task-list--actions {
+  .dashboard-refresh-secondary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .dashboard-refresh-overview-grid,
-  .dashboard-refresh-distribution-grid,
+  .dashboard-refresh-diagnostic-grid,
   .dashboard-refresh-lists-grid {
     grid-template-columns: 1fr;
   }
@@ -1612,28 +1551,18 @@ const scenarioTags = [
 @media (max-width: 720px) {
   .dashboard-refresh-header,
   .dashboard-refresh-kpi-grid,
-  .dashboard-refresh-decision-grid,
+  .dashboard-refresh-priority-grid,
+  .dashboard-refresh-diagnostic-grid,
   .dashboard-refresh-secondary-grid,
   .dashboard-refresh-model-bars article > div,
   .dashboard-refresh-reason-list div,
-  .dashboard-refresh-task-list--actions {
+  .dashboard-refresh-weakness-list,
+  .dashboard-refresh-action-row {
     grid-template-columns: 1fr;
   }
 
   .dashboard-refresh-header-actions {
     justify-content: flex-start;
-  }
-
-  .dashboard-refresh-view-tags {
-    justify-content: flex-start;
-  }
-
-  .dashboard-refresh-task-item {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .dashboard-refresh-task-item em {
-    grid-column: 2;
   }
 
   .dashboard-refresh-reason-list small {
