@@ -4,6 +4,8 @@ import type { ExpansionCandidate } from "@/api/expansion";
 import {
   formatDateTime,
   formatOptional,
+  inferBuyingStage,
+  inferPromptBusinessValue,
   inferQuestionType,
   userIntentLabelMap
 } from "@/config/geo-prompt-options";
@@ -113,6 +115,32 @@ const getCandidateQuestionTypeLabel = (candidate: ExpansionCandidate) =>
     [candidate.promptText, candidate.recommendedContentType ?? ""].join(" "),
     candidate.userIntent
   ).label;
+
+const getCandidatePromptTextForInference = (candidate: ExpansionCandidate) =>
+  [candidate.promptText, candidate.recommendedContentType ?? ""].join(" ");
+
+const getCandidateQuestionType = (candidate: ExpansionCandidate) =>
+  inferQuestionType(getCandidatePromptTextForInference(candidate), candidate.userIntent);
+
+const getCandidateBusinessValue = (candidate: ExpansionCandidate) => {
+  const questionType = getCandidateQuestionType(candidate);
+
+  return inferPromptBusinessValue(
+    getCandidatePromptTextForInference(candidate),
+    questionType.value,
+    candidate.userIntent
+  );
+};
+
+const getCandidateBuyingStage = (candidate: ExpansionCandidate) => {
+  const questionType = getCandidateQuestionType(candidate);
+
+  return inferBuyingStage(
+    getCandidatePromptTextForInference(candidate),
+    questionType.value,
+    candidate.userIntent
+  );
+};
 </script>
 
 <template>
@@ -166,6 +194,14 @@ const getCandidateQuestionTypeLabel = (candidate: ExpansionCandidate) =>
                   <dd>{{ getCandidateQuestionTypeLabel(row) }}</dd>
                 </div>
                 <div>
+                  <dt>业务价值</dt>
+                  <dd>{{ getCandidateBusinessValue(row).label }}</dd>
+                </div>
+                <div>
+                  <dt>购买阶段</dt>
+                  <dd>{{ getCandidateBuyingStage(row).label }}</dd>
+                </div>
+                <div>
                   <dt>创建时间</dt>
                   <dd>{{ formatDateTime(row.createdAt) }}</dd>
                 </div>
@@ -205,7 +241,23 @@ const getCandidateQuestionTypeLabel = (candidate: ExpansionCandidate) =>
           <div class="candidate-intent-cell">
             <span>用户问题</span>
             <strong>{{ row.userIntent ? userIntentLabelMap[row.userIntent] : "--" }}</strong>
-            <small class="question-type-chip">问法类型：{{ getCandidateQuestionTypeLabel(row) }}</small>
+            <div class="prompt-insight-chip-row">
+              <small class="question-type-chip">问法类型：{{ getCandidateQuestionTypeLabel(row) }}</small>
+              <small
+                class="prompt-insight-chip"
+                :class="`prompt-insight-chip--value-${getCandidateBusinessValue(row).value}`"
+                :title="getCandidateBusinessValue(row).description"
+              >
+                业务价值：{{ getCandidateBusinessValue(row).label }}
+              </small>
+              <small
+                class="prompt-insight-chip"
+                :class="`prompt-insight-chip--stage-${getCandidateBuyingStage(row).value}`"
+                :title="getCandidateBuyingStage(row).description"
+              >
+                购买阶段：{{ getCandidateBuyingStage(row).label }}
+              </small>
+            </div>
           </div>
         </template>
       </el-table-column>
