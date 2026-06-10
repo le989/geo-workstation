@@ -52,6 +52,7 @@ import { formatDateTime, formatOptional } from "@/config/geo-prompt-options";
 import {
   applicableModuleOptions,
   applicableModuleLabelMap,
+  inferEvidenceType,
   knowledgeBaseStatusLabelMap,
   materialTopicOptions,
   materialTopicLabelMap,
@@ -878,8 +879,13 @@ const handleFileDetail = async (file: KnowledgeFile) => {
     const citationStatus = `${getKnowledgeFileCitationLabel(fileDetail.knowledgeFile)}（${getKnowledgeFileCitationDescription(fileDetail.knowledgeFile)}）`;
     const sourceDescription =
       formatKnowledgeSourceDescription(fileDetail.knowledgeFile.sourceDescription) ?? "未设置";
+    const evidenceType = inferEvidenceType(fileDetail.knowledgeFile);
+    const evidenceTypeNote =
+      evidenceType.value === "forbidden_expression"
+        ? "\n证据说明：约束类资料，用于生成内容时避开，不作为正向引用依据。"
+        : "";
     await ElMessageBox.alert(
-      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n所属目录：${directoryName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n资料状态：${reviewStatusLabel}\n可靠程度：${trustLevelLabel}\nAI 可引用状态：${citationStatus}\n可用场景：${applicableModules}\n来源说明：${sourceDescription}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
+      `资料标题：${fileDetail.knowledgeFile.title}\n原始文件：${fileDetail.knowledgeFile.fileName}\n所属目录：${directoryName}\n资料类型：${materialTypeLabel}\n资料主题：${materialTopicLabel}\n证据类型：${evidenceType.label}${evidenceTypeNote}\n资料状态：${reviewStatusLabel}\n可靠程度：${trustLevelLabel}\nAI 可引用状态：${citationStatus}\n可用场景：${applicableModules}\n来源说明：${sourceDescription}\n\n解析状态：${parseStatusLabel}\n知识片段数：${fileDetail.chunksCount}\n\n最近片段：\n${latestChunks}`,
       "文件详情",
       {
         confirmButtonText: "知道了"
