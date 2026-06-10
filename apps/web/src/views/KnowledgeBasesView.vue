@@ -1160,7 +1160,7 @@ onMounted(async () => {
               </span>
             </template>
             <span v-else>暂无知识库</span>
-            <span>管理企业资料和 AI 可引用内容。</span>
+            <span>管理企业资料、证据类型和 AI 可引用内容。</span>
             <span v-if="lastLoadedAt">更新 {{ lastLoadedAt }}</span>
           </div>
         </div>

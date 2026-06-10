@@ -1045,7 +1045,7 @@ onMounted(() => {
     </header>
 
     <p class="content-inline-note">
-      助理只处理生成、检查和复制；发布前请人工核对事实、参数、引用和排版，系统不自动发布到外部平台。
+      助理只处理生成、检查和复制；发布前请查看 AI 引用友好检查，并人工核对事实、参数、引用和排版。
     </p>
 
     <ContentTaskFilters
