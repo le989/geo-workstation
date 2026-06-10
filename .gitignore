@@ -10,6 +10,7 @@ coverage/
 !apps/web/.env.production.example
 storage/
 uploads/
+backups/
 tmp/
 temp/
 *.log

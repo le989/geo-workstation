@@ -1,0 +1,87 @@
+# official 正式库备份工具准备
+
+## 工具目的
+
+`OFFICIAL-DB-BACKUP-PREP-1` 的目标是先准备一个可验证的数据库备份入口。后续如果必须检查、修复或迁移 official 正式库，必须先具备可执行、可确认、不会误触库的备份能力。
+
+本阶段只准备工具，不执行 official 真实备份。
+
+## 当前阶段边界
+
+- 不连接、不导出、不修改 `geo_workstation_official`。
+- 不跑 migration。
+- 不 seed。
+- 不触发真实 AI。
+- 不修改 Provider 配置。
+- 不修改用户、部门或权限。
+- 不做恢复工具、后台按钮或定时备份。
+
+## 什么时候必须先备份
+
+- official 数据检查前。
+- official 数据修复前。
+- official migration 前。
+- official 导入、清理、批量更新前。
+- 发布涉及正式库结构或数据变更前。
+
+## 备份前检查项
+
+执行任何数据库备份前，先确认：
+
+- 当前分支。
+- 当前提交。
+- 工作区是否干净。
+- `.env` 指向哪个数据库。
+- 是否明确知道目标库名。
+- 是否确认没有把 smoke 和 official 混淆。
+- 是否确认当前阶段允许执行对应数据库操作。
+
+## 命令
+
+dry-run 只做安全检查，不生成备份文件：
+
+```bash
+pnpm db:backup:dry-run
+```
+
+smoke 验证只允许当前 `.env` 指向 `geo_workstation_aqa_chat_local_smoke`：
+
+```bash
+pnpm db:backup:smoke
+```
+
+如果当前机器没有 `pg_dump`，smoke 命令会给出清晰提示并安全停止，不会改库。安装 PostgreSQL client tools 后可重新执行。
+
+## official 本阶段禁止执行
+
+当前阶段禁止对 `geo_workstation_official` 执行真实备份。脚本检测到 official 库名时会直接阻断，避免误操作正式库。
+
+## 备份文件输出目录
+
+脚本默认输出到：
+
+```text
+backups/database/
+```
+
+备份文件命名格式：
+
+```text
+{dbName}_{yyyyMMdd_HHmmss}.dump
+```
+
+## 备份成功确认方式
+
+如果 smoke 备份实际执行成功，需要确认：
+
+- `backups/database/` 下存在备份文件。
+- 文件大小大于 0。
+- 控制台输出成功信息。
+- 备份文件没有进入 git 跟踪。
+
+## 安全提醒
+
+- 不要把数据库备份文件提交到 git。
+- 不要在未确认环境时执行备份。
+- 不要在没有回滚方案时操作 official。
+- 不要把完整数据库连接串复制到聊天、日志或提交信息里。
