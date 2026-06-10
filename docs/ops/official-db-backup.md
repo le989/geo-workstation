@@ -92,6 +92,44 @@ psql --version
 
 当前阶段禁止对 `geo_workstation_official` 执行真实备份。脚本检测到 official 库名时会直接阻断，避免误操作正式库。
 
+## official 首次人工备份前检查
+
+official 首次人工备份必须另开阶段，并在执行前完成以下检查：
+
+- 已完成 smoke 真实备份验证。
+- `pg_dump`、`pg_restore`、`psql` 均可用。
+- 当前分支、当前提交、`origin/main` 对齐状态、工作区干净状态已确认。
+- 已确认当前 `.env` 指向哪个数据库，本阶段不得把 `.env` 改成 official。
+- 本阶段不得使用真实 official `DATABASE_URL`。
+- 可使用假 official 连接串验证阻断逻辑，例如只指向本机不可用端口的 dry-run 命令：
+
+```bash
+DATABASE_URL="postgresql://blocked_user:blocked_password@127.0.0.1:1/geo_workstation_official" \
+  node scripts/backup-database.mjs --dry-run
+```
+
+该命令只用于验证库名识别和 official 阻断，不应尝试连接数据库。
+
+真实 official 备份前必须记录：
+
+- 当前分支。
+- 当前提交。
+- 当前 `.env` 目标库。
+- 备份输出路径。
+- 备份文件大小。
+- 是否已确认备份文件未进入 git。
+
+明确禁止：
+
+- migration。
+- seed。
+- 真实 AI。
+- Provider 修改。
+- 权限修改。
+- 后台按钮。
+- 定时备份。
+- 恢复操作。
+
 ## 备份文件输出目录
 
 脚本默认输出到：
