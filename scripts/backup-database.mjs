@@ -86,7 +86,7 @@ function parseEnv(content) {
 
 function parseDatabaseUrl(databaseUrl) {
   if (!databaseUrl) {
-    throw new Error('.env 中缺少 DATABASE_URL，无法判断当前数据库。');
+    throw new Error('未找到 DATABASE_URL，无法判断当前数据库。');
   }
 
   const url = new URL(databaseUrl);
@@ -104,6 +104,21 @@ function parseDatabaseUrl(databaseUrl) {
     username: url.username ? decodeURIComponent(url.username) : '',
     password: url.password ? decodeURIComponent(url.password) : '',
     sslMode: url.searchParams.get('sslmode') || '',
+  };
+}
+
+function resolveDatabaseUrl(env) {
+  // 命令级 DATABASE_URL 只用于 dry-run / 阻断测试，不会改写项目 .env。
+  if (process.env.DATABASE_URL) {
+    return {
+      source: '命令级 DATABASE_URL',
+      value: process.env.DATABASE_URL,
+    };
+  }
+
+  return {
+    source: '项目根目录 .env',
+    value: env.DATABASE_URL,
   };
 }
 
@@ -132,8 +147,9 @@ function buildBackupTarget(databaseName) {
   };
 }
 
-function printSummary({ databaseInfo, backupTarget, options, officialBlocked, status }) {
+function printSummary({ databaseInfo, databaseUrlSource, backupTarget, options, officialBlocked, status }) {
   console.log('OFFICIAL-DB-BACKUP-PREP-1 数据库备份安全检查');
+  console.log(`- 数据库配置来源：${databaseUrlSource}`);
   console.log(`- 当前数据库名：${databaseInfo.databaseName}`);
   console.log(`- 数据库类型：${databaseInfo.protocol.replace(':', '')}`);
   console.log(`- dry-run：${options.dryRun ? '是' : '否'}`);
@@ -156,7 +172,7 @@ function ensureSafeDatabaseScope(databaseInfo, options) {
   // official 正式库必须默认阻断，避免误把准备工具变成真实正式库操作。
   if (databaseInfo.databaseName === OFFICIAL_DATABASE_NAME) {
     throw new Error(
-      `检测到 official 数据库 ${OFFICIAL_DATABASE_NAME}，本阶段禁止导出、连接或修改 official。`,
+      `检测到 official 数据库 ${OFFICIAL_DATABASE_NAME}，已默认阻断；真实 official 备份必须另开阶段并明确授权。`,
     );
   }
 
@@ -263,7 +279,8 @@ async function runPgDump(databaseInfo, backupTarget) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const env = parseEnv(readEnvFile());
-  const databaseInfo = parseDatabaseUrl(env.DATABASE_URL);
+  const databaseUrlInput = resolveDatabaseUrl(env);
+  const databaseInfo = parseDatabaseUrl(databaseUrlInput.value);
   const backupTarget = buildBackupTarget(databaseInfo.databaseName);
 
   ensureSupportedDatabase(databaseInfo);
@@ -273,6 +290,7 @@ async function main() {
   } catch (error) {
     printSummary({
       databaseInfo,
+      databaseUrlSource: databaseUrlInput.source,
       backupTarget,
       options,
       officialBlocked: databaseInfo.databaseName === OFFICIAL_DATABASE_NAME,
@@ -284,6 +302,7 @@ async function main() {
   if (options.dryRun) {
     printSummary({
       databaseInfo,
+      databaseUrlSource: databaseUrlInput.source,
       backupTarget,
       options,
       officialBlocked: false,
@@ -295,6 +314,7 @@ async function main() {
   const dumpResult = await runPgDump(databaseInfo, backupTarget);
   printSummary({
     databaseInfo,
+    databaseUrlSource: databaseUrlInput.source,
     backupTarget,
     options,
     officialBlocked: false,
