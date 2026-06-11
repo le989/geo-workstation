@@ -390,10 +390,10 @@ onMounted(() => {
 .evidence-citation-hero,
 .evidence-citation-panel,
 .evidence-citation-chain-card {
-  border: 1px solid #dfe7f1;
-  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   background: #ffffff;
-  box-shadow: 0 12px 34px rgb(15 23 42 / 5%);
+  box-shadow: none;
 }
 
 .evidence-citation-hero {
@@ -415,7 +415,7 @@ onMounted(() => {
 .evidence-citation-hero h1 {
   margin: 0;
   color: #101828;
-  font-size: 22px;
+  font-size: 21px;
   letter-spacing: 0;
 }
 
@@ -450,24 +450,24 @@ onMounted(() => {
 }
 
 .evidence-citation-overview article {
-  min-height: 84px;
+  min-height: 76px;
   padding: 12px;
-  border: 1px solid #dfe7f1;
-  border-radius: 16px;
-  background: #f8fbff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
 }
 
 .evidence-citation-overview span {
   color: #64748b;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .evidence-citation-overview strong {
   display: block;
   margin-top: 6px;
   color: #0f172a;
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 0;
 }
 
@@ -479,7 +479,7 @@ onMounted(() => {
 }
 
 .evidence-citation-panel {
-  padding: 14px;
+  padding: 12px;
 }
 
 .evidence-citation-panel__header,
@@ -495,7 +495,7 @@ onMounted(() => {
 .evidence-citation-list-header h2 {
   margin: 0;
   color: #101828;
-  font-size: 18px;
+  font-size: 17px;
   letter-spacing: 0;
 }
 
@@ -524,7 +524,7 @@ onMounted(() => {
 .evidence-citation-gap-bars i {
   overflow: hidden;
   height: 9px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: #eef3f8;
 }
 
@@ -542,13 +542,13 @@ onMounted(() => {
 
 .evidence-citation-chain-grid {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .evidence-citation-chain-card {
   display: grid;
   gap: 12px;
-  padding: 14px;
+  padding: 12px;
 }
 
 .evidence-citation-chain-card h3 {
@@ -582,9 +582,10 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f8fbff;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #ffffff;
   color: #475467;
   font-size: 13px;
 }
@@ -600,8 +601,8 @@ onMounted(() => {
 .evidence-citation-evidence-grid section {
   min-height: 86px;
   padding: 10px;
-  border: 1px solid #e5edf7;
-  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   background: #ffffff;
 }
 
@@ -615,7 +616,7 @@ onMounted(() => {
   cursor: pointer;
   color: #2563eb;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .evidence-citation-detail-drawer[open] {
@@ -641,11 +642,12 @@ onMounted(() => {
 
 .evidence-citation-action-row a {
   padding: 6px 10px;
-  border-radius: 999px;
-  background: #eef4ff;
+  border: 1px solid #dbeafe;
+  border-radius: 4px;
+  background: #eff6ff;
   color: #1d4ed8;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 650;
   text-decoration: none;
 }
 
