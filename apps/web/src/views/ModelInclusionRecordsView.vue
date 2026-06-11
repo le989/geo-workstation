@@ -576,14 +576,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="model-inclusion-page">
-    <header class="model-inclusion-hero model-inclusion-toolbar">
+  <section class="model-inclusion-page core-list-page">
+    <header class="model-inclusion-hero model-inclusion-toolbar core-list-header">
       <div class="model-inclusion-toolbar__main">
         <div>
           <p class="section-kicker">GEO 监测台账</p>
           <h1>AI 模型覆盖记录</h1>
           <span>
-            {{ inclusionScopeLabel }} · {{ total }} 条记录 · 展开记录查看未推荐原因和建议补充方向
+            {{ inclusionScopeLabel }} · {{ total }} 条记录
           </span>
         </div>
         <div class="model-inclusion-hero__models" aria-label="当前启用监测模型">
@@ -619,6 +619,7 @@ onMounted(() => {
     </header>
 
     <ModelInclusionFilters
+      class="core-filter-bar"
       :model-value="filters"
       :loading="recordsLoading"
       :exporting="exporting"
@@ -631,13 +632,13 @@ onMounted(() => {
 
     <AppErrorState v-if="hasRecordsError" title="AI 模型覆盖记录加载失败" :message="recordsError" />
 
-    <el-card class="model-record-table-card" shadow="never">
+    <el-card class="model-record-table-card core-data-panel" shadow="never">
       <template #header>
         <div class="table-card-header">
           <div>
             <p class="section-kicker">AI 模型覆盖记录</p>
             <h2>当前匹配记录</h2>
-            <span>优先处理新增、导入、导出和联网检测；统计分布已收起到分析概览。</span>
+            <span>展开记录查看未推荐原因和建议补充方向。</span>
           </div>
           <div class="model-table-actions">
             <strong>{{ enabledRecords.length }} 条启用模型记录</strong>
@@ -687,7 +688,7 @@ onMounted(() => {
       </el-collapse-item>
     </el-collapse>
 
-    <el-card class="uncovered-card" shadow="never">
+    <el-card class="uncovered-card core-secondary-panel" shadow="never">
       <template #header>
         <div class="table-card-header">
           <div>

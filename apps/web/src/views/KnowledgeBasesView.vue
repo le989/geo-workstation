@@ -1144,8 +1144,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="knowledge-page">
-    <header class="knowledge-workbench-bar">
+  <section class="knowledge-page core-list-page">
+    <header class="knowledge-workbench-bar core-list-header">
       <div class="knowledge-workbench-bar__main">
         <p class="section-kicker">知识库</p>
         <div class="knowledge-workbench-titleline">
@@ -1160,7 +1160,7 @@ onMounted(async () => {
               </span>
             </template>
             <span v-else>暂无知识库</span>
-            <span>管理企业资料、证据类型和 AI 可引用内容。</span>
+            <span>企业资料、证据类型和 AI 可引用内容。</span>
             <span v-if="lastLoadedAt">更新 {{ lastLoadedAt }}</span>
           </div>
         </div>
@@ -1204,7 +1204,7 @@ onMounted(async () => {
       </el-empty>
     </section>
 
-    <section v-else class="knowledge-workbench-shell knowledge-workbench-main">
+    <section v-else class="knowledge-workbench-shell knowledge-workbench-main core-data-panel">
       <KnowledgeBaseDetailDrawer
         v-if="selectedKnowledgeBaseId"
         v-model:active-tab="activeTab"
@@ -1270,7 +1270,7 @@ onMounted(async () => {
         @create="openCreateDialog"
       />
 
-      <section class="knowledge-asset-overview" aria-label="知识库资产概览">
+      <section class="knowledge-asset-overview core-summary-row" aria-label="知识库资产概览">
         <article
           v-for="metric in knowledgeAssetMetrics"
           :key="metric.label"
@@ -1282,12 +1282,12 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section class="knowledge-table-panel knowledge-table-panel--manager">
+      <section class="knowledge-table-panel knowledge-table-panel--manager core-data-panel">
         <div class="knowledge-table-header">
           <div>
             <p class="section-kicker">事实底座</p>
             <h2>企业事实资料库</h2>
-            <p>查看知识资产建设情况，选择要进入的资料工作区。</p>
+            <p>选择资料库并进入工作区。</p>
           </div>
         </div>
 
