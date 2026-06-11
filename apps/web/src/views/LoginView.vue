@@ -136,7 +136,11 @@ const submitLogin = async () => {
 .geo-login-page {
   min-height: 100vh;
   padding: clamp(22px, 4vw, 52px);
-  background: var(--bg-app);
+  background:
+    radial-gradient(circle at 18% 20%, rgb(0 112 243 / 7%), transparent 32%),
+    linear-gradient(#e5e7eb 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(90deg, #e5e7eb 1px, transparent 1px) 0 0 / 34px 34px,
+    var(--bg-app);
   color: var(--text-primary);
 }
 
@@ -254,7 +258,7 @@ const submitLogin = async () => {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
-  box-shadow: var(--shadow-none);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 4%);
 }
 
 .geo-login-card-head {

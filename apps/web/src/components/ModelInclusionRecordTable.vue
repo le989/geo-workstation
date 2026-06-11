@@ -325,12 +325,12 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
         <div class="model-record-tag-stack model-record-tag-stack--inline">
           <ModelInclusionBooleanTag
             :value="row.brandMentioned"
-            true-label="已提及"
+            true-label="提及"
             false-label="未提及"
           />
           <ModelInclusionBooleanTag
             :value="row.brandRecommended"
-            true-label="已推荐"
+            true-label="推荐"
             false-label="未推荐"
           />
           <ModelInclusionBooleanTag
@@ -340,7 +340,13 @@ const getRowClassName = ({ row }: { row: ModelInclusionRecord }) =>
           />
         </div>
         <p class="table-subtext">
-          {{ row.competitorMentioned ? "出现竞品：" : "竞品：" }}
+          <span
+            :class="[
+              'status-dot',
+              row.competitorMentioned ? 'status-dot--warning' : 'status-dot--muted'
+            ]"
+            aria-hidden="true"
+          />
           {{ formatCompetitors(row.competitors) }}
         </p>
       </template>

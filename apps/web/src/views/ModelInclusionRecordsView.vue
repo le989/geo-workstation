@@ -57,9 +57,6 @@ const filters = reactive<ModelInclusionRecordQuery>({
   pageSize: 20,
   voidStatus: "normal"
 });
-const uncoveredPromptHint =
-  "这些提示词在当前筛选条件下暂无模型覆盖记录，适合优先进行人工检测或补充内容。";
-
 const formVisible = ref(false);
 const formSubmitting = ref(false);
 const formError = ref("");
@@ -583,7 +580,7 @@ onMounted(() => {
           <p class="section-kicker">GEO 监测台账</p>
           <h1>AI 模型覆盖记录</h1>
           <span>
-            {{ inclusionScopeLabel }} · {{ total }} 条记录
+            {{ total }} 条记录 · {{ inclusionScopeLabel.replace("统计范围：", "") }}
           </span>
         </div>
         <div class="model-inclusion-hero__models" aria-label="当前启用监测模型">
@@ -638,7 +635,6 @@ onMounted(() => {
           <div>
             <p class="section-kicker">AI 模型覆盖记录</p>
             <h2>当前匹配记录</h2>
-            <span>展开记录查看未推荐原因和建议补充方向。</span>
           </div>
           <div class="model-table-actions">
             <strong>{{ enabledRecords.length }} 条启用模型记录</strong>
@@ -694,7 +690,6 @@ onMounted(() => {
           <div>
             <p class="section-kicker">未覆盖提示词</p>
             <h2>未覆盖提示词辅助排查</h2>
-            <span>{{ uncoveredPromptHint }}</span>
           </div>
           <strong>{{ uncoveredTotal }} 个待检测提示词</strong>
         </div>

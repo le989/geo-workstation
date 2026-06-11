@@ -121,7 +121,11 @@ const workflowSteps: HomeWorkflowStep[] = [
 .home-entry-page {
   min-height: 100vh;
   padding: 24px clamp(18px, 4vw, 56px) 40px;
-  background: var(--bg-app);
+  background:
+    linear-gradient(#e5e7eb 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, #e5e7eb 1px, transparent 1px) 0 0 / 32px 32px,
+    radial-gradient(circle at 72% 18%, rgb(0 112 243 / 8%), transparent 34%),
+    var(--bg-app);
   color: var(--text-primary);
 }
 
@@ -331,10 +335,19 @@ const workflowSteps: HomeWorkflowStep[] = [
 }
 
 .home-entry-capability-grid article {
+  position: relative;
   display: grid;
   gap: 8px;
   min-height: 142px;
   padding: 16px;
+}
+
+.home-entry-capability-grid article::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  content: "";
 }
 
 .home-entry-capability-grid h3 {

@@ -156,6 +156,20 @@ const getOwnStatusTagType = (status: string) => {
   return "info";
 };
 
+const getOwnStatusDotClass = (status: string) => {
+  if (status === "已推荐") {
+    return "status-dot--success";
+  }
+  if (status === "缺席") {
+    return "status-dot--danger";
+  }
+  if (status === "仅提及") {
+    return "status-dot--warning";
+  }
+
+  return "status-dot--muted";
+};
+
 const getReasonTagType = (reason: CompetitorOccupancyReason) => {
   const dangerReasons: CompetitorOccupancyReason[] = ["evidence_gap", "content_gap", "citation_gap"];
   const warningReasons: CompetitorOccupancyReason[] = ["prompt_bias", "scenario_gap", "spec_gap"];
@@ -168,6 +182,18 @@ const getReasonTagType = (reason: CompetitorOccupancyReason) => {
   }
 
   return "info";
+};
+
+const getReasonDotClass = (reason: CompetitorOccupancyReason) => {
+  const tagType = getReasonTagType(reason);
+  if (tagType === "danger") {
+    return "status-dot--danger";
+  }
+  if (tagType === "warning") {
+    return "status-dot--warning";
+  }
+
+  return "status-dot--muted";
 };
 
 const loadCompetitorOccupancy = async () => {
@@ -218,7 +244,6 @@ onMounted(() => {
     <header class="competitor-occupancy-hero review-page__header">
       <div>
         <h1>竞品占位原因</h1>
-        <span>先看谁占位、我方缺什么、下一步怎么补。</span>
         <small>本地 smoke 数据 · 前端轻量识别 · 结果需人工确认</small>
       </div>
       <div class="competitor-occupancy-hero__actions">
@@ -235,7 +260,6 @@ onMounted(() => {
       <article v-for="card in overviewCards" :key="card.label">
         <span>{{ card.label }}</span>
         <strong>{{ loading ? "--" : formatNumber(card.value) }}</strong>
-        <p>{{ card.helper }}</p>
       </article>
     </section>
 
@@ -245,9 +269,7 @@ onMounted(() => {
           <div class="competitor-occupancy-panel__header">
             <div>
               <h2>竞品分布</h2>
-              <p>看哪些竞品出现最多，以及我方是否缺席。</p>
             </div>
-            <small>轻量识别</small>
           </div>
           <div v-if="competitorDistribution.length" class="competitor-occupancy-bars">
             <div v-for="item in competitorDistribution" :key="item.label">
@@ -256,7 +278,7 @@ onMounted(() => {
                 <b :style="{ width: `${(item.count / maxCompetitorCount) * 100}%` }" />
               </i>
               <strong>{{ item.count }}</strong>
-              <small>高意向 {{ item.highValueCount }} · 我方缺席 {{ item.ownMissingCount }}</small>
+              <small>高意向 {{ item.highValueCount }} · 缺席 {{ item.ownMissingCount }}</small>
             </div>
           </div>
           <AppEmptyState
@@ -270,9 +292,7 @@ onMounted(() => {
           <div class="competitor-occupancy-panel__header">
             <div>
               <h2>占位原因分布</h2>
-              <p>按证据、文章、问法和模型复盘缺口归类。</p>
             </div>
-            <small>需确认</small>
           </div>
           <div v-if="reasonDistribution.length" class="competitor-occupancy-bars">
             <div v-for="item in reasonDistribution" :key="item.value">
@@ -281,7 +301,6 @@ onMounted(() => {
                 <b :style="{ width: `${(item.count / maxReasonCount) * 100}%` }" />
               </i>
               <strong>{{ item.count }}</strong>
-              <small>{{ occupancyReasonDescriptionMap[item.value] }}</small>
             </div>
           </div>
           <AppEmptyState
@@ -296,7 +315,6 @@ onMounted(() => {
         <div class="competitor-occupancy-list-header">
           <div>
             <h2>竞品占位复盘</h2>
-            <p>优先查看问法、竞品、我方状态、原因和下一步。</p>
           </div>
           <div class="competitor-occupancy-filter-row">
             <small>当前展示 {{ filteredReviews.length }} / {{ occupancyReviews.length }} 条</small>
@@ -328,7 +346,6 @@ onMounted(() => {
           >
             <div class="competitor-occupancy-card__main">
               <div>
-                <p>用户问法</p>
                 <h3>{{ review.promptText }}</h3>
               </div>
               <div class="competitor-occupancy-card__tags">
@@ -343,17 +360,17 @@ onMounted(() => {
 
             <div class="competitor-occupancy-status-row">
               <span>
-                模型
+                <i class="status-dot status-dot--info" aria-hidden="true" />
                 <strong>{{ review.model }}</strong>
               </span>
               <span>
-                我方状态
+                <i :class="['status-dot', getOwnStatusDotClass(review.ownStatus)]" aria-hidden="true" />
                 <el-tag :type="getOwnStatusTagType(review.ownStatus)" effect="plain">
                   {{ review.ownStatus }}
                 </el-tag>
               </span>
               <span>
-                占位类型
+                <i class="status-dot status-dot--warning" aria-hidden="true" />
                 <el-tag type="warning" effect="plain">
                   {{ occupancyTypeLabelMap[review.occupancyType] }}
                 </el-tag>
@@ -377,7 +394,7 @@ onMounted(() => {
                 <small v-else>暂无明确竞品品牌，需结合原始回答人工确认。</small>
               </section>
               <section>
-                <strong>轻量原因</strong>
+                <strong>原因</strong>
                 <div class="competitor-occupancy-tag-row">
                   <el-tooltip
                     v-for="reason in review.reasons"
@@ -386,13 +403,14 @@ onMounted(() => {
                     placement="top"
                   >
                     <el-tag :type="getReasonTagType(reason)" effect="plain" size="small">
+                      <i :class="['status-dot', getReasonDotClass(reason)]" aria-hidden="true" />
                       {{ occupancyReasonLabelMap[reason] }}
                     </el-tag>
                   </el-tooltip>
                 </div>
               </section>
               <section>
-                <strong>下一步动作</strong>
+                <strong>动作</strong>
                 <div class="competitor-occupancy-action-row">
                   <RouterLink v-for="action in review.nextActions" :key="action.label" :to="action.to">
                     {{ action.label }}
@@ -699,7 +717,6 @@ onMounted(() => {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.competitor-occupancy-status-row span,
 .competitor-occupancy-detail-grid section,
 .competitor-occupancy-summary {
   display: grid;
@@ -709,6 +726,31 @@ onMounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
+}
+
+.competitor-occupancy-status-row span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.competitor-occupancy-status-row strong {
+  overflow: hidden;
+  color: #111827;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.competitor-occupancy-tag-row .el-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .competitor-occupancy-action-row {
