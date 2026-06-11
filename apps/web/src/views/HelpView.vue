@@ -24,14 +24,12 @@ const helpOverviewItems = [
       <div class="help-hero__copy">
         <el-tag effect="plain" type="primary">帮助中心</el-tag>
         <h1>使用教程与操作边界</h1>
-        <p>查看常用流程、操作边界和风险提醒。</p>
       </div>
       <div class="help-hero__aside">
         <el-icon>
           <Guide />
         </el-icon>
         <strong>快速查找操作边界</strong>
-        <span>按流程、模块、风险、FAQ 和术语分组。</span>
       </div>
     </section>
 
@@ -56,7 +54,6 @@ const helpOverviewItems = [
             <div>
               <p class="section-kicker">Quick Start</p>
               <h2>新手快速开始</h2>
-              <span>第一次使用时先看 Dashboard，再按待处理事项补资料、做诊断、生成发布稿和复盘。</span>
             </div>
             <el-tag type="primary" effect="plain">建议从这里开始</el-tag>
           </div>
@@ -82,7 +79,6 @@ const helpOverviewItems = [
             <div>
               <p class="section-kicker">Guide Map</p>
               <h2>帮助目录总览</h2>
-              <span>按员工日常任务组织，先看流程，再查模块、风险、常见问题、术语和管理员设置。</span>
             </div>
             <el-tag effect="plain">{{ sopSections.length }} 组说明</el-tag>
           </div>

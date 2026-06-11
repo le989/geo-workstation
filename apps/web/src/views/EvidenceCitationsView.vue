@@ -131,6 +131,20 @@ const getEvidenceStatusTagType = (status: EvidenceSupportStatus) => {
   return typeMap[status];
 };
 
+const getEvidenceStatusDotClass = (status: EvidenceSupportStatus) => {
+  if (status === "citable") {
+    return "status-dot--success";
+  }
+  if (status === "needs_evidence") {
+    return "status-dot--danger";
+  }
+  if (status === "needs_label") {
+    return "status-dot--warning";
+  }
+
+  return "status-dot--muted";
+};
+
 const getArticleStatusTagType = (status: ArticleCitationStatus) => {
   const typeMap: Record<ArticleCitationStatus, "success" | "warning" | "info" | "danger"> = {
     friendly: "success",
@@ -142,6 +156,20 @@ const getArticleStatusTagType = (status: ArticleCitationStatus) => {
   return typeMap[status];
 };
 
+const getArticleStatusDotClass = (status: ArticleCitationStatus) => {
+  if (status === "friendly") {
+    return "status-dot--success";
+  }
+  if (status === "missing") {
+    return "status-dot--danger";
+  }
+  if (status === "needs_review") {
+    return "status-dot--warning";
+  }
+
+  return "status-dot--muted";
+};
+
 const getCoverageStatusTagType = (status: ModelCoverageCitationStatus) => {
   const typeMap: Record<ModelCoverageCitationStatus, "success" | "warning" | "info" | "danger"> = {
     mentioned: "warning",
@@ -151,6 +179,20 @@ const getCoverageStatusTagType = (status: ModelCoverageCitationStatus) => {
   };
 
   return typeMap[status];
+};
+
+const getCoverageStatusDotClass = (status: ModelCoverageCitationStatus) => {
+  if (status === "recommended") {
+    return "status-dot--success";
+  }
+  if (status === "not_recommended") {
+    return "status-dot--danger";
+  }
+  if (status === "mentioned") {
+    return "status-dot--warning";
+  }
+
+  return "status-dot--muted";
 };
 
 const loadEvidenceCitationCenter = async () => {
@@ -201,7 +243,6 @@ onMounted(() => {
     <header class="evidence-citation-hero review-page__header">
       <div>
         <h1>引用证据中心</h1>
-        <span>先看问题是否缺证据、缺文章或缺模型覆盖。</span>
         <small>本地 smoke 数据 · 只读聚合 · 待人工确认</small>
       </div>
       <div class="evidence-citation-hero__actions">
@@ -218,7 +259,6 @@ onMounted(() => {
       <article v-for="card in overviewCards" :key="card.label">
         <span>{{ card.label }}</span>
         <strong>{{ loading ? "--" : formatNumber(card.value) }}</strong>
-        <p>{{ card.helper }}</p>
       </article>
     </section>
 
@@ -227,7 +267,6 @@ onMounted(() => {
         <div class="evidence-citation-panel__header">
           <div>
             <h2>证据缺口分布</h2>
-            <p>紧凑查看缺证据、缺文章和待确认项。</p>
           </div>
         </div>
         <div class="evidence-citation-gap-bars">
@@ -245,7 +284,6 @@ onMounted(() => {
         <div class="evidence-citation-list-header">
           <div>
             <h2>问题证据链</h2>
-            <p>默认优先看状态、缺口和下一步，关联证据放入展开区。</p>
           </div>
           <div class="evidence-citation-list-tools">
             <small>当前展示 {{ filteredChains.length }} / {{ evidenceChains.length }} 条</small>
@@ -277,7 +315,6 @@ onMounted(() => {
           >
             <div class="evidence-citation-chain-card__main">
               <div>
-                <p>用户问法</p>
                 <h3>{{ chain.promptText }}</h3>
               </div>
               <div class="evidence-citation-chain-card__status">
@@ -289,19 +326,28 @@ onMounted(() => {
 
             <div class="evidence-citation-status-row">
               <span>
-                证据状态
+                <i
+                  :class="['status-dot', getEvidenceStatusDotClass(chain.evidenceStatus)]"
+                  aria-hidden="true"
+                />
                 <el-tag :type="getEvidenceStatusTagType(chain.evidenceStatus)" effect="plain">
                   {{ evidenceSupportStatusLabelMap[chain.evidenceStatus] }}
                 </el-tag>
               </span>
               <span>
-                文章状态
+                <i
+                  :class="['status-dot', getArticleStatusDotClass(chain.articleStatus)]"
+                  aria-hidden="true"
+                />
                 <el-tag :type="getArticleStatusTagType(chain.articleStatus)" effect="plain">
                   {{ articleCitationStatusLabelMap[chain.articleStatus] }}
                 </el-tag>
               </span>
               <span>
-                模型覆盖
+                <i
+                  :class="['status-dot', getCoverageStatusDotClass(chain.coverageStatus)]"
+                  aria-hidden="true"
+                />
                 <el-tag :type="getCoverageStatusTagType(chain.coverageStatus)" effect="plain">
                   {{ modelCoverageCitationStatusLabelMap[chain.coverageStatus] }}
                 </el-tag>
@@ -324,7 +370,7 @@ onMounted(() => {
                 </div>
               </section>
               <section>
-                <strong>下一步建议</strong>
+                <strong>动作</strong>
                 <div class="evidence-citation-action-row">
                   <RouterLink v-for="action in chain.nextActions" :key="action.label" :to="action.to">
                     {{ action.label }}
@@ -369,7 +415,7 @@ onMounted(() => {
               </div>
               <footer>
                 <span>匹配关键词：{{ chain.matchedKeywords.length ? chain.matchedKeywords.join("、") : "暂无明显关键词" }}</span>
-                <span>可能来源：{{ chain.possibleSources.join(" / ") }}，需人工确认</span>
+                <span>{{ chain.possibleSources.join(" / ") }} · 待确认</span>
                 <small>{{ chain.relationNote }}</small>
               </footer>
             </details>

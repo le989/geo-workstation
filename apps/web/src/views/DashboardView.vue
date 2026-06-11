@@ -360,7 +360,7 @@ const visibilityMetrics = computed(() => [
   {
     label: "品牌推荐率",
     value: formatPercent(report.value.brandRecommendRate),
-    description: `${formatNumber(report.value.brandRecommendedCount)} 条记录推荐品牌`,
+    status: report.value.brandRecommendRate > 0 ? "有推荐" : "待提升",
     percent: getPercentValue(report.value.brandRecommendRate),
     to: "/geo-reports",
     tone: report.value.brandRecommendRate > 0 ? ("good" as DashboardTone) : ("warning" as DashboardTone)
@@ -368,7 +368,7 @@ const visibilityMetrics = computed(() => [
   {
     label: "品牌提及率",
     value: formatPercent(report.value.brandMentionRate),
-    description: `${formatNumber(report.value.brandMentionedCount)} 条记录提及品牌`,
+    status: report.value.brandMentionRate > 0 ? "已提及" : "待覆盖",
     percent: getPercentValue(report.value.brandMentionRate),
     to: "/geo-reports",
     tone: "good" as DashboardTone
@@ -376,7 +376,7 @@ const visibilityMetrics = computed(() => [
   {
     label: "官网引用率",
     value: formatPercent(report.value.citedOfficialSiteRate),
-    description: `${formatNumber(report.value.citedOfficialSiteCount)} 条记录引用官网`,
+    status: report.value.citedOfficialSiteRate > 0 ? "有引用" : "待补证",
     percent: getPercentValue(report.value.citedOfficialSiteRate),
     to: "/model-inclusion-records",
     tone: "default" as DashboardTone
@@ -384,7 +384,7 @@ const visibilityMetrics = computed(() => [
   {
     label: "竞品占位率",
     value: formatPercent(report.value.competitorMentionRate),
-    description: `${formatNumber(report.value.competitorMentionedCount)} 条记录出现竞品`,
+    status: report.value.competitorMentionedCount > 0 ? "需复盘" : "低占位",
     percent: getPercentValue(report.value.competitorMentionRate),
     to: "/model-inclusion-records",
     tone: getCountTone(report.value.competitorMentionedCount)
@@ -406,6 +406,14 @@ const visibilityMetrics = computed(() => [
         report.value.failedContentTaskCount) *
         20
     ),
+    status:
+      report.value.uncoveredTrackedPromptCount +
+        knowledgeGapItems.value.length +
+        contentGapCount.value +
+        report.value.failedContentTaskCount >
+      0
+        ? "待处理"
+        : "稳定",
     to: "/model-inclusion-records",
     tone: getCountTone(
       report.value.uncoveredTrackedPromptCount +
@@ -498,43 +506,51 @@ const dashboardConclusion = computed<DashboardConclusion>(() => {
 
 const todayTasks = computed<DashboardTask[]>(() => [
   {
-    title: "需补问法",
+    title: "补问法",
     count: formatNumber(report.value.promptTotal),
     description: "真实用户问题不足时，先去提示词库或 AI 拓词补问法。",
-    status: `${formatNumber(report.value.trackedPromptCount)} 个追踪中`,
+    status: `${formatNumber(report.value.trackedPromptCount)} 追踪`,
     to: "/geo-prompts",
     tone: report.value.promptTotal > 0 ? "default" : "warning",
     icon: ChatDotRound
   },
   {
-    title: "需补证据",
+    title: "补证据",
     count: formatNumber(knowledgeGapItems.value.length),
     description: "资料不足时，先补产品参数、场景、案例和可引用证据。",
-    status: knowledgeGapItems.value.length > 0 ? "有缺口" : "看证据类型",
+    status: knowledgeGapItems.value.length > 0 ? "有缺口" : "正常",
     to: "/knowledge-bases",
     tone: getCountTone(knowledgeGapItems.value.length),
     icon: Files
   },
   {
-    title: "需补文章",
+    title: "补文章",
     count: formatNumber(contentGapCount.value + report.value.failedContentTaskCount),
     description: "内容不足时，优先处理发布稿和 AI 引用友好检查。",
-    status: contentGapCount.value + report.value.failedContentTaskCount > 0 ? "需处理" : "暂无阻断",
+    status: contentGapCount.value + report.value.failedContentTaskCount > 0 ? "待处理" : "正常",
     to: "/geo-content",
     tone:
       contentGapCount.value + report.value.failedContentTaskCount > 0 ? "warning" : "default",
     icon: EditPen
   },
   {
-    title: "需复盘模型",
+    title: "复盘模型",
     count: formatNumber(report.value.uncoveredTrackedPromptCount),
     description: "未推荐或未命中时，展开覆盖记录看未推荐原因复盘。",
-    status: report.value.uncoveredTrackedPromptCount > 0 ? "需处理" : "相对完整",
+    status: report.value.uncoveredTrackedPromptCount > 0 ? "待处理" : "正常",
     to: "/model-inclusion-records",
     tone: getCountTone(report.value.uncoveredTrackedPromptCount),
     icon: TrendCharts
   }
 ]);
+
+const dashboardTaskTotal = computed(
+  () =>
+    knowledgeGapItems.value.length +
+    contentGapCount.value +
+    report.value.failedContentTaskCount +
+    report.value.uncoveredTrackedPromptCount
+);
 
 const recentActivities = computed(() => [
   {
@@ -624,7 +640,7 @@ const scenarioTags = [
             <span>{{ metric.label }}</span>
           </div>
           <strong>{{ metric.value }}</strong>
-          <p>{{ metric.description }}</p>
+          <small>{{ metric.status }}</small>
         </template>
       </RouterLink>
     </section>
@@ -634,9 +650,7 @@ const scenarioTags = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>AI 可见度趋势</h2>
-            <p>主趋势保留在首屏，其它分析下沉。</p>
           </div>
-          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <svg viewBox="0 0 720 260" role="img" aria-label="AI 可见度示例趋势图">
           <path class="dashboard-refresh-grid-line" d="M36 42H690" />
@@ -675,19 +689,15 @@ const scenarioTags = [
       <article class="dashboard-refresh-panel dashboard-refresh-ops-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
-            <h2>本轮结论</h2>
-            <p>先处理影响推荐和引用的关键阻断项。</p>
+            <h2>待处理</h2>
           </div>
           <RouterLink :to="dashboardConclusion.primaryAction.to">
             {{ dashboardConclusion.primaryAction.action }}
           </RouterLink>
         </div>
         <div class="dashboard-refresh-ops-summary">
-          <strong>{{ dashboardConclusion.title }}</strong>
-          <p>{{ dashboardConclusion.description }}</p>
-          <div class="dashboard-refresh-weakness-list" aria-label="主要短板">
-            <span v-for="item in dashboardConclusion.weakness" :key="item">{{ item }}</span>
-          </div>
+          <strong>{{ dashboardTaskTotal }} 项待复盘</strong>
+          <span>推荐、证据、文章和模型记录</span>
         </div>
         <ul class="dashboard-refresh-action-list" aria-label="高优待办">
           <li v-for="task in todayTasks" :key="task.title">
@@ -696,6 +706,17 @@ const scenarioTags = [
               :class="['dashboard-refresh-action-row', `dashboard-refresh-card--${task.tone}`]"
             >
               <span class="dashboard-refresh-action-main">
+                <i
+                  :class="[
+                    'status-dot',
+                    task.tone === 'danger'
+                      ? 'status-dot--danger'
+                      : task.tone === 'warning'
+                        ? 'status-dot--warning'
+                        : 'status-dot--success'
+                  ]"
+                  aria-hidden="true"
+                />
                 <el-icon>
                   <component :is="task.icon" />
                 </el-icon>
@@ -715,9 +736,7 @@ const scenarioTags = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>模型推荐对比</h2>
-            <p>回答哪些模型推荐 / 没推荐；当前为模型对比展示样式。</p>
           </div>
-          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <div class="dashboard-refresh-model-bars">
           <article v-for="model in modelComparisonRows" :key="model.label">
@@ -745,9 +764,7 @@ const scenarioTags = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>未推荐原因分布</h2>
-            <p>回答为什么没推荐；分布仅用于提示补救方向，非真实模型诊断。</p>
           </div>
-          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <div class="dashboard-refresh-reason-list">
           <div v-for="item in reasonDistributionItems" :key="item.label">
@@ -765,9 +782,7 @@ const scenarioTags = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>高频问法 / 场景词</h2>
-            <p>回答高频问题集中在哪里；当前标签用于本地走查和方向识别。</p>
           </div>
-          <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
         <div class="dashboard-refresh-tag-cloud">
           <span
@@ -784,21 +799,18 @@ const scenarioTags = [
     <DashboardSection
       class="dashboard-refresh-section dashboard-refresh-section--compact"
       title="辅助信息"
-      description="TOP5 与最近动态用于补充判断，已下沉到第二屏之后。"
     >
       <section class="dashboard-refresh-lists-grid">
         <article class="dashboard-refresh-panel">
           <div class="dashboard-refresh-panel-header">
             <div>
               <h2>未覆盖问题 TOP 5</h2>
-              <p>优先使用待优化建议接口；无数据时显示空状态。</p>
             </div>
           </div>
           <AppErrorState v-if="suggestionsError" title="待优化建议加载失败" :message="suggestionsError" />
           <div v-else-if="uncoveredProblemItems.length" class="dashboard-refresh-rank-list">
             <RouterLink v-for="item in uncoveredProblemItems" :key="item.title" :to="item.to">
               <strong>{{ item.title }}</strong>
-              <p>{{ item.description }}</p>
               <span>{{ item.action }}</span>
             </RouterLink>
           </div>
@@ -812,13 +824,11 @@ const scenarioTags = [
           <div class="dashboard-refresh-panel-header">
             <div>
               <h2>知识库缺口 TOP 5</h2>
-              <p>只展示接口返回的知识库缺口，不用示例数据冒充真实排行。</p>
             </div>
           </div>
           <div v-if="knowledgeGapItems.length" class="dashboard-refresh-rank-list">
             <RouterLink v-for="item in knowledgeGapItems" :key="item.title" :to="item.to">
               <strong>{{ item.title }}</strong>
-              <p>{{ item.description }}</p>
               <span>{{ item.action }}</span>
             </RouterLink>
           </div>
@@ -832,7 +842,6 @@ const scenarioTags = [
           <div class="dashboard-refresh-panel-header">
             <div>
               <h2>最近动态</h2>
-              <p>基于当前总览数据生成的运营摘要，不是审计日志。</p>
             </div>
           </div>
           <div class="dashboard-refresh-activity-list">
@@ -852,13 +861,11 @@ const scenarioTags = [
     <DashboardSection
       class="dashboard-refresh-section"
       title="辅助统计"
-      description="保留原有资产规模指标，作为底部补充信息。"
     >
       <div class="dashboard-refresh-secondary-grid">
         <RouterLink v-for="metric in secondaryMetrics" :key="metric.label" :to="metric.to">
           <span>{{ metric.label }}</span>
           <strong>{{ metric.value }}</strong>
-          <p>{{ metric.description }}</p>
         </RouterLink>
       </div>
     </DashboardSection>
@@ -866,7 +873,6 @@ const scenarioTags = [
     <DashboardSection
       class="dashboard-refresh-section"
       title="处理入口"
-      description="常用动作保留在页面后半部分，避免抢占首屏。"
     >
       <QuickActionGrid />
       <div class="dashboard-refresh-boundary-note">
@@ -1112,6 +1118,12 @@ const scenarioTags = [
   line-height: 1.35;
 }
 
+.dashboard-refresh-ops-summary span {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .dashboard-refresh-ops-summary p {
   margin: 0;
   color: #52647a;
@@ -1165,6 +1177,11 @@ const scenarioTags = [
   min-width: 0;
   align-items: center;
   gap: 8px;
+}
+
+.dashboard-refresh-action-main .status-dot {
+  width: 7px;
+  height: 7px;
 }
 
 .dashboard-refresh-action-row .el-icon {

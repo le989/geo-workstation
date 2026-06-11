@@ -315,11 +315,11 @@ const getTaskKnowledgeScopeSummary = (task: ContentTask) => {
   const scope = task.knowledgeScope;
 
   if (scope?.type === "selected_files") {
-    return `指定资料：${scope.selectedKnowledgeFileIds.length} 份`;
+    return `指定资料 ${scope.selectedKnowledgeFileIds.length} 份`;
   }
 
   if (scope?.type === "product_line") {
-    return `按产品线：${formatOptional(task.productLine)}`;
+    return `产品线 ${formatOptional(task.productLine)}`;
   }
 
   return "全部可引用资料";
@@ -1028,7 +1028,6 @@ onMounted(() => {
     <header class="content-hero content-hero--compact core-list-header">
       <div class="content-hero__copy">
         <h1>发布文章工作台</h1>
-        <p>选择资料 → 生成文章 → 复制发布稿</p>
       </div>
       <div class="content-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -1065,7 +1064,6 @@ onMounted(() => {
           <div>
             <p class="section-kicker">文章工作台</p>
             <h2>待处理文章列表</h2>
-            <span>按状态处理下一步，更多操作收在菜单里。</span>
           </div>
           <strong>{{ total }} 篇文章</strong>
         </div>
@@ -1099,10 +1097,22 @@ onMounted(() => {
               <h3>{{ getAssistantArticleTitle(row) }}</h3>
             </div>
             <p class="assistant-article-card__source">
-              资料：{{ getTaskKnowledgeScopeSummary(row) }} ｜ 更新：{{ formatDateTime(row.updatedAt) }}
+              {{ getTaskKnowledgeScopeSummary(row) }} · {{ formatDateTime(row.updatedAt) }}
             </p>
             <p class="assistant-article-card__next">
-              <span>下一步：</span>
+              <i
+                :class="[
+                  'status-dot',
+                  resolveAssistantStatus(row) === 'copyable'
+                    ? 'status-dot--success'
+                    : resolveAssistantStatus(row) === 'needs_review'
+                      ? 'status-dot--warning'
+                      : resolveAssistantStatus(row) === 'running'
+                        ? 'status-dot--info'
+                        : 'status-dot--muted'
+                ]"
+                aria-hidden="true"
+              />
               <strong>{{ getTaskNextAction(row) }}</strong>
             </p>
           </div>

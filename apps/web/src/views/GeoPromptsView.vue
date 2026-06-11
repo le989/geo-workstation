@@ -461,14 +461,12 @@ onMounted(() => {
         >
           <span>{{ asset.label }}</span>
           <strong>{{ asset.value }}</strong>
-          <p>{{ asset.hint }}</p>
         </article>
       </div>
 
       <section class="geo-prompts-value-panel geo-prompts-value-panel--compact" aria-label="问法业务价值概览">
         <div>
           <h2>业务价值</h2>
-          <p>轻量推断，用于处理优先级。</p>
         </div>
         <div class="geo-prompts-value-summary">
           <span
@@ -491,7 +489,6 @@ onMounted(() => {
         <div>
           <p class="section-kicker">提示词资产</p>
           <h2>GEO 提示词列表</h2>
-          <p>问法类型、业务价值和购买阶段用于判断处理优先级。</p>
         </div>
       </div>
 
