@@ -34,7 +34,7 @@ const setDateRange = (current: GeoAnalysisTaskQuery, value?: [string, string]) =
 </script>
 
 <template>
-  <section class="geo-analysis-filter-panel">
+  <section class="geo-analysis-filter-panel review-filter-bar">
     <div class="geo-analysis-filter-header">
       <p class="section-kicker">筛选记录</p>
       <h2>定位诊断任务</h2>

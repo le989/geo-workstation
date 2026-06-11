@@ -9740,6 +9740,62 @@ a {
   border-radius: var(--radius-md);
 }
 
+/* UI-REDESIGN-REVIEW-PAGES-1：复盘页用更轻的头部、提示和筛选栏，让明细更早出现。 */
+.review-page {
+  min-width: 0;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.review-page > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.review-page__hint.el-alert {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.review-page__hint .el-alert__title {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.review-filter-bar.geo-analysis-filter-panel {
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+
+.review-filter-bar .geo-analysis-filter-header {
+  display: none;
+}
+
+.review-filter-bar .geo-analysis-filters {
+  grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.review-filter-bar .el-form-item__label {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.review-filter-bar :where(.el-input__wrapper, .el-select__wrapper) {
+  min-height: 32px;
+}
+
+.review-filter-bar .geo-analysis-filter-actions {
+  gap: 8px;
+}
+
 @media (max-width: 1280px) {
   .geo-prompts-summary-row {
     grid-template-columns: 1fr;
