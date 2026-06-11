@@ -79,24 +79,21 @@ const actions: QuickAction[] = [
 .dashboard-refresh-quick-action {
   display: grid;
   gap: 10px;
-  min-height: 108px;
-  padding: 14px;
-  border: 1px solid #dfe7f1;
-  border-radius: 12px;
+  min-height: 92px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   background: #ffffff;
   color: inherit;
   text-decoration: none;
-  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
   transition:
     border-color 0.16s ease,
-    box-shadow 0.16s ease,
-    transform 0.16s ease;
+    background 0.16s ease;
 }
 
 .dashboard-refresh-quick-action:hover {
-  border-color: #bfd2f6;
-  box-shadow: 0 14px 34px rgb(15 23 42 / 7%);
-  transform: translateY(-1px);
+  border-color: #bfdbfe;
+  background: #f8fafc;
 }
 
 .dashboard-refresh-quick-action .el-icon {
@@ -104,9 +101,9 @@ const actions: QuickAction[] = [
   width: 32px;
   height: 32px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 6px;
   background: #f0f5ff;
-  color: #315dff;
+  color: #0070f3;
   font-size: 16px;
 }
 

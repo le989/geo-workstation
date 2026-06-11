@@ -444,10 +444,10 @@ onMounted(() => {
 .competitor-occupancy-hero,
 .competitor-occupancy-panel,
 .competitor-occupancy-card {
-  border: 1px solid #dfe7f1;
-  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   background: #ffffff;
-  box-shadow: 0 12px 34px rgb(15 23 42 / 5%);
+  box-shadow: none;
 }
 
 .competitor-occupancy-hero {
@@ -469,7 +469,7 @@ onMounted(() => {
 .competitor-occupancy-hero h1 {
   margin: 0;
   color: #101828;
-  font-size: 22px;
+  font-size: 21px;
   letter-spacing: 0;
 }
 
@@ -504,24 +504,24 @@ onMounted(() => {
 }
 
 .competitor-occupancy-overview article {
-  min-height: 84px;
+  min-height: 76px;
   padding: 12px;
-  border: 1px solid #dfe7f1;
-  border-radius: 16px;
-  background: #f8fbff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
 }
 
 .competitor-occupancy-overview span {
   color: #64748b;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .competitor-occupancy-overview strong {
   display: block;
   margin-top: 6px;
   color: #0f172a;
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 0;
 }
 
@@ -540,7 +540,7 @@ onMounted(() => {
 
 .competitor-occupancy-panel,
 .competitor-occupancy-card {
-  padding: 14px;
+  padding: 12px;
 }
 
 .competitor-occupancy-panel__header,
@@ -556,7 +556,7 @@ onMounted(() => {
 .competitor-occupancy-list-header h2 {
   margin: 0;
   color: #101828;
-  font-size: 18px;
+  font-size: 17px;
   letter-spacing: 0;
 }
 
@@ -571,9 +571,10 @@ onMounted(() => {
   display: inline-flex;
   flex-shrink: 0;
   padding: 4px 8px;
-  border-radius: 999px;
-  background: #f0f5ff;
-  color: #315dff;
+  border: 1px solid #dbeafe;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-size: 12px;
 }
 
@@ -595,7 +596,7 @@ onMounted(() => {
 .competitor-occupancy-bars i {
   overflow: hidden;
   height: 10px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: #edf3f9;
 }
 
@@ -604,7 +605,7 @@ onMounted(() => {
   min-width: 4px;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #2563eb, #0f9f9f);
+  background: #0070f3;
 }
 
 .competitor-occupancy-bars small {
@@ -680,9 +681,9 @@ onMounted(() => {
   gap: 8px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid #e4ebf4;
-  border-radius: 14px;
-  background: #f8fbff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
 }
 
 .competitor-occupancy-action-row {
@@ -696,12 +697,12 @@ onMounted(() => {
   align-items: center;
   min-height: 28px;
   padding: 0 10px;
-  border: 1px solid #c7d7f2;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #315dff;
+  border: 1px solid #dbeafe;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 650;
   text-decoration: none;
 }
 
@@ -715,7 +716,7 @@ onMounted(() => {
   cursor: pointer;
   color: #2563eb;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .competitor-occupancy-detail-drawer[open] {
@@ -763,12 +764,12 @@ onMounted(() => {
   align-items: center;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid #c7d7f2;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #315dff;
+  border: 1px solid #dbeafe;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 650;
   text-decoration: none;
 }
 
