@@ -85,31 +85,22 @@ const filteredChains = computed(() =>
   })
 );
 
+// 概览只保留首屏最关键的三项，细节留给列表和展开区。
 const overviewCards = computed(() => [
   {
     label: "有证据支撑的问题",
     value: evidenceChains.value.filter((chain) => chain.evidenceStatus === "citable").length,
-    helper: "前端匹配到可引用知识库资料"
+    helper: "匹配到可引用资料"
   },
   {
     label: "缺证据的问题",
     value: evidenceChains.value.filter((chain) => chain.gaps.includes("缺证据")).length,
-    helper: "建议优先去知识库补资料"
-  },
-  {
-    label: "有引用友好文章",
-    value: evidenceChains.value.filter((chain) => chain.articleStatus === "friendly").length,
-    helper: "基于发布状态和资料依据判断"
-  },
-  {
-    label: "有模型覆盖记录",
-    value: evidenceChains.value.filter((chain) => chain.coverageStatus !== "missing").length,
-    helper: "已能进入模型复盘链路"
+    helper: "优先补知识库"
   },
   {
     label: "待人工确认",
     value: evidenceChains.value.filter((chain) => chain.gaps.includes("需人工确认")).length,
-    helper: "弱关联或引用来源不明确"
+    helper: "弱关联需复核"
   }
 ]);
 
@@ -210,8 +201,8 @@ onMounted(() => {
     <header class="evidence-citation-hero">
       <div>
         <h1>引用证据中心</h1>
-        <span>查看问法、证据、文章和模型覆盖之间是否衔接。</span>
-        <small>本地 smoke 数据 · 只读聚合 · 结果需人工确认</small>
+        <span>先看问题是否缺证据、缺文章或缺模型覆盖。</span>
+        <small>本地 smoke 数据 · 只读聚合 · 待人工确认</small>
       </div>
       <div class="evidence-citation-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -316,11 +307,6 @@ onMounted(() => {
 
           <div class="evidence-citation-source-grid">
             <section>
-              <strong>可能引用来源</strong>
-              <p>{{ chain.possibleSources.join(" / ") }}</p>
-              <small>可能来源，需人工确认。</small>
-            </section>
-            <section>
               <strong>主要缺口</strong>
               <div class="evidence-citation-tag-row">
                 <el-tag
@@ -342,45 +328,52 @@ onMounted(() => {
                 </RouterLink>
               </div>
             </section>
-          </div>
-
-          <div class="evidence-citation-evidence-grid">
             <section>
-              <strong>相关知识库证据</strong>
-              <div v-if="chain.knowledgeMatches.length" class="evidence-citation-match-list">
-                <p v-for="match in chain.knowledgeMatches" :key="match.id">
-                  <span>{{ match.title }}</span>
-                  <small>{{ match.evidenceType }} · {{ match.citationStatus }}</small>
-                </p>
-              </div>
-              <small v-else>暂无弱关联资料，建议补产品参数、场景、案例或选型证据。</small>
-            </section>
-            <section>
-              <strong>相关发布文章</strong>
-              <div v-if="chain.articleMatches.length" class="evidence-citation-match-list">
-                <p v-for="match in chain.articleMatches" :key="match.id">
-                  <span>{{ match.title }}</span>
-                  <small>{{ match.hasEvidence ? "含资料依据" : "资料依据待确认" }}</small>
-                </p>
-              </div>
-              <small v-else>暂无相关文章，建议去发布文章工作台补引用友好内容。</small>
-            </section>
-            <section>
-              <strong>模型覆盖记录</strong>
-              <div v-if="chain.modelMatches.length" class="evidence-citation-match-list">
-                <p v-for="match in chain.modelMatches" :key="match.id">
-                  <span>{{ match.model }}</span>
-                  <small>{{ formatDateTime(match.checkedAt) }} · {{ match.brandRecommended ? "已推荐" : "未推荐 / 待确认" }}</small>
-                </p>
-              </div>
-              <small v-else>暂无覆盖记录，建议补人工记录或后续复测。</small>
+              <strong>可能来源</strong>
+              <p>{{ chain.possibleSources.join(" / ") }}</p>
+              <small>需人工确认。</small>
             </section>
           </div>
 
-          <footer>
-            <span>匹配关键词：{{ chain.matchedKeywords.length ? chain.matchedKeywords.join("、") : "暂无明显关键词" }}</span>
-            <small>{{ chain.relationNote }}</small>
-          </footer>
+          <details class="evidence-citation-detail-drawer">
+            <summary>查看关联证据、文章和匹配说明</summary>
+            <div class="evidence-citation-evidence-grid">
+              <section>
+                <strong>相关知识库证据</strong>
+                <div v-if="chain.knowledgeMatches.length" class="evidence-citation-match-list">
+                  <p v-for="match in chain.knowledgeMatches" :key="match.id">
+                    <span>{{ match.title }}</span>
+                    <small>{{ match.evidenceType }} · {{ match.citationStatus }}</small>
+                  </p>
+                </div>
+                <small v-else>暂无弱关联资料，建议补产品参数、场景、案例或选型证据。</small>
+              </section>
+              <section>
+                <strong>相关发布文章</strong>
+                <div v-if="chain.articleMatches.length" class="evidence-citation-match-list">
+                  <p v-for="match in chain.articleMatches" :key="match.id">
+                    <span>{{ match.title }}</span>
+                    <small>{{ match.hasEvidence ? "含资料依据" : "资料依据待确认" }}</small>
+                  </p>
+                </div>
+                <small v-else>暂无相关文章，建议去发布文章工作台补引用友好内容。</small>
+              </section>
+              <section>
+                <strong>模型覆盖记录</strong>
+                <div v-if="chain.modelMatches.length" class="evidence-citation-match-list">
+                  <p v-for="match in chain.modelMatches" :key="match.id">
+                    <span>{{ match.model }}</span>
+                    <small>{{ formatDateTime(match.checkedAt) }} · {{ match.brandRecommended ? "已推荐" : "未推荐 / 待确认" }}</small>
+                  </p>
+                </div>
+                <small v-else>暂无覆盖记录，建议补人工记录或后续复测。</small>
+              </section>
+            </div>
+            <footer>
+              <span>匹配关键词：{{ chain.matchedKeywords.length ? chain.matchedKeywords.join("、") : "暂无明显关键词" }}</span>
+              <small>{{ chain.relationNote }}</small>
+            </footer>
+          </details>
         </article>
       </div>
     </section>
@@ -390,7 +383,7 @@ onMounted(() => {
 <style scoped>
 .evidence-citation-page {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   color: #172331;
 }
 
@@ -407,7 +400,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px;
+  padding: 14px 16px;
 }
 
 .evidence-citation-chain-card__main p {
@@ -422,14 +415,14 @@ onMounted(() => {
 .evidence-citation-hero h1 {
   margin: 0;
   color: #101828;
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: 0;
 }
 
 .evidence-citation-hero span,
 .evidence-citation-hero small {
   display: block;
-  margin-top: 8px;
+  margin-top: 5px;
   color: #64748b;
   line-height: 1.6;
 }
@@ -452,13 +445,13 @@ onMounted(() => {
 
 .evidence-citation-overview {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .evidence-citation-overview article {
-  min-height: 116px;
-  padding: 14px;
+  min-height: 84px;
+  padding: 12px;
   border: 1px solid #dfe7f1;
   border-radius: 16px;
   background: #f8fbff;
@@ -472,21 +465,21 @@ onMounted(() => {
 
 .evidence-citation-overview strong {
   display: block;
-  margin-top: 10px;
+  margin-top: 6px;
   color: #0f172a;
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: 0;
 }
 
 .evidence-citation-overview p {
-  margin: 8px 0 0;
+  margin: 5px 0 0;
   color: #667085;
   font-size: 13px;
   line-height: 1.5;
 }
 
 .evidence-citation-panel {
-  padding: 18px;
+  padding: 14px;
 }
 
 .evidence-citation-panel__header,
@@ -554,16 +547,20 @@ onMounted(() => {
 
 .evidence-citation-chain-card {
   display: grid;
-  gap: 16px;
-  padding: 18px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .evidence-citation-chain-card h3 {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 0;
   color: #101828;
-  font-size: 18px;
+  font-size: 16px;
   letter-spacing: 0;
   line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .evidence-citation-chain-card__status,
@@ -577,7 +574,7 @@ onMounted(() => {
 .evidence-citation-status-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .evidence-citation-status-row > span {
@@ -596,16 +593,34 @@ onMounted(() => {
 .evidence-citation-evidence-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .evidence-citation-source-grid section,
 .evidence-citation-evidence-grid section {
-  min-height: 118px;
-  padding: 12px;
+  min-height: 86px;
+  padding: 10px;
   border: 1px solid #e5edf7;
   border-radius: 14px;
   background: #ffffff;
+}
+
+.evidence-citation-detail-drawer {
+  border-top: 1px solid #eef2f7;
+  padding-top: 8px;
+}
+
+.evidence-citation-detail-drawer summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.evidence-citation-detail-drawer[open] {
+  display: grid;
+  gap: 12px;
 }
 
 .evidence-citation-source-grid strong,

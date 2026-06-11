@@ -633,7 +633,6 @@ const scenarioTags = [
           <div class="dashboard-refresh-kpi-progress" aria-hidden="true">
             <i :style="{ width: `${metric.percent}%` }" />
           </div>
-          <small>查看详情</small>
         </template>
       </RouterLink>
     </section>
@@ -643,7 +642,7 @@ const scenarioTags = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>本轮结论</h2>
-            <p>先看当前 GEO 状态，再决定补问法、补证据、补文章还是复盘模型。</p>
+            <p>先看结论，再处理最关键的补救动作。</p>
           </div>
           <RouterLink :to="dashboardConclusion.primaryAction.to">
             {{ dashboardConclusion.primaryAction.action }}
@@ -668,7 +667,6 @@ const scenarioTags = [
             </el-icon>
             <span>
               <strong>{{ task.title }}</strong>
-              <small>{{ task.description }}</small>
             </span>
             <b>{{ task.status }}</b>
           </RouterLink>
@@ -679,7 +677,7 @@ const scenarioTags = [
         <div class="dashboard-refresh-panel-header">
           <div>
             <h2>AI 可见度趋势</h2>
-            <p>回答最近趋势如何；当前曲线为测试示例，数值来自本地 smoke 总览。</p>
+            <p>主趋势保留在首屏，其它分析下沉。</p>
           </div>
           <small class="dashboard-refresh-soft-note">测试示例</small>
         </div>
@@ -888,7 +886,7 @@ const scenarioTags = [
 <style scoped>
 .dashboard-refresh-page {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   color: #172331;
   --el-color-primary: #2563eb;
   --el-color-primary-light-3: #5b8def;
@@ -902,7 +900,7 @@ const scenarioTags = [
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
   align-items: center;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border: 1px solid #dfe7f1;
   border-radius: 16px;
   background: #ffffff;
@@ -918,7 +916,7 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-header h1 {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: #111827;
   font-size: clamp(21px, 2.5vw, 28px);
   font-weight: 900;
@@ -928,7 +926,7 @@ const scenarioTags = [
 
 .dashboard-refresh-header .dashboard-refresh-header-subtitle {
   max-width: 760px;
-  margin-top: 7px;
+  margin-top: 5px;
   color: #334155;
   font-size: 14px;
   font-weight: 750;
@@ -936,7 +934,7 @@ const scenarioTags = [
 
 .dashboard-refresh-header span {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   color: #7c8da3;
   font-size: 12px;
 }
@@ -944,7 +942,7 @@ const scenarioTags = [
 .dashboard-refresh-stage-note {
   display: block;
   max-width: 720px;
-  margin-top: 6px;
+  margin-top: 4px;
   color: #52647a;
   font-size: 12px;
   line-height: 1.5;
@@ -981,11 +979,11 @@ const scenarioTags = [
 .dashboard-refresh-lists-grid,
 .dashboard-refresh-secondary-grid {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .dashboard-refresh-kpi-grid {
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
 }
 
 .dashboard-refresh-kpi-card,
@@ -1007,9 +1005,9 @@ const scenarioTags = [
 
 .dashboard-refresh-kpi-card {
   display: grid;
-  gap: 7px;
-  min-height: 136px;
-  padding: 14px;
+  gap: 6px;
+  min-height: 96px;
+  padding: 10px 12px;
 }
 
 .dashboard-refresh-kpi-card span,
@@ -1027,7 +1025,7 @@ const scenarioTags = [
 
 .dashboard-refresh-kpi-card strong {
   color: #111827;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 950;
   line-height: 1;
 }
@@ -1038,6 +1036,10 @@ const scenarioTags = [
   color: #5d6f86;
   font-size: 13px;
   line-height: 1.45;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }
 
 .dashboard-refresh-kpi-card small {
@@ -1081,7 +1083,7 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-priority-grid {
-  grid-template-columns: minmax(320px, 0.78fr) minmax(0, 1.22fr);
+  grid-template-columns: minmax(300px, 0.86fr) minmax(0, 1.14fr);
   align-items: stretch;
 }
 
@@ -1096,7 +1098,7 @@ const scenarioTags = [
 
 .dashboard-refresh-panel {
   min-width: 0;
-  padding: 18px;
+  padding: 14px;
 }
 
 .dashboard-refresh-panel-header {
@@ -1104,7 +1106,7 @@ const scenarioTags = [
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .dashboard-refresh-panel-header h2 {
@@ -1139,7 +1141,7 @@ const scenarioTags = [
 .dashboard-refresh-conclusion-body {
   display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid #dfe7f1;
   border-radius: 14px;
   background: #fbfdff;
@@ -1147,7 +1149,7 @@ const scenarioTags = [
 
 .dashboard-refresh-conclusion-body strong {
   color: #111827;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.35;
 }
 
@@ -1161,6 +1163,10 @@ const scenarioTags = [
 .dashboard-refresh-action-list {
   display: grid;
   gap: 8px;
+}
+
+.dashboard-refresh-action-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .dashboard-refresh-weakness-list {
@@ -1180,10 +1186,10 @@ const scenarioTags = [
 
 .dashboard-refresh-action-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
   align-items: center;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid #e3eaf4;
   border-radius: 12px;
   background: #ffffff;
@@ -1191,8 +1197,8 @@ const scenarioTags = [
 
 .dashboard-refresh-action-row .el-icon {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   border-radius: 11px;
   background: #eef4ff;
@@ -1221,7 +1227,9 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-action-row b {
+  grid-column: 2;
   width: fit-content;
+  margin-top: -2px;
   padding: 5px 8px;
   border-radius: 999px;
   background: #f1f5f9;
@@ -1232,6 +1240,7 @@ const scenarioTags = [
 .dashboard-refresh-trend-panel svg {
   display: block;
   width: 100%;
+  max-height: 248px;
   height: auto;
 }
 

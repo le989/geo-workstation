@@ -562,20 +562,20 @@ onMounted(() => {
               </strong>
               <span>{{ visibilityLabelMap[row.visibility] }}</span>
               <div class="prompt-insight-chip-row">
-                <small class="question-type-chip">问法类型：{{ getQuestionTypeLabel(row) }}</small>
+                <small class="question-type-chip">{{ getQuestionTypeLabel(row) }}</small>
                 <small
                   class="prompt-insight-chip"
                   :class="`prompt-insight-chip--value-${getPromptBusinessValue(row).value}`"
                   :title="getPromptBusinessValue(row).description"
                 >
-                  业务价值：{{ getPromptBusinessValue(row).label }}
+                  {{ getPromptBusinessValue(row).label }}
                 </small>
                 <small
                   class="prompt-insight-chip"
                   :class="`prompt-insight-chip--stage-${getBuyingStage(row).value}`"
                   :title="getBuyingStage(row).description"
                 >
-                  购买阶段：{{ getBuyingStage(row).label }}
+                  {{ getBuyingStage(row).label }}
                 </small>
               </div>
             </div>

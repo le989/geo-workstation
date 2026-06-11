@@ -69,14 +69,12 @@ const helpOverviewItems = [
             class="help-alert"
           />
 
-          <el-steps direction="vertical" :active="quickStartSteps.length" finish-status="process">
-            <el-step
-              v-for="step in quickStartSteps"
-              :key="step.title"
-              :title="step.title"
-              :description="step.description"
-            />
-          </el-steps>
+          <ol class="help-quickstart-grid">
+            <li v-for="step in quickStartSteps" :key="step.title">
+              <strong>{{ step.title }}</strong>
+              <span>{{ step.description }}</span>
+            </li>
+          </ol>
         </section>
 
         <section id="sop-loop" class="help-section">
@@ -98,20 +96,20 @@ const helpOverviewItems = [
           </div>
         </section>
 
-        <section
+        <details
           v-for="section in sopSections"
           :id="section.id"
           :key="section.id"
           class="help-section help-section--sop-detail"
         >
-          <div class="help-section__header">
+          <summary class="help-section-summary">
             <div>
               <p class="section-kicker">{{ section.kicker }}</p>
               <h2>{{ section.title }}</h2>
               <span>{{ section.summary }}</span>
             </div>
             <el-tag effect="plain">{{ section.steps.length }} 项</el-tag>
-          </div>
+          </summary>
 
           <ol class="help-step-list">
             <li v-for="step in section.steps" :key="step.title">
@@ -141,7 +139,7 @@ const helpOverviewItems = [
               :closable="false"
             />
           </div>
-        </section>
+        </details>
       </div>
     </section>
   </main>
