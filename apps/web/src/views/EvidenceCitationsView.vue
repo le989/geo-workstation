@@ -209,12 +209,9 @@ onMounted(() => {
   <section class="evidence-citation-page">
     <header class="evidence-citation-hero">
       <div>
-        <p>Evidence Citation Center</p>
         <h1>引用证据中心</h1>
-        <span>
-          把问法、知识库、发布文章和模型覆盖记录串起来，判断 AI 是否有足够证据引用和推荐品牌。
-        </span>
-        <small>本地 smoke 数据 · 只读聚合 · 非正式线上结论</small>
+        <span>查看问法、证据、文章和模型覆盖之间是否衔接。</span>
+        <small>本地 smoke 数据 · 只读聚合 · 结果需人工确认</small>
       </div>
       <div class="evidence-citation-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -238,7 +235,7 @@ onMounted(() => {
       <div class="evidence-citation-panel__header">
         <div>
           <h2>证据缺口分布</h2>
-          <p>只根据当前 smoke 记录做前端轻量判断，缺口不等于正式 AI 引用统计。</p>
+          <p>先看缺口分布，再进入下方问题证据链。</p>
         </div>
         <el-radio-group v-model="activeFilter" size="small">
           <el-radio-button
@@ -265,7 +262,7 @@ onMounted(() => {
       <div class="evidence-citation-list-header">
         <div>
           <h2>问题证据链</h2>
-          <p>弱关联展示“用户问题 → 证据 → 文章 → 模型覆盖 → 下一步动作”。</p>
+          <p>按问题查看证据、文章、模型覆盖和下一步动作。</p>
         </div>
         <small>当前展示 {{ filteredChains.length }} / {{ evidenceChains.length }} 条</small>
       </div>
@@ -321,7 +318,7 @@ onMounted(() => {
             <section>
               <strong>可能引用来源</strong>
               <p>{{ chain.possibleSources.join(" / ") }}</p>
-              <small>仅表示可能来源或待确认来源，不代表真实已引用。</small>
+              <small>可能来源，需人工确认。</small>
             </section>
             <section>
               <strong>主要缺口</strong>
@@ -409,11 +406,10 @@ onMounted(() => {
 .evidence-citation-hero {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
-  padding: 22px;
+  gap: 16px;
+  padding: 18px;
 }
 
-.evidence-citation-hero p,
 .evidence-citation-chain-card__main p {
   margin: 0 0 6px;
   color: #2563eb;
@@ -426,7 +422,7 @@ onMounted(() => {
 .evidence-citation-hero h1 {
   margin: 0;
   color: #101828;
-  font-size: 28px;
+  font-size: 24px;
   letter-spacing: 0;
 }
 
@@ -461,8 +457,8 @@ onMounted(() => {
 }
 
 .evidence-citation-overview article {
-  min-height: 132px;
-  padding: 16px;
+  min-height: 116px;
+  padding: 14px;
   border: 1px solid #dfe7f1;
   border-radius: 16px;
   background: #f8fbff;
@@ -476,9 +472,9 @@ onMounted(() => {
 
 .evidence-citation-overview strong {
   display: block;
-  margin-top: 12px;
+  margin-top: 10px;
   color: #0f172a;
-  font-size: 28px;
+  font-size: 24px;
   letter-spacing: 0;
 }
 

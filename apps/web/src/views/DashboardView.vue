@@ -607,7 +607,6 @@ const scenarioTags = [
         </small>
       </div>
       <div class="dashboard-refresh-header-actions">
-        <small>本地测试版 · smoke 数据 · 非正式结论</small>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadDashboard">
           刷新
