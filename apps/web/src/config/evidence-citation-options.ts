@@ -386,7 +386,10 @@ const buildNextActions = (gaps: EvidenceCitationGap[]) => {
   if (gaps.includes("缺文章") || gaps.includes("缺引用来源")) {
     actions.push({ label: "去发布文章补引用友好内容", to: "/geo-content" });
   }
-  if (gaps.includes("未推荐") || gaps.includes("竞品占位") || gaps.includes("需人工确认")) {
+  if (gaps.includes("竞品占位")) {
+    actions.push({ label: "去竞品占位原因复盘", to: "/competitor-occupancy" });
+  }
+  if (gaps.includes("未推荐") || gaps.includes("需人工确认")) {
     actions.push({ label: "去模型覆盖记录复盘", to: "/model-inclusion-records" });
   }
 

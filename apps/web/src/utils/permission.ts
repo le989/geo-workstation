@@ -43,6 +43,7 @@ export const routeModuleKeyByPath: Record<string, GeoModuleKey> = {
   "/content-tasks": "geo-content",
   "/model-inclusion-records": "model-inclusion-records",
   "/evidence-citations": "geo-reports",
+  "/competitor-occupancy": "geo-reports",
   "/geo-reports": "geo-reports",
   "/reports": "geo-reports",
   "/usage-analytics": "usage-analytics",
