@@ -102,6 +102,10 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "AI 模型覆盖记录",
     subtitle: "查看当前启用模型的覆盖结果"
   },
+  "/evidence-citations": {
+    title: "引用证据中心",
+    subtitle: "串联问法、证据、文章和覆盖记录"
+  },
   "/geo-reports": {
     title: "GEO 报表",
     subtitle: "查看覆盖、命中和优化建议"
@@ -168,6 +172,7 @@ const navigationGroups = [
     items: navigationItems.filter((item) =>
       [
         "/model-inclusion-records",
+        "/evidence-citations",
         "/geo-reports",
         "/usage-analytics",
         "/operation-logs",

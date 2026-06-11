@@ -143,6 +143,18 @@ export const navigationItems: GeoPageMeta[] = [
     allowedRoles: allRoles
   },
   {
+    path: "/evidence-citations",
+    label: "引用证据中心",
+    title: "引用证据中心",
+    question: "哪些问题缺少可引用证据？",
+    description: "把问法、知识库、发布文章和模型覆盖记录串成只读证据链。",
+    phaseNote: "轻量版只做前端弱关联和待确认提示，不保存证据链，也不代表真实外部引用统计。",
+    nextSteps: ["查看问题证据链", "定位缺证据和缺文章问题", "回到知识库、发布文章或覆盖记录处理"],
+    apiFocus: "复用 /api/geo-prompts、/api/knowledge-bases、/api/content-items 和 /api/model-inclusion-records",
+    icon: DocumentChecked,
+    allowedRoles: allRoles
+  },
+  {
     path: "/geo-reports",
     label: "GEO 报表",
     title: "GEO 报表",
