@@ -2,12 +2,10 @@
 import type { Component } from "vue";
 import { RouterLink } from "vue-router";
 import {
+  CollectionTag,
   DocumentChecked,
   EditPen,
   Files,
-  MagicStick,
-  PieChart,
-  Search,
   TrendCharts
 } from "@element-plus/icons-vue";
 
@@ -20,52 +18,34 @@ type QuickAction = {
 
 const actions: QuickAction[] = [
   {
-    title: "新建 GEO 诊断",
-    description: "从品牌、官网或产品线开始定位缺口。",
-    to: "/geo-analysis",
-    icon: Search
+    title: "补真实问法",
+    description: "维护用户会如何向 AI 提问。",
+    to: "/geo-prompts",
+    icon: CollectionTag
   },
   {
-    title: "AI 拓词",
-    description: "扩展适合追踪和生产内容的问题词。",
-    to: "/expansion",
-    icon: MagicStick
-  },
-  {
-    title: "上传资料",
-    description: "补充产品、FAQ、案例和选型边界。",
+    title: "补可引用证据",
+    description: "补产品、场景、参数和案例资料。",
     to: "/knowledge-bases",
     icon: Files
   },
   {
-    title: "新建文章",
-    description: "进入发布文章工作台生成发布稿。",
+    title: "优化发布文章",
+    description: "检查首段、FAQ、参数和资料依据。",
     to: "/geo-content",
     icon: EditPen
   },
   {
-    title: "查看 GEO 报表",
-    description: "复盘提示词、内容、知识库和模型覆盖。",
-    to: "/geo-reports",
-    icon: PieChart
-  },
-  {
-    title: "模型覆盖记录",
-    description: "补录 AI 平台提及、推荐和引用情况。",
+    title: "复盘模型覆盖",
+    description: "查看提及、推荐、引用和未推荐原因。",
     to: "/model-inclusion-records",
     icon: TrendCharts
   },
   {
-    title: "引用证据中心",
-    description: "查看问法、证据、文章和模型覆盖之间的引用链路。",
+    title: "查看证据链",
+    description: "看哪些问题缺证据、文章或引用来源。",
     to: "/evidence-citations",
     icon: DocumentChecked
-  },
-  {
-    title: "竞品占位原因",
-    description: "查看 AI 为什么推荐竞品、我方缺什么证据。",
-    to: "/competitor-occupancy",
-    icon: TrendCharts
   }
 ];
 </script>
@@ -92,17 +72,17 @@ const actions: QuickAction[] = [
 <style scoped>
 .dashboard-refresh-quick-action-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
 }
 
 .dashboard-refresh-quick-action {
   display: grid;
-  gap: 12px;
-  min-height: 132px;
-  padding: 16px;
+  gap: 10px;
+  min-height: 108px;
+  padding: 14px;
   border: 1px solid #dfe7f1;
-  border-radius: 16px;
+  border-radius: 12px;
   background: #ffffff;
   color: inherit;
   text-decoration: none;
@@ -121,13 +101,13 @@ const actions: QuickAction[] = [
 
 .dashboard-refresh-quick-action .el-icon {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #f0f5ff;
   color: #315dff;
-  font-size: 17px;
+  font-size: 16px;
 }
 
 .dashboard-refresh-quick-action span {
@@ -144,7 +124,7 @@ const actions: QuickAction[] = [
 .dashboard-refresh-quick-action small {
   color: #5d6f86;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 @media (max-width: 1280px) {

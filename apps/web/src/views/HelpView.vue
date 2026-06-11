@@ -1,24 +1,19 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { Guide } from "@element-plus/icons-vue";
 import { helpNavItems, quickStartSteps, sopSections } from "@/config/help-content";
-
-const totalSopSteps = computed(() =>
-  sopSections.reduce((total, section) => total + section.steps.length, 0)
-);
 
 const helpOverviewItems = [
   {
     title: "新手快速开始",
-    text: "先看 Dashboard 待处理事项，再补提示词、知识库和发布稿。"
+    text: "先看 Dashboard，再按待处理事项补资料、文章和覆盖记录。"
   },
   {
     title: "日常 GEO 运营",
-    text: "按诊断、拓词、补资料、生成发布稿、人工发布和报表复盘推进。"
+    text: "按问法、证据、文章、模型覆盖和复盘推进。"
   },
   {
     title: "风险边界清楚",
-    text: "真实 AI、候选保存、反馈处理和系统设置保存都要先确认环境。"
+    text: "真实 AI、保存和系统设置操作前先确认环境。"
   }
 ];
 </script>
@@ -29,16 +24,14 @@ const helpOverviewItems = [
       <div class="help-hero__copy">
         <el-tag effect="plain" type="primary">帮助中心</el-tag>
         <h1>使用教程与操作边界</h1>
-        <p>
-          面向内部员工整理当前 GEO 工作站的日常运营流程、模块说明、高风险操作提醒和管理员设置边界。
-        </p>
+        <p>查看常用流程、操作边界和风险提醒。</p>
       </div>
       <div class="help-hero__aside">
         <el-icon>
           <Guide />
         </el-icon>
-        <strong>{{ helpNavItems.length }} 个帮助板块</strong>
-        <span>{{ totalSopSteps }} 条说明，覆盖 Dashboard、发布文章工作台、AI 拓词、售后问答和系统设置。</span>
+        <strong>快速查找操作边界</strong>
+        <span>按流程、模块、风险、FAQ 和术语分组。</span>
       </div>
     </section>
 

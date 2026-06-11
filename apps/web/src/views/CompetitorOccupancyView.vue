@@ -228,12 +228,9 @@ onMounted(() => {
   <section class="competitor-occupancy-page">
     <header class="competitor-occupancy-hero">
       <div>
-        <p>Competitor Occupancy Review</p>
         <h1>竞品占位原因</h1>
-        <span>
-          复盘 AI 回答中竞品出现、我方缺席或未被推荐的原因，判断下一步该补证据、补文章还是复盘模型。
-        </span>
-        <small>本地 smoke 数据 · 前端轻量识别 · 非正式线上结论</small>
+        <span>查看竞品出现、我方缺席和下一步补救方向。</span>
+        <small>本地 smoke 数据 · 前端轻量识别 · 结果需人工确认</small>
       </div>
       <div class="competitor-occupancy-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -258,9 +255,9 @@ onMounted(() => {
         <div class="competitor-occupancy-panel__header">
           <div>
             <h2>竞品分布</h2>
-            <p>展示模型回答或记录字段中出现的竞品，次数不等于真实推荐份额。</p>
+            <p>看哪些竞品出现最多，以及我方是否缺席。</p>
           </div>
-          <small>轻量文本识别</small>
+          <small>轻量识别</small>
         </div>
         <div v-if="competitorDistribution.length" class="competitor-occupancy-bars">
           <div v-for="item in competitorDistribution" :key="item.label">
@@ -283,9 +280,9 @@ onMounted(() => {
         <div class="competitor-occupancy-panel__header">
           <div>
             <h2>占位原因分布</h2>
-            <p>原因来自前端规则和证据链缺口，不代表模型真实内部判断。</p>
+            <p>按证据、文章、问法和模型复盘缺口归类。</p>
           </div>
-          <small>待人工确认</small>
+          <small>需确认</small>
         </div>
         <div v-if="reasonDistribution.length" class="competitor-occupancy-bars">
           <div v-for="item in reasonDistribution" :key="item.value">
@@ -309,7 +306,7 @@ onMounted(() => {
       <div class="competitor-occupancy-list-header">
         <div>
           <h2>竞品占位复盘</h2>
-          <p>逐条查看“用户问法 → 竞品信号 → 我方状态 → 原因 → 补救动作”。</p>
+          <p>逐条查看问法、竞品信号、我方状态和补救动作。</p>
         </div>
         <div class="competitor-occupancy-filter-row">
           <small>当前展示 {{ filteredReviews.length }} / {{ occupancyReviews.length }} 条</small>
@@ -460,11 +457,10 @@ onMounted(() => {
 .competitor-occupancy-hero {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
-  padding: 22px;
+  gap: 16px;
+  padding: 18px;
 }
 
-.competitor-occupancy-hero p,
 .competitor-occupancy-card__main p {
   margin: 0 0 6px;
   color: #2563eb;
@@ -477,7 +473,7 @@ onMounted(() => {
 .competitor-occupancy-hero h1 {
   margin: 0;
   color: #101828;
-  font-size: 28px;
+  font-size: 24px;
   letter-spacing: 0;
 }
 
@@ -512,8 +508,8 @@ onMounted(() => {
 }
 
 .competitor-occupancy-overview article {
-  min-height: 132px;
-  padding: 16px;
+  min-height: 116px;
+  padding: 14px;
   border: 1px solid #dfe7f1;
   border-radius: 16px;
   background: #f8fbff;
@@ -527,9 +523,9 @@ onMounted(() => {
 
 .competitor-occupancy-overview strong {
   display: block;
-  margin-top: 12px;
+  margin-top: 10px;
   color: #0f172a;
-  font-size: 28px;
+  font-size: 24px;
   letter-spacing: 0;
 }
 

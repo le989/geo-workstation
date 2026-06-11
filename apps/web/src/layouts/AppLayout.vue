@@ -156,40 +156,47 @@ const headerDisplay = computed(
     }
 );
 
+const getNavigationItemsByPath = (paths: string[]) =>
+  paths
+    .map((path) => navigationItems.find((item) => item.path === path))
+    .filter((item): item is (typeof navigationItems)[number] => Boolean(item));
+
 const navigationGroups = [
   {
-    label: "GEO 运营闭环",
-    items: navigationItems.filter((item) =>
-      ["/dashboard", "/geo-analysis", "/geo-prompts", "/expansion"].includes(item.path)
-    )
+    label: "GEO 主流程",
+    items: getNavigationItemsByPath([
+      "/dashboard",
+      "/geo-prompts",
+      "/knowledge-bases",
+      "/geo-content",
+      "/model-inclusion-records"
+    ])
   },
   {
-    label: "知识与内容资产",
-    items: navigationItems.filter((item) =>
-      ["/knowledge-bases", "/aftersales-qa", "/instruction-templates", "/geo-content"].includes(
-        item.path
-      )
-    )
+    label: "复盘分析",
+    items: getNavigationItemsByPath([
+      "/evidence-citations",
+      "/competitor-occupancy",
+      "/geo-analysis",
+      "/geo-reports"
+    ])
   },
   {
-    label: "复盘与配置",
-    items: navigationItems.filter((item) =>
-      [
-        "/model-inclusion-records",
-        "/evidence-citations",
-        "/competitor-occupancy",
-        "/geo-reports",
-        "/usage-analytics",
-        "/operation-logs",
-        "/users",
-        "/departments",
-        "/settings"
-      ].includes(item.path)
-    )
+    label: "辅助工具",
+    items: getNavigationItemsByPath([
+      "/expansion",
+      "/aftersales-qa",
+      "/instruction-templates",
+      "/usage-analytics",
+      "/operation-logs",
+      "/users",
+      "/departments",
+      "/settings"
+    ])
   },
   {
     label: "帮助与交接",
-    items: navigationItems.filter((item) => ["/help"].includes(item.path))
+    items: getNavigationItemsByPath(["/help"])
   }
 ];
 

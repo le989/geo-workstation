@@ -405,13 +405,8 @@ onMounted(() => {
   <section class="geo-prompts-page">
     <header class="geo-prompts-hero">
       <div>
-        <el-tag type="success" effect="plain">GEO 提示词策略</el-tag>
         <h1>提示词库</h1>
-        <p>管理品牌词、产品词、场景词和问题词，作为 GEO 内容生产与模型检测的基础资产。</p>
-        <strong>
-          {{ "用户会怎么问 AI？" }}
-          GEO 更关注真实问法，建议优先沉淀完整自然问句。
-        </strong>
+        <p>管理真实用户问法、问法类型和追踪状态，支撑内容生产与模型检测。</p>
       </div>
       <div class="geo-prompts-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -456,22 +451,19 @@ onMounted(() => {
 
     <section class="geo-prompts-value-panel" aria-label="问法业务价值概览">
       <div>
-        <p class="section-kicker">业务判断</p>
-        <h2>先看哪些问法值得优先处理</h2>
-        <p>
-          业务价值和购买阶段由前端根据问句文本轻量推断，只用于运营排序参考，不写入数据库。
-        </p>
+        <h2>业务价值概览</h2>
+        <p>前端轻量推断，仅用于判断处理优先级。</p>
       </div>
-      <div class="geo-prompts-value-grid">
-        <article
+      <div class="geo-prompts-value-summary">
+        <span
           v-for="insight in promptBusinessInsights"
           :key="insight.label"
-          class="geo-prompts-value-card"
+          class="geo-prompts-value-pill"
+          :title="insight.hint"
         >
-          <span>{{ insight.label }}</span>
           <strong>{{ insight.value }}</strong>
-          <p>{{ insight.hint }}</p>
-        </article>
+          {{ insight.label }}
+        </span>
       </div>
     </section>
 
@@ -493,7 +485,7 @@ onMounted(() => {
           <p class="section-kicker">提示词资产</p>
           <h2>GEO 提示词列表</h2>
           <p>
-            问法类型用于识别用户会怎么问 AI；业务价值和购买阶段帮助判断先补问法、补证据、写文章还是复盘模型。
+            问法类型、业务价值和购买阶段用于判断处理优先级。
           </p>
         </div>
       </div>
