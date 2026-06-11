@@ -214,8 +214,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="competitor-occupancy-page">
-    <header class="competitor-occupancy-hero">
+  <section class="competitor-occupancy-page review-page">
+    <header class="competitor-occupancy-hero review-page__header">
       <div>
         <h1>竞品占位原因</h1>
         <span>先看谁占位、我方缺什么、下一步怎么补。</span>
@@ -231,7 +231,7 @@ onMounted(() => {
 
     <AppErrorState v-if="loadError" title="竞品占位原因加载失败" :message="loadError" />
 
-    <section class="competitor-occupancy-overview" aria-label="竞品占位概览">
+    <section class="competitor-occupancy-overview review-page__summary" aria-label="竞品占位概览">
       <article v-for="card in overviewCards" :key="card.label">
         <span>{{ card.label }}</span>
         <strong>{{ loading ? "--" : formatNumber(card.value) }}</strong>
@@ -239,197 +239,199 @@ onMounted(() => {
       </article>
     </section>
 
-    <section class="competitor-occupancy-panel-grid">
-      <section class="competitor-occupancy-panel">
-        <div class="competitor-occupancy-panel__header">
-          <div>
-            <h2>竞品分布</h2>
-            <p>看哪些竞品出现最多，以及我方是否缺席。</p>
-          </div>
-          <small>轻量识别</small>
-        </div>
-        <div v-if="competitorDistribution.length" class="competitor-occupancy-bars">
-          <div v-for="item in competitorDistribution" :key="item.label">
-            <span>{{ item.label }}</span>
-            <i>
-              <b :style="{ width: `${(item.count / maxCompetitorCount) * 100}%` }" />
-            </i>
-            <strong>{{ item.count }}</strong>
-            <small>高意向 {{ item.highValueCount }} · 我方缺席 {{ item.ownMissingCount }}</small>
-          </div>
-        </div>
-        <AppEmptyState
-          v-else
-          title="暂无明确竞品信号"
-          description="当前 smoke 记录中未识别到稳定竞品词，建议补充高意向对比 / 替代问法后再复盘。"
-        />
-      </section>
-
-      <section class="competitor-occupancy-panel">
-        <div class="competitor-occupancy-panel__header">
-          <div>
-            <h2>占位原因分布</h2>
-            <p>按证据、文章、问法和模型复盘缺口归类。</p>
-          </div>
-          <small>需确认</small>
-        </div>
-        <div v-if="reasonDistribution.length" class="competitor-occupancy-bars">
-          <div v-for="item in reasonDistribution" :key="item.value">
-            <span>{{ item.label }}</span>
-            <i>
-              <b :style="{ width: `${(item.count / maxReasonCount) * 100}%` }" />
-            </i>
-            <strong>{{ item.count }}</strong>
-            <small>{{ occupancyReasonDescriptionMap[item.value] }}</small>
-          </div>
-        </div>
-        <AppEmptyState
-          v-else
-          title="暂无原因分布"
-          description="当前记录还不足以形成稳定分布，先查看复盘列表中的待确认项。"
-        />
-      </section>
-    </section>
-
-    <section class="competitor-occupancy-review-list" aria-label="竞品占位复盘列表">
-      <div class="competitor-occupancy-list-header">
-        <div>
-          <h2>竞品占位复盘</h2>
-          <p>逐条查看问法、竞品信号、我方状态和补救动作。</p>
-        </div>
-        <div class="competitor-occupancy-filter-row">
-          <small>当前展示 {{ filteredReviews.length }} / {{ occupancyReviews.length }} 条</small>
-          <el-radio-group v-model="activeFilter" size="small">
-            <el-radio-button
-              v-for="filter in occupancyFilters"
-              :key="filter.value"
-              :value="filter.value"
-            >
-              {{ filter.label }}
-            </el-radio-button>
-          </el-radio-group>
-        </div>
-      </div>
-
-      <el-skeleton v-if="loading" animated :rows="8" />
-
-      <AppEmptyState
-        v-else-if="isEmpty"
-        title="暂无足够模型覆盖记录形成竞品复盘"
-        description="建议先添加高意向问法、补知识库证据、生成引用友好文章，再补模型覆盖记录。"
-      />
-
-      <div v-else class="competitor-occupancy-card-grid">
-        <article
-          v-for="review in filteredReviews"
-          :key="review.id"
-          class="competitor-occupancy-card"
-        >
-          <div class="competitor-occupancy-card__main">
+    <section class="competitor-occupancy-workbench review-page__details">
+      <section class="competitor-occupancy-panel-grid">
+        <section class="competitor-occupancy-panel">
+          <div class="competitor-occupancy-panel__header">
             <div>
-              <p>用户问法</p>
-              <h3>{{ review.promptText }}</h3>
+              <h2>竞品分布</h2>
+              <p>看哪些竞品出现最多，以及我方是否缺席。</p>
             </div>
-            <div class="competitor-occupancy-card__tags">
-              <el-tag :type="getPriorityTagType(review.priority)" effect="plain">
-                {{ review.priority }}优先级
-              </el-tag>
-              <el-tag type="info" effect="plain">{{ review.questionType }}</el-tag>
-              <el-tag type="warning" effect="plain">{{ review.businessValue }}</el-tag>
-              <el-tag type="success" effect="plain">{{ review.buyingStage }}</el-tag>
+            <small>轻量识别</small>
+          </div>
+          <div v-if="competitorDistribution.length" class="competitor-occupancy-bars">
+            <div v-for="item in competitorDistribution" :key="item.label">
+              <span>{{ item.label }}</span>
+              <i>
+                <b :style="{ width: `${(item.count / maxCompetitorCount) * 100}%` }" />
+              </i>
+              <strong>{{ item.count }}</strong>
+              <small>高意向 {{ item.highValueCount }} · 我方缺席 {{ item.ownMissingCount }}</small>
             </div>
           </div>
+          <AppEmptyState
+            v-else
+            title="暂无明确竞品信号"
+            description="当前 smoke 记录中未识别到稳定竞品词，建议补充高意向对比 / 替代问法后再复盘。"
+          />
+        </section>
 
-          <div class="competitor-occupancy-status-row">
-            <span>
-              模型
-              <strong>{{ review.model }}</strong>
-            </span>
-            <span>
-              我方状态
-              <el-tag :type="getOwnStatusTagType(review.ownStatus)" effect="plain">
-                {{ review.ownStatus }}
-              </el-tag>
-            </span>
-            <span>
-              占位类型
-              <el-tag type="warning" effect="plain">
-                {{ occupancyTypeLabelMap[review.occupancyType] }}
-              </el-tag>
-            </span>
+        <section class="competitor-occupancy-panel">
+          <div class="competitor-occupancy-panel__header">
+            <div>
+              <h2>占位原因分布</h2>
+              <p>按证据、文章、问法和模型复盘缺口归类。</p>
+            </div>
+            <small>需确认</small>
           </div>
+          <div v-if="reasonDistribution.length" class="competitor-occupancy-bars">
+            <div v-for="item in reasonDistribution" :key="item.value">
+              <span>{{ item.label }}</span>
+              <i>
+                <b :style="{ width: `${(item.count / maxReasonCount) * 100}%` }" />
+              </i>
+              <strong>{{ item.count }}</strong>
+              <small>{{ occupancyReasonDescriptionMap[item.value] }}</small>
+            </div>
+          </div>
+          <AppEmptyState
+            v-else
+            title="暂无原因分布"
+            description="当前记录还不足以形成稳定分布，先查看复盘列表中的待确认项。"
+          />
+        </section>
+      </section>
 
-          <div class="competitor-occupancy-detail-grid">
-            <section>
-              <strong>竞品品牌</strong>
-              <div v-if="review.competitorBrands.length" class="competitor-occupancy-tag-row">
-                <el-tag
-                  v-for="brand in review.competitorBrands"
-                  :key="brand.id"
-                  type="danger"
-                  effect="plain"
-                  size="small"
-                >
-                  {{ brand.label }}
+      <section class="competitor-occupancy-review-list" aria-label="竞品占位复盘列表">
+        <div class="competitor-occupancy-list-header">
+          <div>
+            <h2>竞品占位复盘</h2>
+            <p>优先查看问法、竞品、我方状态、原因和下一步。</p>
+          </div>
+          <div class="competitor-occupancy-filter-row">
+            <small>当前展示 {{ filteredReviews.length }} / {{ occupancyReviews.length }} 条</small>
+            <el-radio-group v-model="activeFilter" size="small">
+              <el-radio-button
+                v-for="filter in occupancyFilters"
+                :key="filter.value"
+                :value="filter.value"
+              >
+                {{ filter.label }}
+              </el-radio-button>
+            </el-radio-group>
+          </div>
+        </div>
+
+        <el-skeleton v-if="loading" animated :rows="8" />
+
+        <AppEmptyState
+          v-else-if="isEmpty"
+          title="暂无足够模型覆盖记录形成竞品复盘"
+          description="建议先添加高意向问法、补知识库证据、生成引用友好文章，再补模型覆盖记录。"
+        />
+
+        <div v-else class="competitor-occupancy-card-grid">
+          <article
+            v-for="review in filteredReviews"
+            :key="review.id"
+            class="competitor-occupancy-card"
+          >
+            <div class="competitor-occupancy-card__main">
+              <div>
+                <p>用户问法</p>
+                <h3>{{ review.promptText }}</h3>
+              </div>
+              <div class="competitor-occupancy-card__tags">
+                <el-tag :type="getPriorityTagType(review.priority)" effect="plain">
+                  {{ review.priority }}优先级
                 </el-tag>
+                <el-tag type="info" effect="plain">{{ review.questionType }}</el-tag>
+                <el-tag type="warning" effect="plain">{{ review.businessValue }}</el-tag>
+                <el-tag type="success" effect="plain">{{ review.buyingStage }}</el-tag>
               </div>
-              <small v-else>暂无明确竞品品牌，需结合原始回答人工确认。</small>
-            </section>
-            <section>
-              <strong>轻量原因</strong>
-              <div class="competitor-occupancy-tag-row">
-                <el-tooltip
-                  v-for="reason in review.reasons"
-                  :key="reason"
-                  :content="occupancyReasonDescriptionMap[reason]"
-                  placement="top"
-                >
-                  <el-tag :type="getReasonTagType(reason)" effect="plain" size="small">
-                    {{ occupancyReasonLabelMap[reason] }}
-                  </el-tag>
-                </el-tooltip>
-              </div>
-            </section>
-            <section>
-              <strong>下一步动作</strong>
-              <div class="competitor-occupancy-action-row">
-                <RouterLink v-for="action in review.nextActions" :key="action.label" :to="action.to">
-                  {{ action.label }}
-                </RouterLink>
-              </div>
-            </section>
-          </div>
+            </div>
 
-          <details class="competitor-occupancy-detail-drawer">
-            <summary>查看回答摘要、证据链缺口和检测时间</summary>
+            <div class="competitor-occupancy-status-row">
+              <span>
+                模型
+                <strong>{{ review.model }}</strong>
+              </span>
+              <span>
+                我方状态
+                <el-tag :type="getOwnStatusTagType(review.ownStatus)" effect="plain">
+                  {{ review.ownStatus }}
+                </el-tag>
+              </span>
+              <span>
+                占位类型
+                <el-tag type="warning" effect="plain">
+                  {{ occupancyTypeLabelMap[review.occupancyType] }}
+                </el-tag>
+              </span>
+            </div>
+
             <div class="competitor-occupancy-detail-grid">
               <section>
-                <strong>证据链缺口</strong>
-                <div class="competitor-occupancy-tag-row">
+                <strong>竞品品牌</strong>
+                <div v-if="review.competitorBrands.length" class="competitor-occupancy-tag-row">
                   <el-tag
-                    v-for="gap in review.evidenceGaps"
-                    :key="gap"
-                    type="info"
+                    v-for="brand in review.competitorBrands"
+                    :key="brand.id"
+                    type="danger"
                     effect="plain"
                     size="small"
                   >
-                    {{ gap }}
+                    {{ brand.label }}
                   </el-tag>
                 </div>
-              </section>
-              <section class="competitor-occupancy-summary">
-                <strong>回答摘要</strong>
-                <p>{{ review.summary }}</p>
-                <small>{{ review.sourceNote }}</small>
+                <small v-else>暂无明确竞品品牌，需结合原始回答人工确认。</small>
               </section>
               <section>
-                <strong>检测时间</strong>
-                <small>{{ formatDateTime(review.checkedAt) }}</small>
+                <strong>轻量原因</strong>
+                <div class="competitor-occupancy-tag-row">
+                  <el-tooltip
+                    v-for="reason in review.reasons"
+                    :key="reason"
+                    :content="occupancyReasonDescriptionMap[reason]"
+                    placement="top"
+                  >
+                    <el-tag :type="getReasonTagType(reason)" effect="plain" size="small">
+                      {{ occupancyReasonLabelMap[reason] }}
+                    </el-tag>
+                  </el-tooltip>
+                </div>
+              </section>
+              <section>
+                <strong>下一步动作</strong>
+                <div class="competitor-occupancy-action-row">
+                  <RouterLink v-for="action in review.nextActions" :key="action.label" :to="action.to">
+                    {{ action.label }}
+                  </RouterLink>
+                </div>
               </section>
             </div>
-          </details>
-        </article>
-      </div>
+
+            <details class="competitor-occupancy-detail-drawer">
+              <summary>查看回答摘要、证据链缺口和检测时间</summary>
+              <div class="competitor-occupancy-detail-grid">
+                <section>
+                  <strong>证据链缺口</strong>
+                  <div class="competitor-occupancy-tag-row">
+                    <el-tag
+                      v-for="gap in review.evidenceGaps"
+                      :key="gap"
+                      type="info"
+                      effect="plain"
+                      size="small"
+                    >
+                      {{ gap }}
+                    </el-tag>
+                  </div>
+                </section>
+                <section class="competitor-occupancy-summary">
+                  <strong>回答摘要</strong>
+                  <p>{{ review.summary }}</p>
+                  <small>{{ review.sourceNote }}</small>
+                </section>
+                <section>
+                  <strong>检测时间</strong>
+                  <small>{{ formatDateTime(review.checkedAt) }}</small>
+                </section>
+              </div>
+            </details>
+          </article>
+        </div>
+      </section>
     </section>
   </section>
 </template>
@@ -437,7 +439,9 @@ onMounted(() => {
 <style scoped>
 .competitor-occupancy-page {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+  max-width: 1440px;
+  margin: 0 auto;
   color: #172331;
 }
 
@@ -454,7 +458,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 10px 0 12px;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: transparent;
 }
 
 .competitor-occupancy-card__main p {
@@ -469,16 +477,17 @@ onMounted(() => {
 .competitor-occupancy-hero h1 {
   margin: 0;
   color: #101828;
-  font-size: 21px;
+  font-size: 22px;
   letter-spacing: 0;
 }
 
 .competitor-occupancy-hero span,
 .competitor-occupancy-hero small {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   color: #64748b;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .competitor-occupancy-hero__actions {
@@ -504,8 +513,8 @@ onMounted(() => {
 }
 
 .competitor-occupancy-overview article {
-  min-height: 76px;
-  padding: 12px;
+  min-height: 62px;
+  padding: 9px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
@@ -519,28 +528,42 @@ onMounted(() => {
 
 .competitor-occupancy-overview strong {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   color: #0f172a;
   font-size: 20px;
   letter-spacing: 0;
 }
 
 .competitor-occupancy-overview p {
-  margin: 5px 0 0;
+  margin: 3px 0 0;
   color: #667085;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.competitor-occupancy-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
+  gap: 10px;
+  align-items: start;
 }
 
 .competitor-occupancy-panel-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px;
+  grid-column: 2;
+  grid-row: 1;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.competitor-occupancy-review-list {
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .competitor-occupancy-panel,
 .competitor-occupancy-card {
-  padding: 12px;
+  padding: 10px;
 }
 
 .competitor-occupancy-panel__header,
@@ -556,15 +579,16 @@ onMounted(() => {
 .competitor-occupancy-list-header h2 {
   margin: 0;
   color: #101828;
-  font-size: 17px;
+  font-size: 16px;
   letter-spacing: 0;
 }
 
 .competitor-occupancy-panel__header p,
 .competitor-occupancy-list-header p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: #667085;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .competitor-occupancy-panel__header small {
@@ -580,17 +604,17 @@ onMounted(() => {
 
 .competitor-occupancy-bars {
   display: grid;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 9px;
+  margin-top: 10px;
 }
 
 .competitor-occupancy-bars div {
   display: grid;
-  grid-template-columns: minmax(120px, 0.8fr) minmax(120px, 1fr) auto;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: #344054;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .competitor-occupancy-bars i {
@@ -611,12 +635,13 @@ onMounted(() => {
 .competitor-occupancy-bars small {
   grid-column: 1 / -1;
   color: #667085;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .competitor-occupancy-review-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .competitor-occupancy-filter-row {
@@ -633,12 +658,12 @@ onMounted(() => {
 
 .competitor-occupancy-card-grid {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .competitor-occupancy-card {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .competitor-occupancy-card__main h3 {
@@ -646,8 +671,8 @@ onMounted(() => {
   overflow: hidden;
   margin: 0;
   color: #111827;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   letter-spacing: 0;
@@ -657,13 +682,13 @@ onMounted(() => {
 .competitor-occupancy-tag-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .competitor-occupancy-status-row,
 .competitor-occupancy-detail-grid {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .competitor-occupancy-status-row {
@@ -680,7 +705,7 @@ onMounted(() => {
   display: grid;
   gap: 8px;
   min-width: 0;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
@@ -689,7 +714,7 @@ onMounted(() => {
 .competitor-occupancy-action-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .competitor-occupancy-action-row a {
@@ -774,8 +799,25 @@ onMounted(() => {
 }
 
 @media (max-width: 1180px) {
-  .competitor-occupancy-overview,
+  .competitor-occupancy-workbench {
+    grid-template-columns: 1fr;
+  }
+
   .competitor-occupancy-panel-grid,
+  .competitor-occupancy-review-list {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .competitor-occupancy-review-list {
+    order: 1;
+  }
+
+  .competitor-occupancy-panel-grid {
+    order: 2;
+  }
+
+  .competitor-occupancy-overview,
   .competitor-occupancy-status-row,
   .competitor-occupancy-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -786,8 +828,10 @@ onMounted(() => {
   .competitor-occupancy-hero,
   .competitor-occupancy-panel__header,
   .competitor-occupancy-list-header,
-  .competitor-occupancy-card__main {
+  .competitor-occupancy-card__main,
+  .competitor-occupancy-filter-row {
     display: grid;
+    justify-content: flex-start;
   }
 
   .competitor-occupancy-hero__actions,
