@@ -106,6 +106,10 @@ const headerDisplayByPath: Record<string, { title: string; subtitle: string }> =
     title: "引用证据中心",
     subtitle: "串联问法、证据、文章和覆盖记录"
   },
+  "/competitor-occupancy": {
+    title: "竞品占位原因",
+    subtitle: "复盘竞品出现和我方缺席原因"
+  },
   "/geo-reports": {
     title: "GEO 报表",
     subtitle: "查看覆盖、命中和优化建议"
@@ -173,6 +177,7 @@ const navigationGroups = [
       [
         "/model-inclusion-records",
         "/evidence-citations",
+        "/competitor-occupancy",
         "/geo-reports",
         "/usage-analytics",
         "/operation-logs",

@@ -60,6 +60,12 @@ const actions: QuickAction[] = [
     description: "查看问法、证据、文章和模型覆盖之间的引用链路。",
     to: "/evidence-citations",
     icon: DocumentChecked
+  },
+  {
+    title: "竞品占位原因",
+    description: "查看 AI 为什么推荐竞品、我方缺什么证据。",
+    to: "/competitor-occupancy",
+    icon: TrendCharts
   }
 ];
 </script>

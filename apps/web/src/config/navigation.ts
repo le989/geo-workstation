@@ -155,6 +155,18 @@ export const navigationItems: GeoPageMeta[] = [
     allowedRoles: allRoles
   },
   {
+    path: "/competitor-occupancy",
+    label: "竞品占位原因",
+    title: "竞品占位原因",
+    question: "AI 没推荐我时，推荐了谁？",
+    description: "只读复盘竞品出现、我方缺席和可能补救方向。",
+    phaseNote: "轻量版基于覆盖记录文本和前端竞品词库识别，原因均需人工确认。",
+    nextSteps: ["查看竞品分布", "定位我方缺席问题", "回到知识库、发布文章或覆盖记录处理"],
+    apiFocus: "复用 /api/model-inclusion-records、/api/geo-prompts、/api/knowledge-bases 和 /api/content-items",
+    icon: TrendCharts,
+    allowedRoles: allRoles
+  },
+  {
     path: "/geo-reports",
     label: "GEO 报表",
     title: "GEO 报表",
