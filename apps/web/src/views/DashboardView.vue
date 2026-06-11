@@ -595,18 +595,13 @@ const scenarioTags = [
 <template>
   <section class="dashboard-refresh-page">
     <header class="dashboard-refresh-header">
-      <div>
+      <div class="dashboard-refresh-title-block">
         <p>工作台</p>
         <h1>AI 可见度驾驶舱</h1>
-        <p class="dashboard-refresh-header-subtitle">
-          用于判断 GEO 运营下一步该补问法、补证据、补文章还是复盘模型覆盖。
-        </p>
         <span>{{ dashboardScopeText }}</span>
-        <small class="dashboard-refresh-stage-note">
-          本地测试版使用 smoke 数据，不代表正式线上结论。
-        </small>
       </div>
       <div class="dashboard-refresh-header-actions">
+        <small>本地 smoke 数据 · 非正式线上结论</small>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadDashboard">
           刷新
@@ -630,49 +625,11 @@ const scenarioTags = [
           </div>
           <strong>{{ metric.value }}</strong>
           <p>{{ metric.description }}</p>
-          <div class="dashboard-refresh-kpi-progress" aria-hidden="true">
-            <i :style="{ width: `${metric.percent}%` }" />
-          </div>
         </template>
       </RouterLink>
     </section>
 
-    <section class="dashboard-refresh-priority-grid">
-      <article class="dashboard-refresh-panel dashboard-refresh-conclusion-panel">
-        <div class="dashboard-refresh-panel-header">
-          <div>
-            <h2>本轮结论</h2>
-            <p>先看结论，再处理最关键的补救动作。</p>
-          </div>
-          <RouterLink :to="dashboardConclusion.primaryAction.to">
-            {{ dashboardConclusion.primaryAction.action }}
-          </RouterLink>
-        </div>
-        <div class="dashboard-refresh-conclusion-body">
-          <strong>{{ dashboardConclusion.title }}</strong>
-          <p>{{ dashboardConclusion.description }}</p>
-          <div class="dashboard-refresh-weakness-list" aria-label="主要短板">
-            <span v-for="item in dashboardConclusion.weakness" :key="item">{{ item }}</span>
-          </div>
-        </div>
-        <div class="dashboard-refresh-action-list" aria-label="下一步建议动作">
-          <RouterLink
-            v-for="task in todayTasks"
-            :key="task.title"
-            :to="task.to"
-            :class="['dashboard-refresh-action-row', `dashboard-refresh-card--${task.tone}`]"
-          >
-            <el-icon>
-              <component :is="task.icon" />
-            </el-icon>
-            <span>
-              <strong>{{ task.title }}</strong>
-            </span>
-            <b>{{ task.status }}</b>
-          </RouterLink>
-        </div>
-      </article>
-
+    <section class="dashboard-refresh-core-grid">
       <article class="dashboard-refresh-panel dashboard-refresh-trend-panel">
         <div class="dashboard-refresh-panel-header">
           <div>
@@ -713,6 +670,43 @@ const scenarioTags = [
           <span><i class="dashboard-refresh-dot--cite" />官网引用率 {{ formatPercent(report.citedOfficialSiteRate) }}</span>
           <span><i class="dashboard-refresh-dot--miss" />未命中率 {{ formatPercent(getMissRate()) }}</span>
         </div>
+      </article>
+
+      <article class="dashboard-refresh-panel dashboard-refresh-ops-panel">
+        <div class="dashboard-refresh-panel-header">
+          <div>
+            <h2>本轮结论</h2>
+            <p>先处理影响推荐和引用的关键阻断项。</p>
+          </div>
+          <RouterLink :to="dashboardConclusion.primaryAction.to">
+            {{ dashboardConclusion.primaryAction.action }}
+          </RouterLink>
+        </div>
+        <div class="dashboard-refresh-ops-summary">
+          <strong>{{ dashboardConclusion.title }}</strong>
+          <p>{{ dashboardConclusion.description }}</p>
+          <div class="dashboard-refresh-weakness-list" aria-label="主要短板">
+            <span v-for="item in dashboardConclusion.weakness" :key="item">{{ item }}</span>
+          </div>
+        </div>
+        <ul class="dashboard-refresh-action-list" aria-label="高优待办">
+          <li v-for="task in todayTasks" :key="task.title">
+            <RouterLink
+              :to="task.to"
+              :class="['dashboard-refresh-action-row', `dashboard-refresh-card--${task.tone}`]"
+            >
+              <span class="dashboard-refresh-action-main">
+                <el-icon>
+                  <component :is="task.icon" />
+                </el-icon>
+                <strong>{{ task.title }}</strong>
+                <small>{{ task.count }}</small>
+              </span>
+              <b>{{ task.status }}</b>
+              <em>去处理</em>
+            </RouterLink>
+          </li>
+        </ul>
       </article>
     </section>
 
@@ -886,7 +880,7 @@ const scenarioTags = [
 <style scoped>
 .dashboard-refresh-page {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   color: #172331;
   --el-color-primary: #2563eb;
   --el-color-primary-light-3: #5b8def;
@@ -898,13 +892,17 @@ const scenarioTags = [
 .dashboard-refresh-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
-  padding: 14px 16px;
+  padding: 10px 12px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
   box-shadow: none;
+}
+
+.dashboard-refresh-title-block {
+  min-width: 0;
 }
 
 .dashboard-refresh-header p,
@@ -916,36 +914,19 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-header h1 {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: #111827;
-  font-size: clamp(21px, 2.5vw, 28px);
+  font-size: clamp(20px, 2.1vw, 26px);
   font-weight: 760;
   letter-spacing: 0;
   line-height: 1.2;
 }
 
-.dashboard-refresh-header .dashboard-refresh-header-subtitle {
-  max-width: 760px;
-  margin-top: 5px;
-  color: #334155;
-  font-size: 14px;
-  font-weight: 650;
-}
-
 .dashboard-refresh-header span {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   color: #7c8da3;
   font-size: 12px;
-}
-
-.dashboard-refresh-stage-note {
-  display: block;
-  max-width: 720px;
-  margin-top: 4px;
-  color: #52647a;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .dashboard-refresh-header-actions {
@@ -974,7 +955,7 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-kpi-grid,
-.dashboard-refresh-priority-grid,
+.dashboard-refresh-core-grid,
 .dashboard-refresh-diagnostic-grid,
 .dashboard-refresh-lists-grid,
 .dashboard-refresh-secondary-grid {
@@ -1005,9 +986,9 @@ const scenarioTags = [
 
 .dashboard-refresh-kpi-card {
   display: grid;
-  gap: 6px;
-  min-height: 82px;
-  padding: 10px 12px;
+  gap: 4px;
+  min-height: 68px;
+  padding: 9px 11px;
 }
 
 .dashboard-refresh-kpi-card span,
@@ -1025,7 +1006,7 @@ const scenarioTags = [
 
 .dashboard-refresh-kpi-card strong {
   color: #111827;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 820;
   line-height: 1;
 }
@@ -1047,28 +1028,6 @@ const scenarioTags = [
   font-size: 12px;
 }
 
-.dashboard-refresh-kpi-progress {
-  overflow: hidden;
-  height: 5px;
-  border-radius: 999px;
-  background: #edf2f7;
-}
-
-.dashboard-refresh-kpi-progress i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #2563eb;
-}
-
-.dashboard-refresh-card--good .dashboard-refresh-kpi-progress i {
-  background: #059669;
-}
-
-.dashboard-refresh-card--warning .dashboard-refresh-kpi-progress i {
-  background: #d97706;
-}
-
 .dashboard-refresh-card--danger {
   border-color: #f0c8c2;
 }
@@ -1082,13 +1041,13 @@ const scenarioTags = [
   background: #fbfcfe;
 }
 
-.dashboard-refresh-priority-grid {
-  grid-template-columns: minmax(300px, 0.86fr) minmax(0, 1.14fr);
+.dashboard-refresh-core-grid {
+  grid-template-columns: minmax(0, 1.85fr) minmax(320px, 1fr);
   align-items: stretch;
 }
 
 .dashboard-refresh-diagnostic-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) minmax(260px, 0.86fr);
 }
 
 .dashboard-refresh-lists-grid {
@@ -1098,7 +1057,7 @@ const scenarioTags = [
 
 .dashboard-refresh-panel {
   min-width: 0;
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .dashboard-refresh-panel-header {
@@ -1106,13 +1065,13 @@ const scenarioTags = [
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .dashboard-refresh-panel-header h2 {
   margin: 0;
   color: #111827;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 760;
   line-height: 1.35;
 }
@@ -1132,116 +1091,131 @@ const scenarioTags = [
   font-weight: 600;
 }
 
-.dashboard-refresh-conclusion-panel {
+.dashboard-refresh-ops-panel {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   align-content: start;
 }
 
-.dashboard-refresh-conclusion-body {
+.dashboard-refresh-ops-summary {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #f8fafc;
 }
 
-.dashboard-refresh-conclusion-body strong {
+.dashboard-refresh-ops-summary strong {
   color: #111827;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.35;
 }
 
-.dashboard-refresh-conclusion-body p {
+.dashboard-refresh-ops-summary p {
   margin: 0;
   color: #52647a;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .dashboard-refresh-weakness-list,
 .dashboard-refresh-action-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .dashboard-refresh-action-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .dashboard-refresh-weakness-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .dashboard-refresh-weakness-list span {
   min-width: 0;
-  padding: 7px 9px;
+  padding: 4px 7px;
   border: 1px solid #dbeafe;
   border-radius: 4px;
   background: #eff6ff;
   color: #1e3a5f;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
   line-height: 1.35;
 }
 
 .dashboard-refresh-action-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
-  padding: 8px;
+  min-height: 42px;
+  padding: 7px 8px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
 }
 
+.dashboard-refresh-action-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
 .dashboard-refresh-action-row .el-icon {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   place-items: center;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #eef4ff;
   color: #0070f3;
-  font-size: 17px;
-}
-
-.dashboard-refresh-action-row span {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.dashboard-refresh-action-row strong {
-  color: #111827;
   font-size: 14px;
 }
 
-.dashboard-refresh-action-row small {
+.dashboard-refresh-action-row strong {
   overflow: hidden;
-  color: #65758a;
-  font-size: 12px;
-  line-height: 1.4;
+  color: #111827;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.dashboard-refresh-action-row small {
+  color: #65758a;
+  font-size: 12px;
+}
+
 .dashboard-refresh-action-row b {
-  grid-column: 2;
   width: fit-content;
-  margin-top: -2px;
-  padding: 5px 8px;
+  padding: 4px 7px;
   border-radius: 4px;
   background: #f1f5f9;
   color: #52647a;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.dashboard-refresh-action-row em {
+  padding: 4px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 4px;
+  color: #2563eb;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .dashboard-refresh-trend-panel svg {
   display: block;
   width: 100%;
-  max-height: 248px;
+  max-height: 260px;
   height: auto;
 }
 
@@ -1257,7 +1231,7 @@ const scenarioTags = [
 .dashboard-refresh-chart-line {
   fill: none;
   stroke-linecap: round;
-  stroke-width: 7;
+  stroke-width: 6;
 }
 
 .dashboard-refresh-axis-labels text {
@@ -1293,8 +1267,8 @@ const scenarioTags = [
 .dashboard-refresh-chart-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 6px;
 }
 
 .dashboard-refresh-chart-legend span {
@@ -1322,8 +1296,8 @@ const scenarioTags = [
 
 .dashboard-refresh-model-bars article {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 7px;
+  padding: 9px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
@@ -1396,14 +1370,14 @@ const scenarioTags = [
 .dashboard-refresh-tag-cloud {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .dashboard-refresh-tag-cloud span {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  padding: 6px 12px;
+  min-height: 28px;
+  padding: 5px 9px;
   border: 1px solid #dbeafe;
   border-radius: 4px;
   background: #eff6ff;
@@ -1420,13 +1394,13 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-tag--large {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .dashboard-refresh-rank-list a {
   display: grid;
-  gap: 6px;
-  padding: 13px;
+  gap: 5px;
+  padding: 10px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
@@ -1515,8 +1489,8 @@ const scenarioTags = [
 
 .dashboard-refresh-secondary-grid a {
   display: grid;
-  gap: 7px;
-  padding: 12px;
+  gap: 5px;
+  padding: 9px 10px;
 }
 
 .dashboard-refresh-secondary-grid strong {
@@ -1560,7 +1534,7 @@ const scenarioTags = [
 @media (max-width: 720px) {
   .dashboard-refresh-header,
   .dashboard-refresh-kpi-grid,
-  .dashboard-refresh-priority-grid,
+  .dashboard-refresh-core-grid,
   .dashboard-refresh-diagnostic-grid,
   .dashboard-refresh-secondary-grid,
   .dashboard-refresh-model-bars article > div,
