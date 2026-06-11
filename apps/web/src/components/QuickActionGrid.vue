@@ -2,6 +2,7 @@
 import type { Component } from "vue";
 import { RouterLink } from "vue-router";
 import {
+  DocumentChecked,
   EditPen,
   Files,
   MagicStick,
@@ -53,6 +54,12 @@ const actions: QuickAction[] = [
     description: "补录 AI 平台提及、推荐和引用情况。",
     to: "/model-inclusion-records",
     icon: TrendCharts
+  },
+  {
+    title: "引用证据中心",
+    description: "查看问法、证据、文章和模型覆盖之间的引用链路。",
+    to: "/evidence-citations",
+    icon: DocumentChecked
   }
 ];
 </script>
@@ -79,7 +86,7 @@ const actions: QuickAction[] = [
 <style scoped>
 .dashboard-refresh-quick-action-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
 }
 
