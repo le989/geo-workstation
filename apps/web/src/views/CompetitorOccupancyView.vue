@@ -100,33 +100,22 @@ const maxCompetitorCount = computed(() =>
 
 const maxReasonCount = computed(() => Math.max(...reasonDistribution.value.map((item) => item.count), 1));
 
+// 概览只保留占位、缺席和证据三项，避免复盘页一开始就过载。
 const overviewCards = computed(() => [
   {
     label: "竞品占位问题",
     value: occupancyReviews.value.filter((review) => review.competitorBrands.length > 0).length,
-    helper: "出现竞品词或覆盖记录标记竞品"
+    helper: "出现竞品信号"
   },
   {
     label: "我方缺席问题",
     value: occupancyReviews.value.filter((review) => review.ownStatus === "缺席").length,
-    helper: "当前回答未体现我方品牌"
-  },
-  {
-    label: "高意向占位",
-    value: occupancyReviews.value.filter(
-      (review) => review.businessValue === "高意向" && review.competitorBrands.length > 0
-    ).length,
-    helper: "优先复盘采购 / 替代类问题"
+    helper: "回答未体现我方"
   },
   {
     label: "需补证据问题",
     value: occupancyReviews.value.filter((review) => review.reasons.includes("evidence_gap")).length,
-    helper: "建议补产品、场景、参数或案例证据"
-  },
-  {
-    label: "待人工确认",
-    value: occupancyReviews.value.filter((review) => review.reasons.includes("manual_check")).length,
-    helper: "轻量规则无法稳定判断"
+    helper: "补产品、场景、参数"
   }
 ]);
 
@@ -229,7 +218,7 @@ onMounted(() => {
     <header class="competitor-occupancy-hero">
       <div>
         <h1>竞品占位原因</h1>
-        <span>查看竞品出现、我方缺席和下一步补救方向。</span>
+        <span>先看谁占位、我方缺什么、下一步怎么补。</span>
         <small>本地 smoke 数据 · 前端轻量识别 · 结果需人工确认</small>
       </div>
       <div class="competitor-occupancy-hero__actions">
@@ -368,10 +357,6 @@ onMounted(() => {
                 {{ occupancyTypeLabelMap[review.occupancyType] }}
               </el-tag>
             </span>
-            <span>
-              检测时间
-              <strong>{{ formatDateTime(review.checkedAt) }}</strong>
-            </span>
           </div>
 
           <div class="competitor-occupancy-detail-grid">
@@ -406,32 +391,43 @@ onMounted(() => {
               </div>
             </section>
             <section>
-              <strong>证据链缺口</strong>
-              <div class="competitor-occupancy-tag-row">
-                <el-tag
-                  v-for="gap in review.evidenceGaps"
-                  :key="gap"
-                  type="info"
-                  effect="plain"
-                  size="small"
-                >
-                  {{ gap }}
-                </el-tag>
+              <strong>下一步动作</strong>
+              <div class="competitor-occupancy-action-row">
+                <RouterLink v-for="action in review.nextActions" :key="action.label" :to="action.to">
+                  {{ action.label }}
+                </RouterLink>
               </div>
             </section>
           </div>
 
-          <div class="competitor-occupancy-summary">
-            <strong>回答摘要</strong>
-            <p>{{ review.summary }}</p>
-            <small>{{ review.sourceNote }}</small>
-          </div>
-
-          <footer>
-            <RouterLink v-for="action in review.nextActions" :key="action.label" :to="action.to">
-              {{ action.label }}
-            </RouterLink>
-          </footer>
+          <details class="competitor-occupancy-detail-drawer">
+            <summary>查看回答摘要、证据链缺口和检测时间</summary>
+            <div class="competitor-occupancy-detail-grid">
+              <section>
+                <strong>证据链缺口</strong>
+                <div class="competitor-occupancy-tag-row">
+                  <el-tag
+                    v-for="gap in review.evidenceGaps"
+                    :key="gap"
+                    type="info"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ gap }}
+                  </el-tag>
+                </div>
+              </section>
+              <section class="competitor-occupancy-summary">
+                <strong>回答摘要</strong>
+                <p>{{ review.summary }}</p>
+                <small>{{ review.sourceNote }}</small>
+              </section>
+              <section>
+                <strong>检测时间</strong>
+                <small>{{ formatDateTime(review.checkedAt) }}</small>
+              </section>
+            </div>
+          </details>
         </article>
       </div>
     </section>
@@ -441,7 +437,7 @@ onMounted(() => {
 <style scoped>
 .competitor-occupancy-page {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   color: #172331;
 }
 
@@ -458,7 +454,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px;
+  padding: 14px 16px;
 }
 
 .competitor-occupancy-card__main p {
@@ -473,14 +469,14 @@ onMounted(() => {
 .competitor-occupancy-hero h1 {
   margin: 0;
   color: #101828;
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: 0;
 }
 
 .competitor-occupancy-hero span,
 .competitor-occupancy-hero small {
   display: block;
-  margin-top: 8px;
+  margin-top: 5px;
   color: #64748b;
   line-height: 1.6;
 }
@@ -503,13 +499,13 @@ onMounted(() => {
 
 .competitor-occupancy-overview {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .competitor-occupancy-overview article {
-  min-height: 116px;
-  padding: 14px;
+  min-height: 84px;
+  padding: 12px;
   border: 1px solid #dfe7f1;
   border-radius: 16px;
   background: #f8fbff;
@@ -523,14 +519,14 @@ onMounted(() => {
 
 .competitor-occupancy-overview strong {
   display: block;
-  margin-top: 10px;
+  margin-top: 6px;
   color: #0f172a;
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: 0;
 }
 
 .competitor-occupancy-overview p {
-  margin: 8px 0 0;
+  margin: 5px 0 0;
   color: #667085;
   font-size: 13px;
   line-height: 1.5;
@@ -544,7 +540,7 @@ onMounted(() => {
 
 .competitor-occupancy-panel,
 .competitor-occupancy-card {
-  padding: 18px;
+  padding: 14px;
 }
 
 .competitor-occupancy-panel__header,
@@ -583,8 +579,8 @@ onMounted(() => {
 
 .competitor-occupancy-bars {
   display: grid;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .competitor-occupancy-bars div {
@@ -641,14 +637,18 @@ onMounted(() => {
 
 .competitor-occupancy-card {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .competitor-occupancy-card__main h3 {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 0;
   color: #111827;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   letter-spacing: 0;
 }
 
@@ -666,7 +666,7 @@ onMounted(() => {
 }
 
 .competitor-occupancy-status-row {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .competitor-occupancy-detail-grid {
@@ -679,10 +679,48 @@ onMounted(() => {
   display: grid;
   gap: 8px;
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid #e4ebf4;
   border-radius: 14px;
   background: #f8fbff;
+}
+
+.competitor-occupancy-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.competitor-occupancy-action-row a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #c7d7f2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #315dff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.competitor-occupancy-detail-drawer {
+  border-top: 1px solid #eef2f7;
+  padding-top: 8px;
+}
+
+.competitor-occupancy-detail-drawer summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.competitor-occupancy-detail-drawer[open] {
+  display: grid;
+  gap: 12px;
 }
 
 .competitor-occupancy-status-row span {
