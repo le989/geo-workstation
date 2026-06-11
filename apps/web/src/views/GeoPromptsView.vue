@@ -402,11 +402,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="geo-prompts-page">
-    <header class="geo-prompts-hero">
+  <section class="geo-prompts-page core-list-page">
+    <header class="geo-prompts-hero core-list-header">
       <div>
         <h1>提示词库</h1>
-        <p>管理真实用户问法、问法类型和追踪状态，支撑内容生产与模型检测。</p>
+        <p>管理真实问法、问法类型和追踪状态。</p>
       </div>
       <div class="geo-prompts-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -441,33 +441,8 @@ onMounted(() => {
       </div>
     </header>
 
-    <section class="geo-prompts-asset-grid" aria-label="提示词资产概览">
-      <article v-for="asset in promptAssetCards" :key="asset.label" class="geo-prompts-asset-card">
-        <span>{{ asset.label }}</span>
-        <strong>{{ asset.value }}</strong>
-        <p>{{ asset.hint }}</p>
-      </article>
-    </section>
-
-    <section class="geo-prompts-value-panel" aria-label="问法业务价值概览">
-      <div>
-        <h2>业务价值概览</h2>
-        <p>前端轻量推断，仅用于判断处理优先级。</p>
-      </div>
-      <div class="geo-prompts-value-summary">
-        <span
-          v-for="insight in promptBusinessInsights"
-          :key="insight.label"
-          class="geo-prompts-value-pill"
-          :title="insight.hint"
-        >
-          <strong>{{ insight.value }}</strong>
-          {{ insight.label }}
-        </span>
-      </div>
-    </section>
-
     <GeoPromptFilters
+      class="core-filter-bar"
       :model-value="filters"
       :active-type="activeType"
       :loading="loading"
@@ -477,16 +452,46 @@ onMounted(() => {
       @type-change="handleTypeChange"
     />
 
+    <section class="geo-prompts-summary-row core-summary-row" aria-label="提示词资产与业务价值摘要">
+      <div class="geo-prompts-asset-grid geo-prompts-asset-grid--compact" aria-label="提示词资产概览">
+        <article
+          v-for="asset in promptAssetCards"
+          :key="asset.label"
+          class="geo-prompts-asset-card"
+        >
+          <span>{{ asset.label }}</span>
+          <strong>{{ asset.value }}</strong>
+          <p>{{ asset.hint }}</p>
+        </article>
+      </div>
+
+      <section class="geo-prompts-value-panel geo-prompts-value-panel--compact" aria-label="问法业务价值概览">
+        <div>
+          <h2>业务价值</h2>
+          <p>轻量推断，用于处理优先级。</p>
+        </div>
+        <div class="geo-prompts-value-summary">
+          <span
+            v-for="insight in promptBusinessInsights"
+            :key="insight.label"
+            class="geo-prompts-value-pill"
+            :title="insight.hint"
+          >
+            <strong>{{ insight.value }}</strong>
+            {{ insight.label }}
+          </span>
+        </div>
+      </section>
+    </section>
+
     <AppErrorState v-if="hasTableError" title="提示词库加载失败" :message="tableError" />
 
-    <section class="geo-prompts-table-panel">
+    <section class="geo-prompts-table-panel core-data-panel">
       <div class="geo-prompts-table-header">
         <div>
           <p class="section-kicker">提示词资产</p>
           <h2>GEO 提示词列表</h2>
-          <p>
-            问法类型、业务价值和购买阶段用于判断处理优先级。
-          </p>
+          <p>问法类型、业务价值和购买阶段用于判断处理优先级。</p>
         </div>
       </div>
 

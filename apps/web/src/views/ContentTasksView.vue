@@ -1024,8 +1024,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="content-page">
-    <header class="content-hero content-hero--compact">
+  <section class="content-page core-list-page">
+    <header class="content-hero content-hero--compact core-list-header">
       <div class="content-hero__copy">
         <h1>发布文章工作台</h1>
         <p>选择资料 → 生成文章 → 复制发布稿</p>
@@ -1044,11 +1044,12 @@ onMounted(() => {
       </div>
     </header>
 
-    <p class="content-inline-note">
-      助理只处理生成、检查和复制；发布前请查看 AI 引用友好检查，并人工核对事实、参数、引用和排版。
+    <p class="content-inline-note core-inline-note">
+      发布前仍需人工核对事实、参数、引用和排版。
     </p>
 
     <ContentTaskFilters
+      class="core-filter-bar"
       :model-value="filters"
       :loading="loading"
       @update:model-value="Object.assign(filters, $event)"
@@ -1058,13 +1059,13 @@ onMounted(() => {
 
     <AppErrorState v-if="hasTableError" title="文章任务加载失败" :message="tableError" />
 
-    <el-card class="content-table-card article-workbench-list" shadow="never">
+    <el-card class="content-table-card article-workbench-list core-data-panel" shadow="never">
       <template #header>
         <div class="table-card-header">
           <div>
             <p class="section-kicker">文章工作台</p>
             <h2>待处理文章列表</h2>
-            <span>按状态处理下一步，历史和高级操作收在更多里。</span>
+            <span>按状态处理下一步，更多操作收在菜单里。</span>
           </div>
           <strong>{{ total }} 篇文章</strong>
         </div>
