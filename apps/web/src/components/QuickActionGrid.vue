@@ -72,15 +72,16 @@ const actions: QuickAction[] = [
 <style scoped>
 .dashboard-refresh-quick-action-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
 }
 
 .dashboard-refresh-quick-action {
   display: grid;
-  gap: 10px;
-  min-height: 92px;
-  padding: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  min-height: 58px;
+  padding: 9px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #ffffff;
@@ -98,30 +99,37 @@ const actions: QuickAction[] = [
 
 .dashboard-refresh-quick-action .el-icon {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   place-items: center;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #f0f5ff;
   color: #0070f3;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .dashboard-refresh-quick-action span {
   display: grid;
-  gap: 6px;
+  min-width: 0;
+  gap: 2px;
 }
 
 .dashboard-refresh-quick-action strong {
+  overflow: hidden;
   color: #111827;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-refresh-quick-action small {
+  overflow: hidden;
   color: #5d6f86;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 1280px) {
