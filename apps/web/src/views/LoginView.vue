@@ -104,13 +104,6 @@ const submitLogin = async () => {
                 <em>{{ step.value }}</em>
               </span>
             </div>
-            <div class="geo-login-preview-trend" aria-label="模型覆盖趋势预览">
-              <span style="--bar-height: 42%" />
-              <span style="--bar-height: 58%" />
-              <span style="--bar-height: 51%" />
-              <span style="--bar-height: 74%" />
-              <span style="--bar-height: 68%" />
-            </div>
             <div class="geo-login-preview-evidence">
               <span v-for="signal in previewSignals" :key="signal">
                 <i class="status-dot status-dot--success" />
@@ -181,10 +174,10 @@ const submitLogin = async () => {
   min-height: 100vh;
   padding: clamp(20px, 4vw, 50px);
   background:
-    radial-gradient(circle at 18% 18%, rgb(37 99 235 / 6%), transparent 31%),
-    radial-gradient(circle at 78% 72%, rgb(14 165 233 / 5%), transparent 30%),
-    linear-gradient(rgb(226 232 240 / 62%) 1px, transparent 1px) 0 0 / 34px 34px,
-    linear-gradient(90deg, rgb(226 232 240 / 62%) 1px, transparent 1px) 0 0 / 34px 34px,
+    radial-gradient(circle at 18% 18%, rgb(37 99 235 / 4%), transparent 31%),
+    radial-gradient(circle at 78% 72%, rgb(14 165 233 / 3%), transparent 30%),
+    linear-gradient(rgb(226 232 240 / 32%) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(90deg, rgb(226 232 240 / 32%) 1px, transparent 1px) 0 0 / 34px 34px,
     var(--bg-app);
   color: var(--text-primary);
 }
@@ -194,6 +187,12 @@ const submitLogin = async () => {
   gap: clamp(24px, 4vw, 46px);
   width: min(100%, 1180px);
   margin: 0 auto;
+}
+
+@media (min-width: 960px) {
+  .geo-login-brand {
+    margin-left: -38px;
+  }
 }
 
 .geo-login-brand {
@@ -277,7 +276,7 @@ const submitLogin = async () => {
   max-width: 680px;
   padding: 18px;
   border: 1px solid var(--border-light);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--bg-surface);
   box-shadow: 0 22px 56px rgb(15 23 42 / 8%);
 }
@@ -377,29 +376,6 @@ const submitLogin = async () => {
   font-style: normal;
 }
 
-.geo-login-preview-trend {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  align-items: end;
-  min-height: 64px;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background:
-    linear-gradient(#eef2f7 1px, transparent 1px) 0 0 / 100% 22px,
-    #fbfdff;
-}
-
-.geo-login-preview-trend span {
-  display: block;
-  height: var(--bar-height);
-  min-height: 18px;
-  border-radius: 999px 999px 3px 3px;
-  background: linear-gradient(180deg, #38bdf8, #2563eb);
-  opacity: 0.88;
-}
-
 .geo-login-preview-evidence {
   flex-wrap: wrap;
   gap: 8px;
@@ -421,7 +397,7 @@ const submitLogin = async () => {
   width: 100%;
   padding: 28px;
   border: 1px solid var(--border-light);
-  border-radius: 12px;
+  border-radius: 9px;
   background: var(--bg-surface);
   box-shadow: 0 18px 44px rgb(15 23 42 / 8%);
 }
@@ -466,22 +442,22 @@ const submitLogin = async () => {
 
 .geo-login-form :deep(.el-input__wrapper) {
   min-height: 42px;
-  border-radius: 10px;
-  background: #f8fafc;
-  box-shadow: 0 0 0 1px var(--border-light) inset;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #e5e7eb inset;
 }
 
 .geo-login-form :deep(.el-input__wrapper.is-focus) {
   box-shadow:
-    0 0 0 1px var(--brand-primary) inset,
-    0 0 0 3px rgb(0 112 243 / 10%);
+    0 0 0 1px #2563eb inset,
+    0 0 0 2px rgb(37 99 235 / 10%);
 }
 
 .geo-login-submit {
   width: 100%;
   min-height: 42px;
   margin-top: 2px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-weight: 650;
 }
 
@@ -519,9 +495,9 @@ const submitLogin = async () => {
   .geo-login-page {
     padding: 18px 14px;
     background:
-      radial-gradient(circle at 26% 14%, rgb(37 99 235 / 5%), transparent 34%),
-      linear-gradient(rgb(226 232 240 / 44%) 1px, transparent 1px) 0 0 / 32px 32px,
-      linear-gradient(90deg, rgb(226 232 240 / 44%) 1px, transparent 1px) 0 0 / 32px 32px,
+      radial-gradient(circle at 26% 14%, rgb(37 99 235 / 3%), transparent 34%),
+      linear-gradient(rgb(226 232 240 / 24%) 1px, transparent 1px) 0 0 / 32px 32px,
+      linear-gradient(90deg, rgb(226 232 240 / 24%) 1px, transparent 1px) 0 0 / 32px 32px,
       var(--bg-app);
   }
 
