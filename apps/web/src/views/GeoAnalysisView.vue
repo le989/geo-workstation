@@ -21,7 +21,6 @@ import {
   type GeoAnalysisTaskQuery,
   type UpdateGeoAnalysisTaskPayload
 } from "@/api/geo-analysis";
-import AppEmptyState from "@/components/AppEmptyState.vue";
 import AppErrorState from "@/components/AppErrorState.vue";
 import GeoAnalysisStatusTag from "@/components/GeoAnalysisStatusTag.vue";
 import GeoAnalysisTaskDetailDrawer from "@/components/GeoAnalysisTaskDetailDrawer.vue";
@@ -139,6 +138,28 @@ const getErrorMessage = (error: unknown) => {
 const trimOptional = (value?: string) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+};
+
+// 只把已有任务字段整理成列表摘要，不改变诊断任务状态和运行逻辑。
+const getTaskAssetSummary = (task: GeoAnalysisTask) => {
+  const segments = [
+    `品牌：${task.brandName}`,
+    `官网：${formatOptional(task.websiteUrl)}`,
+    `产品线：${formatGeoAnalysisDisplayText(task.productLine)}`
+  ];
+
+  return segments.join(" · ");
+};
+
+const getTaskGapSummary = (task: GeoAnalysisTask) => {
+  const contentGapCount = task.contentGaps.length;
+  const knowledgeGapCount = task.knowledgeGaps.length;
+
+  if (contentGapCount === 0 && knowledgeGapCount === 0) {
+    return "暂无明确缺口";
+  }
+
+  return `内容缺口 ${contentGapCount} · 资料缺口 ${knowledgeGapCount}`;
 };
 
 const buildQuery = (): GeoAnalysisTaskQuery => ({
@@ -482,17 +503,12 @@ onMounted(() => {
       </div>
     </header>
 
-    <section class="geo-analysis-metric-grid review-page__summary compact-metric-row" aria-label="GEO 诊断概览">
-      <article
-        v-for="metric in analysisMetricCards"
-        :key="metric.label"
-        class="geo-analysis-metric"
-      >
+    <nav class="geo-analysis-metric-grid review-page__summary" aria-label="GEO 诊断概览">
+      <span v-for="metric in analysisMetricCards" :key="metric.label" class="geo-analysis-metric">
         <span>{{ metric.label }}</span>
         <strong>{{ metric.value }}</strong>
-        <p>{{ metric.hint }}</p>
-      </article>
-    </section>
+      </span>
+    </nav>
 
     <el-collapse class="analysis-relation-collapse review-page__secondary">
       <el-collapse-item title="查看 GEO 诊断闭环说明" name="geo-analysis-flow">
@@ -521,6 +537,7 @@ onMounted(() => {
     </el-collapse>
 
     <GeoAnalysisTaskFilters
+      class="analysis-compact-filter-bar"
       :model-value="filters"
       :loading="loading"
       @update:model-value="Object.assign(filters, $event)"
@@ -530,105 +547,80 @@ onMounted(() => {
 
     <AppErrorState v-if="hasTableError" title="GEO 诊断任务加载失败" :message="tableError" />
 
-    <section class="geo-analysis-table-panel review-page__details">
-      <div class="geo-analysis-table-header">
-        <div>
-          <p class="section-kicker">诊断任务</p>
-          <h2>诊断任务列表</h2>
-          <p v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</p>
-        </div>
+    <section v-loading="loading" class="geo-analysis-table-panel review-page__details">
+      <div v-if="tasks.length > 0" class="analysis-task-asset-list">
+        <article v-for="task in tasks" :key="task.id" class="analysis-task-asset-row">
+          <div class="analysis-task-asset-main">
+            <strong class="analysis-task-name">
+              {{ formatGeoAnalysisTaskTitle(task.name, task.brandName) }}
+            </strong>
+            <p>{{ getTaskAssetSummary(task) }}</p>
+            <div class="analysis-task-tags">
+              <span>目标模型：{{ formatTargetModelNames(task.targetModels) }}</span>
+              <span>提示词建议 {{ task.promptSuggestions.length }}</span>
+              <span>{{ getTaskGapSummary(task) }}</span>
+            </div>
+          </div>
+
+          <div class="analysis-task-asset-status">
+            <GeoAnalysisStatusTag :status="task.status" />
+            <el-tag effect="plain" type="info">
+              {{ task.promptSuggestions.length }} 条建议
+            </el-tag>
+            <p>{{ getTaskGapSummary(task) }}</p>
+          </div>
+
+          <div class="analysis-task-asset-side">
+            <span>{{ formatDateTime(task.createdAt) }}</span>
+            <div class="analysis-task-actions">
+              <el-button size="small" type="primary" plain @click="openDetailDrawer(task)">
+                查看详情
+              </el-button>
+              <el-button
+                v-if="canManageAnalysisActions"
+                text
+                size="small"
+                :disabled="task.status !== 'pending'"
+                @click="openEditDialog(task)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-if="canManageAnalysisActions && (task.status === 'pending' || task.status === 'failed')"
+                size="small"
+                type="primary"
+                :loading="running && selectedTaskId === task.id"
+                @click="runTask(task)"
+              >
+                运行诊断
+              </el-button>
+              <el-button
+                v-if="canArchiveAnalysisTask(task)"
+                size="small"
+                plain
+                :loading="isArchiving(task.id)"
+                @click="handleArchiveTask(task)"
+              >
+                归档
+              </el-button>
+            </div>
+          </div>
+        </article>
       </div>
 
-      <el-table
-        v-loading="loading"
-        :data="tasks"
-        border
-        row-key="id"
-        empty-text="暂无 GEO 诊断任务"
-        class="analysis-task-table"
-      >
-        <el-table-column label="任务名称" min-width="230" fixed>
-          <template #default="{ row }">
-            <strong class="analysis-task-name">
-              {{ formatGeoAnalysisTaskTitle(row.name, row.brandName) }}
-            </strong>
-            <p class="table-subtext">品牌：{{ row.brandName }}</p>
-          </template>
-        </el-table-column>
-        <el-table-column label="官网" min-width="190">
-          <template #default="{ row }">
-            {{ formatOptional(row.websiteUrl) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="产品线" min-width="170">
-          <template #default="{ row }">
-            <span
-              class="analysis-table-line"
-              :title="formatGeoAnalysisDisplayText(row.productLine)"
-            >
-              {{ formatGeoAnalysisDisplayText(row.productLine) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="目标模型" min-width="180">
-          <template #default="{ row }">
-            <span class="analysis-table-line" :title="formatTargetModelNames(row.targetModels)">
-              {{ formatTargetModelNames(row.targetModels) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }">
-            <GeoAnalysisStatusTag :status="row.status" />
-          </template>
-        </el-table-column>
-        <el-table-column label="提示词建议" width="110">
-          <template #default="{ row }">{{ row.promptSuggestions.length }}</template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="180">
-          <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="320" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" type="primary" plain @click="openDetailDrawer(row)">
-              查看详情
-            </el-button>
-            <el-button
-              v-if="canManageAnalysisActions"
-              text
-              size="small"
-              :disabled="row.status !== 'pending'"
-              @click="openEditDialog(row)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-if="canManageAnalysisActions && (row.status === 'pending' || row.status === 'failed')"
-              size="small"
-              type="primary"
-              :loading="running && selectedTaskId === row.id"
-              @click="runTask(row)"
-            >
-              运行诊断
-            </el-button>
-            <el-button
-              v-if="canArchiveAnalysisTask(row)"
-              size="small"
-              plain
-              :loading="isArchiving(row.id)"
-              @click="handleArchiveTask(row)"
-            >
-              归档
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <AppEmptyState
-        v-if="isEmpty && !hasTableError"
-        title="暂无 GEO 诊断任务"
-        description="先创建一个品牌或产品线诊断任务，再运行诊断识别提示词、知识库和内容缺口。"
-      />
+      <div v-if="isEmpty && !hasTableError" class="analysis-task-empty">
+        <span>GEO</span>
+        <strong>暂无 GEO 诊断任务</strong>
+        <p>先创建一个品牌或产品线诊断任务，再识别提示词、知识库和内容缺口。</p>
+        <el-button
+          v-if="canManageAnalysisActions"
+          type="primary"
+          size="small"
+          @click="openCreateDialog"
+        >
+          新建诊断任务
+        </el-button>
+      </div>
 
       <div class="pagination-row">
         <el-pagination
@@ -679,7 +671,7 @@ onMounted(() => {
 <style scoped>
 .geo-analysis-page {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   max-width: 1440px;
   margin: 0 auto;
 }
@@ -700,7 +692,7 @@ onMounted(() => {
 
 .geo-analysis-hero {
   order: 1;
-  padding: 10px 0 12px;
+  padding: 8px 0 10px;
   border: 0;
   border-bottom: 1px solid var(--border-light);
   border-radius: 0;
@@ -719,7 +711,7 @@ onMounted(() => {
 }
 
 .geo-analysis-hero h1 {
-  font-size: 22px;
+  font-size: 21px;
   line-height: 1.25;
 }
 
@@ -750,6 +742,60 @@ onMounted(() => {
   order: 4;
 }
 
+.analysis-compact-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.analysis-compact-filter-bar :deep(.geo-analysis-filter-header) {
+  display: none;
+}
+
+.analysis-compact-filter-bar :deep(.geo-analysis-filters) {
+  grid-template-columns: minmax(240px, 1.45fr) minmax(118px, 0.6fr) minmax(150px, 0.72fr) minmax(150px, 0.72fr) minmax(210px, 0.9fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.analysis-compact-filter-bar :deep(.el-form-item),
+.analysis-compact-filter-bar :deep(.el-form-item__content),
+.analysis-compact-filter-bar :deep(.el-input),
+.analysis-compact-filter-bar :deep(.el-select),
+.analysis-compact-filter-bar :deep(.el-date-editor) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.analysis-compact-filter-bar :deep(.el-form-item__label) {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.analysis-compact-filter-bar :deep(.el-input__wrapper),
+.analysis-compact-filter-bar :deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+.analysis-compact-filter-bar :deep(.el-date-editor) {
+  width: 100%;
+}
+
+.analysis-compact-filter-bar :deep(.geo-analysis-filter-actions) {
+  gap: 8px;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
+
 .analysis-relation-collapse {
   order: 6;
   overflow: hidden;
@@ -772,32 +818,32 @@ onMounted(() => {
 }
 
 .geo-analysis-metric-grid {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   order: 3;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  background: #ffffff;
+  gap: 4px 0;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .geo-analysis-metric {
-  display: grid;
-  gap: 4px;
-  min-height: 62px;
-  padding: 9px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding-right: 10px;
   border: 0;
-  border-right: 1px solid var(--border-light);
   border-radius: 0;
-  background: #ffffff;
+  background: transparent;
   box-shadow: none;
+  white-space: nowrap;
 }
 
-.geo-analysis-metric:nth-child(4) {
-  border-right: 0;
-  border-color: var(--border-light);
-  background: #ffffff;
+.geo-analysis-metric + .geo-analysis-metric {
+  padding-left: 10px;
+  border-left: 1px solid var(--border-light);
 }
 
 .geo-analysis-metric span {
@@ -808,16 +854,9 @@ onMounted(() => {
 
 .geo-analysis-metric strong {
   color: #101827;
-  font-size: 22px;
-  font-weight: 760;
+  font-size: 13px;
+  font-weight: 800;
   line-height: 1;
-}
-
-.geo-analysis-metric p {
-  margin: 0;
-  color: var(--geo-muted);
-  font-size: 12px;
-  line-height: 1.35;
 }
 
 .analysis-relation-panel {
@@ -878,25 +917,28 @@ onMounted(() => {
 .geo-analysis-table-panel {
   display: grid;
   order: 5;
-  gap: 10px;
+  gap: 0;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--geo-border);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   background: #ffffff;
   box-shadow: none;
 }
 
 .geo-analysis-table-header {
-  padding: 0;
+  padding: 0 0 2px;
   border: 0;
   background: transparent;
   box-shadow: none;
+  color: var(--geo-muted);
+  font-size: 13px;
 }
 
-.analysis-task-table {
-  width: 100%;
-  overflow: hidden;
+.geo-analysis-table-header strong {
+  color: #13243a;
+  font-weight: 700;
 }
 
 .analysis-task-name {
@@ -908,8 +950,153 @@ onMounted(() => {
   line-height: 1.45;
 }
 
+.analysis-task-asset-list {
+  display: grid;
+  gap: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.analysis-task-asset-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5edf5;
+}
+
+.analysis-task-asset-row:hover {
+  background: #f8fafc;
+}
+
+.analysis-task-asset-row:last-child {
+  border-bottom: 0;
+}
+
+.analysis-task-asset-main {
+  display: grid;
+  flex: 1;
+  gap: 7px;
+  min-width: 0;
+}
+
+.analysis-task-asset-main p,
+.analysis-task-asset-status p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.analysis-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.analysis-task-tags span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 260px;
+  min-height: 22px;
+  padding: 0 7px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-task-asset-status {
+  display: grid;
+  flex-shrink: 0;
+  gap: 7px;
+  width: 220px;
+  min-width: 0;
+}
+
+.analysis-task-asset-status :deep(.el-tag) {
+  width: fit-content;
+}
+
+.analysis-task-asset-side {
+  display: grid;
+  flex-shrink: 0;
+  justify-items: flex-end;
+  gap: 8px;
+  width: 230px;
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  text-align: right;
+}
+
+.analysis-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.analysis-task-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-height: 96px;
+  padding: 16px 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+.analysis-task-empty span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #dbe5ef;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.analysis-task-empty strong {
+  color: #13243a;
+  font-size: 15px;
+}
+
+.analysis-task-empty p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .pagination-row {
   display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pagination-row :deep(.el-pagination) {
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
   justify-content: flex-end;
 }
 
@@ -919,25 +1106,54 @@ onMounted(() => {
     flex-direction: column;
   }
 
-  .geo-analysis-metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .analysis-compact-filter-bar,
+  .analysis-compact-filter-bar :deep(.geo-analysis-filters) {
+    grid-template-columns: 1fr;
   }
 
-  .geo-analysis-metric:nth-child(2) {
-    border-right: 0;
+  .analysis-task-asset-row {
+    display: grid;
+    gap: 12px;
+  }
+
+  .analysis-task-asset-status,
+  .analysis-task-asset-side {
+    width: 100%;
+    justify-items: flex-start;
+    text-align: left;
+  }
+
+  .analysis-task-actions {
+    justify-content: flex-start;
   }
 }
 
 @media (max-width: 640px) {
   .geo-analysis-hero,
   .analysis-relation-panel,
-  .geo-analysis-table-panel,
-  .geo-analysis-metric {
-    padding: 16px;
+  .analysis-compact-filter-bar {
+    padding: 12px;
   }
 
-  .geo-analysis-metric-grid {
-    grid-template-columns: 1fr;
+  .geo-analysis-table-panel {
+    border-radius: 6px;
+  }
+
+  .geo-analysis-metric {
+    padding-right: 8px;
+  }
+
+  .geo-analysis-metric + .geo-analysis-metric {
+    padding-left: 8px;
+  }
+
+  .analysis-task-asset-row {
+    padding: 12px;
+  }
+
+  .pagination-row,
+  .pagination-row :deep(.el-pagination) {
+    justify-content: flex-start;
   }
 }
 </style>

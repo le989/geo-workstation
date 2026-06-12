@@ -29,15 +29,27 @@ import ModelInclusionFilters from "@/components/ModelInclusionFilters.vue";
 import ModelInclusionImportDialog from "@/components/ModelInclusionImportDialog.vue";
 import ModelInclusionRecordEditDialog from "@/components/ModelInclusionRecordEditDialog.vue";
 import ModelInclusionRecordFormDialog from "@/components/ModelInclusionRecordFormDialog.vue";
-import ModelInclusionRecordTable from "@/components/ModelInclusionRecordTable.vue";
 import ModelInclusionSummaryCards from "@/components/ModelInclusionSummaryCards.vue";
 import ModelInclusionWebSearchDialog from "@/components/ModelInclusionWebSearchDialog.vue";
-import UncoveredPromptsTable from "@/components/UncoveredPromptsTable.vue";
-import { geoPromptTypeOptions, userIntentOptions } from "@/config/geo-prompt-options";
+import {
+  formatDateTime,
+  formatOptional,
+  geoPromptTypeOptions,
+  userIntentLabelMap,
+  userIntentOptions
+} from "@/config/geo-prompt-options";
 import {
   booleanFilterOptions,
+  detectionMethodLabelMap,
   enabledMonitoringModelOptions,
-  isEnabledMonitoringRecord
+  entryPointLabelMap,
+  formatCompetitors,
+  formatDisplayLabel,
+  hitLevelLabelMap,
+  hitLevelTypeMap,
+  isEnabledMonitoringRecord,
+  recordMethodLabelMap,
+  truncateSummary
 } from "@/config/model-inclusion-options";
 import { useAuthStore } from "@/stores/auth";
 import { canUseAction, normalizeRole } from "@/utils/permission";
@@ -195,6 +207,78 @@ const trimOptional = (value?: string) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 };
+
+const formatRecordPrompt = (record: ModelInclusionRecord) =>
+  formatDisplayLabel(record.geoPrompt.promptText, record.geoPrompt.promptText);
+
+const formatUserIntent = (value: string) =>
+  userIntentLabelMap[value as keyof typeof userIntentLabelMap] ?? value;
+
+const formatPromptType = (value: string) =>
+  geoPromptTypeOptions.find((option) => option.value === value)?.label ?? value;
+
+const formatEntryPoint = (value?: string) =>
+  value ? (entryPointLabelMap[value as keyof typeof entryPointLabelMap] ?? value) : "入口未指定";
+
+const formatDetectionMethod = (value?: string) =>
+  value
+    ? (detectionMethodLabelMap[value as keyof typeof detectionMethodLabelMap] ?? value)
+    : "方式未指定";
+
+const formatHitLevel = (value?: string) =>
+  value ? (hitLevelLabelMap[value as keyof typeof hitLevelLabelMap] ?? value) : "未判断";
+
+const getHitLevelType = (value?: string) =>
+  (value ? hitLevelTypeMap[value as keyof typeof hitLevelTypeMap] : "info") as
+    | "primary"
+    | "success"
+    | "warning"
+    | "danger"
+    | "info";
+
+// 只把已有命中字段映射成资产行状态，不新增模型覆盖业务判断。
+const getRecordCoverageSummary = (record: ModelInclusionRecord) => {
+  if (record.voidedAt) {
+    return {
+      label: "已作废",
+      type: "danger" as const
+    };
+  }
+
+  if (record.brandRecommended) {
+    return {
+      label: "推荐命中",
+      type: "success" as const
+    };
+  }
+
+  if (record.brandMentioned) {
+    return {
+      label: "已提及",
+      type: "warning" as const
+    };
+  }
+
+  return {
+    label: "未推荐",
+    type: "info" as const
+  };
+};
+
+const getRecordSignalTags = (record: ModelInclusionRecord) => [
+  {
+    label: record.brandMentioned ? "提及品牌" : "未提及",
+    type: record.brandMentioned ? "success" : "info"
+  },
+  {
+    label: record.citedOfficialSite ? "引用官网" : "未引官网",
+    type: record.citedOfficialSite ? "success" : "info"
+  },
+  {
+    label: record.competitorMentioned ? "竞品提及" : "无竞品",
+    type: record.competitorMentioned ? "warning" : "info"
+  }
+] as const;
 
 const buildRecordQuery = (): ModelInclusionRecordQuery => ({
   brandMentioned: filters.brandMentioned,
@@ -615,7 +699,7 @@ onMounted(() => {
     </header>
 
     <ModelInclusionFilters
-      class="core-filter-bar"
+      class="core-filter-bar model-compact-filter-bar"
       :model-value="filters"
       :loading="recordsLoading"
       :exporting="exporting"
@@ -628,19 +712,7 @@ onMounted(() => {
 
     <AppErrorState v-if="hasRecordsError" title="AI 模型覆盖记录加载失败" :message="recordsError" />
 
-    <el-card class="model-record-table-card core-data-panel" shadow="never">
-      <template #header>
-        <div class="table-card-header">
-          <div>
-            <p class="section-kicker">记录列表</p>
-            <h2>当前匹配记录</h2>
-          </div>
-          <div class="model-table-actions">
-            <strong>{{ enabledRecords.length }} 条启用模型记录</strong>
-          </div>
-        </div>
-      </template>
-
+    <section v-loading="recordsLoading" class="model-record-asset-panel">
       <el-alert
         v-if="inactiveModelRecordCount > 0"
         :title="`已隐藏当前页 ${inactiveModelRecordCount} 条非当前监测范围记录。`"
@@ -650,19 +722,75 @@ onMounted(() => {
         class="model-active-filter-alert"
       />
 
-      <ModelInclusionRecordTable
-        :records="enabledRecords"
-        :loading="recordsLoading"
-        :can-manage-records="canManageRecords"
-        @edit="openEditDialog"
-        @void="handleVoidRecord"
-        @restore="handleRestoreRecord"
-      />
+      <div v-if="enabledRecords.length > 0" class="model-record-asset-list">
+        <article
+          v-for="record in enabledRecords"
+          :key="record.id"
+          class="model-record-asset-row"
+          :class="{ 'is-voided': record.voidedAt }"
+        >
+          <div class="model-record-asset-main">
+            <strong class="model-record-asset-title">{{ formatRecordPrompt(record) }}</strong>
+            <p class="model-record-asset-summary">
+              {{ truncateSummary(record.answerSummary, 118) }}
+            </p>
+            <div class="model-record-asset-tags">
+              <span>{{ formatOptional(record.platform) }} / {{ record.model }}</span>
+              <span>{{ formatEntryPoint(record.entryPoint) }}</span>
+              <span>{{ formatDetectionMethod(record.detectionMethod) }}</span>
+              <span>{{ formatDisplayLabel(record.geoPrompt.productLine) }}</span>
+              <span>{{ formatUserIntent(record.geoPrompt.userIntent) }}</span>
+            </div>
+          </div>
 
-      <el-empty
-        v-if="isRecordsEmpty && !hasRecordsError"
-        description="当前启用监测模型暂无覆盖记录，可先手动新增、导入或发起联网检测。"
-      />
+          <div class="model-record-asset-status">
+            <el-tag :type="getRecordCoverageSummary(record).type" effect="plain">
+              {{ getRecordCoverageSummary(record).label }}
+            </el-tag>
+            <el-tag :type="getHitLevelType(record.hitLevel)" effect="plain">
+              {{ formatHitLevel(record.hitLevel) }}
+            </el-tag>
+            <div class="model-record-signal-tags">
+              <el-tag
+                v-for="tag in getRecordSignalTags(record)"
+                :key="tag.label"
+                :type="tag.type"
+                effect="plain"
+              >
+                {{ tag.label }}
+              </el-tag>
+            </div>
+            <p>竞品：{{ formatCompetitors(record.competitors) }}</p>
+          </div>
+
+          <div class="model-record-asset-side">
+            <span>{{ formatDateTime(record.checkedAt) }}</span>
+            <small>{{ recordMethodLabelMap[record.recordMethod] ?? record.recordMethod }}</small>
+            <div v-if="canManageRecords" class="model-record-asset-actions">
+              <el-button link type="primary" @click="openEditDialog(record)">
+                {{ record.voidedAt ? "查看" : "编辑" }}
+              </el-button>
+              <el-button
+                v-if="!record.voidedAt"
+                link
+                type="danger"
+                @click="handleVoidRecord(record)"
+              >
+                作废
+              </el-button>
+              <el-button v-else link type="success" @click="handleRestoreRecord(record)">
+                恢复
+              </el-button>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div v-if="isRecordsEmpty && !hasRecordsError" class="model-record-empty">
+        <span>覆盖</span>
+        <strong>暂无启用模型覆盖记录</strong>
+        <p>可先手动新增、导入或按审批边界发起联网检测。</p>
+      </div>
 
       <div class="table-pagination">
         <el-pagination
@@ -675,7 +803,7 @@ onMounted(() => {
           @size-change="handlePageSizeChange"
         />
       </div>
-    </el-card>
+    </section>
 
     <el-collapse class="model-analysis-collapse">
       <el-collapse-item title="分析概览 / 统计分布" name="analysis">
@@ -759,7 +887,34 @@ onMounted(() => {
             :message="uncoveredError"
           />
 
-          <UncoveredPromptsTable :prompts="uncoveredPrompts" :loading="uncoveredLoading" />
+          <div v-loading="uncoveredLoading" class="uncovered-prompt-asset-list">
+            <article
+              v-for="prompt in uncoveredPrompts"
+              :key="prompt.geoPromptId"
+              class="uncovered-prompt-asset-row"
+            >
+              <div class="uncovered-prompt-asset-main">
+                <strong>{{ prompt.promptText }}</strong>
+                <p>这些提示词在当前筛选条件下暂无模型覆盖记录。</p>
+                <div class="uncovered-prompt-tags">
+                  <span>{{ formatPromptType(prompt.type) }}</span>
+                  <span>{{ formatOptional(prompt.productLine) }}</span>
+                  <span>{{ formatUserIntent(prompt.userIntent) }}</span>
+                </div>
+              </div>
+              <div class="uncovered-prompt-status">
+                <el-tag :type="prompt.trackEnabled ? 'success' : 'info'" effect="plain">
+                  {{ prompt.trackEnabled ? "追踪" : "不追踪" }}
+                </el-tag>
+                <el-tag effect="plain" type="info">优先级 {{ prompt.priority }}</el-tag>
+                <small>{{ prompt.latestCoverageStatus || "未检测" }}</small>
+              </div>
+            </article>
+            <el-empty
+              v-if="!uncoveredLoading && uncoveredPrompts.length === 0"
+              description="暂无未覆盖提示词"
+            />
+          </div>
 
           <div class="table-pagination">
             <el-pagination
@@ -809,3 +964,432 @@ onMounted(() => {
     />
   </section>
 </template>
+
+<style scoped>
+.model-inclusion-toolbar {
+  padding: 8px 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.model-inclusion-toolbar__main {
+  gap: 6px;
+}
+
+.model-inclusion-toolbar__main h1 {
+  margin: 0 0 4px;
+  color: #13243a;
+  font-size: 21px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.model-inclusion-hero__models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 0;
+}
+
+.model-inclusion-hero__models span,
+.model-inclusion-hero__models strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid #dbe5ef;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.model-inclusion-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.model-inclusion-hero__actions span {
+  width: 100%;
+  color: var(--geo-muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.model-compact-filter-bar {
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.model-compact-filter-bar :deep(.el-card__body) {
+  padding: 0;
+}
+
+.model-compact-filter-bar :deep(.model-filter-header) {
+  display: none;
+}
+
+.model-compact-filter-bar :deep(.model-inclusion-filters--primary) {
+  grid-template-columns: minmax(240px, 1.45fr) minmax(140px, 0.7fr) minmax(132px, 0.62fr) minmax(126px, 0.58fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.model-compact-filter-bar :deep(.el-form-item__label) {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.model-compact-filter-bar :deep(.el-input__wrapper),
+.model-compact-filter-bar :deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+.model-compact-filter-bar :deep(.model-filter-actions) {
+  gap: 8px;
+  align-items: center;
+  padding-bottom: 0;
+}
+
+.model-compact-filter-bar :deep(.model-filter-advanced) {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.model-compact-filter-bar :deep(.model-filter-advanced .el-divider) {
+  margin: 0 0 8px;
+}
+
+.model-record-asset-panel {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.model-record-asset-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.model-record-asset-panel__header strong {
+  color: #13243a;
+  font-weight: 700;
+}
+
+.model-record-asset-list {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.model-record-asset-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5edf5;
+}
+
+.model-record-asset-row:hover {
+  background: #f8fafc;
+}
+
+.model-record-asset-row:last-child {
+  border-bottom: 0;
+}
+
+.model-record-asset-row.is-voided {
+  opacity: 0.74;
+}
+
+.model-record-asset-main {
+  display: grid;
+  flex: 1;
+  gap: 7px;
+  min-width: 0;
+}
+
+.model-record-asset-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #13243a;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.model-record-asset-summary {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.model-record-asset-tags,
+.model-record-signal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.model-record-asset-tags span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  min-height: 22px;
+  padding: 0 7px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-record-asset-status {
+  display: grid;
+  flex-shrink: 0;
+  gap: 6px;
+  width: 230px;
+  min-width: 0;
+}
+
+.model-record-asset-status :deep(.el-tag) {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.model-record-asset-status p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.model-record-signal-tags {
+  gap: 5px;
+}
+
+.model-record-signal-tags :deep(.el-tag),
+.model-record-asset-status > :deep(.el-tag) {
+  min-height: 22px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.model-record-asset-side {
+  display: grid;
+  flex-shrink: 0;
+  justify-items: flex-end;
+  gap: 7px;
+  width: 190px;
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  text-align: right;
+}
+
+.model-record-asset-side small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.model-record-asset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.model-record-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-height: 96px;
+  padding: 16px 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+.model-record-empty span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #dbe5ef;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.model-record-empty strong {
+  color: #13243a;
+  font-size: 15px;
+}
+
+.model-record-empty p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.uncovered-prompt-asset-list {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  border-top: 1px solid #e5edf5;
+}
+
+.uncovered-prompt-asset-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5edf5;
+}
+
+.uncovered-prompt-asset-main {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+
+.uncovered-prompt-asset-main strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #13243a;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.uncovered-prompt-asset-main p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.uncovered-prompt-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.uncovered-prompt-tags span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  min-height: 22px;
+  padding: 0 7px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uncovered-prompt-status {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 220px;
+  min-width: 0;
+}
+
+.uncovered-prompt-status small {
+  width: 100%;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .model-inclusion-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .model-inclusion-hero__actions {
+    justify-content: flex-start;
+  }
+
+  .model-inclusion-hero__actions span {
+    text-align: left;
+  }
+
+  .model-compact-filter-bar :deep(.model-inclusion-filters--primary),
+  .model-compact-filter-bar :deep(.model-inclusion-filters--advanced) {
+    grid-template-columns: 1fr;
+  }
+
+  .model-record-asset-row,
+  .uncovered-prompt-asset-row {
+    display: grid;
+    gap: 12px;
+  }
+
+  .model-record-asset-status,
+  .model-record-asset-side,
+  .uncovered-prompt-status {
+    width: 100%;
+    justify-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .uncovered-prompt-status small {
+    text-align: left;
+  }
+
+  .model-record-asset-actions {
+    justify-content: flex-start;
+  }
+}
+</style>
