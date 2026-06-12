@@ -374,19 +374,15 @@ onMounted(() => {
       </div>
     </header>
 
-    <section class="instruction-asset-overview" aria-label="指令库资产概览">
-      <article
-        v-for="metric in instructionAssetMetrics"
-        :key="metric.label"
-        :class="{ 'is-accent': metric.label === '事实边界' }"
-      >
+    <nav class="instruction-asset-overview" aria-label="指令库资产概览">
+      <span v-for="metric in instructionAssetMetrics" :key="metric.label">
         <span>{{ metric.label }}</span>
         <strong>{{ metric.value }}</strong>
-        <small>{{ metric.note }}</small>
-      </article>
-    </section>
+      </span>
+    </nav>
 
     <InstructionTemplateFilters
+      class="instruction-compact-filter-bar"
       :model-value="filters"
       :loading="loading"
       @update:model-value="Object.assign(filters, $event)"
@@ -398,11 +394,6 @@ onMounted(() => {
     <AppErrorState v-if="hasTableError" title="指令模板加载失败" :message="tableError" />
 
     <section v-loading="loading" class="instruction-table-panel">
-      <div class="instruction-table-header">
-        <span>GEO 指令模板</span>
-        <strong>{{ total }} 条模板</strong>
-      </div>
-
       <div v-if="templates.length > 0" class="instruction-asset-list">
         <article v-for="template in templates" :key="template.id" class="instruction-asset-row">
           <div class="instruction-asset-main">
@@ -521,12 +512,135 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.instruction-page {
+  gap: 8px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.instruction-hero {
+  padding: 8px 0 10px;
+  overflow: visible;
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.instruction-hero::before,
+.instruction-hero::after {
+  display: none;
+}
+
+.instruction-hero h1 {
+  margin: 0 0 4px;
+  color: #13243a;
+  font-size: 21px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.instruction-hero p {
+  max-width: 720px;
+  color: var(--geo-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.instruction-hero__actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.instruction-hero__actions span {
+  width: 100%;
+  text-align: right;
+}
+
+.instruction-asset-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.instruction-asset-overview > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding-right: 10px;
+  white-space: nowrap;
+}
+
+.instruction-asset-overview > span + span {
+  padding-left: 10px;
+  border-left: 1px solid var(--border-light);
+}
+
+.instruction-asset-overview strong {
+  color: #101827;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.instruction-compact-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.instruction-compact-filter-bar :deep(.instruction-filter-copy) {
+  display: none;
+}
+
+.instruction-compact-filter-bar :deep(.instruction-filters) {
+  grid-template-columns: minmax(240px, 1.45fr) minmax(132px, 0.64fr) minmax(132px, 0.64fr);
+  gap: 8px;
+}
+
+.instruction-compact-filter-bar :deep(.instruction-filters .el-form-item) {
+  margin-bottom: 0;
+}
+
+.instruction-compact-filter-bar :deep(.el-form-item__label) {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.instruction-compact-filter-bar :deep(.el-input__wrapper),
+.instruction-compact-filter-bar :deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+.instruction-compact-filter-bar :deep(.instruction-actions) {
+  gap: 8px;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
+
 .instruction-table-panel {
   display: grid;
-  gap: 10px;
+  gap: 0;
   min-width: 0;
-  padding: 10px 12px 12px;
-  border: 1px solid var(--geo-border);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   background: #ffffff;
   box-shadow: none;
@@ -551,7 +665,6 @@ onMounted(() => {
   display: grid;
   gap: 0;
   min-width: 0;
-  border-top: 1px solid #e5edf5;
 }
 
 .instruction-asset-row {
@@ -559,12 +672,16 @@ onMounted(() => {
   gap: 16px;
   align-items: flex-start;
   min-width: 0;
-  padding: 14px 0;
+  padding: 12px 14px;
   border-bottom: 1px solid #e5edf5;
 }
 
 .instruction-asset-row:hover {
   background: #f8fafc;
+}
+
+.instruction-asset-row:last-child {
+  border-bottom: 0;
 }
 
 .instruction-asset-main {
@@ -661,8 +778,8 @@ onMounted(() => {
   display: grid;
   justify-items: center;
   gap: 8px;
-  min-height: 150px;
-  padding: 22px 12px;
+  min-height: 96px;
+  padding: 16px 12px;
   color: #64748b;
   text-align: center;
 }
@@ -671,10 +788,10 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border: 1px solid #dbe5ef;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #f8fafc;
   color: #2563eb;
   font-size: 11px;
@@ -694,6 +811,24 @@ onMounted(() => {
 }
 
 @media (max-width: 760px) {
+  .instruction-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .instruction-hero__actions {
+    justify-content: flex-start;
+  }
+
+  .instruction-hero__actions span {
+    text-align: left;
+  }
+
+  .instruction-compact-filter-bar,
+  .instruction-compact-filter-bar :deep(.instruction-filters) {
+    grid-template-columns: 1fr;
+  }
+
   .instruction-asset-row {
     display: grid;
     gap: 12px;
@@ -708,6 +843,14 @@ onMounted(() => {
 
   .instruction-asset-actions {
     justify-content: flex-start;
+  }
+
+  .instruction-asset-overview > span {
+    padding-right: 8px;
+  }
+
+  .instruction-asset-overview > span + span {
+    padding-left: 8px;
   }
 }
 </style>

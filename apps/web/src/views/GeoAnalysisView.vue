@@ -503,17 +503,12 @@ onMounted(() => {
       </div>
     </header>
 
-    <section class="geo-analysis-metric-grid review-page__summary compact-metric-row" aria-label="GEO 诊断概览">
-      <article
-        v-for="metric in analysisMetricCards"
-        :key="metric.label"
-        class="geo-analysis-metric"
-      >
+    <nav class="geo-analysis-metric-grid review-page__summary" aria-label="GEO 诊断概览">
+      <span v-for="metric in analysisMetricCards" :key="metric.label" class="geo-analysis-metric">
         <span>{{ metric.label }}</span>
         <strong>{{ metric.value }}</strong>
-        <p>{{ metric.hint }}</p>
-      </article>
-    </section>
+      </span>
+    </nav>
 
     <el-collapse class="analysis-relation-collapse review-page__secondary">
       <el-collapse-item title="查看 GEO 诊断闭环说明" name="geo-analysis-flow">
@@ -542,6 +537,7 @@ onMounted(() => {
     </el-collapse>
 
     <GeoAnalysisTaskFilters
+      class="analysis-compact-filter-bar"
       :model-value="filters"
       :loading="loading"
       @update:model-value="Object.assign(filters, $event)"
@@ -552,12 +548,6 @@ onMounted(() => {
     <AppErrorState v-if="hasTableError" title="GEO 诊断任务加载失败" :message="tableError" />
 
     <section v-loading="loading" class="geo-analysis-table-panel review-page__details">
-      <div class="geo-analysis-table-header">
-        <span>诊断任务</span>
-        <strong>{{ total }} 个任务</strong>
-        <p v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</p>
-      </div>
-
       <div v-if="tasks.length > 0" class="analysis-task-asset-list">
         <article v-for="task in tasks" :key="task.id" class="analysis-task-asset-row">
           <div class="analysis-task-asset-main">
@@ -681,7 +671,7 @@ onMounted(() => {
 <style scoped>
 .geo-analysis-page {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   max-width: 1440px;
   margin: 0 auto;
 }
@@ -702,7 +692,7 @@ onMounted(() => {
 
 .geo-analysis-hero {
   order: 1;
-  padding: 10px 0 12px;
+  padding: 8px 0 10px;
   border: 0;
   border-bottom: 1px solid var(--border-light);
   border-radius: 0;
@@ -721,7 +711,7 @@ onMounted(() => {
 }
 
 .geo-analysis-hero h1 {
-  font-size: 22px;
+  font-size: 21px;
   line-height: 1.25;
 }
 
@@ -752,6 +742,60 @@ onMounted(() => {
   order: 4;
 }
 
+.analysis-compact-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.analysis-compact-filter-bar :deep(.geo-analysis-filter-header) {
+  display: none;
+}
+
+.analysis-compact-filter-bar :deep(.geo-analysis-filters) {
+  grid-template-columns: minmax(240px, 1.45fr) minmax(118px, 0.6fr) minmax(150px, 0.72fr) minmax(150px, 0.72fr) minmax(210px, 0.9fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.analysis-compact-filter-bar :deep(.el-form-item),
+.analysis-compact-filter-bar :deep(.el-form-item__content),
+.analysis-compact-filter-bar :deep(.el-input),
+.analysis-compact-filter-bar :deep(.el-select),
+.analysis-compact-filter-bar :deep(.el-date-editor) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.analysis-compact-filter-bar :deep(.el-form-item__label) {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.analysis-compact-filter-bar :deep(.el-input__wrapper),
+.analysis-compact-filter-bar :deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+.analysis-compact-filter-bar :deep(.el-date-editor) {
+  width: 100%;
+}
+
+.analysis-compact-filter-bar :deep(.geo-analysis-filter-actions) {
+  gap: 8px;
+  justify-content: flex-end;
+  padding-bottom: 0;
+}
+
 .analysis-relation-collapse {
   order: 6;
   overflow: hidden;
@@ -774,32 +818,32 @@ onMounted(() => {
 }
 
 .geo-analysis-metric-grid {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   order: 3;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  background: #ffffff;
+  gap: 4px 0;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .geo-analysis-metric {
-  display: grid;
-  gap: 4px;
-  min-height: 62px;
-  padding: 9px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding-right: 10px;
   border: 0;
-  border-right: 1px solid var(--border-light);
   border-radius: 0;
-  background: #ffffff;
+  background: transparent;
   box-shadow: none;
+  white-space: nowrap;
 }
 
-.geo-analysis-metric:nth-child(4) {
-  border-right: 0;
-  border-color: var(--border-light);
-  background: #ffffff;
+.geo-analysis-metric + .geo-analysis-metric {
+  padding-left: 10px;
+  border-left: 1px solid var(--border-light);
 }
 
 .geo-analysis-metric span {
@@ -810,16 +854,9 @@ onMounted(() => {
 
 .geo-analysis-metric strong {
   color: #101827;
-  font-size: 22px;
-  font-weight: 760;
+  font-size: 13px;
+  font-weight: 800;
   line-height: 1;
-}
-
-.geo-analysis-metric p {
-  margin: 0;
-  color: var(--geo-muted);
-  font-size: 12px;
-  line-height: 1.35;
 }
 
 .analysis-relation-panel {
@@ -880,10 +917,11 @@ onMounted(() => {
 .geo-analysis-table-panel {
   display: grid;
   order: 5;
-  gap: 10px;
+  gap: 0;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--geo-border);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   background: #ffffff;
   box-shadow: none;
@@ -915,21 +953,29 @@ onMounted(() => {
 .analysis-task-asset-list {
   display: grid;
   gap: 0;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  border-top: 1px solid #e5edf5;
+  overflow: hidden;
 }
 
 .analysis-task-asset-row {
   display: flex;
   gap: 16px;
   align-items: flex-start;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  padding: 14px 0;
+  padding: 12px 14px;
   border-bottom: 1px solid #e5edf5;
 }
 
 .analysis-task-asset-row:hover {
   background: #f8fafc;
+}
+
+.analysis-task-asset-row:last-child {
+  border-bottom: 0;
 }
 
 .analysis-task-asset-main {
@@ -1006,8 +1052,8 @@ onMounted(() => {
   display: grid;
   justify-items: center;
   gap: 8px;
-  min-height: 150px;
-  padding: 22px 12px;
+  min-height: 96px;
+  padding: 16px 12px;
   color: #64748b;
   text-align: center;
 }
@@ -1016,10 +1062,10 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border: 1px solid #dbe5ef;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #f8fafc;
   color: #2563eb;
   font-size: 11px;
@@ -1040,6 +1086,17 @@ onMounted(() => {
 
 .pagination-row {
   display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pagination-row :deep(.el-pagination) {
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
   justify-content: flex-end;
 }
 
@@ -1047,6 +1104,11 @@ onMounted(() => {
   .geo-analysis-hero,
   .geo-analysis-table-header {
     flex-direction: column;
+  }
+
+  .analysis-compact-filter-bar,
+  .analysis-compact-filter-bar :deep(.geo-analysis-filters) {
+    grid-template-columns: 1fr;
   }
 
   .analysis-task-asset-row {
@@ -1064,26 +1126,34 @@ onMounted(() => {
   .analysis-task-actions {
     justify-content: flex-start;
   }
-
-  .geo-analysis-metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .geo-analysis-metric:nth-child(2) {
-    border-right: 0;
-  }
 }
 
 @media (max-width: 640px) {
   .geo-analysis-hero,
   .analysis-relation-panel,
-  .geo-analysis-table-panel,
-  .geo-analysis-metric {
-    padding: 16px;
+  .analysis-compact-filter-bar {
+    padding: 12px;
   }
 
-  .geo-analysis-metric-grid {
-    grid-template-columns: 1fr;
+  .geo-analysis-table-panel {
+    border-radius: 6px;
+  }
+
+  .geo-analysis-metric {
+    padding-right: 8px;
+  }
+
+  .geo-analysis-metric + .geo-analysis-metric {
+    padding-left: 8px;
+  }
+
+  .analysis-task-asset-row {
+    padding: 12px;
+  }
+
+  .pagination-row,
+  .pagination-row :deep(.el-pagination) {
+    justify-content: flex-start;
   }
 }
 </style>

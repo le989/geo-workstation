@@ -699,7 +699,7 @@ onMounted(() => {
     </header>
 
     <ModelInclusionFilters
-      class="core-filter-bar"
+      class="core-filter-bar model-compact-filter-bar"
       :model-value="filters"
       :loading="recordsLoading"
       :exporting="exporting"
@@ -713,11 +713,6 @@ onMounted(() => {
     <AppErrorState v-if="hasRecordsError" title="AI 模型覆盖记录加载失败" :message="recordsError" />
 
     <section v-loading="recordsLoading" class="model-record-asset-panel">
-      <div class="model-record-asset-panel__header">
-        <span>模型覆盖记录</span>
-        <strong>{{ enabledRecords.length }} 条启用模型记录</strong>
-      </div>
-
       <el-alert
         v-if="inactiveModelRecordCount > 0"
         :title="`已隐藏当前页 ${inactiveModelRecordCount} 条非当前监测范围记录。`"
@@ -791,10 +786,11 @@ onMounted(() => {
         </article>
       </div>
 
-      <el-empty
-        v-if="isRecordsEmpty && !hasRecordsError"
-        description="当前启用监测模型暂无覆盖记录，可先手动新增、导入或发起联网检测。"
-      />
+      <div v-if="isRecordsEmpty && !hasRecordsError" class="model-record-empty">
+        <span>覆盖</span>
+        <strong>暂无启用模型覆盖记录</strong>
+        <p>可先手动新增、导入或按审批边界发起联网检测。</p>
+      </div>
 
       <div class="table-pagination">
         <el-pagination
@@ -970,12 +966,119 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.model-inclusion-toolbar {
+  padding: 8px 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.model-inclusion-toolbar__main {
+  gap: 6px;
+}
+
+.model-inclusion-toolbar__main h1 {
+  margin: 0 0 4px;
+  color: #13243a;
+  font-size: 21px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.model-inclusion-hero__models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 0;
+}
+
+.model-inclusion-hero__models span,
+.model-inclusion-hero__models strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid #dbe5ef;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.model-inclusion-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.model-inclusion-hero__actions span {
+  width: 100%;
+  color: var(--geo-muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.model-compact-filter-bar {
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.model-compact-filter-bar :deep(.el-card__body) {
+  padding: 0;
+}
+
+.model-compact-filter-bar :deep(.model-filter-header) {
+  display: none;
+}
+
+.model-compact-filter-bar :deep(.model-inclusion-filters--primary) {
+  grid-template-columns: minmax(240px, 1.45fr) minmax(140px, 0.7fr) minmax(132px, 0.62fr) minmax(126px, 0.58fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.model-compact-filter-bar :deep(.el-form-item__label) {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.model-compact-filter-bar :deep(.el-input__wrapper),
+.model-compact-filter-bar :deep(.el-select__wrapper) {
+  min-height: 32px;
+}
+
+.model-compact-filter-bar :deep(.model-filter-actions) {
+  gap: 8px;
+  align-items: center;
+  padding-bottom: 0;
+}
+
+.model-compact-filter-bar :deep(.model-filter-advanced) {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.model-compact-filter-bar :deep(.model-filter-advanced .el-divider) {
+  margin: 0 0 8px;
+}
+
 .model-record-asset-panel {
   display: grid;
-  gap: 10px;
+  gap: 0;
   min-width: 0;
-  padding: 10px 12px 12px;
-  border: 1px solid var(--geo-border);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   background: #ffffff;
 }
@@ -1000,7 +1103,6 @@ onMounted(() => {
   display: grid;
   gap: 0;
   min-width: 0;
-  border-top: 1px solid #e5edf5;
 }
 
 .model-record-asset-row {
@@ -1008,12 +1110,16 @@ onMounted(() => {
   gap: 16px;
   align-items: flex-start;
   min-width: 0;
-  padding: 14px 0;
+  padding: 12px 14px;
   border-bottom: 1px solid #e5edf5;
 }
 
 .model-record-asset-row:hover {
   background: #f8fafc;
+}
+
+.model-record-asset-row:last-child {
+  border-bottom: 0;
 }
 
 .model-record-asset-row.is-voided {
@@ -1076,8 +1182,8 @@ onMounted(() => {
 .model-record-asset-status {
   display: grid;
   flex-shrink: 0;
-  gap: 7px;
-  width: 250px;
+  gap: 6px;
+  width: 230px;
   min-width: 0;
 }
 
@@ -1091,6 +1197,18 @@ onMounted(() => {
   color: #64748b;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.model-record-signal-tags {
+  gap: 5px;
+}
+
+.model-record-signal-tags :deep(.el-tag),
+.model-record-asset-status > :deep(.el-tag) {
+  min-height: 22px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .model-record-asset-side {
@@ -1115,6 +1233,42 @@ onMounted(() => {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.model-record-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-height: 96px;
+  padding: 16px 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+.model-record-empty span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #dbe5ef;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.model-record-empty strong {
+  color: #13243a;
+  font-size: 15px;
+}
+
+.model-record-empty p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .uncovered-prompt-asset-list {
@@ -1197,6 +1351,24 @@ onMounted(() => {
 }
 
 @media (max-width: 760px) {
+  .model-inclusion-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .model-inclusion-hero__actions {
+    justify-content: flex-start;
+  }
+
+  .model-inclusion-hero__actions span {
+    text-align: left;
+  }
+
+  .model-compact-filter-bar :deep(.model-inclusion-filters--primary),
+  .model-compact-filter-bar :deep(.model-inclusion-filters--advanced) {
+    grid-template-columns: 1fr;
+  }
+
   .model-record-asset-row,
   .uncovered-prompt-asset-row {
     display: grid;
