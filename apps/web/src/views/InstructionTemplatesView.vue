@@ -350,10 +350,9 @@ onMounted(() => {
   <section class="instruction-page">
     <header class="instruction-hero">
       <div class="instruction-hero__copy">
-        <el-tag class="instruction-hero__tag" type="success" effect="plain">GEO 指令模板</el-tag>
         <h1>指令库</h1>
         <p>
-          沉淀 GEO 内容生成的指令模板、品牌锚点和事实边界规则，让 GEO 内容生产更稳定。
+          沉淀内容生成模板、品牌锚点和事实边界规则。
         </p>
       </div>
       <div class="instruction-hero__actions">
@@ -364,11 +363,6 @@ onMounted(() => {
         <el-button v-if="canCreateTemplate" type="primary" @click="openCreateDialog">新建指令模板</el-button>
       </div>
     </header>
-
-    <section class="instruction-position-note">
-      <strong>提示词策略库管理用户会问什么；指令库管理内容应该怎么写。</strong>
-      <span>知识库提供事实资料，指令模板定义生成规则，内容生成按模板执行。</span>
-    </section>
 
     <section class="instruction-asset-overview" aria-label="指令库资产概览">
       <article
@@ -398,7 +392,6 @@ onMounted(() => {
         <div>
           <p class="section-kicker">可复用方法</p>
           <h2>GEO 指令模板列表</h2>
-          <p>查看模板适用场景、规则清单和更新时间。</p>
         </div>
       </div>
 

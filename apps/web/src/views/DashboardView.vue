@@ -612,8 +612,7 @@ const scenarioTags = [
   <section class="dashboard-refresh-page">
     <header class="dashboard-refresh-header">
       <div class="dashboard-refresh-title-block">
-        <p>工作台</p>
-        <h1>AI 可见度驾驶舱</h1>
+        <h1>GEO 运营驾驶舱</h1>
         <span>{{ dashboardScopeText }}</span>
       </div>
       <div class="dashboard-refresh-header-actions">
@@ -920,7 +919,7 @@ const scenarioTags = [
 }
 
 .dashboard-refresh-header h1 {
-  margin: 3px 0 0;
+  margin: 0;
   color: #111827;
   font-size: clamp(20px, 2.1vw, 26px);
   font-weight: 760;

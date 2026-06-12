@@ -20,18 +20,20 @@ import {
 } from "@/api/geo-prompts";
 import AppErrorState from "@/components/AppErrorState.vue";
 import GeoPromptBulkImportDialog from "@/components/GeoPromptBulkImportDialog.vue";
-import GeoPromptFilters from "@/components/GeoPromptFilters.vue";
 import GeoPromptFormDialog from "@/components/GeoPromptFormDialog.vue";
-import GeoPromptStatusTag from "@/components/GeoPromptStatusTag.vue";
-import GeoPromptTypeTag from "@/components/GeoPromptTypeTag.vue";
 import {
+  coverageStatusLabelMap,
+  coverageStatusOptions,
   formatDateTime,
   formatGeoPromptDisplayText,
   formatTargetModels,
+  geoPromptTypeLabelMap,
+  geoPromptTypeOptions,
   inferBuyingStage,
   inferPromptBusinessValue,
   inferQuestionType,
-  userIntentLabelMap
+  userIntentLabelMap,
+  userIntentOptions
 } from "@/config/geo-prompt-options";
 import { useAuthStore } from "@/stores/auth";
 import { canAccessRoute, canUseAction } from "@/utils/permission";
@@ -64,93 +66,76 @@ const importSubmitting = ref(false);
 const importError = ref("");
 const importResult = ref<BulkImportGeoPromptsResult | null>(null);
 const exporting = ref(false);
+const advancedFiltersExpanded = ref(false);
 
 const hasTableError = computed(() => Boolean(tableError.value));
 const isEmpty = computed(() => !loading.value && prompts.value.length === 0);
-const promptAssetCards = computed(() => [
-  {
-    label: "提示词总数",
-    value: total.value,
-    hint: "当前筛选下 GEO 词资产"
-  },
-  {
-    label: "追踪词数量",
-    value: prompts.value.filter((prompt) => prompt.trackEnabled).length,
-    hint: "当前页已开启模型追踪"
-  },
-  {
-    label: "高优先级词",
-    value: prompts.value.filter((prompt) => prompt.priority <= 2).length,
-    hint: "P1 / P2 优先处理"
-  },
-  {
-    label: "待检测 / 未命中",
-    value: prompts.value.filter((prompt) =>
-      ["unknown", "not_mentioned", undefined, ""].includes(prompt.latestCoverageStatus)
-    ).length,
-    hint: "可进入模型覆盖记录复测"
-  }
-]);
-const promptBusinessInsights = computed(() => {
-  const promptBusinessItems = prompts.value.map((prompt) => {
+const promptBusinessItems = computed(() =>
+  prompts.value.map((prompt) => {
     const questionType = inferQuestionType(prompt.promptText, prompt.userIntent);
 
     return {
+      id: prompt.id,
       businessValue: inferPromptBusinessValue(prompt.promptText, questionType.value, prompt.userIntent),
-      buyingStage: inferBuyingStage(prompt.promptText, questionType.value, prompt.userIntent)
+      buyingStage: inferBuyingStage(prompt.promptText, questionType.value, prompt.userIntent),
+      questionType
     };
-  });
-
+  })
+);
+const promptBusinessInsightById = computed(() =>
+  Object.fromEntries(promptBusinessItems.value.map((item) => [item.id, item]))
+);
+const compactPromptMetrics = computed(() => {
+  // 顶部指标只读当前筛选结果，避免额外请求或改变后端统计口径。
   return [
     {
-      label: "高意向问法",
-      value: promptBusinessItems.filter((item) => item.businessValue.value === "high").length,
-      hint: "优先监测、补证据和写文章"
+      label: "总数",
+      value: total.value
     },
     {
-      label: "采购 / 对比阶段",
-      value: promptBusinessItems.filter((item) =>
+      label: "追踪中",
+      value: prompts.value.filter((prompt) => prompt.trackEnabled).length
+    },
+    {
+      label: "高优",
+      value: prompts.value.filter((prompt) => prompt.priority <= 2).length
+    },
+    {
+      label: "待复测",
+      value: prompts.value.filter((prompt) =>
+        ["unknown", "not_mentioned", undefined, ""].includes(prompt.latestCoverageStatus)
+      ).length
+    },
+    {
+      label: "高意向",
+      value: promptBusinessItems.value.filter((item) => item.businessValue.value === "high").length
+    },
+    {
+      label: "采购对比",
+      value: promptBusinessItems.value.filter((item) =>
         ["purchase", "comparison"].includes(item.buyingStage.value)
-      ).length,
-      hint: "更接近转化和品牌替代"
-    },
-    {
-      label: "售后阶段",
-      value: promptBusinessItems.filter((item) => item.buyingStage.value === "aftersales").length,
-      hint: "适合沉淀 FAQ 和排查内容"
-    },
-    {
-      label: "待判断问法",
-      value: promptBusinessItems.filter(
-        (item) => item.businessValue.value === "unknown" || item.buyingStage.value === "unknown"
-      ).length,
-      hint: "需要人工补充上下文"
+      ).length
     }
   ];
 });
 
-const visibilityLabelMap = {
-  COMPANY: "公司公共",
-  PLATFORM: "平台公共",
-  PRIVATE: "我的"
-} as const;
-
 const formatPromptTitle = (prompt: GeoPrompt) =>
   formatGeoPromptDisplayText(prompt.promptText, "GEO 提示词");
 
-const getQuestionTypeLabel = (prompt: GeoPrompt) =>
-  inferQuestionType(prompt.promptText, prompt.userIntent).label;
+const getPromptBusinessInsight = (prompt: GeoPrompt) => {
+  const insight = promptBusinessInsightById.value[prompt.id];
 
-const getPromptBusinessValue = (prompt: GeoPrompt) => {
+  if (insight) {
+    return insight;
+  }
+
   const questionType = inferQuestionType(prompt.promptText, prompt.userIntent);
 
-  return inferPromptBusinessValue(prompt.promptText, questionType.value, prompt.userIntent);
-};
-
-const getBuyingStage = (prompt: GeoPrompt) => {
-  const questionType = inferQuestionType(prompt.promptText, prompt.userIntent);
-
-  return inferBuyingStage(prompt.promptText, questionType.value, prompt.userIntent);
+  return {
+    businessValue: inferPromptBusinessValue(prompt.promptText, questionType.value, prompt.userIntent),
+    buyingStage: inferBuyingStage(prompt.promptText, questionType.value, prompt.userIntent),
+    questionType
+  };
 };
 
 const formatPromptContext = (prompt: GeoPrompt) => {
@@ -160,6 +145,83 @@ const formatPromptContext = (prompt: GeoPrompt) => {
   ].filter(Boolean);
 
   return parts.length > 0 ? parts.join(" / ") : "--";
+};
+
+const formatPromptAssetMeta = (prompt: GeoPrompt) =>
+  [
+    `来源：${formatGeoPromptDisplayText(prompt.source, "未填写")}`,
+    `场景：${formatPromptContext(prompt)}`,
+    `类型：${geoPromptTypeLabelMap[prompt.type]}`
+  ].join(" / ");
+
+const formatCompactDate = (value: string) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return formatDateTime(value);
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${month}-${day} ${hour}:${minute}`;
+};
+
+const getCoverageStatusLabel = (status?: string) =>
+  coverageStatusLabelMap[status ?? ""] ?? "未知";
+
+const getCoverageToneClass = (status?: string) => {
+  if (status === "recommended" || status === "mentioned") {
+    return "geo-asset-badge--success";
+  }
+
+  if (status === "not_mentioned") {
+    return "geo-asset-badge--danger";
+  }
+
+  return "geo-asset-badge--warning";
+};
+
+const getPriorityToneClass = (priority: number) => {
+  if (priority <= 2) {
+    return "geo-asset-badge--danger";
+  }
+
+  if (priority === 3) {
+    return "geo-asset-badge--warning";
+  }
+
+  return "geo-asset-badge--muted";
+};
+
+const getPromptTagItems = (prompt: GeoPrompt) => {
+  const insight = getPromptBusinessInsight(prompt);
+  const tags = [
+    geoPromptTypeLabelMap[prompt.type],
+    userIntentLabelMap[prompt.userIntent] ?? prompt.userIntent,
+    insight.questionType.label,
+    insight.businessValue.label
+  ];
+
+  if (prompt.baseWord) {
+    tags.unshift(`训练词：${prompt.baseWord}`);
+  }
+
+  if (prompt.productLine) {
+    tags.push(prompt.productLine);
+  }
+
+  return tags;
+};
+
+const formatPromptAssetSupportText = (prompt: GeoPrompt) => {
+  // 底部辅助信息只换展示方式，仍复用原有模型字段和创建时间。
+  const targetModels = formatTargetModels(prompt.targetModels);
+  const targetModelText = targetModels === "--" ? "模型未指定" : `目标模型 ${targetModels}`;
+
+  return `${targetModelText} · ${formatCompactDate(prompt.createdAt)} 创建`;
 };
 
 const isOperatorRole = () =>
@@ -253,6 +315,10 @@ const handleTypeChange = (type?: GeoPromptType) => {
   activeType.value = type;
   page.value = 1;
   void loadPrompts();
+};
+
+const handleTypeFilterChange = (type?: GeoPromptType | "") => {
+  handleTypeChange(type || undefined);
 };
 
 const handlePageChange = (nextPage: number) => {
@@ -441,213 +507,176 @@ onMounted(() => {
       </div>
     </header>
 
-    <GeoPromptFilters
-      class="core-filter-bar"
-      :model-value="filters"
-      :active-type="activeType"
-      :loading="loading"
-      @update:model-value="Object.assign(filters, $event)"
-      @search="handleSearch"
-      @reset="handleReset"
-      @type-change="handleTypeChange"
-    />
-
-    <section class="geo-prompts-summary-row core-summary-row" aria-label="提示词资产与业务价值摘要">
-      <div class="geo-prompts-asset-grid geo-prompts-asset-grid--compact" aria-label="提示词资产概览">
-        <article
-          v-for="asset in promptAssetCards"
-          :key="asset.label"
-          class="geo-prompts-asset-card"
-        >
-          <span>{{ asset.label }}</span>
-          <strong>{{ asset.value }}</strong>
-        </article>
+    <section class="geo-prompts-control-panel core-filter-bar" aria-label="提示词筛选与统计">
+      <div class="geo-prompts-metric-strip" aria-label="提示词资产紧凑指标">
+        <span v-for="metric in compactPromptMetrics" :key="metric.label">
+          {{ metric.label }}
+          <strong>{{ metric.value }}</strong>
+        </span>
       </div>
 
-      <section class="geo-prompts-value-panel geo-prompts-value-panel--compact" aria-label="问法业务价值概览">
-        <div>
-          <h2>业务价值</h2>
-        </div>
-        <div class="geo-prompts-value-summary">
-          <span
-            v-for="insight in promptBusinessInsights"
-            :key="insight.label"
-            class="geo-prompts-value-pill"
-            :title="insight.hint"
-          >
-            <strong>{{ insight.value }}</strong>
-            {{ insight.label }}
-          </span>
-        </div>
+      <div class="geo-prompts-quick-filter-row">
+        <el-input
+          v-model="filters.search"
+          class="geo-prompts-search-input"
+          clearable
+          placeholder="搜索提示词、训练词或应用场景..."
+          @keyup.enter="handleSearch"
+        />
+        <el-select
+          :model-value="activeType"
+          class="geo-prompts-compact-select"
+          clearable
+          placeholder="类型：全部"
+          @change="handleTypeFilterChange"
+        >
+          <el-option
+            v-for="option in geoPromptTypeOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+        <el-select
+          v-model="filters.trackEnabled"
+          class="geo-prompts-compact-select"
+          clearable
+          placeholder="追踪：全部"
+        >
+          <el-option label="追踪中" :value="true" />
+          <el-option label="不追踪" :value="false" />
+        </el-select>
+        <el-select
+          v-model="filters.latestCoverageStatus"
+          class="geo-prompts-compact-select"
+          clearable
+          placeholder="覆盖：全部"
+        >
+          <el-option
+            v-for="option in coverageStatusOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+        <button
+          class="geo-prompts-advanced-toggle"
+          type="button"
+          :aria-expanded="advancedFiltersExpanded"
+          @click="advancedFiltersExpanded = !advancedFiltersExpanded"
+        >
+          高级筛选
+        </button>
+        <el-button type="primary" :loading="loading" @click="handleSearch">查询</el-button>
+        <el-button @click="handleReset">重置</el-button>
+      </div>
+
+      <section
+        v-if="advancedFiltersExpanded"
+        class="geo-prompts-advanced-inline"
+        aria-label="提示词高级筛选"
+      >
+        <el-form class="geo-prompts-advanced-form" label-position="top">
+          <el-form-item label="产品线">
+            <el-input v-model="filters.productLine" clearable placeholder="输入产品线" />
+          </el-form-item>
+          <el-form-item label="用户意图">
+            <el-select v-model="filters.userIntent" clearable placeholder="全部意图">
+              <el-option
+                v-for="option in userIntentOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="优先级">
+            <el-select v-model="filters.priority" clearable placeholder="全部优先级">
+              <el-option
+                v-for="priority in [1, 2, 3, 4, 5]"
+                :key="priority"
+                :label="`P${priority}`"
+                :value="priority"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
       </section>
     </section>
 
     <AppErrorState v-if="hasTableError" title="提示词库加载失败" :message="tableError" />
 
-    <section class="geo-prompts-table-panel core-data-panel">
-      <div class="geo-prompts-table-header">
-        <div>
-          <p class="section-kicker">提示词资产</p>
-          <h2>GEO 提示词列表</h2>
-        </div>
-      </div>
+    <section class="geo-prompts-asset-panel core-data-panel">
+      <section v-loading="loading" class="geo-prompts-asset-list" aria-label="提示词资产列表">
+        <article v-for="prompt in prompts" :key="prompt.id" class="geo-asset-row">
+          <div class="geo-asset-main">
+            <strong class="geo-asset-title" :title="prompt.promptText">
+              {{ formatPromptTitle(prompt) }}
+            </strong>
+            <p class="geo-asset-meta">{{ formatPromptAssetMeta(prompt) }}</p>
+            <div class="geo-asset-tag-row" aria-label="提示词业务标签">
+              <span
+                v-for="tag in getPromptTagItems(prompt)"
+                :key="`${prompt.id}-${tag}`"
+                class="geo-asset-tag"
+              >
+                {{ tag }}
+              </span>
+              <span v-if="prompt.visibility === 'PLATFORM'" class="geo-asset-tag--readonly">
+                平台只读
+              </span>
+            </div>
+            <p class="geo-asset-support-line">{{ formatPromptAssetSupportText(prompt) }}</p>
+          </div>
 
-      <el-table
-        v-loading="loading"
-        :data="prompts"
-        class="geo-prompts-table"
-        row-key="id"
-        border
-        empty-text="暂无 GEO 提示词，可先新增、批量导入，或前往 AI 拓词生成候选。"
-      >
-        <el-table-column type="expand" width="42">
-          <template #default="{ row }: { row: GeoPrompt }">
-            <div class="geo-prompt-row-detail">
-              <section>
-                <p class="section-kicker">GEO 策略信息</p>
-                <dl>
-                  <div>
-                    <dt>训练词</dt>
-                    <dd>{{ formatGeoPromptDisplayText(row.baseWord, "--") }}</dd>
-                  </div>
-                  <div>
-                    <dt>产品线</dt>
-                    <dd>{{ formatGeoPromptDisplayText(row.productLine, "--") }}</dd>
-                  </div>
-                  <div>
-                    <dt>应用场景</dt>
-                    <dd>{{ formatGeoPromptDisplayText(row.scenario, "--") }}</dd>
-                  </div>
-                  <div>
-                    <dt>适用模型</dt>
-                    <dd>{{ formatTargetModels(row.targetModels) }}</dd>
-                  </div>
-                  <div>
-                    <dt>问法类型</dt>
-                    <dd>{{ getQuestionTypeLabel(row) }}</dd>
-                  </div>
-                  <div>
-                    <dt>业务价值</dt>
-                    <dd>{{ getPromptBusinessValue(row).label }}</dd>
-                  </div>
-                  <div>
-                    <dt>购买阶段</dt>
-                    <dd>{{ getBuyingStage(row).label }}</dd>
-                  </div>
-                </dl>
-              </section>
-              <section>
-                <p class="section-kicker">排查信息</p>
-                <dl>
-                  <div>
-                    <dt>来源</dt>
-                    <dd>{{ formatGeoPromptDisplayText(row.source, "--") }}</dd>
-                  </div>
-                  <div>
-                    <dt>创建时间</dt>
-                    <dd>{{ formatDateTime(row.createdAt) }}</dd>
-                  </div>
-                  <div>
-                    <dt>原始提示词</dt>
-                    <dd>{{ row.promptText }}</dd>
-                  </div>
-                </dl>
-              </section>
+          <div class="geo-asset-status" aria-label="提示词状态">
+            <span :class="['geo-asset-badge', getPriorityToneClass(prompt.priority)]">
+              P{{ prompt.priority }}
+            </span>
+            <span class="geo-asset-dot-text">
+              <i
+                :class="[
+                  'status-dot',
+                  prompt.trackEnabled ? 'status-dot--success' : 'status-dot--muted'
+                ]"
+                aria-hidden="true"
+              />
+              {{ prompt.trackEnabled ? "追踪中" : "不追踪" }}
+            </span>
+            <span :class="['geo-asset-badge', getCoverageToneClass(prompt.latestCoverageStatus)]">
+              {{ getCoverageStatusLabel(prompt.latestCoverageStatus) }}
+            </span>
+          </div>
+
+          <div class="geo-asset-actions">
+            <time :datetime="prompt.updatedAt">{{ formatCompactDate(prompt.updatedAt) }}</time>
+            <div>
+              <template v-if="canManagePrompt(prompt)">
+                <el-button link type="primary" @click="openEditDialog(prompt)">编辑</el-button>
+                <el-button link class="danger-action-link" @click="handleDelete(prompt)">
+                  删除
+                </el-button>
+              </template>
+              <span v-else class="muted-table-action">只读</span>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="promptText" label="提示词 / 问题" min-width="280" fixed="left">
-          <template #default="{ row }: { row: GeoPrompt }">
-            <div class="prompt-main-cell">
-              <strong class="prompt-text-cell" :title="row.promptText">
-                {{ formatPromptTitle(row) }}
-              </strong>
-              <span>{{ visibilityLabelMap[row.visibility] }}</span>
-              <div class="prompt-insight-chip-row">
-                <small class="question-type-chip">{{ getQuestionTypeLabel(row) }}</small>
-                <small
-                  class="prompt-insight-chip"
-                  :class="`prompt-insight-chip--value-${getPromptBusinessValue(row).value}`"
-                  :title="getPromptBusinessValue(row).description"
-                >
-                  {{ getPromptBusinessValue(row).label }}
-                </small>
-                <small
-                  class="prompt-insight-chip"
-                  :class="`prompt-insight-chip--stage-${getBuyingStage(row).value}`"
-                  :title="getBuyingStage(row).description"
-                >
-                  {{ getBuyingStage(row).label }}
-                </small>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="type" label="类型" width="104">
-          <template #default="{ row }: { row: GeoPrompt }">
-            <GeoPromptTypeTag :type="row.type" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="userIntent" label="场景 / 意图" min-width="160">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatPromptContext(row) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="96" align="center">
-          <template #default="{ row }: { row: GeoPrompt }">
-            <el-tag :type="row.priority <= 2 ? 'warning' : 'info'" effect="plain">
-              P{{ row.priority }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="trackEnabled" label="追踪状态" width="104" align="center">
-          <template #default="{ row }: { row: GeoPrompt }">
-            <el-tag :type="row.trackEnabled ? 'success' : 'info'" effect="plain">
-              {{ row.trackEnabled ? "追踪" : "不追踪" }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="latestCoverageStatus"
-          label="最新覆盖状态"
-          width="128"
-          align="center"
-        >
-          <template #default="{ row }: { row: GeoPrompt }">
-            <GeoPromptStatusTag :status="row.latestCoverageStatus" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="updatedAt" label="更新时间" min-width="176">
-          <template #default="{ row }: { row: GeoPrompt }">
-            {{ formatDateTime(row.updatedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="128" fixed="right">
-          <template #default="{ row }: { row: GeoPrompt }">
-            <template v-if="canManagePrompt(row)">
-              <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
-              <el-button link class="danger-action-link" @click="handleDelete(row)">删除</el-button>
-            </template>
-            <span v-else class="muted-table-action">只读</span>
-          </template>
-        </el-table-column>
-        <template #empty>
+          </div>
+        </article>
+
+        <div v-if="isEmpty && !hasTableError" class="geo-prompts-asset-empty">
           <el-empty
-            :description="
-              isEmpty
-                ? '暂无 GEO 提示词，可先添加采购、选型、替代、场景或售后排查类真实问法。'
-                : '正在加载 GEO 提示词'
-            "
+            description="未找到匹配的提示词资产"
+            :image-size="82"
           >
             <template #image>
               <div class="empty-mark">GEO</div>
             </template>
+            <el-button @click="handleReset">清空筛选</el-button>
           </el-empty>
-        </template>
-      </el-table>
+        </div>
+      </section>
 
       <div class="geo-prompts-pagination">
-        <span>共 {{ total }} 条提示词资产</span>
+        <span>共 {{ total }} 条</span>
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"
@@ -678,3 +707,14 @@ onMounted(() => {
     />
   </section>
 </template>
+
+<style scoped>
+.geo-asset-support-line {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+</style>

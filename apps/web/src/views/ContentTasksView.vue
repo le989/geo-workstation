@@ -1062,7 +1062,7 @@ onMounted(() => {
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">文章工作台</p>
+            <p class="section-kicker">内容队列</p>
             <h2>待处理文章列表</h2>
           </div>
           <strong>{{ total }} 篇文章</strong>
@@ -1224,7 +1224,6 @@ onMounted(() => {
               <p class="section-kicker">高级流程</p>
               <h2>选择资料 → 创建文章任务 → 生成文章 → 发布检查 → 复制或归档</h2>
             </div>
-            <span>用于排查状态和理解流程，默认收起。</span>
           </div>
           <section class="content-overview-strip" aria-label="当前列表概览">
             <article v-for="item in contentOverviewStats" :key="item.label">

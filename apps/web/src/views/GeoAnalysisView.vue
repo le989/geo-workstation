@@ -466,7 +466,6 @@ onMounted(() => {
   <section class="geo-analysis-page review-page">
     <header class="geo-analysis-hero review-page__header">
       <div>
-        <el-tag type="success" effect="plain">GEO 分析 / 前期诊断</el-tag>
         <h1>GEO 诊断</h1>
         <p>前期评估品牌、官网和产品线，快速定位提示词、资料和内容缺口。</p>
       </div>
@@ -482,14 +481,6 @@ onMounted(() => {
         </el-button>
       </div>
     </header>
-
-    <el-alert
-      title="诊断结果用于辅助判断品牌覆盖、官网引用与竞品占位情况；模型覆盖复盘请到「AI 模型覆盖记录」和「GEO 报表」查看。"
-      type="info"
-      :closable="false"
-      show-icon
-      class="geo-analysis-alert review-page__hint"
-    />
 
     <section class="geo-analysis-metric-grid review-page__summary compact-metric-row" aria-label="GEO 诊断概览">
       <article
@@ -544,10 +535,7 @@ onMounted(() => {
         <div>
           <p class="section-kicker">诊断任务</p>
           <h2>诊断任务列表</h2>
-          <p>
-            查看诊断状态、提示词建议和后续补齐方向。
-            <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
-          </p>
+          <p v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</p>
         </div>
       </div>
 

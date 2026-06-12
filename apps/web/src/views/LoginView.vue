@@ -7,6 +7,17 @@ import { ApiClientError } from "@/api/http";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 
+type LoginPreviewCard = {
+  label: string;
+  value: string;
+  tone: "blue" | "green" | "orange" | "cyan";
+};
+
+type LoginWorkflowStep = {
+  label: string;
+  value: string;
+};
+
 const router = useRouter();
 const appStore = useAppStore();
 const authStore = useAuthStore();
@@ -16,6 +27,21 @@ const form = reactive({
   password: ""
 });
 const errorMessage = ref("");
+
+// 登录页左侧仅展示静态产品预览，不改登录接口、认证状态或表单字段。
+const previewCards: LoginPreviewCard[] = [
+  { label: "今日待处理", value: "18", tone: "orange" },
+  { label: "可发布文章", value: "6", tone: "green" },
+  { label: "需补证据", value: "12", tone: "blue" },
+  { label: "覆盖异常", value: "4", tone: "cyan" }
+];
+
+const workflowSteps: LoginWorkflowStep[] = [
+  { label: "问题词", value: "追踪" },
+  { label: "知识库", value: "补证" },
+  { label: "内容生成", value: "检查" },
+  { label: "模型覆盖", value: "复盘" }
+];
 
 const submitLogin = async () => {
   errorMessage.value = "";
@@ -54,6 +80,42 @@ const submitLogin = async () => {
           <p>
             以问法、证据、内容和模型覆盖记录为主线，帮助运营团队判断下一步该补什么。
           </p>
+          <section class="geo-login-preview-board" aria-label="GEO 工作站产品预览">
+            <div class="geo-login-preview-top">
+              <span>运营看板</span>
+              <strong>本地 smoke</strong>
+            </div>
+            <div class="geo-login-preview-cards">
+              <article
+                v-for="card in previewCards"
+                :key="card.label"
+                :class="`geo-login-preview-card--${card.tone}`"
+              >
+                <span>{{ card.label }}</span>
+                <strong>{{ card.value }}</strong>
+              </article>
+            </div>
+            <div class="geo-login-preview-flow" aria-label="GEO 闭环流程预览">
+              <span v-for="step in workflowSteps" :key="step.label">
+                <strong>{{ step.label }}</strong>
+                <em>{{ step.value }}</em>
+              </span>
+            </div>
+            <div class="geo-login-preview-evidence">
+              <span>
+                <i class="status-dot status-dot--success" />
+                官网引用
+              </span>
+              <span>
+                <i class="status-dot status-dot--warning" />
+                参数待核对
+              </span>
+              <span>
+                <i class="status-dot status-dot--info" />
+                文章可优化
+              </span>
+            </div>
+          </section>
           <ul class="geo-login-feature-list">
             <li>
               <strong>AI 推荐监测</strong>
@@ -219,7 +281,7 @@ const submitLogin = async () => {
   display: grid;
   gap: 0;
   max-width: 620px;
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
@@ -248,6 +310,127 @@ const submitLogin = async () => {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.geo-login-preview-board {
+  display: grid;
+  gap: 12px;
+  max-width: 620px;
+  padding: 15px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 18px 48px rgb(15 23 42 / 7%);
+}
+
+.geo-login-preview-top,
+.geo-login-preview-flow,
+.geo-login-preview-evidence {
+  display: flex;
+  align-items: center;
+}
+
+.geo-login-preview-top {
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.geo-login-preview-top span,
+.geo-login-preview-top strong,
+.geo-login-preview-cards span,
+.geo-login-preview-flow em,
+.geo-login-preview-evidence span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.geo-login-preview-top strong {
+  color: var(--brand-primary);
+}
+
+.geo-login-preview-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.geo-login-preview-cards article {
+  display: grid;
+  gap: 8px;
+  min-height: 72px;
+  padding: 11px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+}
+
+.geo-login-preview-cards strong {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.geo-login-preview-card--blue {
+  border-left: 3px solid #2563eb;
+}
+
+.geo-login-preview-card--green {
+  border-left: 3px solid #16a34a;
+}
+
+.geo-login-preview-card--orange {
+  border-left: 3px solid #d97706;
+}
+
+.geo-login-preview-card--cyan {
+  border-left: 3px solid #0891b2;
+}
+
+.geo-login-preview-flow {
+  gap: 8px;
+}
+
+.geo-login-preview-flow span {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 0;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius-md);
+  background: #f8fbff;
+}
+
+.geo-login-preview-flow strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.geo-login-preview-flow em {
+  font-style: normal;
+}
+
+.geo-login-preview-evidence {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.geo-login-preview-evidence span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
 }
 
 .geo-login-card {
@@ -356,6 +539,10 @@ const submitLogin = async () => {
   .geo-login-card {
     max-width: 440px;
   }
+
+  .geo-login-preview-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
@@ -369,6 +556,15 @@ const submitLogin = async () => {
 
   .geo-login-card {
     padding: 18px;
+  }
+
+  .geo-login-preview-cards,
+  .geo-login-preview-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .geo-login-preview-flow {
+    display: grid;
   }
 }
 </style>
