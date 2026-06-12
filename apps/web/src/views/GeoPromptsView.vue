@@ -216,6 +216,14 @@ const getPromptTagItems = (prompt: GeoPrompt) => {
   return tags;
 };
 
+const formatPromptAssetSupportText = (prompt: GeoPrompt) => {
+  // 底部辅助信息只换展示方式，仍复用原有模型字段和创建时间。
+  const targetModels = formatTargetModels(prompt.targetModels);
+  const targetModelText = targetModels === "--" ? "模型未指定" : `目标模型 ${targetModels}`;
+
+  return `${targetModelText} · ${formatCompactDate(prompt.createdAt)} 创建`;
+};
+
 const isOperatorRole = () =>
   ["operator", "geo_operator", "content_editor"].includes(String(authStore.currentRole ?? ""));
 const currentRole = computed(() => authStore.currentRole ?? authStore.currentUser?.role);
@@ -599,13 +607,6 @@ onMounted(() => {
     <AppErrorState v-if="hasTableError" title="提示词库加载失败" :message="tableError" />
 
     <section class="geo-prompts-asset-panel core-data-panel">
-      <div class="geo-prompts-table-header">
-        <div>
-          <p class="section-kicker">提示词资产</p>
-          <h2>资产列表</h2>
-        </div>
-      </div>
-
       <section v-loading="loading" class="geo-prompts-asset-list" aria-label="提示词资产列表">
         <article v-for="prompt in prompts" :key="prompt.id" class="geo-asset-row">
           <div class="geo-asset-main">
@@ -625,16 +626,7 @@ onMounted(() => {
                 平台只读
               </span>
             </div>
-            <dl class="geo-asset-detail-grid">
-              <div>
-                <dt>目标模型</dt>
-                <dd>{{ formatTargetModels(prompt.targetModels) }}</dd>
-              </div>
-              <div>
-                <dt>创建时间</dt>
-                <dd>{{ formatDateTime(prompt.createdAt) }}</dd>
-              </div>
-            </dl>
+            <p class="geo-asset-support-line">{{ formatPromptAssetSupportText(prompt) }}</p>
           </div>
 
           <div class="geo-asset-status" aria-label="提示词状态">
@@ -684,7 +676,7 @@ onMounted(() => {
       </section>
 
       <div class="geo-prompts-pagination">
-        <span>共 {{ total }} 条提示词资产</span>
+        <span>共 {{ total }} 条</span>
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"
@@ -715,3 +707,14 @@ onMounted(() => {
     />
   </section>
 </template>
+
+<style scoped>
+.geo-asset-support-line {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+</style>
