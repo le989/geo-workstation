@@ -911,16 +911,15 @@ onMounted(() => {
   <div class="aftersales-page-shell">
     <header class="aftersales-hero">
       <div>
-        <p class="aftersales-hero__eyebrow">售后知识问答</p>
         <h1>售后问答</h1>
         <p>
           基于已审核售后资料和产品资料辅助排查现场问题，未命中资料时转人工确认。
         </p>
       </div>
       <div class="aftersales-boundary-list" aria-label="售后问答边界">
-        <span>库内知识：仅依据已审核售后资料辅助回答</span>
-        <span>引用来源：尽量展示知识库、文件和片段来源</span>
-        <span>人工复核：未命中或不确定时转人工确认</span>
+        <span>已审核资料</span>
+        <span>展示引用来源</span>
+        <span>不确定转人工</span>
       </div>
     </header>
 
@@ -932,7 +931,6 @@ onMounted(() => {
         @click="switchPanel('chat')"
       >
         <span>售后对话</span>
-        <small>提问、查看引用来源与回答反馈</small>
       </button>
       <button
         type="button"
@@ -944,7 +942,6 @@ onMounted(() => {
           反馈待处理
           <em v-if="pendingFeedbackTotal > 0">{{ pendingFeedbackTotal }}</em>
         </span>
-        <small>查看用户纠错意见并标记处理结果</small>
       </button>
     </nav>
 
@@ -1212,7 +1209,6 @@ onMounted(() => {
       <header class="feedback-workbench__header">
         <div>
           <h2>反馈待处理</h2>
-          <p>管理员在这里查看用户提交的回答纠错，当前仅用于复盘和知识库优化线索。</p>
         </div>
         <el-button :loading="loadingFeedbacks" @click="loadFeedbacks">刷新</el-button>
       </header>

@@ -9,6 +9,17 @@ type HomeWorkflowStep = {
   shortName: string;
 };
 
+type HomePreviewMetric = {
+  label: string;
+  value: string;
+  tone: "blue" | "cyan" | "green" | "orange";
+};
+
+type HomePreviewStage = {
+  label: string;
+  status: string;
+};
+
 const capabilities: HomeCapability[] = [
   {
     title: "用户问法",
@@ -35,6 +46,23 @@ const workflowSteps: HomeWorkflowStep[] = [
   { title: "推荐记录", shortName: "Model" },
   { title: "复盘", shortName: "Review" }
 ];
+
+// 首页只展示静态产品预览，不接 API，也不代表真实运营数据。
+const previewMetrics: HomePreviewMetric[] = [
+  { label: "模型覆盖率", value: "68%", tone: "blue" },
+  { label: "文章质量分", value: "82", tone: "green" },
+  { label: "需补证据", value: "12", tone: "orange" },
+  { label: "引用友好", value: "7/10", tone: "cyan" }
+];
+
+const previewStages: HomePreviewStage[] = [
+  { label: "问题词", status: "已追踪" },
+  { label: "知识库", status: "待补证" },
+  { label: "内容生成", status: "可发布" },
+  { label: "覆盖复盘", status: "持续跟进" }
+];
+
+const previewChecks = ["官网引用", "产品参数", "应用场景", "竞品对比"];
 </script>
 
 <template>
@@ -61,25 +89,50 @@ const workflowSteps: HomeWorkflowStep[] = [
         </div>
       </div>
 
-      <aside class="home-entry-status-panel" aria-label="GEO 工作站能力摘要">
-        <div class="home-entry-status-head">
-          <span>当前关注</span>
-          <strong>从 AI 推荐结果倒推运营动作</strong>
+      <aside class="home-entry-product-preview" aria-label="GEO 工作站产品预览">
+        <div class="home-entry-preview-chrome">
+          <span />
+          <span />
+          <span />
+          <strong>GEO Ops</strong>
         </div>
-        <dl class="home-entry-status-list">
-          <div>
-            <dt>品牌推荐</dt>
-            <dd>模型是否明确推荐我方品牌</dd>
+
+        <section class="home-entry-preview-metrics" aria-label="关键运营指标预览">
+          <article
+            v-for="metric in previewMetrics"
+            :key="metric.label"
+            :class="`home-entry-preview-metric--${metric.tone}`"
+          >
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+          </article>
+        </section>
+
+        <section class="home-entry-preview-workflow" aria-label="GEO 闭环流程预览">
+          <div v-for="(stage, index) in previewStages" :key="stage.label">
+            <i>{{ index + 1 }}</i>
+            <span>{{ stage.label }}</span>
+            <strong>{{ stage.status }}</strong>
           </div>
+        </section>
+
+        <section class="home-entry-preview-board">
           <div>
-            <dt>官网引用</dt>
-            <dd>回答是否引用官网、文章或知识库证据</dd>
+            <h2>发布前检查</h2>
+            <div class="home-entry-preview-checks">
+              <span v-for="check in previewChecks" :key="check">
+                <i class="status-dot status-dot--success" />
+                {{ check }}
+              </span>
+            </div>
           </div>
-          <div>
-            <dt>竞品占位</dt>
-            <dd>竞品是否替代我方出现在推荐位置</dd>
+          <div class="home-entry-preview-bars" aria-label="模型覆盖趋势预览">
+            <span style="--bar-size: 48%" />
+            <span style="--bar-size: 68%" />
+            <span style="--bar-size: 56%" />
+            <span style="--bar-size: 82%" />
           </div>
-        </dl>
+        </section>
       </aside>
     </section>
 
@@ -244,7 +297,7 @@ const workflowSteps: HomeWorkflowStep[] = [
   min-height: 36px;
 }
 
-.home-entry-status-panel,
+.home-entry-product-preview,
 .home-entry-capability-grid article {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
@@ -252,60 +305,166 @@ const workflowSteps: HomeWorkflowStep[] = [
   box-shadow: var(--shadow-none);
 }
 
-.home-entry-status-panel {
+.home-entry-product-preview {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   align-self: center;
-  padding: 20px;
+  padding: 16px;
+  box-shadow: 0 18px 48px rgb(15 23 42 / 8%);
 }
 
-.home-entry-status-head {
-  display: grid;
-  gap: 6px;
-  padding-bottom: 16px;
+.home-entry-preview-chrome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-light);
 }
 
-.home-entry-status-head span {
+.home-entry-preview-chrome span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.home-entry-preview-chrome strong {
+  margin-left: auto;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.home-entry-preview-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.home-entry-preview-metrics article {
+  display: grid;
+  gap: 8px;
+  min-height: 86px;
+  padding: 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+}
+
+.home-entry-preview-metrics span,
+.home-entry-preview-workflow span,
+.home-entry-preview-workflow strong,
+.home-entry-preview-checks span {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 650;
 }
 
-.home-entry-status-head strong {
+.home-entry-preview-metrics strong {
   color: var(--text-primary);
-  font-size: 18px;
-  line-height: 1.4;
+  font-size: 28px;
+  font-weight: 820;
+  line-height: 1;
 }
 
-.home-entry-status-list {
+.home-entry-preview-metric--blue {
+  border-left: 3px solid #2563eb;
+}
+
+.home-entry-preview-metric--cyan {
+  border-left: 3px solid #0891b2;
+}
+
+.home-entry-preview-metric--green {
+  border-left: 3px solid #16a34a;
+}
+
+.home-entry-preview-metric--orange {
+  border-left: 3px solid #d97706;
+}
+
+.home-entry-preview-workflow {
   display: grid;
-  gap: 0;
-  margin: 0;
+  gap: 8px;
 }
 
-.home-entry-status-list div {
+.home-entry-preview-workflow div {
   display: grid;
-  gap: 4px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border-light);
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-md);
+  background: #ffffff;
 }
 
-.home-entry-status-list div:last-child {
-  border-bottom: 0;
+.home-entry-preview-workflow i {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: #eef6ff;
+  color: var(--brand-primary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
 }
 
-.home-entry-status-list dt {
+.home-entry-preview-workflow strong {
+  color: var(--text-primary);
+}
+
+.home-entry-preview-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(96px, 0.8fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 13px;
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius-md);
+  background: #f8fbff;
+}
+
+.home-entry-preview-board h2 {
+  margin: 0 0 10px;
   color: var(--text-primary);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 760;
 }
 
-.home-entry-status-list dd {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.6;
+.home-entry-preview-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.home-entry-preview-checks span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.home-entry-preview-bars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  align-items: end;
+  min-height: 86px;
+}
+
+.home-entry-preview-bars span {
+  display: block;
+  height: var(--bar-size);
+  min-height: 24px;
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(180deg, #2563eb, #0891b2);
 }
 
 .home-entry-section {

@@ -1147,7 +1147,6 @@ onMounted(async () => {
   <section class="knowledge-page core-list-page">
     <header class="knowledge-workbench-bar core-list-header">
       <div class="knowledge-workbench-bar__main">
-        <p class="section-kicker">知识库</p>
         <div class="knowledge-workbench-titleline">
           <h1>
             <span>当前知识库</span>
@@ -1160,7 +1159,6 @@ onMounted(async () => {
               </span>
             </template>
             <span v-else>暂无知识库</span>
-            <span>企业资料、证据类型和 AI 可引用内容。</span>
             <span v-if="lastLoadedAt">更新 {{ lastLoadedAt }}</span>
           </div>
         </div>
@@ -1287,7 +1285,6 @@ onMounted(async () => {
           <div>
             <p class="section-kicker">事实底座</p>
             <h2>企业事实资料库</h2>
-            <p>选择资料库并进入工作区。</p>
           </div>
         </div>
 

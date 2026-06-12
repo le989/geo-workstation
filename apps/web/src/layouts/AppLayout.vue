@@ -61,101 +61,6 @@ const toggleSidebar = () => {
   window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(isSidebarCollapsed.value));
 };
 
-const headerDisplayByPath: Record<string, { title: string; subtitle: string }> = {
-  "/dashboard": {
-    title: "工作台",
-    subtitle: "今日运营动作与待处理事项"
-  },
-  "/geo-analysis": {
-    title: "GEO 诊断",
-    subtitle: "前期品牌、官网与产品线诊断"
-  },
-  "/geo-prompts": {
-    title: "提示词库",
-    subtitle: "管理 GEO 词、场景词与追踪状态"
-  },
-  "/expansion": {
-    title: "AI 拓词",
-    subtitle: "从产品和场景扩展候选提示词"
-  },
-  "/knowledge-bases": {
-    title: "知识库",
-    subtitle: "管理产品资料、FAQ 和知识片段"
-  },
-  "/aftersales-qa": {
-    title: "售后问答",
-    subtitle: "基于已审核资料的内部售后排查助手"
-  },
-  "/instruction-templates": {
-    title: "指令库",
-    subtitle: "管理内容生成模板和规则"
-  },
-  "/geo-content": {
-    title: "发布文章工作台",
-    subtitle: "生成、检查和复制发布稿"
-  },
-  "/content-tasks": {
-    title: "发布文章工作台",
-    subtitle: "生成、检查和复制发布稿"
-  },
-  "/model-inclusion-records": {
-    title: "AI 模型覆盖记录",
-    subtitle: "查看当前启用模型的覆盖结果"
-  },
-  "/evidence-citations": {
-    title: "引用证据中心",
-    subtitle: "串联问法、证据、文章和覆盖记录"
-  },
-  "/competitor-occupancy": {
-    title: "竞品占位原因",
-    subtitle: "复盘竞品出现和我方缺席原因"
-  },
-  "/geo-reports": {
-    title: "GEO 报表",
-    subtitle: "查看覆盖、命中和优化建议"
-  },
-  "/reports": {
-    title: "GEO 报表",
-    subtitle: "查看覆盖、命中和优化建议"
-  },
-  "/usage-analytics": {
-    title: "使用统计",
-    subtitle: "查看 AI 调用、token 和 mock 使用"
-  },
-  "/operation-logs": {
-    title: "操作日志",
-    subtitle: "查看关键业务动作和失败摘要"
-  },
-  "/users": {
-    title: "用户管理",
-    subtitle: "管理本公司用户、角色与部门绑定"
-  },
-  "/departments": {
-    title: "部门管理",
-    subtitle: "配置部门和模块进入权限"
-  },
-  "/settings": {
-    title: "系统设置",
-    subtitle: "管理公司、产品线和项目档案"
-  },
-  "/help": {
-    title: "使用教程",
-    subtitle: "查看 SOP、帮助中心和操作指南"
-  },
-  "/403": {
-    title: "无权访问",
-    subtitle: "当前账号没有访问该页面的权限"
-  }
-};
-
-const headerDisplay = computed(
-  () =>
-    headerDisplayByPath[route.path] ?? {
-      title: "GEO 工作站",
-      subtitle: "AI 搜索可见度运营闭环"
-    }
-);
-
 const getNavigationItemsByPath = (paths: string[]) =>
   paths
     .map((path) => navigationItems.find((item) => item.path === path))
@@ -326,10 +231,6 @@ const handleCompanyCommand = (command: string | number | object) => {
 
     <el-container class="admin-main">
       <el-header class="admin-header">
-        <div class="header-title">
-          <h2>{{ headerDisplay.title }}</h2>
-          <span>{{ headerDisplay.subtitle }}</span>
-        </div>
         <div class="header-actions">
           <el-tag class="header-env-tag" type="success" effect="plain">
             {{ appStore.environmentLabel }}

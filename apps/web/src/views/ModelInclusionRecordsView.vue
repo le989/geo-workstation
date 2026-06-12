@@ -577,7 +577,6 @@ onMounted(() => {
     <header class="model-inclusion-hero model-inclusion-toolbar core-list-header">
       <div class="model-inclusion-toolbar__main">
         <div>
-          <p class="section-kicker">GEO 监测台账</p>
           <h1>AI 模型覆盖记录</h1>
           <span>
             {{ total }} 条记录 · {{ inclusionScopeLabel.replace("统计范围：", "") }}
@@ -633,7 +632,7 @@ onMounted(() => {
       <template #header>
         <div class="table-card-header">
           <div>
-            <p class="section-kicker">AI 模型覆盖记录</p>
+            <p class="section-kicker">记录列表</p>
             <h2>当前匹配记录</h2>
           </div>
           <div class="model-table-actions">

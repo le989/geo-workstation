@@ -634,8 +634,8 @@ a {
 .admin-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 60px;
+  justify-content: flex-end;
+  min-height: 52px;
   padding: 9px 24px;
   border-bottom: 1px solid var(--border-light);
   background: var(--bg-surface);
