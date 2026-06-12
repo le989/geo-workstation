@@ -9809,9 +9809,11 @@ a {
 
 .geo-asset-main {
   display: grid;
-  flex: 1 1 auto;
+  /* 左侧内容允许收缩，避免长标题和多标签挤压右侧状态/操作区。 */
+  flex: 1 1 0;
   gap: 7px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .geo-asset-title {
@@ -9840,6 +9842,7 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -9848,6 +9851,7 @@ a {
   display: inline-flex;
   align-items: center;
   width: fit-content;
+  max-width: 100%;
   min-height: 22px;
   padding: 2px 7px;
   border: 1px solid #dbe5ef;
@@ -9857,6 +9861,7 @@ a {
   font-size: 11px;
   font-weight: 650;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .geo-asset-tag-row .geo-asset-tag--readonly {
@@ -9898,6 +9903,7 @@ a {
   display: flex;
   width: 240px;
   flex: 0 0 240px;
+  flex-shrink: 0;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
@@ -9942,6 +9948,7 @@ a {
   display: grid;
   width: 180px;
   flex: 0 0 180px;
+  flex-shrink: 0;
   justify-items: end;
   gap: 8px;
   min-width: 0;
@@ -9981,6 +9988,7 @@ a {
   .geo-asset-actions {
     width: auto;
     flex-basis: auto;
+    min-width: 0;
   }
 
   .geo-asset-actions {

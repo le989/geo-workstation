@@ -612,7 +612,7 @@ const scenarioTags = [
   <section class="dashboard-refresh-page">
     <header class="dashboard-refresh-header">
       <div class="dashboard-refresh-title-block">
-        <h1>AI 可见度驾驶舱</h1>
+        <h1>GEO 运营驾驶舱</h1>
         <span>{{ dashboardScopeText }}</span>
       </div>
       <div class="dashboard-refresh-header-actions">
