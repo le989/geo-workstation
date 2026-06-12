@@ -266,7 +266,7 @@ const cleanAssistantTaskName = (value?: string) => {
   const withoutColonPrefix = trimmed.replace(/^ASSISTANT[-_][^:：]*[:：]\s*/i, "").trim();
   const taskName = removeLeadingTimestampMarker(withoutColonPrefix || trimmed);
 
-  // 列表主标题不展示 smoke 前缀，避免助理把内部测试标识当成文章标题。
+  // 列表主标题不展示内部标识前缀，避免把流程标识当成文章标题。
   if (/^ASSISTANT[-_]/i.test(taskName)) {
     const taskNameParts = taskName.split("_");
     const readablePartIndex = taskNameParts.findIndex((part) => /[\u4e00-\u9fff]/.test(part));
@@ -791,7 +791,7 @@ const handleRegenerateTask = async (task?: ContentTask) => {
 
   try {
     await ElMessageBox.confirm(
-      "重新生成会消耗 AI token / 额度；当前 smoke 验证使用基础生成模式时不会调用真实 AI。确认后会新建一条同主题文章任务。",
+      "重新生成会消耗 AI token / 额度；当前使用基础生成模式时不会调用真实 AI。确认后会新建一条同主题文章任务。",
       "重新生成文章",
       {
         cancelButtonText: "取消",

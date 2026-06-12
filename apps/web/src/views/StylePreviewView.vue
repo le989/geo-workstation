@@ -203,7 +203,7 @@ const previewTopItems = [
               <div class="geo-preview-nav-links">
                 <a href="#preview-capability">产品能力</a>
                 <a href="#preview-flow">工作流程</a>
-                <a href="#preview-local">本地部署</a>
+                <a href="#preview-local">内部部署</a>
                 <a href="#preview-help">使用帮助</a>
               </div>
               <div class="geo-preview-nav-actions">
@@ -228,7 +228,7 @@ const previewTopItems = [
                   <button type="button" class="geo-preview-secondary-button">查看工作流程</button>
                 </div>
                 <div class="geo-preview-hero-checks" aria-label="预览提示">
-                  <span>本地 / 内部预览环境</span>
+                  <span>内部预览环境</span>
                   <span>事实人工确认</span>
                   <span>不展示密钥</span>
                 </div>
@@ -398,7 +398,7 @@ const previewTopItems = [
               </div>
               <button type="button" class="geo-preview-login-submit">登录</button>
               <div class="geo-preview-login-status">
-                <span><i aria-hidden="true" />本地 / 内部预览环境</span>
+                <span><i aria-hidden="true" />内部预览环境</span>
                 <span><i aria-hidden="true" />API 状态：正常</span>
               </div>
             </form>
@@ -434,7 +434,7 @@ const previewTopItems = [
                 <span class="geo-preview-user-dot" aria-hidden="true">G</span>
                 <div>
                   <strong>GEO Admin</strong>
-                  <small>管理员 · 本地 / 内部预览</small>
+                  <small>管理员 · 内部预览</small>
                 </div>
               </div>
             </aside>
@@ -446,7 +446,7 @@ const previewTopItems = [
                   <span>今日运营动作与待处理事项</span>
                 </div>
                 <div class="geo-preview-header-status">
-                  <span>本地 / 内部预览</span>
+                  <span>内部预览</span>
                   <span><i aria-hidden="true" />API 状态：正常</span>
                   <button type="button" aria-label="通知">!</button>
                   <span class="geo-preview-header-user">GEO Admin</span>
@@ -631,7 +631,7 @@ const previewTopItems = [
                       </div>
                     </div>
                     <div class="geo-preview-system-list">
-                      <span><i aria-hidden="true" />本地 / 内部预览环境</span>
+                      <span><i aria-hidden="true" />内部预览环境</span>
                       <span><i aria-hidden="true" />API 状态：正常</span>
                       <span><i aria-hidden="true" />AI Provider：后端环境变量托管</span>
                     </div>

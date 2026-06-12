@@ -256,10 +256,10 @@ export const sopSections: HelpSection[] = [
       {
         title: "为什么 Dashboard 里有示例或空数据？",
         description:
-          "Dashboard 会优先展示当前公司数据；页面顶部统一标明本地 smoke 数据，趋势图、模型对比、原因分布和标签云里的测试示例只用于本地走查，不能当成真实线上 GEO 结果。"
+          "Dashboard 会优先展示当前公司数据；趋势图、模型对比、原因分布和标签云里的示例只用于内部运营复盘，不能直接当成外部 GEO 结论。"
       },
       {
-        title: "本地测试版推荐怎么走一遍闭环？",
+        title: "内部版推荐怎么走一遍闭环？",
         description:
           "建议按问法库、知识库、发布文章、模型覆盖、未推荐原因复盘、补充内容的顺序走查；只看清楚链路，不为了演示制造无意义数据。"
       },
@@ -281,7 +281,7 @@ export const sopSections: HelpSection[] = [
       {
         title: "为什么 AI 拓词可能消耗额度？",
         description:
-          "规则拓词通常是本地组合，AI 拓词是否调用真实 Provider 取决于后端配置。点击生成前要确认环境和模型配置。"
+          "规则拓词通常是组合规则，AI 拓词是否调用真实 Provider 取决于后端配置。点击生成前要确认运行模式和模型配置。"
       },
       {
         title: "候选词保存后去了哪里？",
@@ -397,7 +397,7 @@ export const sopSections: HelpSection[] = [
       {
         title: "公司",
         description:
-          "公司决定数据归属。新增、编辑、停用或启用公司前，要确认是否在当前 smoke 环境和正确公司范围内。"
+          "公司决定数据归属。新增、编辑、停用或启用公司前，要确认当前数据源和公司范围。"
       },
       {
         title: "产品线",

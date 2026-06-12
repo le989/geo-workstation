@@ -172,7 +172,7 @@ export const extractCitationKeywords = (prompt: GeoPrompt) => {
     prompt.scenario,
     prompt.baseWord
   );
-  // 只展示明确业务词，避免把 smoke 阶段编号或 UUID 当成“匹配关键词”误导运营。
+  // 只展示明确业务词，避免把阶段编号或 UUID 当成“匹配关键词”误导运营。
   return citationKeywordPool.filter((keyword) =>
     promptText.includes(keyword.toLowerCase())
   ).slice(0, 10);

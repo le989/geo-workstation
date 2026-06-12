@@ -243,7 +243,7 @@ onMounted(() => {
     <header class="evidence-citation-hero review-page__header">
       <div>
         <h1>引用证据中心</h1>
-        <small>本地 smoke 数据 · 只读聚合 · 待人工确认</small>
+        <small>内部数据 · 只读聚合 · 待人工确认</small>
       </div>
       <div class="evidence-citation-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>

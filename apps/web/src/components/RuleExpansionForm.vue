@@ -90,9 +90,9 @@ const handleSubmit = () => {
       <div>
         <p class="section-kicker">规则拓词</p>
         <h2>规则拓词</h2>
-        <p>使用本地组合规则生成候选问法，优先围绕选型、参数、工况、替代和排查问题展开。</p>
+        <p>使用组合规则生成候选问法，优先围绕选型、参数、工况、替代和排查问题展开。</p>
       </div>
-      <el-tag type="info" effect="plain">本地规则组合</el-tag>
+      <el-tag type="info" effect="plain">规则组合</el-tag>
     </div>
 
     <el-alert

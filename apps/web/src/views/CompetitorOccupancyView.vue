@@ -244,7 +244,7 @@ onMounted(() => {
     <header class="competitor-occupancy-hero review-page__header">
       <div>
         <h1>竞品占位原因</h1>
-        <small>本地 smoke 数据 · 前端轻量识别 · 结果需人工确认</small>
+        <small>内部数据 · 轻量识别 · 结果需人工确认</small>
       </div>
       <div class="competitor-occupancy-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -284,7 +284,7 @@ onMounted(() => {
           <AppEmptyState
             v-else
             title="暂无明确竞品信号"
-            description="当前 smoke 记录中未识别到稳定竞品词，建议补充高意向对比 / 替代问法后再复盘。"
+            description="当前记录中未识别到稳定竞品词，建议补充高意向对比 / 替代问法后再复盘。"
           />
         </section>
 

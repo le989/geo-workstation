@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Lock, Message } from "@element-plus/icons-vue";
 import { ApiClientError } from "@/api/http";
-import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 
 type LoginPreviewCard = {
@@ -19,7 +18,6 @@ type LoginWorkflowStep = {
 };
 
 const router = useRouter();
-const appStore = useAppStore();
 const authStore = useAuthStore();
 
 const form = reactive({
@@ -28,7 +26,7 @@ const form = reactive({
 });
 const errorMessage = ref("");
 
-// 登录页左侧仅展示静态产品预览，不改登录接口、认证状态或表单字段。
+// 登录页静态产品预览不接 API，也不代表真实业务数据。
 const previewCards: LoginPreviewCard[] = [
   { label: "今日待处理", value: "18", tone: "orange" },
   { label: "可发布文章", value: "6", tone: "green" },
@@ -37,11 +35,13 @@ const previewCards: LoginPreviewCard[] = [
 ];
 
 const workflowSteps: LoginWorkflowStep[] = [
-  { label: "问题词", value: "追踪" },
+  { label: "问法资产", value: "追踪" },
   { label: "知识库", value: "补证" },
   { label: "内容生成", value: "检查" },
   { label: "模型覆盖", value: "复盘" }
 ];
+
+const previewSignals = ["官网引用", "参数待核对", "文章可优化"];
 
 const submitLogin = async () => {
   errorMessage.value = "";
@@ -60,7 +60,7 @@ const submitLogin = async () => {
     await router.replace("/dashboard");
   } catch (error) {
     errorMessage.value =
-      error instanceof ApiClientError ? error.message : "登录失败，请确认 API 服务是否可用";
+      error instanceof ApiClientError ? error.message : "登录失败，请稍后重试或联系管理员";
   }
 };
 </script>
@@ -73,17 +73,20 @@ const submitLogin = async () => {
         <span>GEO 工作站</span>
       </RouterLink>
 
+      <section class="geo-login-mobile-intro" aria-label="登录页简介">
+        <h1>进入 GEO 运营驾驶舱</h1>
+        <p>统一管理问法资产、证据库与模型覆盖复盘。</p>
+      </section>
+
       <div class="geo-login-layout">
         <aside class="geo-login-context" aria-label="GEO 工作站定位">
-          <p class="geo-login-eyebrow">AI visibility operations</p>
-          <h1>登录后继续处理 AI 可见度运营闭环</h1>
-          <p>
-            以问法、证据、内容和模型覆盖记录为主线，帮助运营团队判断下一步该补什么。
-          </p>
+          <p class="geo-login-eyebrow">GEO 运营系统</p>
+          <h1>进入 GEO 运营驾驶舱</h1>
+          <p>统一管理问法资产、证据库与模型覆盖复盘。</p>
           <section class="geo-login-preview-board" aria-label="GEO 工作站产品预览">
             <div class="geo-login-preview-top">
-              <span>运营看板</span>
-              <strong>本地 smoke</strong>
+              <span>运营概览</span>
+              <strong>内部版</strong>
             </div>
             <div class="geo-login-preview-cards">
               <article
@@ -102,41 +105,18 @@ const submitLogin = async () => {
               </span>
             </div>
             <div class="geo-login-preview-evidence">
-              <span>
+              <span v-for="signal in previewSignals" :key="signal">
                 <i class="status-dot status-dot--success" />
-                官网引用
-              </span>
-              <span>
-                <i class="status-dot status-dot--warning" />
-                参数待核对
-              </span>
-              <span>
-                <i class="status-dot status-dot--info" />
-                文章可优化
+                {{ signal }}
               </span>
             </div>
           </section>
-          <ul class="geo-login-feature-list">
-            <li>
-              <strong>AI 推荐监测</strong>
-              <span>查看品牌是否被提及、推荐和引用官网。</span>
-            </li>
-            <li>
-              <strong>内容证据闭环</strong>
-              <span>把产品资料、发布文章和引用友好检查串起来。</span>
-            </li>
-            <li>
-              <strong>竞品占位复盘</strong>
-              <span>识别竞品出现和我方缺席后的补救方向。</span>
-            </li>
-          </ul>
         </aside>
 
         <section class="login-panel geo-login-card" aria-label="登录工作站">
           <div class="geo-login-card-head">
-            <p class="geo-login-eyebrow">Sign in</p>
-            <h2>登录工作站</h2>
-            <span>使用内部账号进入本地 smoke 环境。</span>
+            <h2>账户登录</h2>
+            <span>使用内部账号进入 GEO 工作站。</span>
           </div>
 
           <el-alert
@@ -180,13 +160,8 @@ const submitLogin = async () => {
             </el-button>
           </el-form>
 
-          <div class="geo-login-status" aria-label="当前登录环境">
-            <span>{{ appStore.environmentLabel }}</span>
-            <span>API：{{ appStore.isProduction ? "正式 API" : "本地 / 待确认" }}</span>
-          </div>
-
           <p class="login-note geo-login-note">
-            当前为内部 MVP，暂不开放注册、找回密码、OAuth 或多租户能力。
+            当前为企业内部系统，暂不开放注册。
           </p>
         </section>
       </div>
@@ -197,20 +172,27 @@ const submitLogin = async () => {
 <style scoped>
 .geo-login-page {
   min-height: 100vh;
-  padding: clamp(22px, 4vw, 52px);
+  padding: clamp(20px, 4vw, 50px);
   background:
-    radial-gradient(circle at 18% 20%, rgb(0 112 243 / 7%), transparent 32%),
-    linear-gradient(#e5e7eb 1px, transparent 1px) 0 0 / 34px 34px,
-    linear-gradient(90deg, #e5e7eb 1px, transparent 1px) 0 0 / 34px 34px,
+    radial-gradient(circle at 18% 18%, rgb(37 99 235 / 4%), transparent 31%),
+    radial-gradient(circle at 78% 72%, rgb(14 165 233 / 3%), transparent 30%),
+    linear-gradient(rgb(226 232 240 / 32%) 1px, transparent 1px) 0 0 / 34px 34px,
+    linear-gradient(90deg, rgb(226 232 240 / 32%) 1px, transparent 1px) 0 0 / 34px 34px,
     var(--bg-app);
   color: var(--text-primary);
 }
 
 .geo-login-shell {
   display: grid;
-  gap: clamp(30px, 5vw, 64px);
-  width: min(100%, 1080px);
+  gap: clamp(24px, 4vw, 46px);
+  width: min(100%, 1180px);
   margin: 0 auto;
+}
+
+@media (min-width: 960px) {
+  .geo-login-brand {
+    margin-left: -38px;
+  }
 }
 
 .geo-login-brand {
@@ -239,37 +221,48 @@ const submitLogin = async () => {
 
 .geo-login-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-  gap: clamp(34px, 7vw, 86px);
+  grid-template-columns: minmax(0, 3fr) minmax(360px, 2fr);
+  gap: clamp(34px, 6vw, 74px);
   align-items: center;
-  min-height: calc(100vh - 150px);
+  min-height: calc(100vh - 126px);
+}
+
+.geo-login-context,
+.geo-login-mobile-intro {
+  display: grid;
+  min-width: 0;
 }
 
 .geo-login-context {
-  display: grid;
-  gap: 18px;
-  min-width: 0;
+  gap: 20px;
+}
+
+.geo-login-mobile-intro {
+  display: none;
+  gap: 8px;
 }
 
 .geo-login-eyebrow {
   margin: 0;
-  color: var(--text-muted);
+  color: #2563eb;
   font-size: 12px;
   font-weight: 650;
 }
 
-.geo-login-context h1 {
+.geo-login-context h1,
+.geo-login-mobile-intro h1 {
   max-width: 680px;
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(34px, 4vw, 56px);
+  font-size: clamp(36px, 4vw, 54px);
   font-weight: 760;
   letter-spacing: 0;
-  line-height: 1.06;
+  line-height: 1.08;
   text-wrap: balance;
 }
 
-.geo-login-context > p {
+.geo-login-context > p,
+.geo-login-mobile-intro p {
   max-width: 600px;
   margin: 0;
   color: var(--text-regular);
@@ -277,50 +270,15 @@ const submitLogin = async () => {
   line-height: 1.75;
 }
 
-.geo-login-feature-list {
-  display: grid;
-  gap: 0;
-  max-width: 620px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  list-style: none;
-  overflow: hidden;
-}
-
-.geo-login-feature-list li {
-  display: grid;
-  gap: 5px;
-  padding: 15px 16px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.geo-login-feature-list li:last-child {
-  border-bottom: 0;
-}
-
-.geo-login-feature-list strong {
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.geo-login-feature-list span {
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
 .geo-login-preview-board {
   display: grid;
-  gap: 12px;
-  max-width: 620px;
-  padding: 15px;
+  gap: 14px;
+  max-width: 680px;
+  padding: 18px;
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
+  border-radius: 10px;
   background: var(--bg-surface);
-  box-shadow: 0 18px 48px rgb(15 23 42 / 7%);
+  box-shadow: 0 22px 56px rgb(15 23 42 / 8%);
 }
 
 .geo-login-preview-top,
@@ -435,13 +393,13 @@ const submitLogin = async () => {
 
 .geo-login-card {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   width: 100%;
-  padding: 22px;
+  padding: 28px;
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
+  border-radius: 9px;
   background: var(--bg-surface);
-  box-shadow: 0 8px 30px rgb(0 0 0 / 4%);
+  box-shadow: 0 18px 44px rgb(15 23 42 / 8%);
 }
 
 .geo-login-card-head {
@@ -483,44 +441,24 @@ const submitLogin = async () => {
 }
 
 .geo-login-form :deep(.el-input__wrapper) {
-  min-height: 40px;
-  border-radius: var(--radius-md);
+  min-height: 42px;
+  border-radius: 6px;
   background: #ffffff;
-  box-shadow: 0 0 0 1px var(--border-light) inset;
+  box-shadow: 0 0 0 1px #e5e7eb inset;
 }
 
 .geo-login-form :deep(.el-input__wrapper.is-focus) {
   box-shadow:
-    0 0 0 1px var(--brand-primary) inset,
-    0 0 0 3px rgb(0 112 243 / 10%);
+    0 0 0 1px #2563eb inset,
+    0 0 0 2px rgb(37 99 235 / 10%);
 }
 
 .geo-login-submit {
   width: 100%;
-  min-height: 40px;
+  min-height: 42px;
   margin-top: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font-weight: 650;
-}
-
-.geo-login-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-light);
-}
-
-.geo-login-status span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-sm);
-  background: var(--bg-app);
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .geo-login-note {
@@ -540,6 +478,14 @@ const submitLogin = async () => {
     max-width: 440px;
   }
 
+  .geo-login-context {
+    display: none;
+  }
+
+  .geo-login-mobile-intro {
+    display: grid;
+  }
+
   .geo-login-preview-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -548,13 +494,23 @@ const submitLogin = async () => {
 @media (max-width: 560px) {
   .geo-login-page {
     padding: 18px 14px;
+    background:
+      radial-gradient(circle at 26% 14%, rgb(37 99 235 / 3%), transparent 34%),
+      linear-gradient(rgb(226 232 240 / 24%) 1px, transparent 1px) 0 0 / 32px 32px,
+      linear-gradient(90deg, rgb(226 232 240 / 24%) 1px, transparent 1px) 0 0 / 32px 32px,
+      var(--bg-app);
   }
 
-  .geo-login-context h1 {
-    font-size: 34px;
+  .geo-login-shell {
+    gap: 22px;
+  }
+
+  .geo-login-mobile-intro h1 {
+    font-size: 31px;
   }
 
   .geo-login-card {
+    max-width: none;
     padding: 18px;
   }
 
