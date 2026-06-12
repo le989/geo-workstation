@@ -101,7 +101,7 @@ type AssistantArticleStatus = "pending" | "running" | "copyable" | "needs_review
 
 const assistantStatusLabelMap: Record<AssistantArticleStatus, string> = {
   copyable: "可复制",
-  needs_review: "需人工检查",
+  needs_review: "需检查",
   pending: "待处理",
   running: "生成中"
 };
@@ -122,20 +122,20 @@ const contentOverviewStats = computed(() => {
   return [
     { label: "待处理", value: pendingCount, hint: "还没有生成文章" },
     { label: "生成中", value: runningCount, hint: "文章正在生成" },
-    { label: "可复制", value: copyableCount, hint: "发布检查已通过" },
-    { label: "需人工检查", value: reviewCount, hint: "存在风险词或需检查" }
+    { label: "需检查", value: reviewCount, hint: "存在风险词或需检查" },
+    { label: "可复制", value: copyableCount, hint: "发布检查已通过" }
   ];
 });
 const assistantStatusTabs = computed(() => [
   { label: "全部", status: "all" as const, value: tasks.value.length },
   { label: "待处理", status: "pending" as const, value: contentOverviewStats.value[0]?.value ?? 0 },
   { label: "生成中", status: "running" as const, value: contentOverviewStats.value[1]?.value ?? 0 },
-  { label: "可复制", status: "copyable" as const, value: contentOverviewStats.value[2]?.value ?? 0 },
   {
-    label: "需人工检查",
+    label: "需检查",
     status: "needs_review" as const,
-    value: contentOverviewStats.value[3]?.value ?? 0
-  }
+    value: contentOverviewStats.value[2]?.value ?? 0
+  },
+  { label: "可复制", status: "copyable" as const, value: contentOverviewStats.value[3]?.value ?? 0 }
 ]);
 const visibleAssistantTasks = computed(() => {
   if (activeAssistantStatus.value === "all") {
@@ -1043,12 +1043,21 @@ onMounted(() => {
       </div>
     </header>
 
-    <p class="content-inline-note core-inline-note">
-      发布前仍需人工核对事实、参数、引用和排版。
-    </p>
+    <nav class="content-metric-strip" aria-label="文章状态筛选">
+      <button
+        v-for="tab in assistantStatusTabs"
+        :key="tab.status"
+        type="button"
+        :class="{ 'is-active': activeAssistantStatus === tab.status }"
+        @click="activeAssistantStatus = tab.status"
+      >
+        <span>{{ tab.label }}</span>
+        <strong>{{ tab.value }}</strong>
+      </button>
+    </nav>
 
     <ContentTaskFilters
-      class="core-filter-bar"
+      class="content-asset-filter-bar core-filter-bar"
       :model-value="filters"
       :loading="loading"
       @update:model-value="Object.assign(filters, $event)"
@@ -1058,47 +1067,27 @@ onMounted(() => {
 
     <AppErrorState v-if="hasTableError" title="文章任务加载失败" :message="tableError" />
 
-    <el-card class="content-table-card article-workbench-list core-data-panel" shadow="never">
-      <template #header>
-        <div class="table-card-header">
-          <div>
-            <p class="section-kicker">内容队列</p>
-            <h2>待处理文章列表</h2>
-          </div>
-          <strong>{{ total }} 篇文章</strong>
-        </div>
-      </template>
-
-      <nav class="assistant-status-tabs" aria-label="文章状态筛选">
-        <button
-          v-for="tab in assistantStatusTabs"
-          :key="tab.status"
-          type="button"
-          :class="{ 'is-active': activeAssistantStatus === tab.status }"
-          @click="activeAssistantStatus = tab.status"
-        >
-          <span>{{ tab.label }}</span>
-          <strong>{{ tab.value }}</strong>
-        </button>
-      </nav>
-
-      <section v-loading="loading" class="assistant-article-list">
+    <section class="content-asset-panel article-workbench-list core-data-panel">
+      <section v-loading="loading" class="assistant-article-list content-asset-list">
         <article
           v-for="row in visibleAssistantTasks"
           :key="row.id"
-          class="assistant-article-card"
+          class="assistant-article-card content-asset-row"
           :class="`assistant-article-card--${resolveAssistantStatus(row)}`"
         >
-          <div class="assistant-article-card__content">
-            <div class="assistant-article-card__title-row">
-              <el-tag :type="getAssistantStatusTagType(row)" effect="plain">
-                {{ assistantStatusLabelMap[resolveAssistantStatus(row)] }}
-              </el-tag>
+          <div class="assistant-article-card__content content-asset-main">
+            <div class="assistant-article-card__title-row content-asset-title-row">
               <h3>{{ getAssistantArticleTitle(row) }}</h3>
             </div>
-            <p class="assistant-article-card__source">
-              {{ getTaskKnowledgeScopeSummary(row) }} · {{ formatDateTime(row.updatedAt) }}
-            </p>
+            <div class="content-asset-tag-row" aria-label="文章任务标签">
+              <span>{{ getTaskKnowledgeScopeSummary(row) }}</span>
+              <span>{{ formatOptional(row.productLine) }}</span>
+              <span>{{ row.generationType }}</span>
+              <span>{{ formatOptional(row.targetModel) }}</span>
+            </div>
+          </div>
+
+          <div class="content-asset-status">
             <p class="assistant-article-card__next">
               <i
                 :class="[
@@ -1113,87 +1102,99 @@ onMounted(() => {
                 ]"
                 aria-hidden="true"
               />
-              <strong>{{ getTaskNextAction(row) }}</strong>
+              <strong>{{ assistantStatusLabelMap[resolveAssistantStatus(row)] }}</strong>
             </p>
+            <span class="content-asset-status__hint">
+              {{ getTaskNextAction(row) }}
+            </span>
+            <el-tag :type="getAssistantStatusTagType(row)" effect="plain" size="small">
+              {{ row.primaryItem?.qualityCheckedAt ? "已检查" : "未检查" }}
+            </el-tag>
           </div>
 
-          <div class="assistant-article-card__actions">
-            <el-button
-              v-if="resolveAssistantStatus(row) === 'pending'"
-              type="primary"
-              :icon="MagicStick"
-              @click="handleRegenerateTask(row)"
-            >
-              生成文章
-            </el-button>
-            <el-button
-              v-else-if="resolveAssistantStatus(row) === 'running'"
-              type="primary"
-              loading
-              disabled
-            >
-              生成中
-            </el-button>
-            <el-button
-              v-else-if="resolveAssistantStatus(row) === 'copyable' && row.primaryItem"
-              type="primary"
-              :icon="DocumentCopy"
-              :loading="publishPackageExportingIds.includes(row.primaryItem.id)"
-              @click="handleCopyPublishPackage(row.primaryItem)"
-            >
-              复制富文本
-            </el-button>
-            <el-button
-              v-else-if="row.primaryItem"
-              type="warning"
-              :icon="MagicStick"
-              :loading="riskFixingIds.includes(row.primaryItem.id)"
-              @click="handleAutoFixRiskWords(row)"
-            >
-              自动修复
-            </el-button>
-            <el-button
-              v-if="resolveAssistantStatus(row) === 'copyable' || resolveAssistantStatus(row) === 'needs_review'"
-              plain
-              :icon="View"
-              @click="openDetailDrawer(row)"
-            >
-              打开文章
-            </el-button>
-            <el-dropdown
-              v-if="
-                canArchiveContentTask(row) ||
-                  (resolveAssistantStatus(row) === 'needs_review' && row.primaryItem)
-              "
-              class="assistant-card-more"
-              trigger="click"
-            >
-              <el-button text :icon="MoreFilled">更多</el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-if="resolveAssistantStatus(row) === 'needs_review' && row.primaryItem"
-                    :disabled="publishPackageExportingIds.includes(row.primaryItem.id)"
-                    @click="handleCopyDraftForEdit(row)"
-                  >
-                    复制草稿继续修改
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    v-if="resolveAssistantStatus(row) === 'needs_review' && canManageContentActions"
-                    @click="handleRegenerateTask(row)"
-                  >
-                    重新生成文章
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    v-if="canArchiveContentTask(row)"
-                    :disabled="isArchiving(row.id)"
-                    @click="handleArchiveTask(row)"
-                  >
-                    归档
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+          <div class="assistant-article-card__actions content-asset-actions">
+            <time :datetime="row.updatedAt">{{ formatDateTime(row.updatedAt) }}</time>
+            <div>
+              <el-button
+                v-if="resolveAssistantStatus(row) === 'pending'"
+                type="primary"
+                :icon="MagicStick"
+                @click="handleRegenerateTask(row)"
+              >
+                生成文章
+              </el-button>
+              <el-button
+                v-else-if="resolveAssistantStatus(row) === 'running'"
+                type="primary"
+                loading
+                disabled
+              >
+                生成中
+              </el-button>
+              <el-button
+                v-else-if="resolveAssistantStatus(row) === 'copyable' && row.primaryItem"
+                type="primary"
+                :icon="DocumentCopy"
+                :loading="publishPackageExportingIds.includes(row.primaryItem.id)"
+                @click="handleCopyPublishPackage(row.primaryItem)"
+              >
+                复制富文本
+              </el-button>
+              <el-button
+                v-else-if="row.primaryItem"
+                type="warning"
+                :icon="MagicStick"
+                :loading="riskFixingIds.includes(row.primaryItem.id)"
+                @click="handleAutoFixRiskWords(row)"
+              >
+                自动修复
+              </el-button>
+              <el-button
+                v-if="
+                  resolveAssistantStatus(row) === 'copyable' ||
+                    resolveAssistantStatus(row) === 'needs_review'
+                "
+                plain
+                :icon="View"
+                @click="openDetailDrawer(row)"
+              >
+                打开文章
+              </el-button>
+              <el-dropdown
+                v-if="
+                  canArchiveContentTask(row) ||
+                    (resolveAssistantStatus(row) === 'needs_review' && row.primaryItem)
+                "
+                class="assistant-card-more"
+                trigger="click"
+              >
+                <el-button text :icon="MoreFilled">更多</el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-if="resolveAssistantStatus(row) === 'needs_review' && row.primaryItem"
+                      :disabled="publishPackageExportingIds.includes(row.primaryItem.id)"
+                      @click="handleCopyDraftForEdit(row)"
+                    >
+                      复制草稿继续修改
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="resolveAssistantStatus(row) === 'needs_review' && canManageContentActions"
+                      @click="handleRegenerateTask(row)"
+                    >
+                      重新生成文章
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="canArchiveContentTask(row)"
+                      :disabled="isArchiving(row.id)"
+                      @click="handleArchiveTask(row)"
+                    >
+                      归档
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </div>
         </article>
 
@@ -1214,7 +1215,7 @@ onMounted(() => {
           @size-change="handlePageSizeChange"
         />
       </div>
-    </el-card>
+    </section>
 
     <el-collapse class="content-workflow-collapse content-workflow-collapse--secondary">
       <el-collapse-item title="任务状态和内容生产流程说明" name="workflow">
