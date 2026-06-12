@@ -177,6 +177,16 @@ const getTemplateSummary = (template: InstructionTemplate) => {
   return summary.length > 76 ? `${summary.slice(0, 76)}...` : summary;
 };
 
+// 只整理已有适用范围字段，方便资产行阅读，不新增模板状态。
+const getTemplateScopeSummary = (template: InstructionTemplate) => {
+  const modelName = formatInstructionModelName(template.targetModel);
+  const promptType = template.targetPromptType
+    ? targetPromptTypeLabelMap[template.targetPromptType]
+    : "全部提示词";
+
+  return `${modelName} · ${promptType}`;
+};
+
 const buildQuery = (): InstructionTemplateQuery => ({
   contentType: trimOptional(filters.contentType),
   createdBy: trimOptional(filters.createdBy),
@@ -387,144 +397,89 @@ onMounted(() => {
 
     <AppErrorState v-if="hasTableError" title="指令模板加载失败" :message="tableError" />
 
-    <section class="instruction-table-panel">
+    <section v-loading="loading" class="instruction-table-panel">
       <div class="instruction-table-header">
-        <div>
-          <p class="section-kicker">可复用方法</p>
-          <h2>GEO 指令模板列表</h2>
-        </div>
+        <span>GEO 指令模板</span>
+        <strong>{{ total }} 条模板</strong>
       </div>
 
-      <el-table
-        v-loading="loading"
-        :data="templates"
-        class="instruction-template-table"
-        row-key="id"
-        border
-        empty-text="暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材、对比与替代或 FAQ 指令。"
-      >
-        <el-table-column type="expand" width="44">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            <div class="instruction-row-detail">
-              <section>
-                <p class="section-kicker">适用范围</p>
-                <dl>
-                  <div>
-                    <dt>适用模型</dt>
-                    <dd>{{ formatInstructionModelName(row.targetModel) }}</dd>
-                  </div>
-                  <div>
-                    <dt>适用提示词</dt>
-                    <dd>
-                      {{
-                        row.targetPromptType
-                          ? targetPromptTypeLabelMap[row.targetPromptType]
-                          : "全部提示词"
-                      }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>指令类型细分</dt>
-                    <dd>{{ instructionTypeLabelMap[row.instructionType] ?? row.instructionType }}</dd>
-                  </div>
-                </dl>
-              </section>
-              <section>
-                <p class="section-kicker">排查信息</p>
-                <dl>
-                  <div>
-                    <dt>创建时间</dt>
-                    <dd>{{ formatDateTime(row.createdAt) }}</dd>
-                  </div>
-                  <div>
-                    <dt>创建人</dt>
-                    <dd>{{ formatOptional(row.createdBy) }}</dd>
-                  </div>
-                </dl>
-              </section>
+      <div v-if="templates.length > 0" class="instruction-asset-list">
+        <article v-for="template in templates" :key="template.id" class="instruction-asset-row">
+          <div class="instruction-asset-main">
+            <strong class="instruction-main-text">{{ template.name }}</strong>
+            <p>{{ getTemplateSummary(template) }}</p>
+            <div class="instruction-asset-tags">
+              <span>{{ getTemplateScenario(template) }}</span>
+              <span>{{ contentTypeLabelMap[template.contentType] ?? template.contentType }}</span>
+              <span>{{ getTemplateScopeSummary(template) }}</span>
+              <span>创建人：{{ formatOptional(template.createdBy) }}</span>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="指令模板" min-width="260" fixed="left">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            <div class="instruction-name-cell">
-              <strong class="instruction-main-text">{{ row.name }}</strong>
-              <span>{{ getTemplateSummary(row) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="使用场景" min-width="190">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            <span class="instruction-scenario">{{ getTemplateScenario(row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="内容类型" min-width="126">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            <el-tag class="instruction-content-type-tag" effect="plain">
-              {{ contentTypeLabelMap[row.contentType] ?? row.contentType }}
+          </div>
+
+          <div class="instruction-asset-status">
+            <el-tag :type="visibilityTagTypeMap[template.visibility]" effect="plain">
+              {{ visibilityLabelMap[template.visibility] }}
             </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="visibility" label="可见性" width="104">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            <el-tag :type="visibilityTagTypeMap[row.visibility]" effect="plain">
-              {{ visibilityLabelMap[row.visibility] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="规则状态" min-width="180">
-          <template #default="{ row }: { row: InstructionTemplate }">
             <div class="instruction-rule-tags">
               <el-tag
                 class="instruction-rule-tag"
-                :type="hasBrandAnchor(row) ? 'success' : 'info'"
+                :type="hasBrandAnchor(template) ? 'success' : 'info'"
                 effect="plain"
               >
-                {{ hasBrandAnchor(row) ? "品牌锚点" : "无品牌锚点" }}
+                {{ hasBrandAnchor(template) ? "品牌锚点" : "无品牌锚点" }}
               </el-tag>
               <el-tag
                 class="instruction-rule-tag"
-                :type="hasFactBoundary(row) ? 'warning' : 'info'"
+                :type="hasFactBoundary(template) ? 'warning' : 'info'"
                 effect="plain"
               >
-                {{ hasFactBoundary(row) ? "事实边界" : "未标事实边界" }}
+                {{ hasFactBoundary(template) ? "事实边界" : "未标事实边界" }}
               </el-tag>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updatedAt" label="更新时间" min-width="168">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            {{ formatDateTime(row.updatedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right">
-          <template #default="{ row }: { row: InstructionTemplate }">
-            <el-button link type="primary" @click="openDetailDrawer(row)">查看</el-button>
-            <el-button v-if="canManageTemplate(row)" link type="primary" @click="openEditDialog(row)">
-              编辑
-            </el-button>
-            <el-button v-if="canCreateTemplate" link class="instruction-secondary-action" @click="openDuplicateDialog(row)">
-              复制为我的
-            </el-button>
-            <el-button v-if="canManageTemplate(row)" link class="instruction-danger-action" @click="handleDelete(row)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty
-            :description="
-              isEmpty
-                ? '暂无 GEO 指令模板，可先创建需求决策指南、AI 问答素材、对比与替代或 FAQ 指令。'
-                : '正在加载 GEO 指令模板'
-            "
-          >
-            <template #image>
-              <div class="empty-mark">GEO</div>
-            </template>
-          </el-empty>
-        </template>
-      </el-table>
+          </div>
+
+          <div class="instruction-asset-side">
+            <span>{{ formatDateTime(template.updatedAt) }}</span>
+            <small>{{ formatDateTime(template.createdAt) }} 创建</small>
+            <div class="instruction-asset-actions">
+              <el-button link type="primary" @click="openDetailDrawer(template)">查看</el-button>
+              <el-button
+                v-if="canManageTemplate(template)"
+                link
+                type="primary"
+                @click="openEditDialog(template)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                v-if="canCreateTemplate"
+                link
+                class="instruction-secondary-action"
+                @click="openDuplicateDialog(template)"
+              >
+                复制为我的
+              </el-button>
+              <el-button
+                v-if="canManageTemplate(template)"
+                link
+                class="instruction-danger-action"
+                @click="handleDelete(template)"
+              >
+                删除
+              </el-button>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div v-if="isEmpty && !hasTableError" class="instruction-empty-state">
+        <span>GEO</span>
+        <strong>暂无 GEO 指令模板</strong>
+        <p>可先创建需求决策指南、AI 问答素材、对比与替代或 FAQ 指令。</p>
+        <el-button v-if="canCreateTemplate" type="primary" size="small" @click="openCreateDialog">
+          新建指令模板
+        </el-button>
+      </div>
 
       <div class="instruction-pagination">
         <span>共 {{ total }} 条 GEO 指令模板</span>
@@ -564,3 +519,195 @@ onMounted(() => {
     />
   </section>
 </template>
+
+<style scoped>
+.instruction-table-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--geo-border);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.instruction-table-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  color: var(--geo-muted);
+  font-size: 13px;
+}
+
+.instruction-table-header strong {
+  color: #13243a;
+  font-weight: 700;
+}
+
+.instruction-asset-list {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  border-top: 1px solid #e5edf5;
+}
+
+.instruction-asset-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid #e5edf5;
+}
+
+.instruction-asset-row:hover {
+  background: #f8fafc;
+}
+
+.instruction-asset-main {
+  display: grid;
+  flex: 1;
+  gap: 7px;
+  min-width: 0;
+}
+
+.instruction-main-text {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #13243a;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.instruction-asset-main p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.instruction-asset-tags,
+.instruction-rule-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.instruction-asset-tags span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 260px;
+  min-height: 22px;
+  padding: 0 7px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.instruction-asset-status {
+  display: grid;
+  flex-shrink: 0;
+  gap: 8px;
+  width: 220px;
+  min-width: 0;
+}
+
+.instruction-asset-status :deep(.el-tag) {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.instruction-asset-side {
+  display: grid;
+  flex-shrink: 0;
+  justify-items: flex-end;
+  gap: 7px;
+  width: 230px;
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  text-align: right;
+}
+
+.instruction-asset-side small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.instruction-asset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.instruction-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-height: 150px;
+  padding: 22px 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+.instruction-empty-state span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.instruction-empty-state strong {
+  color: #13243a;
+  font-size: 15px;
+}
+
+.instruction-empty-state p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .instruction-asset-row {
+    display: grid;
+    gap: 12px;
+  }
+
+  .instruction-asset-status,
+  .instruction-asset-side {
+    width: 100%;
+    justify-items: flex-start;
+    text-align: left;
+  }
+
+  .instruction-asset-actions {
+    justify-content: flex-start;
+  }
+}
+</style>
