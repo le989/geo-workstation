@@ -181,9 +181,9 @@ const systemInfoItems = computed(() => [
   { label: "当前用户", value: currentUser.value?.name ?? "--" },
   { label: "角色", value: getRoleLabel(authStore.currentRole ?? currentUser.value?.role) },
   { label: "公司", value: authStore.currentCompany?.name ?? "--" },
-  { label: "运行环境", value: appStore.environmentLabel },
-  { label: "API 地址", value: appStore.apiBaseUrl || "同域 /api" },
-  { label: "当前版本", value: "内部 MVP" }
+  { label: "运行模式", value: appStore.environmentLabel },
+  { label: "接口地址", value: appStore.apiBaseUrl || "同域 /api" },
+  { label: "当前版本", value: "内部版" }
 ]);
 
 const resetForm = () => {
@@ -858,7 +858,7 @@ watch(
         <template #header>
           <div class="settings-card-header">
             <div>
-              <p class="section-kicker">模型 / API 配置状态</p>
+              <p class="section-kicker">模型 / 接口配置状态</p>
               <h2>Provider 状态只读</h2>
               <span>
                 Provider 状态仅用于查看当前环境配置；API Key 只允许在后端 .env 配置，前端不保存密钥，也不展示 Secret 或 Token。

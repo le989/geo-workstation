@@ -616,7 +616,7 @@ const scenarioTags = [
         <span>{{ dashboardScopeText }}</span>
       </div>
       <div class="dashboard-refresh-header-actions">
-        <small>本地 smoke 数据 · 非正式线上结论</small>
+        <small>内部数据 · 仅供运营复盘</small>
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
         <el-button :icon="Refresh" :loading="loading" type="primary" @click="loadDashboard">
           刷新

@@ -275,7 +275,7 @@ const handleCompanyCommand = (command: string | number | object) => {
             <span>{{ authStore.currentCompany.name }}</span>
           </el-tag>
           <el-tooltip :content="appStore.healthUrl" placement="bottom">
-            <el-button class="header-status-button" :icon="Connection" plain>API 状态</el-button>
+            <el-button class="header-status-button" :icon="Connection" plain>接口状态</el-button>
           </el-tooltip>
           <el-dropdown
             v-if="authStore.currentUser"

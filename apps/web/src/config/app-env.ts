@@ -27,14 +27,14 @@ export function deriveEnvironmentLabel(env: AppEnv, explicitLabel?: string): str
   }
 
   if (env === "production") {
-    return "正式环境 / API";
+    return "系统状态";
   }
 
   if (env === "smoke") {
-    return "测试环境 / Smoke";
+    return "内部版";
   }
 
-  return "开发环境 / Mock";
+  return "内部版";
 }
 
 export function resolveMockEnabled(env: AppEnv, rawValue?: string): boolean {

@@ -77,7 +77,7 @@ const previewChecks = ["官网引用", "产品参数", "应用场景", "竞品�
 
     <section class="home-entry-hero">
       <div class="home-entry-hero-copy">
-        <p class="home-entry-eyebrow">AI visibility operations</p>
+        <p class="home-entry-eyebrow">GEO 运营系统</p>
         <h1>AI 可见度与 GEO 运营工作站</h1>
         <p>
           用一套清楚的运营闭环判断品牌有没有被 AI 推荐，以及下一步该补问法、
@@ -164,7 +164,7 @@ const previewChecks = ["官网引用", "产品参数", "应用场景", "竞品�
     </section>
 
     <footer class="home-entry-footer">
-      <span>内部 MVP · 本地 smoke 数据不代表正式线上结果</span>
+      <span>企业内部系统 · 数据仅供内部运营参考</span>
       <RouterLink to="/help">查看使用教程</RouterLink>
     </footer>
   </main>

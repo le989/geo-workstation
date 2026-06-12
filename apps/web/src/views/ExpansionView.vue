@@ -233,7 +233,7 @@ const goGeoPrompts = () => {
           拓词需确认模型调用边界。
         </p>
         <div class="expansion-boundary-list" aria-label="AI 拓词操作边界">
-          <span>规则拓词：本地组合</span>
+          <span>规则拓词：组合规则</span>
           <span>AI 拓词：确认 Provider</span>
           <span>保存候选：写入词库</span>
         </div>

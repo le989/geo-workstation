@@ -48,8 +48,8 @@ const providerSafetyAlert = computed(() =>
   form.provider === "openai_compatible"
     ? "真实 AI 接口：会调用外部模型，可能产生额度消耗。"
     : !appEnvironment.mockEnabled
-      ? "正式环境已禁用内部 Mock 生成。"
-    : "内部生成：使用本地规则，不消耗真实模型额度。"
+      ? "当前运行模式已禁用内部候选生成。"
+    : "内部生成：使用规则候选，不消耗真实模型额度。"
 );
 const providerActionBoundaryText = computed(() =>
   form.provider === "openai_compatible"

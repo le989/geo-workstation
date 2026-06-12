@@ -183,9 +183,9 @@ export const navigationItems: GeoPageMeta[] = [
     label: "使用统计",
     title: "使用统计",
     question: "AI 调用和 token 使用集中在哪些模块？",
-    description: "查看 AI / mock / stub 调用次数、token、用户、部门和模块维度统计。",
+    description: "查看 AI 调用次数、token、用户、部门和模块维度统计。",
     phaseNote: "USAGE-1 只记录统一统计，不做额度限制、扣费或真实 Provider 接入。",
-    nextSteps: ["查看日周月调用", "按模块、用户和部门复盘", "确认 mock / stub 调用规模"],
+    nextSteps: ["查看日周月调用", "按模块、用户和部门复盘", "确认基础生成调用规模"],
     apiFocus: "已联调 /api/usage/summary、/api/usage/trends 和聚合接口。",
     icon: PieChart,
     allowedRoles: ["platform_admin", "company_admin"]

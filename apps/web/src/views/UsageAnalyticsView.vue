@@ -244,7 +244,7 @@ onMounted(() => {
         <div class="metric-card">
           <span>今日调用</span>
           <strong>{{ formatNumber(todaySummary.totalRequests) }}</strong>
-          <small>mock {{ formatNumber(todaySummary.mockRequests) }}</small>
+          <small>基础模式 {{ formatNumber(todaySummary.mockRequests) }}</small>
         </div>
         <div class="metric-card">
           <span>本周调用</span>
@@ -262,7 +262,7 @@ onMounted(() => {
           <small>请求 {{ formatNumber(summary.totalRequests) }}</small>
         </div>
         <div class="metric-card">
-          <span>mock 调用</span>
+          <span>基础生成模式</span>
           <strong>{{ formatNumber(summary.mockRequests) }}</strong>
           <small>token 记 0</small>
         </div>
@@ -436,7 +436,7 @@ onMounted(() => {
             </el-table-column>
             <el-table-column prop="totalRequests" label="调用次数" width="120" />
             <el-table-column prop="totalTokens" label="Token" width="120" />
-            <el-table-column prop="mockRequests" label="Mock" width="120" />
+            <el-table-column prop="mockRequests" label="基础模式" width="120" />
             <el-table-column prop="realRequests" label="真实" width="120" />
             <el-table-column prop="failureCount" label="失败" width="120" />
           </el-table>
@@ -449,7 +449,7 @@ onMounted(() => {
             </el-table-column>
             <el-table-column prop="totalRequests" label="调用次数" width="120" />
             <el-table-column prop="totalTokens" label="Token" width="120" />
-            <el-table-column prop="mockRequests" label="Mock" width="120" />
+            <el-table-column prop="mockRequests" label="基础模式" width="120" />
             <el-table-column prop="failureCount" label="失败" width="120" />
           </el-table>
         </el-tab-pane>
@@ -463,7 +463,7 @@ onMounted(() => {
             </el-table-column>
             <el-table-column prop="totalRequests" label="调用次数" width="120" />
             <el-table-column prop="totalTokens" label="Token" width="120" />
-            <el-table-column prop="mockRequests" label="Mock" width="120" />
+            <el-table-column prop="mockRequests" label="基础模式" width="120" />
             <el-table-column prop="failureCount" label="失败" width="120" />
           </el-table>
         </el-tab-pane>
@@ -473,7 +473,7 @@ onMounted(() => {
             <el-table-column prop="period" label="周期" min-width="140" />
             <el-table-column prop="totalRequests" label="调用次数" width="120" />
             <el-table-column prop="totalTokens" label="Token" width="120" />
-            <el-table-column prop="mockRequests" label="Mock" width="120" />
+            <el-table-column prop="mockRequests" label="基础模式" width="120" />
             <el-table-column prop="realRequests" label="真实" width="120" />
             <el-table-column prop="failureCount" label="失败" width="120" />
           </el-table>
