@@ -79,7 +79,10 @@ import {
   type RecordAiCallLogInput
 } from "../usage/ai-call-logs.service";
 import { AiUsageService } from "../usage/ai-usage.service";
-import { OperationLogsService } from "../usage/operation-logs.service";
+import {
+  OperationLogsService,
+  type RecordOperationInput
+} from "../usage/operation-logs.service";
 import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
 
 export type GeneratedContentItemResponse = {
@@ -353,6 +356,25 @@ export class ContentItemsService {
       },
       data
     });
+    await this.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "geo_content.article.updated",
+        targetType: "content_item",
+        targetId: updated.id,
+        targetTitle: updated.title,
+        success: true,
+        metadata: {
+          taskId: updated.taskId,
+          contentItemId: updated.id,
+          statusBefore: existing.status,
+          statusAfter: updated.status,
+          changedFields: this.buildChangedFields(normalized),
+          wordCountRange: this.buildWordCountRange(updated.body)
+        }
+      },
+      context
+    );
 
     return this.toResponse(updated);
   }
@@ -384,6 +406,23 @@ export class ContentItemsService {
         deletedAt: new Date()
       }
     });
+    await this.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "geo_content.article.deleted",
+        targetType: "content_item",
+        targetId: deleted.id,
+        targetTitle: deleted.title,
+        success: true,
+        metadata: {
+          taskId: deleted.taskId,
+          contentItemId: deleted.id,
+          statusBefore: existing.status,
+          statusAfter: "deleted"
+        }
+      },
+      context
+    );
 
     return {
       id,
@@ -1146,6 +1185,22 @@ export class ContentItemsService {
     const aiCallLogsService = this.aiCallLogsService ?? new AiCallLogsService(this.prisma);
 
     await aiCallLogsService.recordAiCallLog(input, context);
+  }
+
+  private async recordOperation(
+    input: RecordOperationInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const operationLogsService =
+      this.operationLogsService ?? new OperationLogsService(this.prisma);
+
+    await operationLogsService.recordOperation(input, context);
+  }
+
+  private buildChangedFields(input: Record<string, unknown>): string[] {
+    return Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([field]) => field);
   }
 
   private async loadQualityContext(

@@ -44,6 +44,10 @@ import {
   type ResourceAccessContext
 } from "../auth/auth-policy";
 import { AiUsageService } from "../usage/ai-usage.service";
+import {
+  OperationLogsService,
+  type RecordOperationInput
+} from "../usage/operation-logs.service";
 import { assertMockProviderAllowed } from "../ai/ai-provider-policy";
 import {
   assertCanManageCompanyTask,
@@ -138,7 +142,10 @@ export class GeoAnalysisTasksService {
     private readonly aiUsageService?: AiUsageService,
     @Optional()
     @Inject(ConfigService)
-    private readonly configService?: ConfigService
+    private readonly configService?: ConfigService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
   ) {}
 
   async findMany(
@@ -222,6 +229,25 @@ export class GeoAnalysisTasksService {
             })
       }
     });
+    // 只记录分析任务创建摘要，不记录提示词、模型回答或客户原文。
+    await this.recordOperation(
+      {
+        moduleKey: "geo-analysis",
+        action: "geo_analysis.task.created",
+        targetType: "geo_analysis_task",
+        targetId: task.id,
+        targetTitle: task.name,
+        success: true,
+        metadata: {
+          taskId: task.id,
+          analysisType: "geo_analysis",
+          questionCount: normalized.baseWords.length,
+          modelCount: normalized.targetModels.length,
+          statusAfter: task.status
+        }
+      },
+      context
+    );
 
     return this.toTaskResponse(task);
   }
@@ -279,6 +305,24 @@ export class GeoAnalysisTasksService {
           : {})
       }
     });
+    // 只记录变更字段和状态摘要，避免把分析输入原文写入审计日志。
+    await this.recordOperation(
+      {
+        moduleKey: "geo-analysis",
+        action: "geo_analysis.task.updated",
+        targetType: "geo_analysis_task",
+        targetId: updated.id,
+        targetTitle: updated.name,
+        success: true,
+        metadata: {
+          taskId: updated.id,
+          changedFields: this.buildChangedFields(normalized),
+          statusBefore: task.status,
+          statusAfter: updated.status
+        }
+      },
+      context
+    );
 
     return this.toTaskResponse(updated);
   }
@@ -317,6 +361,22 @@ export class GeoAnalysisTasksService {
           : {})
       }
     });
+    await this.recordOperation(
+      {
+        moduleKey: "geo-analysis",
+        action: "geo_analysis.task.archived",
+        targetType: "geo_analysis_task",
+        targetId: archived.id,
+        targetTitle: archived.name,
+        success: true,
+        metadata: {
+          taskId: archived.id,
+          statusBefore: task.status,
+          statusAfter: archived.status
+        }
+      },
+      context
+    );
 
     return this.toTaskResponse(archived);
   }
@@ -399,6 +459,26 @@ export class GeoAnalysisTasksService {
         },
         context
       );
+      // 运行审计只写摘要，模型 rawAnswer 保留在业务结果表，不进入 operation_logs。
+      await this.recordOperation(
+        {
+          moduleKey: "geo-analysis",
+          action: "geo_analysis.task.run_completed",
+          targetType: "geo_analysis_task",
+          targetId: runningTask.id,
+          targetTitle: runningTask.name,
+          success: true,
+          metadata: {
+            taskId: runningTask.id,
+            modelCount: mockResult.modelResults.length,
+            questionCount: mockResult.promptSuggestions.length,
+            statusBefore: task.status,
+            statusAfter: TaskStatus.succeeded,
+            runStatus: TaskStatus.succeeded
+          }
+        },
+        context
+      );
 
       return this.getDetail(id, context);
     } catch (error) {
@@ -426,6 +506,25 @@ export class GeoAnalysisTasksService {
           errorMessage: error,
           metadata: {
             taskId: id
+          }
+        },
+        context
+      );
+      await this.recordOperation(
+        {
+          moduleKey: "geo-analysis",
+          action: "geo_analysis.task.run_failed",
+          targetType: "geo_analysis_task",
+          targetId: id,
+          targetTitle: task.name,
+          success: false,
+          errorMessage: error,
+          metadata: {
+            taskId: id,
+            statusBefore: task.status,
+            statusAfter: TaskStatus.failed,
+            runStatus: TaskStatus.failed,
+            errorCode: error instanceof Error ? error.name : "UnknownError"
           }
         },
         context
@@ -809,6 +908,22 @@ export class GeoAnalysisTasksService {
     }
 
     return this.toStringArray(value).includes(targetModel);
+  }
+
+  private async recordOperation(
+    input: RecordOperationInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const operationLogsService =
+      this.operationLogsService ?? new OperationLogsService(this.prisma);
+
+    await operationLogsService.recordOperation(input, context);
+  }
+
+  private buildChangedFields(input: Record<string, unknown>): string[] {
+    return Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([field]) => field);
   }
 
   private extractBaseWords(summary: unknown): string[] {
