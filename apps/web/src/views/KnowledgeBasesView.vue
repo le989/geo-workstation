@@ -1144,14 +1144,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="knowledge-page core-list-page">
-    <header class="knowledge-workbench-bar core-list-header">
+  <section class="knowledge-page core-list-page kb-page">
+    <header class="knowledge-workbench-bar core-list-header kb-topbar">
       <div class="knowledge-workbench-bar__main">
         <div class="knowledge-workbench-titleline">
-          <h1>
-            <span>当前知识库</span>
-            {{ selectedKnowledgeBase?.name ?? "未选择" }}
-          </h1>
+          <span class="kb-topbar__eyebrow">当前知识库</span>
+          <h1>{{ selectedKnowledgeBase?.name ?? "未选择" }}</h1>
           <div class="knowledge-workbench-meta-line" aria-label="当前知识库摘要">
             <template v-if="selectedKnowledgeBase">
               <span v-for="item in workspaceSummaryItems" :key="item.label">
@@ -1163,7 +1161,7 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      <div class="knowledge-workbench-actions">
+      <div class="knowledge-workbench-actions kb-topbar__actions">
         <div class="knowledge-workbench-switcher">
           <span>切换知识库</span>
           <el-select
@@ -1186,7 +1184,7 @@ onMounted(async () => {
         <el-button :icon="Refresh" :loading="loading" @click="loadKnowledgeBases">
           刷新
         </el-button>
-        <el-button v-if="canCreateKnowledgeBase" @click="openCreateDialog">
+        <el-button v-if="canCreateKnowledgeBase" type="primary" @click="openCreateDialog">
           新建知识库
         </el-button>
       </div>
@@ -1202,7 +1200,7 @@ onMounted(async () => {
       </el-empty>
     </section>
 
-    <section v-else class="knowledge-workbench-shell knowledge-workbench-main core-data-panel">
+    <section v-else class="knowledge-workbench-shell knowledge-workbench-main core-data-panel kb-shell">
       <KnowledgeBaseDetailDrawer
         v-if="selectedKnowledgeBaseId"
         v-model:active-tab="activeTab"

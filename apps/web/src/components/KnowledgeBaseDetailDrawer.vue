@@ -683,7 +683,7 @@ const submitDirectoryForm = () => {
 
         <el-tabs
           :model-value="activeTab === 'text-import' ? 'files' : activeTab"
-          class="knowledge-section-tabs"
+          class="knowledge-section-tabs kb-tabs"
           @tab-change="emit('update:activeTab', $event as 'chunks' | 'files')"
         >
           <el-tab-pane label="知识片段" name="chunks">
@@ -775,12 +775,13 @@ const submitDirectoryForm = () => {
           </el-tab-pane>
 
           <el-tab-pane label="资料" name="files">
-            <div class="knowledge-directory-layout">
-              <aside v-loading="directoriesLoading" class="knowledge-directory-sidebar">
+            <div class="knowledge-directory-layout kb-split-layout">
+              <aside v-loading="directoriesLoading" class="knowledge-directory-sidebar kb-sidebar">
                 <div class="knowledge-directory-sidebar__header">
                   <div>
-                    <p class="section-kicker">知识库目录</p>
-                    <h3>按资料目录查看资料</h3>
+                    <p class="section-kicker">目录</p>
+                    <h3>资料导航</h3>
+                    <span class="kb-sidebar__current">当前：{{ currentDirectoryTitle }}</span>
                   </div>
                   <div class="knowledge-directory-sidebar__actions">
                     <el-button v-if="canManage" size="small" text @click="openDirectoryManager">
@@ -853,20 +854,20 @@ const submitDirectoryForm = () => {
                 <el-empty v-else description="暂无目录，可先使用默认根目录。" :image-size="72" />
               </aside>
 
-              <section class="knowledge-tab-panel knowledge-file-workspace">
-                <div class="knowledge-tab-header">
+              <section class="knowledge-tab-panel knowledge-file-workspace kb-main">
+                <div class="knowledge-tab-header kb-main-toolbar">
                   <div>
                     <p class="section-kicker">当前目录</p>
-                    <h3>当前目录资料</h3>
+                    <h3>{{ currentDirectoryTitle }}</h3>
                   </div>
-                  <div class="knowledge-file-toolbar">
+                  <div class="knowledge-file-toolbar kb-main-toolbar__actions">
                     <div class="knowledge-primary-actions">
                       <el-button
                         v-if="canManage"
                         type="primary"
                         @click="openIngestWizard('upload')"
                       >
-                        上传资料
+                        + 上传资料
                       </el-button>
                       <el-button
                         v-if="canManage"
@@ -904,9 +905,8 @@ const submitDirectoryForm = () => {
                   </div>
                 </div>
 
-                <section class="knowledge-current-directory">
+                <section class="knowledge-current-directory kb-directory-context">
                   <div class="knowledge-current-directory__main">
-                    <p class="section-kicker">当前目录</p>
                     <div class="knowledge-current-directory__title">
                       <h3>{{ currentDirectoryTitle }}</h3>
                       <el-tag
@@ -926,13 +926,7 @@ const submitDirectoryForm = () => {
                         已停用
                       </el-tag>
                     </div>
-                    <p>
-                      {{
-                        selectedDirectory
-                          ? "只看当前目录资料。"
-                          : "显示全部目录资料。"
-                      }}
-                    </p>
+                    <p>{{ selectedDirectory ? "只看当前目录资料。" : "显示全部目录资料。" }}</p>
                   </div>
                   <div class="knowledge-directory-breadcrumb" aria-label="目录路径">
                     <span>目录路径</span>
@@ -976,7 +970,7 @@ const submitDirectoryForm = () => {
                   />
                 </section>
 
-                <el-form class="knowledge-inner-filters knowledge-inner-filters--basic" label-position="top">
+                <el-form class="knowledge-inner-filters knowledge-inner-filters--basic kb-main-filterbar" label-position="top">
                   <el-form-item label="搜索资料">
                     <el-input
                       v-model="fileFilters.search"

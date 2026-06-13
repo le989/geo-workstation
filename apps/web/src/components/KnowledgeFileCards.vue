@@ -61,117 +61,66 @@ const isForbiddenEvidence = (file: KnowledgeFile) =>
 </script>
 
 <template>
-  <div v-loading="loading" class="knowledge-file-card-list">
+  <div v-loading="loading" class="knowledge-file-card-list kb-asset-list">
     <el-empty v-if="!loading && files.length === 0" description="没有符合条件的资料">
       <template #image>
         <div class="empty-mark">KB</div>
       </template>
     </el-empty>
 
-    <article v-for="file in files" :key="file.id" class="knowledge-file-card">
-      <div class="knowledge-file-card__main">
-        <div class="knowledge-file-card__title-row">
-          <div>
-            <h4>{{ file.title || file.fileName }}</h4>
-            <p>{{ file.fileName }}</p>
-          </div>
-          <el-tag
-            :type="isKnowledgeFileOfficiallyCitable(file) ? 'success' : 'warning'"
-            effect="plain"
-          >
-            {{ getKnowledgeFileCitationLabel(file) }}
-          </el-tag>
+    <article v-for="file in files" :key="file.id" class="knowledge-file-card kb-asset-row">
+      <div class="knowledge-file-card__main kb-asset-row__main">
+        <h4>{{ file.title || file.fileName }}</h4>
+        <p class="kb-asset-row__subtitle">{{ file.fileName }}</p>
+
+        <div class="kb-asset-row__meta-line" aria-label="资料摘要">
+          <span>{{ materialTypeLabelMap[file.materialType] ?? file.materialType }}</span>
+          <span>{{ formatDirectoryName(file, knowledgeBaseName) }}</span>
+          <span>{{ sourceTypeLabelMap[file.sourceType] ?? file.sourceType }} / {{ file.fileType }}</span>
+          <span>{{ formatFileSize(file.fileSize) }}</span>
+          <span>更新 {{ formatDateTime(file.updatedAt) }}</span>
         </div>
 
-        <div v-if="displayMode === 'management'" class="knowledge-file-card__tags">
-          <el-tag size="small" effect="plain">
-            {{ materialTypeLabelMap[file.materialType] ?? file.materialType }}
-          </el-tag>
-          <el-tag size="small" type="info" effect="plain">
-            {{ formatMaterialTopic(file.materialTopic) }}
-          </el-tag>
-          <el-tag size="small" type="info" effect="plain">
-            {{ reviewStatusLabelMap[file.reviewStatus] ?? file.reviewStatus }}
-          </el-tag>
-          <el-tag size="small" type="info" effect="plain">
-            可靠程度 {{ trustLevelLabelMap[file.trustLevel] ?? file.trustLevel }}
-          </el-tag>
-        </div>
-
-        <dl class="knowledge-file-card__meta">
-          <div>
-            <dt>所属目录</dt>
-            <dd>
-              {{ formatDirectoryName(file, knowledgeBaseName) }}
-              <el-tag
-                v-if="file.directoryStatus === 'disabled'"
-                size="small"
-                type="info"
-                effect="plain"
-              >
-                已停用
-              </el-tag>
-            </dd>
-          </div>
-          <div>
-            <dt>资料状态</dt>
-            <dd>{{ reviewStatusLabelMap[file.reviewStatus] ?? file.reviewStatus }}</dd>
-          </div>
-          <div>
-            <dt>AI 可引用状态</dt>
-            <dd>{{ getKnowledgeFileCitationDescription(file) }}</dd>
-          </div>
-          <div>
-            <dt>证据类型</dt>
-            <dd class="knowledge-file-card__evidence">
-              <el-tag
-                size="small"
-                :type="isForbiddenEvidence(file) ? 'warning' : 'info'"
-                effect="plain"
-              >
-                证据类型：{{ getEvidenceType(file).label }}
-              </el-tag>
-              <small v-if="isForbiddenEvidence(file)">
-                约束类资料：用于生成内容时避开，不作为正向引用依据。
-              </small>
-            </dd>
-          </div>
-          <div v-if="displayMode === 'management'">
-            <dt>资料类型</dt>
-            <dd>{{ materialTypeLabelMap[file.materialType] ?? file.materialType }}</dd>
-          </div>
-          <div v-if="displayMode === 'management'">
-            <dt>资料主题</dt>
-            <dd>{{ formatMaterialTopic(file.materialTopic) }}</dd>
-          </div>
-          <div v-if="displayMode === 'management'">
-            <dt>可靠程度</dt>
-            <dd>{{ trustLevelLabelMap[file.trustLevel] ?? file.trustLevel }}</dd>
-          </div>
-          <div v-if="displayMode === 'management'">
-            <dt>可用场景</dt>
-            <dd>{{ formatApplicableModules(file.applicableModules) }}</dd>
-          </div>
-          <div v-if="displayMode === 'management'">
-            <dt>来源</dt>
-            <dd>
-              {{ sourceTypeLabelMap[file.sourceType] ?? file.sourceType }} /
-              {{ file.fileType }} / {{ formatFileSize(file.fileSize) }}
-            </dd>
-          </div>
-          <div v-if="displayMode === 'management'">
-            <dt>来源说明</dt>
-            <dd>{{ formatOptional(formatKnowledgeSourceDescription(file.sourceDescription)) }}</dd>
-          </div>
-          <div>
-            <dt>更新时间</dt>
-            <dd>{{ formatDateTime(file.updatedAt) }}</dd>
-          </div>
-        </dl>
+        <p v-if="displayMode === 'management'" class="kb-asset-row__summary">
+          {{ formatOptional(formatKnowledgeSourceDescription(file.sourceDescription)) }}
+        </p>
       </div>
 
-      <div class="knowledge-file-card__side">
+      <div class="knowledge-file-card__status kb-asset-row__status">
+        <el-tag
+          :type="isKnowledgeFileOfficiallyCitable(file) ? 'success' : 'warning'"
+          effect="plain"
+        >
+          {{ getKnowledgeFileCitationLabel(file) }}
+        </el-tag>
+        <el-tag size="small" type="info" effect="plain">
+          {{ reviewStatusLabelMap[file.reviewStatus] ?? file.reviewStatus }}
+        </el-tag>
+        <el-tag
+          size="small"
+          :type="isForbiddenEvidence(file) ? 'warning' : 'info'"
+          effect="plain"
+        >
+          {{ getEvidenceType(file).label }}
+        </el-tag>
+        <el-tag
+          v-if="file.directoryStatus === 'disabled'"
+          size="small"
+          type="info"
+          effect="plain"
+        >
+          目录已停用
+        </el-tag>
         <KnowledgeParseStatusTag v-if="displayMode === 'management'" :status="file.parseStatus" />
+        <small>{{ getKnowledgeFileCitationDescription(file) }}</small>
+        <small v-if="displayMode === 'management'">
+          {{ formatMaterialTopic(file.materialTopic) }} ·
+          {{ trustLevelLabelMap[file.trustLevel] ?? file.trustLevel }} ·
+          {{ formatApplicableModules(file.applicableModules) }}
+        </small>
+      </div>
+
+      <div class="knowledge-file-card__side kb-asset-row__actions">
         <el-button link type="primary" @click="emit('detail', file)">查看详情</el-button>
         <template v-if="canManage">
           <el-button link type="primary" @click="emit('edit', file)">编辑资料</el-button>
@@ -202,24 +151,31 @@ const isForbiddenEvidence = (file: KnowledgeFile) =>
 .knowledge-file-card-list {
   min-height: 180px;
   display: grid;
-  gap: 12px;
+  gap: 0;
 }
 
 .knowledge-file-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) minmax(96px, auto);
+  gap: 18px;
+  align-items: center;
+  padding: 14px 4px;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0;
   background: #fff;
 }
 
-.knowledge-file-card__title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.knowledge-file-card:first-of-type {
+  border-top: 1px solid #e5e7eb;
+}
+
+.knowledge-file-card:hover {
+  background: #f8fafc;
+}
+
+.knowledge-file-card__main {
+  min-width: 0;
 }
 
 .knowledge-file-card h4 {
@@ -234,47 +190,51 @@ const isForbiddenEvidence = (file: KnowledgeFile) =>
   font-size: 12px;
 }
 
-.knowledge-file-card__tags {
+.kb-asset-row__subtitle,
+.kb-asset-row__summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-asset-row__meta-line {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 12px 0;
+  gap: 6px 10px;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
-.knowledge-file-card__meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 16px;
-  margin: 0;
-}
-
-.knowledge-file-card__meta div {
+.kb-asset-row__meta-line span {
+  display: inline-flex;
   min-width: 0;
+  align-items: center;
 }
 
-.knowledge-file-card__meta dt {
+.kb-asset-row__meta-line span + span::before {
+  width: 1px;
+  height: 10px;
+  margin-right: 10px;
+  background: #cbd5e1;
+  content: "";
+}
+
+.knowledge-file-card__status {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.knowledge-file-card__status small {
+  display: block;
+  width: 100%;
   color: #6b7280;
   font-size: 12px;
-}
-
-.knowledge-file-card__meta dd {
-  margin: 3px 0 0;
-  color: #1f2937;
-  font-size: 13px;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.knowledge-file-card__evidence {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.knowledge-file-card__evidence small {
-  color: #6b7280;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .knowledge-file-card__side {
@@ -288,6 +248,8 @@ const isForbiddenEvidence = (file: KnowledgeFile) =>
 @media (max-width: 900px) {
   .knowledge-file-card {
     grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 14px 0;
   }
 
   .knowledge-file-card__side {
@@ -296,8 +258,8 @@ const isForbiddenEvidence = (file: KnowledgeFile) =>
     flex-wrap: wrap;
   }
 
-  .knowledge-file-card__meta {
-    grid-template-columns: 1fr;
+  .knowledge-file-card__status {
+    align-items: flex-start;
   }
 }
 </style>
