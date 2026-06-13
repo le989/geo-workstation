@@ -228,15 +228,6 @@ const goGeoPrompts = () => {
       <div class="expansion-hero__copy">
         <p class="section-kicker">提示词资产工具</p>
         <h1>AI 拓词</h1>
-        <p>
-          围绕核心词生成场景词、产品词、竞品词和候选提示词，规则拓词可快速生成，AI
-          拓词需确认模型调用边界。
-        </p>
-        <div class="expansion-boundary-list" aria-label="AI 拓词操作边界">
-          <span>规则拓词：组合规则</span>
-          <span>AI 拓词：确认 Provider</span>
-          <span>保存候选：写入词库</span>
-        </div>
       </div>
       <div class="expansion-hero__actions">
         <span v-if="lastLoadedAt">最近刷新：{{ lastLoadedAt }}</span>
@@ -245,6 +236,14 @@ const goGeoPrompts = () => {
         </el-button>
       </div>
     </header>
+
+    <el-alert
+      class="expansion-boundary-alert"
+      title="AI 拓词前确认 Provider；候选词需人工确认，保存前会写入提示词策略库。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
 
     <el-collapse class="expansion-flow-collapse">
       <el-collapse-item title="查看候选词入库流程" name="flow">

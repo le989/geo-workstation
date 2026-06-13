@@ -909,20 +909,6 @@ onMounted(() => {
 
 <template>
   <div class="aftersales-page-shell">
-    <header class="aftersales-hero">
-      <div>
-        <h1>售后问答</h1>
-        <p>
-          基于已审核售后资料和产品资料辅助排查现场问题，未命中资料时转人工确认。
-        </p>
-      </div>
-      <div class="aftersales-boundary-list" aria-label="售后问答边界">
-        <span>已审核资料</span>
-        <span>展示引用来源</span>
-        <span>不确定转人工</span>
-      </div>
-    </header>
-
     <nav v-if="isAdmin" class="aftersales-panel-tabs" aria-label="售后问答工作台">
       <button
         type="button"
