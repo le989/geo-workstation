@@ -11031,6 +11031,10 @@ a {
   align-items: center;
 }
 
+.kb-mobile-directory-entry {
+  display: none;
+}
+
 .kb-main-toolbar__actions .el-button {
   min-height: 30px;
   padding: 7px 10px;
@@ -11080,6 +11084,48 @@ a {
   border-top: 1px solid #eef2f7;
 }
 
+.kb-mobile-directory-drawer .el-drawer__body {
+  padding: 0;
+  background: #f8fafc;
+}
+
+.kb-mobile-directory-panel {
+  display: grid;
+  gap: 8px;
+  min-height: 100%;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.kb-mobile-directory-panel .knowledge-directory-sidebar__header {
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.kb-mobile-directory-panel .knowledge-directory-sidebar__header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.kb-mobile-directory-panel .knowledge-directory-node {
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.kb-mobile-directory-panel .knowledge-directory-node:hover,
+.kb-mobile-directory-panel .knowledge-directory-node:focus-visible {
+  background: #eef6ff;
+}
+
+.kb-mobile-directory-panel .knowledge-directory-node.is-selected-directory {
+  background: #e8f1ff;
+  color: #1d4ed8;
+  font-weight: 780;
+}
+
 @media (max-width: 960px) {
   .knowledge-workbench-bar.kb-topbar,
   .kb-topbar__actions,
@@ -11117,5 +11163,39 @@ a {
 
   .kb-main-filterbar.knowledge-inner-filters {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .kb-sidebar.knowledge-directory-sidebar {
+    display: none;
+  }
+
+  .kb-mobile-directory-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .kb-mobile-directory-entry .el-button {
+    min-height: 28px;
+    padding: 5px 8px;
+  }
+
+  .kb-main-toolbar__title {
+    min-width: 0;
+  }
+
+  .kb-main-toolbar__actions .knowledge-primary-actions,
+  .kb-main-toolbar__actions {
+    justify-content: flex-start;
+  }
+
+  .kb-directory-context.knowledge-current-directory {
+    margin-top: 6px;
   }
 }
