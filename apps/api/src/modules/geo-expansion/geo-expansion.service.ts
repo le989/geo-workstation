@@ -594,6 +594,28 @@ export class GeoExpansionService {
       },
       context
     );
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-prompts",
+        action: "geo_prompt.question.expanded",
+        targetType: "expansion_job",
+        targetId: jobId,
+        targetTitle: job.mode,
+        success: failedItems.length === 0,
+        // 拓词关联审计只写数量摘要，候选问法原文仍留在业务表和接口返回中。
+        metadata: {
+          expandedCount: result.savedCount,
+          savedCount: result.savedCount,
+          skippedCount: result.skippedCount,
+          failedCount: result.failedCount,
+          sourceType: "expansion_candidate",
+          targetType: "expansion_job",
+          targetId: jobId,
+          platform: job.mode
+        }
+      },
+      context
+    );
 
     return result;
   }

@@ -756,6 +756,46 @@ describe("GeoExpansionService", () => {
     expect(idempotent.skippedItems[0]?.reason).toBe("already_saved");
   });
 
+  it("records safe operation logs when expansion candidates are saved as prompts", async () => {
+    const generated = await service.ruleGenerate({
+      baseWord: uniqueBase("审计保存"),
+      prefixes: ["国产"],
+      applicationSuffixes: ["怎么选"],
+      promptType: GeoPromptType.distilled,
+      createdBy
+    });
+    const candidate = generated.candidates[0];
+
+    if (!candidate) {
+      throw new Error("Expected expansion candidate.");
+    }
+
+    const recordOperation = vi.fn().mockResolvedValue(undefined);
+    (service as unknown as { operationLogsService?: { recordOperation: typeof recordOperation } })
+      .operationLogsService = { recordOperation };
+
+    await service.saveCandidates(generated.job.id, {
+      candidateIds: [candidate.id],
+      createdBy
+    });
+
+    const expandedLog = recordOperation.mock.calls.find(
+      ([input]) => input.action === "geo_prompt.question.expanded"
+    )?.[0];
+    const serializedCalls = JSON.stringify(recordOperation.mock.calls);
+
+    expect(expandedLog?.metadata).toMatchObject({
+      expandedCount: 1,
+      savedCount: 1,
+      skippedCount: 0,
+      failedCount: 0,
+      sourceType: "expansion_candidate",
+      targetType: "expansion_job",
+      targetId: generated.job.id
+    });
+    expect(serializedCalls).not.toContain(candidate.promptText);
+  });
+
   it("save-candidates writes operator prompts to current company as PRIVATE and does not let other companies block duplicates", async () => {
     const context = contextFor(operatorA, companyA, MembershipRole.operator);
     const generated = await service.ruleGenerate(

@@ -11,7 +11,7 @@ import {
   type Company,
   type User
 } from "@prisma/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { GeoPromptsService } from "../src/modules/geo-prompts/geo-prompts.service";
 import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
@@ -105,6 +105,15 @@ describe("GeoPromptsService", () => {
 
   function uniquePrompt(label: string): string {
     return `Phase 2B ${label} ${runId}`;
+  }
+
+  function attachOperationLogMock() {
+    const recordOperation = vi.fn().mockResolvedValue(undefined);
+
+    (service as unknown as { operationLogsService?: { recordOperation: typeof recordOperation } })
+      .operationLogsService = { recordOperation };
+
+    return recordOperation;
   }
 
   function contextFor(
@@ -272,6 +281,40 @@ describe("GeoPromptsService", () => {
     expect(list.total).toBe(0);
   });
 
+  it("records safe operation logs for GEO prompt create, update, and delete", async () => {
+    const recordOperation = attachOperationLogMock();
+    const promptText = uniquePrompt("审计创建13812345678");
+    const updatedPromptText = uniquePrompt("审计更新微信号wxaudit123");
+
+    const created = await service.create({
+      type: GeoPromptType.base,
+      promptText,
+      userIntent: UserIntent.selection,
+      createdBy
+    });
+    await service.update(created.id, {
+      promptText: updatedPromptText,
+      priority: 4,
+      latestCoverageStatus: "mentioned"
+    });
+    await service.softDelete(created.id);
+
+    const actions = recordOperation.mock.calls.map(([input]) => input.action);
+    const serializedCalls = JSON.stringify(recordOperation.mock.calls);
+
+    expect(actions).toEqual([
+      "geo_prompt.question.created",
+      "geo_prompt.question.updated",
+      "geo_prompt.question.deleted"
+    ]);
+    expect(serializedCalls).not.toContain(promptText);
+    expect(serializedCalls).not.toContain(updatedPromptText);
+    expect(recordOperation.mock.calls[1]?.[0].metadata).toMatchObject({
+      questionId: created.id,
+      changedFields: expect.arrayContaining(["promptText", "priority", "latestCoverageStatus"])
+    });
+  });
+
   it("bulk imports valid rows and reports batch duplicates, database duplicates, and failed rows", async () => {
     const databaseDuplicate = uniquePrompt("数据库重复");
     await service.create({
@@ -355,6 +398,74 @@ describe("GeoPromptsService", () => {
     expect(csv).toContain("id,type,baseWord,promptText,productLine");
     expect(csv).toContain(promptText);
     expect(csv).toContain('"[""deepseek-chat"",""kimi""]"');
+  });
+
+  it("records safe operation logs for GEO prompt bulk import and export", async () => {
+    const databaseDuplicate = uniquePrompt("审计数据库重复");
+    await service.create({
+      type: GeoPromptType.base,
+      promptText: databaseDuplicate,
+      userIntent: UserIntent.selection,
+      createdBy
+    });
+
+    const recordOperation = attachOperationLogMock();
+    const importedPrompt = uniquePrompt("审计批量导入13812345678");
+
+    await service.bulkImport({
+      rows: [
+        {
+          type: GeoPromptType.base,
+          promptText: importedPrompt,
+          userIntent: UserIntent.selection
+        },
+        {
+          type: GeoPromptType.scene,
+          promptText: importedPrompt,
+          userIntent: UserIntent.application_solution
+        },
+        {
+          type: GeoPromptType.brand,
+          promptText: databaseDuplicate,
+          userIntent: UserIntent.brand_verification
+        },
+        {
+          type: "scene",
+          promptText: "失败行原文13812345678",
+          priority: 8
+        }
+      ],
+      createdBy
+    });
+    await service.exportCsv({
+      search: importedPrompt
+    });
+
+    const actions = recordOperation.mock.calls.map(([input]) => input.action);
+    const bulkLog = recordOperation.mock.calls.find(
+      ([input]) => input.action === "geo_prompt.question.bulk_imported"
+    )?.[0];
+    const exportLog = recordOperation.mock.calls.find(
+      ([input]) => input.action === "geo_prompt.question.exported"
+    )?.[0];
+    const serializedCalls = JSON.stringify(recordOperation.mock.calls);
+
+    expect(actions).toEqual([
+      "geo_prompt.question.bulk_imported",
+      "geo_prompt.question.exported"
+    ]);
+    expect(bulkLog?.metadata).toMatchObject({
+      importCount: 4,
+      duplicateCount: 2,
+      failedCount: 1,
+      skippedCount: 3
+    });
+    expect(exportLog?.metadata).toMatchObject({
+      exportCount: 1
+    });
+    expect(serializedCalls).not.toContain(importedPrompt);
+    expect(serializedCalls).not.toContain("失败行原文13812345678");
+    expect(serializedCalls).not.toContain("id,type,baseWord,promptText");
   });
 
   it("isolates GEO prompt list and export by current company, visibility, and owner", async () => {
