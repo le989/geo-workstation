@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { createHash } from "node:crypto";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   GeoPromptType,
   Prisma,
@@ -26,6 +27,7 @@ import {
   type NormalizedCreateGeoPrompt
 } from "./utils/normalize-geo-prompt";
 import { PrismaService } from "../../prisma/prisma.service";
+import { OperationLogsService, type RecordOperationInput } from "../usage/operation-logs.service";
 import {
   assertCanDeleteResource,
   assertCanUpdateResource,
@@ -98,7 +100,12 @@ export type DeleteGeoPromptResponse = {
 
 @Injectable()
 export class GeoPromptsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
+  ) {}
 
   async findMany(
     query: QueryGeoPromptsDto,
@@ -143,6 +150,18 @@ export class GeoPromptsService {
       data: this.toCreateData(normalized, createdById, context, visibility)
     });
 
+    await this.recordPromptOperation(
+      {
+        moduleKey: "geo-prompts",
+        action: "geo_prompt.question.created",
+        targetType: "geo_prompt",
+        targetId: created.id,
+        targetTitle: "GEO 提示词记录",
+        metadata: this.buildPromptAuditMetadata(created)
+      },
+      context
+    );
+
     return this.toResponse(created);
   }
 
@@ -161,6 +180,7 @@ export class GeoPromptsService {
     }
 
     const normalized = normalizeUpdateGeoPrompt(input);
+    const changedFields = this.buildChangedFields(normalized);
 
     if (normalized.promptText !== undefined && normalized.promptText !== existing.promptText) {
       await this.assertPromptTextIsUnique(normalized.promptText, id, context);
@@ -223,6 +243,21 @@ export class GeoPromptsService {
       data: updateData
     });
 
+    await this.recordPromptOperation(
+      {
+        moduleKey: "geo-prompts",
+        action: "geo_prompt.question.updated",
+        targetType: "geo_prompt",
+        targetId: updated.id,
+        targetTitle: "GEO 提示词记录",
+        metadata: {
+          ...this.buildPromptAuditMetadata(updated),
+          changedFields
+        }
+      },
+      context
+    );
+
     return this.toResponse(updated);
   }
 
@@ -252,6 +287,22 @@ export class GeoPromptsService {
         deletedAt: new Date()
       }
     });
+
+    await this.recordPromptOperation(
+      {
+        moduleKey: "geo-prompts",
+        action: "geo_prompt.question.deleted",
+        targetType: "geo_prompt",
+        targetId: deleted.id,
+        targetTitle: "GEO 提示词记录",
+        metadata: {
+          ...this.buildPromptAuditMetadata(deleted),
+          statusBefore: "active",
+          statusAfter: "deleted"
+        }
+      },
+      context
+    );
 
     return {
       id,
@@ -331,8 +382,7 @@ export class GeoPromptsService {
 
     const duplicateCount = duplicateRows.length;
     const failedCount = failedRows.length;
-
-    return {
+    const result = {
       totalRows: input.rows.length,
       successCount: createdItems.length,
       duplicateCount,
@@ -342,6 +392,25 @@ export class GeoPromptsService {
       duplicateRows,
       failedRows
     };
+
+    await this.recordPromptOperation(
+      {
+        moduleKey: "geo-prompts",
+        action: "geo_prompt.question.bulk_imported",
+        targetType: "geo_prompt",
+        targetTitle: "GEO 提示词批量导入",
+        metadata: {
+          importCount: result.totalRows,
+          duplicateCount: result.duplicateCount,
+          failedCount: result.failedCount,
+          skippedCount: result.skippedCount,
+          sourceType: "bulk_import"
+        }
+      },
+      context
+    );
+
+    return result;
   }
 
   async exportCsv(query: QueryGeoPromptsDto, context?: ResourceAccessContext): Promise<string> {
@@ -352,7 +421,62 @@ export class GeoPromptsService {
       }
     });
 
+    await this.recordPromptOperation(
+      {
+        moduleKey: "geo-prompts",
+        action: "geo_prompt.question.exported",
+        targetType: "geo_prompt",
+        targetTitle: "GEO 提示词导出",
+        metadata: {
+          exportCount: items.length,
+          questionType: query.type,
+          sourceType: "csv_export"
+        }
+      },
+      context
+    );
+
     return buildGeoPromptsCsv(items.map((item) => this.toResponse(item)));
+  }
+
+  private async recordPromptOperation(
+    input: RecordOperationInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const operationLogsService =
+      this.operationLogsService ?? new OperationLogsService(this.prisma);
+
+    await operationLogsService.recordOperation(input, context);
+  }
+
+  private buildPromptAuditMetadata(prompt: GeoPrompt): Record<string, unknown> {
+    // 只记录定位摘要和 hash，不把问法原文写进审计日志。
+    return {
+      questionId: prompt.id,
+      questionType: prompt.type,
+      sourceType: prompt.source ?? undefined,
+      promptHash: this.hashPromptText(prompt.promptText)
+    };
+  }
+
+  private hashPromptText(promptText: string): string {
+    return createHash("sha256").update(promptText).digest("hex").slice(0, 16);
+  }
+
+  private buildChangedFields(normalized: ReturnType<typeof normalizeUpdateGeoPrompt>): string[] {
+    return [
+      "type",
+      "baseWord",
+      "promptText",
+      "productLine",
+      "scenario",
+      "userIntent",
+      "priority",
+      "targetModels",
+      "source",
+      "trackEnabled",
+      "latestCoverageStatus"
+    ].filter((field) => field in normalized);
   }
 
   private buildWhere(
