@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   GeoPromptType,
   Prisma,
@@ -32,6 +32,10 @@ import {
   resolveCreateVisibility,
   type ResourceAccessContext
 } from "../auth/auth-policy";
+import {
+  OperationLogsService,
+  type RecordOperationInput
+} from "../usage/operation-logs.service";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 
@@ -69,7 +73,12 @@ export type DeleteInstructionTemplateResponse = {
 
 @Injectable()
 export class InstructionTemplatesService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
+  ) {}
 
   async findMany(
     query: QueryInstructionTemplatesDto,
@@ -142,6 +151,22 @@ export class InstructionTemplatesService {
           : {})
       }
     });
+    // 指令模板审计只保留模板类型摘要，不记录 instruction 正文。
+    await this.recordOperation(
+      {
+        moduleKey: "instruction-templates",
+        action: "instruction_template.created",
+        targetType: "instruction_template",
+        targetId: created.id,
+        targetTitle: created.name,
+        success: true,
+        metadata: {
+          templateId: created.id,
+          templateType: created.instructionType
+        }
+      },
+      context
+    );
 
     return this.toResponse(created);
   }
@@ -219,6 +244,22 @@ export class InstructionTemplatesService {
       },
       data
     });
+    await this.recordOperation(
+      {
+        moduleKey: "instruction-templates",
+        action: "instruction_template.updated",
+        targetType: "instruction_template",
+        targetId: updated.id,
+        targetTitle: updated.name,
+        success: true,
+        metadata: {
+          templateId: updated.id,
+          templateType: updated.instructionType,
+          changedFields: this.buildChangedFields(normalized)
+        }
+      },
+      context
+    );
 
     return this.toResponse(updated);
   }
@@ -269,6 +310,22 @@ export class InstructionTemplatesService {
           : {})
       }
     });
+    await this.recordOperation(
+      {
+        moduleKey: "instruction-templates",
+        action: "instruction_template.duplicated",
+        targetType: "instruction_template",
+        targetId: duplicated.id,
+        targetTitle: duplicated.name,
+        success: true,
+        metadata: {
+          templateId: duplicated.id,
+          templateType: duplicated.instructionType,
+          duplicatedFromId: source.id
+        }
+      },
+      context
+    );
 
     return this.toResponse(duplicated);
   }
@@ -299,6 +356,23 @@ export class InstructionTemplatesService {
         deletedAt: new Date()
       }
     });
+    await this.recordOperation(
+      {
+        moduleKey: "instruction-templates",
+        action: "instruction_template.deleted",
+        targetType: "instruction_template",
+        targetId: deleted.id,
+        targetTitle: deleted.name,
+        success: true,
+        metadata: {
+          templateId: deleted.id,
+          templateType: deleted.instructionType,
+          statusBefore: "active",
+          statusAfter: "deleted"
+        }
+      },
+      context
+    );
 
     return {
       id,
@@ -306,6 +380,22 @@ export class InstructionTemplatesService {
       alreadyDeleted: false,
       deletedAt: deleted.deletedAt ?? new Date()
     };
+  }
+
+  private async recordOperation(
+    input: RecordOperationInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const operationLogsService =
+      this.operationLogsService ?? new OperationLogsService(this.prisma);
+
+    await operationLogsService.recordOperation(input, context);
+  }
+
+  private buildChangedFields(input: Record<string, unknown>): string[] {
+    return Object.entries(input)
+      .filter(([, value]) => value !== undefined)
+      .map(([field]) => field);
   }
 
   private buildWhere(

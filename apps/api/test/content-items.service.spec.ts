@@ -455,6 +455,21 @@ describe("ContentItemsService", () => {
     }
   });
 
+  async function expectOperationLog(targetId: string, action: string) {
+    const log = await prisma.operationLog.findFirst({
+      where: {
+        targetId,
+        action
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    expect(log).toBeTruthy();
+    return log!;
+  }
+
   async function createScopedItem(
     label: string,
     company: { id: string },
@@ -530,6 +545,9 @@ describe("ContentItemsService", () => {
     expect(updated.title).toBe("行车防撞激光测距传感器 GEO 方案");
     expect(updated.status).toBe("reviewing");
     expect(updated.geoOptimizationPoints).toEqual(["强化品牌实体", "覆盖应用场景"]);
+    const updateLog = await expectOperationLog(item!.id, "geo_content.article.updated");
+    // 内容项审计只记录变更字段和字数区间，不能记录文章正文。
+    expect(JSON.stringify(updateLog.metadata ?? {})).not.toContain("行车防撞场景需要稳定");
 
     await expect(
       itemsService.update(item!.id, {
@@ -547,6 +565,7 @@ describe("ContentItemsService", () => {
 
     const deleted = await itemsService.softDelete(item!.id);
     expect(deleted.alreadyDeleted).toBe(false);
+    await expectOperationLog(item!.id, "geo_content.article.deleted");
 
     const deletedAgain = await itemsService.softDelete(item!.id);
     expect(deletedAgain.alreadyDeleted).toBe(true);

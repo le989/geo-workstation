@@ -177,6 +177,21 @@ describe("GeoAnalysisTasksService", () => {
     }
   });
 
+  async function expectOperationLog(targetId: string, action: string) {
+    const log = await prisma.operationLog.findFirst({
+      where: {
+        targetId,
+        action
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    expect(log).toBeTruthy();
+    return log!;
+  }
+
   async function createScopedTask(
     label: string,
     company: { id: string },
@@ -419,6 +434,7 @@ describe("GeoAnalysisTasksService", () => {
     expect(stored.companyId).toBe(companyA.id);
     expect(stored.createdById).toBe(operatorA.id);
     expect(stored.updatedById).toBe(operatorA.id);
+    await expectOperationLog(created.id, "geo_analysis.task.created");
 
     const taskAByOperatorB = await createScopedTask("operator-b-manage-denied", companyA, operatorB);
     await expect(
@@ -442,11 +458,15 @@ describe("GeoAnalysisTasksService", () => {
       contextFor(companyAdminA, companyA, MembershipRole.company_admin)
     );
     expect(updated.name).toContain("company admin edited");
+    await expectOperationLog(updated.id, "geo_analysis.task.updated");
 
     const runnable = await createScopedTask("operator-a-runnable", companyA, operatorA);
     const run = await service.run(runnable.id, contextFor(operatorA, companyA, MembershipRole.operator));
     expect(run.task.status).toBe(TaskStatus.succeeded);
     expect(run.modelResults).toHaveLength(1);
+    const runLog = await expectOperationLog(runnable.id, "geo_analysis.task.run_completed");
+    // 审计日志只保留运行摘要，不能把模型回答原文写入 metadata。
+    expect(JSON.stringify(runLog.metadata ?? {})).not.toContain("rawAnswer");
   });
 
   it("rejects viewer creation of GEO analysis tasks while allowing operators", async () => {
@@ -484,6 +504,7 @@ describe("GeoAnalysisTasksService", () => {
       contextFor(operatorA, companyA, MembershipRole.operator)
     );
     expect(result.status).toBe(TaskStatus.cancelled);
+    await expectOperationLog(archived.id, "geo_analysis.task.archived");
 
     const defaultList = await service.findMany(
       {

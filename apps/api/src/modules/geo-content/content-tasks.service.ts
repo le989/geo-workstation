@@ -70,7 +70,10 @@ import {
   type RecordAiCallLogInput
 } from "../usage/ai-call-logs.service";
 import { AiUsageService } from "../usage/ai-usage.service";
-import { OperationLogsService } from "../usage/operation-logs.service";
+import {
+  OperationLogsService,
+  type RecordOperationInput
+} from "../usage/operation-logs.service";
 import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
@@ -605,6 +608,22 @@ export class ContentTasksService {
           : {})
       }
     });
+    await this.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action: "geo_content.task.archived",
+        targetType: "content_task",
+        targetId: archived.id,
+        targetTitle: archived.name,
+        success: true,
+        metadata: {
+          taskId: archived.id,
+          statusBefore: task.status,
+          statusAfter: archived.status
+        }
+      },
+      context
+    );
 
     return this.toTaskResponse(archived);
   }
@@ -1418,6 +1437,16 @@ export class ContentTasksService {
     const aiCallLogsService = this.aiCallLogsService ?? new AiCallLogsService(this.prisma);
 
     await aiCallLogsService.recordAiCallLog(input, context);
+  }
+
+  private async recordOperation(
+    input: RecordOperationInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const operationLogsService =
+      this.operationLogsService ?? new OperationLogsService(this.prisma);
+
+    await operationLogsService.recordOperation(input, context);
   }
 
   private estimateTokenCount(text: string): number {

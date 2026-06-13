@@ -316,6 +316,21 @@ describe("ContentTasksService", () => {
     }
   });
 
+  async function expectOperationLog(targetId: string, action: string) {
+    const log = await prisma.operationLog.findFirst({
+      where: {
+        targetId,
+        action
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    expect(log).toBeTruthy();
+    return log!;
+  }
+
   async function createScopedPrompt(
     label: string,
     company: { id: string },
@@ -608,6 +623,7 @@ describe("ContentTasksService", () => {
       contextFor(operatorA, companyA, MembershipRole.operator)
     );
     expect(result.status).toBe(TaskStatus.cancelled);
+    await expectOperationLog(archived.task.id, "geo_content.task.archived");
 
     const defaultList = await service.findMany(
       {

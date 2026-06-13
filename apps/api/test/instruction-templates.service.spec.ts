@@ -142,6 +142,21 @@ describe("InstructionTemplatesService", () => {
     };
   }
 
+  async function expectOperationLog(targetId: string, action: string) {
+    const log = await prisma.operationLog.findFirst({
+      where: {
+        targetId,
+        action
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    expect(log).toBeTruthy();
+    return log!;
+  }
+
   it("creates a GEO instruction template and normalizes text fields", async () => {
     const created = await service.create({
       name: `  ${uniqueName("选型指南")}  `,
@@ -155,6 +170,9 @@ describe("InstructionTemplatesService", () => {
       forbiddenRules: "  不得编造认证信息  ",
       createdBy
     });
+    const createLog = await expectOperationLog(created.id, "instruction_template.created");
+    // 指令模板审计只记录模板类型等摘要，不记录 instruction 正文。
+    expect(JSON.stringify(createLog.metadata ?? {})).not.toContain(longInstruction("选型指南"));
 
     expect(created).toMatchObject({
       name: uniqueName("选型指南"),
@@ -273,6 +291,8 @@ describe("InstructionTemplatesService", () => {
     });
     expect(updated.name).toBe(uniqueName("已编辑"));
     expect(updated.instruction).toBe(longInstruction("已编辑官网落地页"));
+    const updateLog = await expectOperationLog(first.id, "instruction_template.updated");
+    expect(JSON.stringify(updateLog.metadata ?? {})).not.toContain(longInstruction("已编辑官网落地页"));
 
     await expect(
       service.update(first.id, {
@@ -296,6 +316,7 @@ describe("InstructionTemplatesService", () => {
 
     const firstCopy = await service.duplicate(source.id, {});
     const secondCopy = await service.duplicate(source.id, {});
+    await expectOperationLog(firstCopy.id, "instruction_template.duplicated");
 
     expect(firstCopy.name).toBe(`${source.name} 副本`);
     expect(secondCopy.name).toBe(`${source.name} 副本 2`);
@@ -325,6 +346,7 @@ describe("InstructionTemplatesService", () => {
       deleted: true,
       alreadyDeleted: false
     });
+    await expectOperationLog(template.id, "instruction_template.deleted");
 
     const deletedAgain = await service.softDelete(template.id);
     expect(deletedAgain.alreadyDeleted).toBe(true);
