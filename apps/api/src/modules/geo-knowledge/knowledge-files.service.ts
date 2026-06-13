@@ -605,6 +605,43 @@ export class KnowledgeFilesService {
       },
       context
     );
+    // 保留旧 action 兼容，同时补充细分审计摘要；不记录资料正文或请求原文。
+    if (existing.reviewStatus !== updated.reviewStatus) {
+      await this.recordKnowledgeFileOperation(
+        "knowledge_base.file.review_status_changed",
+        updated,
+        {
+          reviewStatusBefore: existing.reviewStatus,
+          reviewStatusAfter: updated.reviewStatus,
+          changedFields: ["reviewStatus"]
+        },
+        context
+      );
+    }
+    if (existing.trustLevel !== updated.trustLevel) {
+      await this.recordKnowledgeFileOperation(
+        "knowledge_base.file.evidence_status_changed",
+        updated,
+        {
+          evidenceStatusBefore: existing.trustLevel,
+          evidenceStatusAfter: updated.trustLevel,
+          changedFields: ["trustLevel"]
+        },
+        context
+      );
+    }
+    if ((existing.directoryId ?? null) !== (updated.directoryId ?? null)) {
+      await this.recordKnowledgeFileOperation(
+        "knowledge_base.file.directory_changed",
+        updated,
+        {
+          directoryIdBefore: existing.directoryId,
+          directoryIdAfter: updated.directoryId,
+          changedFields: ["directoryId"]
+        },
+        context
+      );
+    }
 
     return this.toFileResponse(updated);
   }
@@ -733,6 +770,17 @@ export class KnowledgeFilesService {
         }
       })
     ]);
+    await this.recordKnowledgeFileOperation(
+      "knowledge_base.file.deleted",
+      existing,
+      {
+        statusBefore: "active",
+        statusAfter: "deleted",
+        directoryId: existing.directoryId,
+        materialType: existing.materialType
+      },
+      context
+    );
 
     return {
       id,
@@ -862,6 +910,32 @@ export class KnowledgeFilesService {
         errorMessage
       };
     }
+  }
+
+  private async recordKnowledgeFileOperation(
+    action: string,
+    file: KnowledgeFile,
+    metadata: Record<string, unknown>,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "knowledge-bases",
+        action,
+        targetType: "knowledge_file",
+        targetId: file.id,
+        targetTitle: file.title ?? file.fileName,
+        success: true,
+        metadata: {
+          knowledgeBaseId: file.knowledgeBaseId,
+          fileId: file.id,
+          titlePreview: file.title ?? file.fileName,
+          fileNamePreview: file.fileName,
+          ...metadata
+        }
+      },
+      context
+    );
   }
 
   private buildWhere(

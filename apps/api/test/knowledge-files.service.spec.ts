@@ -18,7 +18,7 @@ import {
   type Department,
   type User
 } from "@prisma/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { KnowledgeFileParserService } from "../src/modules/geo-knowledge/knowledge-file-parser.service";
 import { KnowledgeFilesService } from "../src/modules/geo-knowledge/knowledge-files.service";
@@ -168,6 +168,19 @@ describe("KnowledgeFilesService", () => {
       size: Buffer.byteLength(content),
       buffer: Buffer.from(content)
     };
+  }
+
+  function attachOperationLogMock() {
+    const operationLogsService = {
+      recordOperation: vi.fn().mockResolvedValue(undefined)
+    };
+    (
+      knowledgeFilesService as unknown as {
+        operationLogsService?: typeof operationLogsService;
+      }
+    ).operationLogsService = operationLogsService;
+
+    return operationLogsService;
   }
 
   async function createKnowledgeBase(label: string) {
@@ -718,6 +731,108 @@ describe("KnowledgeFilesService", () => {
         otherCompanyContext
       )
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("records safe operation logs when knowledge file metadata changes and file is deleted", async () => {
+    const companyAdminContext = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const companyBase = await prisma.knowledgeBase.create({
+      data: {
+        companyId: companyA.id,
+        visibility: Visibility.COMPANY,
+        name: `KB-1 Audit File Base ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const manual = await knowledgeFilesService.createManualMaterial(
+      companyBase.id,
+      {
+        title: "审计资料",
+        materialType: KnowledgeMaterialType.aftersales_material,
+        applicableModules: ["aftersales-qa"],
+        reviewStatus: KnowledgeReviewStatus.pending,
+        trustLevel: KnowledgeTrustLevel.medium,
+        content: "原始审计正文包含客户联系方式 13812345678 和内部处理细节。"
+      },
+      companyAdminContext
+    );
+    const targetDirectory = await prisma.knowledgeDirectory.create({
+      data: {
+        companyId: companyA.id,
+        knowledgeBaseId: companyBase.id,
+        name: `审计目录 ${runId}`,
+        status: "active",
+        createdById: companyAdmin.id
+      }
+    });
+    const operationLogsService = attachOperationLogMock();
+
+    await knowledgeFilesService.updateMetadata(
+      manual.knowledgeFile.id,
+      {
+        reviewStatus: KnowledgeReviewStatus.approved,
+        trustLevel: KnowledgeTrustLevel.high,
+        directoryId: targetDirectory.id,
+        content: "更新后的审计正文包含客户微信 wxabcdef 和正文细节。"
+      } as Parameters<typeof knowledgeFilesService.updateMetadata>[1] & { content: string },
+      companyAdminContext
+    );
+    await knowledgeFilesService.softDelete(manual.knowledgeFile.id, companyAdminContext);
+
+    const actions = operationLogsService.recordOperation.mock.calls.map(
+      ([input]) => input.action
+    );
+
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        "metadata_update",
+        "knowledge_base.file.review_status_changed",
+        "knowledge_base.file.evidence_status_changed",
+        "knowledge_base.file.directory_changed",
+        "knowledge_base.file.deleted"
+      ])
+    );
+
+    const reviewLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "knowledge_base.file.review_status_changed"
+    )?.[0];
+    const evidenceLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "knowledge_base.file.evidence_status_changed"
+    )?.[0];
+    const directoryLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "knowledge_base.file.directory_changed"
+    )?.[0];
+    const deleteLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "knowledge_base.file.deleted"
+    )?.[0];
+
+    expect(reviewLog?.metadata).toMatchObject({
+      fileId: manual.knowledgeFile.id,
+      reviewStatusBefore: KnowledgeReviewStatus.pending,
+      reviewStatusAfter: KnowledgeReviewStatus.approved
+    });
+    expect(evidenceLog?.metadata).toMatchObject({
+      fileId: manual.knowledgeFile.id,
+      evidenceStatusBefore: KnowledgeTrustLevel.medium,
+      evidenceStatusAfter: KnowledgeTrustLevel.high
+    });
+    expect(directoryLog?.metadata).toMatchObject({
+      fileId: manual.knowledgeFile.id,
+      directoryIdBefore: manual.knowledgeFile.directoryId,
+      directoryIdAfter: targetDirectory.id
+    });
+    expect(deleteLog?.metadata).toMatchObject({
+      fileId: manual.knowledgeFile.id,
+      statusBefore: "active",
+      statusAfter: "deleted",
+      directoryId: targetDirectory.id
+    });
+
+    const serializedCalls = JSON.stringify(operationLogsService.recordOperation.mock.calls);
+    expect(serializedCalls).not.toContain("原始审计正文");
+    expect(serializedCalls).not.toContain("更新后的审计正文");
+    expect(serializedCalls).not.toContain("13812345678");
+    expect(serializedCalls).not.toContain("wxabcdef");
   });
 
   it("assigns default directories, moves files by metadata, and filters by directory", async () => {
