@@ -139,6 +139,7 @@ export class KnowledgeChunksService {
       updateData.tags = normalized.tags ?? [];
     }
 
+    const changedFields = Object.keys(updateData);
     const updated = await this.prisma.knowledgeChunk.update({
       where: {
         id
@@ -157,9 +158,17 @@ export class KnowledgeChunksService {
         metadata: {
           knowledgeBaseId: updated.knowledgeBaseId,
           fileId: updated.fileId,
-          changedFields: Object.keys(updateData)
+          changedFields
         }
       },
+      context
+    );
+
+    // 保留旧 action 兼容，同时补统一命名审计摘要；不记录片段正文或标签文本。
+    await this.recordKnowledgeChunkOperation(
+      "knowledge_base.chunk.updated",
+      updated,
+      this.buildChunkUpdateAuditMetadata(existing, updated, changedFields),
       context
     );
 
@@ -192,6 +201,17 @@ export class KnowledgeChunksService {
         deletedAt: new Date()
       }
     });
+
+    // 只在首次软删除成功后记录审计摘要，重复删除仍沿用原有返回逻辑。
+    await this.recordKnowledgeChunkOperation(
+      "knowledge_base.chunk.deleted",
+      deleted,
+      {
+        statusBefore: "active",
+        statusAfter: "deleted"
+      },
+      context
+    );
 
     return {
       id,
@@ -409,6 +429,51 @@ export class KnowledgeChunksService {
         `GEO knowledge chunk content must be at least ${MIN_KNOWLEDGE_CONTENT_LENGTH} characters.`
       );
     }
+  }
+
+  private buildChunkUpdateAuditMetadata(
+    existing: KnowledgeChunk,
+    updated: KnowledgeChunk,
+    changedFields: string[]
+  ): Record<string, unknown> {
+    const metadata: Record<string, unknown> = {
+      changedFields,
+      contentUpdated: changedFields.includes("content")
+    };
+
+    if (changedFields.includes("tags")) {
+      metadata.tagCount = jsonTagsToArray(updated.tags).length;
+      metadata.tagsBeforeCount = jsonTagsToArray(existing.tags).length;
+      metadata.tagsAfterCount = jsonTagsToArray(updated.tags).length;
+    }
+
+    return metadata;
+  }
+
+  private async recordKnowledgeChunkOperation(
+    action: string,
+    chunk: KnowledgeChunk,
+    metadata: Record<string, unknown>,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "knowledge-bases",
+        action,
+        targetType: "knowledge_chunk",
+        targetId: chunk.id,
+        targetTitle: chunk.title,
+        success: true,
+        metadata: {
+          knowledgeBaseId: chunk.knowledgeBaseId,
+          fileId: chunk.fileId,
+          chunkId: chunk.id,
+          titlePreview: chunk.title,
+          ...metadata
+        }
+      },
+      context
+    );
   }
 
   private toResponse(chunk: KnowledgeChunk): KnowledgeChunkResponse {
