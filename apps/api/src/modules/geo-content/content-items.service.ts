@@ -74,6 +74,10 @@ import {
   assertCanManageOwnerCompanyResource,
   buildOwnerCompanyReadWhere
 } from "../auth/owner-company-policy";
+import {
+  AiCallLogsService,
+  type RecordAiCallLogInput
+} from "../usage/ai-call-logs.service";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
 import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
@@ -274,7 +278,10 @@ export class ContentItemsService {
     private readonly operationLogsService?: OperationLogsService,
     @Optional()
     @Inject(ConfigService)
-    private readonly configService?: ConfigService
+    private readonly configService?: ConfigService,
+    @Optional()
+    @Inject(AiCallLogsService)
+    private readonly aiCallLogsService?: AiCallLogsService
   ) {}
 
   async findMany(
@@ -693,12 +700,21 @@ export class ContentItemsService {
         qualityContext,
         context
       );
-      return this.persistQualityGateResult(
+      const persistedQualityResult = await this.persistQualityGateResult(
         qualityContext,
         ruleResult,
         provider,
         input.model ?? "mock-content-v1"
       );
+      await this.recordContentArticleOperation(
+        "geo_content.article.quality_checked",
+        qualityContext,
+        persistedQualityResult,
+        context,
+        true
+      );
+
+      return persistedQualityResult;
     }
 
     const aiStartedAt = Date.now();
@@ -718,12 +734,21 @@ export class ContentItemsService {
         aiResult.usage,
         Date.now() - aiStartedAt
       );
-      return this.persistQualityGateResult(
+      const persistedQualityResult = await this.persistQualityGateResult(
         qualityContext,
         qualityResult,
         aiResult.usage.provider,
         aiResult.usage.model
       );
+      await this.recordContentArticleOperation(
+        "geo_content.article.quality_checked",
+        qualityContext,
+        persistedQualityResult,
+        context,
+        true
+      );
+
+      return persistedQualityResult;
     } catch (error) {
       await this.recordContentItemAiUsage(
         "quality_check",
@@ -736,6 +761,14 @@ export class ContentItemsService {
         error,
         undefined,
         Date.now() - aiStartedAt
+      );
+      await this.recordContentArticleOperation(
+        "geo_content.article.quality_checked",
+        qualityContext,
+        ruleResult,
+        context,
+        false,
+        error
       );
       throw error;
     }
@@ -893,7 +926,18 @@ export class ContentItemsService {
         qualityContext,
         context
       );
-      return this.buildMockPublishOptimization(qualityContext, input, qualityResult);
+      const optimizationResult = this.buildMockPublishOptimization(qualityContext, input, qualityResult);
+      await this.recordContentArticleOperation(
+        "geo_content.article.optimized",
+        qualityContext,
+        qualityResult,
+        context,
+        true,
+        undefined,
+        optimizationResult
+      );
+
+      return optimizationResult;
     }
 
     const aiStartedAt = Date.now();
@@ -924,7 +968,18 @@ export class ContentItemsService {
         Date.now() - aiStartedAt
       );
 
-      return this.parsePublishOptimizationResult(result, qualityContext, qualityResult);
+      const optimizationResult = this.parsePublishOptimizationResult(result, qualityContext, qualityResult);
+      await this.recordContentArticleOperation(
+        "geo_content.article.optimized",
+        qualityContext,
+        qualityResult,
+        context,
+        true,
+        undefined,
+        optimizationResult
+      );
+
+      return optimizationResult;
     } catch (error) {
       await this.recordContentItemAiUsage(
         "optimize_for_publish",
@@ -938,8 +993,87 @@ export class ContentItemsService {
         undefined,
         Date.now() - aiStartedAt
       );
+      await this.recordContentArticleOperation(
+        "geo_content.article.optimized",
+        qualityContext,
+        qualityResult,
+        context,
+        false,
+        error
+      );
       throw error;
     }
+  }
+
+  private async recordContentArticleOperation(
+    action: "geo_content.article.quality_checked" | "geo_content.article.optimized",
+    qualityContext: ContentQualityContext,
+    qualityResult: ContentQualityCheckResponse,
+    context: ResourceAccessContext | undefined,
+    success: boolean,
+    error?: unknown,
+    optimizationResult?: ContentPublishOptimizationResponse
+  ): Promise<void> {
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "geo-content",
+        action,
+        targetType: "content_item",
+        targetId: qualityContext.item.id,
+        targetTitle: qualityContext.item.title,
+        success,
+        errorMessage: error,
+        metadata: this.buildContentArticleAuditMetadata(
+          qualityContext,
+          qualityResult,
+          optimizationResult
+        )
+      },
+      context
+    );
+  }
+
+  private buildContentArticleAuditMetadata(
+    qualityContext: ContentQualityContext,
+    qualityResult: ContentQualityCheckResponse,
+    optimizationResult?: ContentPublishOptimizationResponse
+  ): Record<string, unknown> {
+    const optimizedBody = optimizationResult?.body;
+
+    // 只写质量分、风险数量、证据数量等安全摘要，不写正文、prompt 或 AI response。
+    return {
+      taskId: qualityContext.item.taskId,
+      contentItemId: qualityContext.item.id,
+      qualityGrade: qualityResult.level,
+      riskCount: qualityResult.riskItems.length,
+      fixedCount: optimizationResult?.changes.length,
+      evidenceCount: qualityContext.knowledgeChunks.length,
+      wordCountRange: this.buildWordCountRange(
+        optimizedBody?.length ? optimizedBody : qualityContext.item.body
+      ),
+      hasFaq: this.hasFaqSection(optimizedBody ?? qualityContext.item.body),
+      hasEvidence: qualityContext.knowledgeChunks.length > 0
+    };
+  }
+
+  private buildWordCountRange(text: string): string {
+    const length = text.trim().length;
+
+    if (length <= 500) {
+      return "0-500";
+    }
+    if (length <= 1000) {
+      return "501-1000";
+    }
+    if (length <= 2000) {
+      return "1001-2000";
+    }
+
+    return "2000+";
+  }
+
+  private hasFaqSection(text: string): boolean {
+    return /常见问题|FAQ|问答|Q[:：]/i.test(text);
   }
 
   private async recordContentItemAiUsage(
@@ -957,8 +1091,8 @@ export class ContentItemsService {
     const promptTokens = isMock ? 0 : usage?.tokenInput;
     const completionTokens = isMock ? 0 : usage?.tokenOutput;
 
-    await this.prisma.aiCallLog.create({
-      data: {
+    await this.recordAiCallLog(
+      {
         provider,
         model: usage?.model ?? model ?? "configured-default",
         purpose: action === "quality_check" ? AI_QUALITY_PURPOSE : AI_OPTIMIZE_PURPOSE,
@@ -967,23 +1101,10 @@ export class ContentItemsService {
         tokenInput: promptTokens,
         tokenOutput: completionTokens,
         costEstimate: 0,
-        status: success ? AiCallStatus.succeeded : AiCallStatus.failed,
-        ...(accessContext
-          ? {
-              company: {
-                connect: {
-                  id: getCurrentCompanyId(accessContext)
-                }
-              },
-              createdBy: {
-                connect: {
-                  id: accessContext.user.id
-                }
-              }
-            }
-          : {})
-      }
-    });
+        status: success ? AiCallStatus.succeeded : AiCallStatus.failed
+      },
+      accessContext
+    );
     await this.aiUsageService?.recordUsage(
       {
         moduleKey: "geo-content",
@@ -1016,6 +1137,15 @@ export class ContentItemsService {
       },
       accessContext
     );
+  }
+
+  private async recordAiCallLog(
+    input: RecordAiCallLogInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const aiCallLogsService = this.aiCallLogsService ?? new AiCallLogsService(this.prisma);
+
+    await aiCallLogsService.recordAiCallLog(input, context);
   }
 
   private async loadQualityContext(

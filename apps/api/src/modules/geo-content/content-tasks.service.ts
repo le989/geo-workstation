@@ -65,6 +65,10 @@ import {
   buildOwnerCompanyReadWhereById,
   resolveOwnerCompanyCreateData
 } from "../auth/owner-company-policy";
+import {
+  AiCallLogsService,
+  type RecordAiCallLogInput
+} from "../usage/ai-call-logs.service";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
 import { buildOfficialCitableKnowledgeFileWhere } from "../geo-knowledge/utils/official-citation.util";
@@ -232,7 +236,10 @@ export class ContentTasksService {
     private readonly operationLogsService?: OperationLogsService,
     @Optional()
     @Inject(ConfigService)
-    private readonly configService?: ConfigService
+    private readonly configService?: ConfigService,
+    @Optional()
+    @Inject(AiCallLogsService)
+    private readonly aiCallLogsService?: AiCallLogsService
   ) {}
 
   async findMany(
@@ -1357,8 +1364,8 @@ export class ContentTasksService {
     });
     const outputText = items.map((item) => item.body ?? "").join("\n");
 
-    await this.prisma.aiCallLog.create({
-      data: {
+    await this.recordAiCallLog(
+      {
         provider: usage?.provider ?? input.provider,
         model: usage?.model ?? input.model ?? this.resolveFallbackModel(input.provider),
         purpose: AI_CALL_PURPOSE,
@@ -1367,23 +1374,10 @@ export class ContentTasksService {
         tokenInput: usage?.tokenInput ?? this.estimateTokenCount(inputText),
         tokenOutput: usage?.tokenOutput ?? this.estimateTokenCount(outputText),
         costEstimate: 0,
-        status: status === TaskStatus.failed ? AiCallStatus.failed : AiCallStatus.succeeded,
-        ...(context
-          ? {
-              company: {
-                connect: {
-                  id: getCurrentCompanyId(context)
-                }
-              },
-              createdBy: {
-                connect: {
-                  id: context.user.id
-                }
-              }
-            }
-          : {})
-      }
-    });
+        status: status === TaskStatus.failed ? AiCallStatus.failed : AiCallStatus.succeeded
+      },
+      context
+    );
     const provider = usage?.provider ?? input.provider;
     const promptTokens = usage?.tokenInput ?? this.estimateTokenCount(inputText);
     const completionTokens = usage?.tokenOutput ?? this.estimateTokenCount(outputText);
@@ -1415,6 +1409,15 @@ export class ContentTasksService {
       },
       context
     );
+  }
+
+  private async recordAiCallLog(
+    input: RecordAiCallLogInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const aiCallLogsService = this.aiCallLogsService ?? new AiCallLogsService(this.prisma);
+
+    await aiCallLogsService.recordAiCallLog(input, context);
   }
 
   private estimateTokenCount(text: string): number {

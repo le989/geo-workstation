@@ -57,6 +57,10 @@ import {
   type ProjectProfileResponse
 } from "../project-profile/project-profile.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import {
+  AiCallLogsService,
+  type RecordAiCallLogInput
+} from "../usage/ai-call-logs.service";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
 
@@ -174,7 +178,10 @@ export class GeoExpansionService {
     private readonly operationLogsService?: OperationLogsService,
     @Optional()
     @Inject(ConfigService)
-    private readonly configService?: ConfigService
+    private readonly configService?: ConfigService,
+    @Optional()
+    @Inject(AiCallLogsService)
+    private readonly aiCallLogsService?: AiCallLogsService
   ) {}
 
   async ruleGenerate(
@@ -286,8 +293,8 @@ export class GeoExpansionService {
         await this.createCandidate(job.id, candidate);
       }
 
-      await this.prisma.aiCallLog.create({
-        data: {
+      await this.recordAiCallLog(
+        {
           provider: generation.provider,
           model: generation.model,
           purpose: "geo_prompt_ai_expansion",
@@ -296,10 +303,10 @@ export class GeoExpansionService {
           tokenInput: generation.tokenInput,
           tokenOutput: generation.tokenOutput,
           costEstimate: 0,
-          status: AiCallStatus.succeeded,
-          ...this.toAiCallLogContextData(context)
-        }
-      });
+          status: AiCallStatus.succeeded
+        },
+        context
+      );
       await this.aiUsageService?.recordUsage(
         {
           moduleKey: "expansion",
@@ -362,17 +369,17 @@ export class GeoExpansionService {
         }
       });
     } catch (error) {
-      await this.prisma.aiCallLog.create({
-        data: {
+      await this.recordAiCallLog(
+        {
           provider,
           model: initialModel ?? "configured-default",
           purpose: "geo_prompt_ai_expansion",
           relatedType: "expansion_job",
           relatedId: job.id,
-          status: AiCallStatus.failed,
-          ...this.toAiCallLogContextData(context)
-        }
-      });
+          status: AiCallStatus.failed
+        },
+        context
+      );
       await this.aiUsageService?.recordUsage(
         {
           moduleKey: "expansion",
@@ -589,6 +596,15 @@ export class GeoExpansionService {
     );
 
     return result;
+  }
+
+  private async recordAiCallLog(
+    input: RecordAiCallLogInput,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    const aiCallLogsService = this.aiCallLogsService ?? new AiCallLogsService(this.prisma);
+
+    await aiCallLogsService.recordAiCallLog(input, context);
   }
 
   private generateMockExpansionCandidates(
@@ -1231,25 +1247,6 @@ export class GeoExpansionService {
           }
         : {})
     };
-  }
-
-  private toAiCallLogContextData(
-    context?: ResourceAccessContext
-  ): Pick<Prisma.AiCallLogCreateInput, "company" | "createdBy"> {
-    return context
-      ? {
-          company: {
-            connect: {
-              id: getCurrentCompanyId(context)
-            }
-          },
-          createdBy: {
-            connect: {
-              id: context.user.id
-            }
-          }
-        }
-      : {};
   }
 
   private parseInputPayload(inputPayload: Prisma.JsonValue): Record<string, unknown> {
