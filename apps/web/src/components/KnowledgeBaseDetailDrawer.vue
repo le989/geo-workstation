@@ -807,7 +807,7 @@ const submitDirectoryForm = () => {
                   :class="{ 'is-selected-directory': selectedDirectoryId === '' }"
                   @click="selectDirectoryNode('')"
                 >
-                  <span class="knowledge-directory-node__marker">全</span>
+                  <span class="knowledge-directory-node__marker">▾</span>
                   <span class="knowledge-directory-node__label">全部资料</span>
                 </button>
 
@@ -893,7 +893,7 @@ const submitDirectoryForm = () => {
                     :class="{ 'is-selected-directory': selectedDirectoryId === '' }"
                     @click="selectDirectoryNodeFromDrawer('')"
                   >
-                    <span class="knowledge-directory-node__marker">全</span>
+                    <span class="knowledge-directory-node__marker">▾</span>
                     <span class="knowledge-directory-node__label">全部资料</span>
                   </button>
 
