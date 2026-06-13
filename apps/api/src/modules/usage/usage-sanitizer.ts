@@ -1,18 +1,54 @@
 import type { Prisma } from "@prisma/client";
 
-const SENSITIVE_KEY_PATTERN =
-  /password|passwordhash|jwt|token|apikey|api_key|secret|database_url|databaseurl|storagepath|storage_path|absolute_path|local_path|prompt|rawanswer|raw_answer/i;
 const LOCAL_PATH_PATTERN = /\/Users\/|\/var\/|\/tmp\/|\\Users\\|^[A-Za-z]:\\/;
 const DATABASE_URL_PATTERN =
   /\b(?:postgres(?:ql)?|mysql|mongodb|redis):\/\/[^\s"'<>]+/gi;
 const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 const API_KEY_PATTERN = /\b(?:sk|pk|rk|ak)[-_][A-Za-z0-9._-]{8,}\b/g;
+const MAINLAND_PHONE_PATTERN = /(?<!\d)(1[3-9]\d)\d{4}(\d{4})(?!\d)/g;
+const WECHAT_VALUE_PATTERN =
+  /((?:微信号?|wechat|weixin|wx)\s*[:：=]?\s*)[A-Za-z][-_A-Za-z0-9]{5,19}/gi;
+const URL_SECRET_QUERY_PATTERN =
+  /([?&](?:access_token|refresh_token|api[_-]?key|apikey|token|key|secret|password|authorization)=)[^&#\s]+/gi;
 const SENSITIVE_ASSIGNMENT_PATTERN =
-  /\b(?:api[_ -]?key|jwt(?:[_ -]?secret)?|token|secret|database[_ -]?url|databaseurl|password|authorization)\s*[:=]\s*(?:"[^"]+"|'[^']+'|[^\s,;]+)/gi;
+  /\b(?:api[_ -]?key|jwt(?:[_ -]?secret)?|token|secret|database[_ -]?url|databaseurl|password|cookie|authorization)\s*[:=]\s*(?:"[^"]+"|'[^']+'|Bearer\s+[^\s,;]+|[^\s,;]+)/gi;
 const MAX_STRING_LENGTH = 500;
+const MAX_TITLE_LENGTH = 60;
+const MAX_ERROR_PREVIEW_LENGTH = 240;
 const MAX_ARRAY_ITEMS = 20;
 const MAX_OBJECT_KEYS = 40;
+const SENSITIVE_METADATA_KEYS = new Set([
+  "password",
+  "passwordhash",
+  "jwt",
+  "jwtsecret",
+  "token",
+  "accesstoken",
+  "refreshtoken",
+  "apikey",
+  "secret",
+  "authorization",
+  "cookie",
+  "databaseurl",
+  "storagepath",
+  "absolutepath",
+  "localpath",
+  "prompt",
+  "systemprompt",
+  "userprompt",
+  "prompttext",
+  "rawanswer",
+  "rawresponse",
+  "airesponse",
+  "response",
+  "responsebody",
+  "body",
+  "content",
+  "rawcontent",
+  "originaltext",
+  "requestbody"
+]);
 
 export function sanitizeErrorMessage(value: unknown): string | undefined {
   if (value === undefined || value === null) {
@@ -20,7 +56,28 @@ export function sanitizeErrorMessage(value: unknown): string | undefined {
   }
 
   const message = value instanceof Error ? value.message : String(value);
-  const sanitized = sanitizeString(message);
+  const sanitized = sanitizeString(message, MAX_STRING_LENGTH);
+
+  return sanitized || undefined;
+}
+
+export function sanitizeErrorPreview(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const message = value instanceof Error ? value.message : String(value);
+  const sanitized = sanitizeString(message, MAX_ERROR_PREVIEW_LENGTH);
+
+  return sanitized || undefined;
+}
+
+export function sanitizeLogTitle(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const sanitized = sanitizeString(String(value), MAX_TITLE_LENGTH);
 
   return sanitized || undefined;
 }
@@ -38,6 +95,10 @@ export function sanitizeAiProviderError(value: unknown): string {
 }
 
 export function sanitizeMetadata(value: unknown): Prisma.InputJsonValue | undefined {
+  return sanitizeLogMetadata(value);
+}
+
+export function sanitizeLogMetadata(value: unknown): Prisma.InputJsonValue | undefined {
   const sanitized = sanitizeJson(value);
 
   if (sanitized === undefined) {
@@ -73,7 +134,7 @@ function sanitizeJson(value: unknown): unknown {
     const sanitized: Record<string, unknown> = {};
 
     for (const [key, item] of entries) {
-      if (SENSITIVE_KEY_PATTERN.test(key)) {
+      if (isSensitiveMetadataKey(key)) {
         continue;
       }
 
@@ -90,24 +151,34 @@ function sanitizeJson(value: unknown): unknown {
   return String(value);
 }
 
-function sanitizeString(value: string): string | undefined {
+function isSensitiveMetadataKey(key: string): boolean {
+  const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  return SENSITIVE_METADATA_KEYS.has(normalizedKey);
+}
+
+function sanitizeString(value: string, maxLength = MAX_STRING_LENGTH): string | undefined {
   const normalized = value.replace(/\s+/g, " ").trim();
 
   if (!normalized || LOCAL_PATH_PATTERN.test(normalized)) {
     return undefined;
   }
 
+  // 审计日志只保留定位信息，不保留客户联系方式、密钥、prompt、正文或 AI 原文。
   const redacted = normalized
+    .replace(URL_SECRET_QUERY_PATTERN, "$1[secret_redacted]")
     .replace(DATABASE_URL_PATTERN, "[REDACTED_DATABASE_URL]")
+    .replace(SENSITIVE_ASSIGNMENT_PATTERN, (match) => {
+      const key = match.split(/[:=]/)[0]?.trim() || "sensitive";
+      return `${key}=[secret_redacted]`;
+    })
     .replace(BEARER_TOKEN_PATTERN, "Bearer [REDACTED_TOKEN]")
     .replace(JWT_PATTERN, "[REDACTED_JWT]")
     .replace(API_KEY_PATTERN, "[REDACTED_API_KEY]")
-    .replace(SENSITIVE_ASSIGNMENT_PATTERN, (match) => {
-      const key = match.split(/[:=]/)[0]?.trim() || "sensitive";
-      return `${key}=[REDACTED]`;
-    });
+    .replace(MAINLAND_PHONE_PATTERN, "$1****$2")
+    .replace(WECHAT_VALUE_PATTERN, "$1[wechat_redacted]");
 
-  return redacted.length > MAX_STRING_LENGTH
-    ? `${redacted.slice(0, MAX_STRING_LENGTH)}...`
+  return redacted.length > maxLength
+    ? `${redacted.slice(0, maxLength)}...`
     : redacted;
 }

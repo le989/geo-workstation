@@ -90,7 +90,11 @@ function createContentItem(overrides: Record<string, unknown> = {}) {
 function createService(item = createContentItem()) {
   const prisma = {
     contentItem: {
-      findFirst: vi.fn().mockResolvedValue(item)
+      findFirst: vi.fn().mockResolvedValue(item),
+      update: vi.fn().mockResolvedValue({
+        ...item,
+        qualityCheckedAt: new Date("2026-06-13T00:00:00.000Z")
+      })
     },
     knowledgeChunk: {
       findMany: vi.fn().mockResolvedValue([

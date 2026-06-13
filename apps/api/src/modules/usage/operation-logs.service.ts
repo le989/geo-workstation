@@ -3,7 +3,12 @@ import type { OperationLog, Prisma } from "@prisma/client";
 import { getCurrentCompanyId, getEffectiveRole, type ResourceAccessContext } from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { QueryOperationLogsDto } from "./dto/query-operation-logs.dto";
-import { sanitizeErrorMessage, sanitizeMetadata } from "./usage-sanitizer";
+import {
+  sanitizeErrorMessage,
+  sanitizeErrorPreview,
+  sanitizeLogMetadata,
+  sanitizeLogTitle
+} from "./usage-sanitizer";
 
 export type RecordOperationInput = {
   companyId?: string | null;
@@ -49,6 +54,15 @@ export type OperationLogListResponse = {
   pageSize: number;
 };
 
+type SanitizedOperationLogInput = Omit<
+  RecordOperationInput,
+  "targetTitle" | "errorMessage" | "metadata"
+> & {
+  targetTitle?: string;
+  errorMessage?: string;
+  metadata?: Prisma.InputJsonValue;
+};
+
 type OperationLogWithRelations = OperationLog & {
   user?: { name: string } | null;
   department?: { name: string } | null;
@@ -65,31 +79,43 @@ export class OperationLogsService {
     context?: ResourceAccessContext
   ): Promise<void> {
     try {
+      const sanitizedInput = this.sanitizeOperationLogInput(input);
+
       await this.prisma.operationLog.create({
         data: {
-          companyId: input.companyId ?? context?.currentCompany.id ?? null,
-          userId: input.userId ?? context?.user.id ?? null,
+          companyId: sanitizedInput.companyId ?? context?.currentCompany.id ?? null,
+          userId: sanitizedInput.userId ?? context?.user.id ?? null,
           departmentId:
-            input.departmentId ??
+            sanitizedInput.departmentId ??
             context?.currentMembership?.departmentId ??
             context?.currentCompany.department?.id ??
             null,
-          moduleKey: input.moduleKey,
-          action: input.action,
-          targetType: input.targetType,
-          targetId: input.targetId ?? null,
-          targetTitle: input.targetTitle ?? null,
-          success: input.success ?? true,
-          errorMessage: sanitizeErrorMessage(input.errorMessage) ?? null,
-          ip: input.ip ?? null,
-          userAgent: input.userAgent ?? null,
-          metadata: sanitizeMetadata(input.metadata),
-          ...(input.createdAt ? { createdAt: input.createdAt } : {})
+          moduleKey: sanitizedInput.moduleKey,
+          action: sanitizedInput.action,
+          targetType: sanitizedInput.targetType,
+          targetId: sanitizedInput.targetId ?? null,
+          targetTitle: sanitizedInput.targetTitle ?? null,
+          success: sanitizedInput.success ?? true,
+          errorMessage: sanitizedInput.errorMessage ?? null,
+          ip: sanitizedInput.ip ?? null,
+          userAgent: sanitizedInput.userAgent ?? null,
+          metadata: sanitizedInput.metadata,
+          ...(sanitizedInput.createdAt ? { createdAt: sanitizedInput.createdAt } : {})
         }
       });
     } catch (error) {
       this.logger.warn(`Failed to record operation log: ${sanitizeErrorMessage(error) ?? "unknown"}`);
     }
+  }
+
+  private sanitizeOperationLogInput(input: RecordOperationInput): SanitizedOperationLogInput {
+    // 统一在审计日志入口收口，避免业务模块遗漏脱敏后写入客户原文或密钥。
+    return {
+      ...input,
+      targetTitle: sanitizeLogTitle(input.targetTitle),
+      errorMessage: sanitizeErrorPreview(input.errorMessage),
+      metadata: sanitizeLogMetadata(input.metadata)
+    };
   }
 
   async queryLogs(
