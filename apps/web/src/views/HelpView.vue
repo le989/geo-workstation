@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Guide } from "@element-plus/icons-vue";
 import { helpNavItems, quickStartSteps, sopSections } from "@/config/help-content";
 
 const helpOverviewItems = [
@@ -24,12 +23,11 @@ const helpOverviewItems = [
       <div class="help-hero__copy">
         <el-tag effect="plain" type="primary">帮助中心</el-tag>
         <h1>使用教程与操作边界</h1>
+        <p>按 GEO 日常运营闭环查看页面用途、风险边界和常见问题。</p>
       </div>
       <div class="help-hero__aside">
-        <el-icon>
-          <Guide />
-        </el-icon>
-        <strong>快速查找操作边界</strong>
+        <strong>操作边界</strong>
+        <span>真实 AI、保存、上传、权限和系统设置操作前先确认环境与数据范围。</span>
       </div>
     </section>
 
