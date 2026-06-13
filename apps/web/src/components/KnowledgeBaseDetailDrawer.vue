@@ -134,6 +134,7 @@ const quickChildDirectoryVisible = ref(false);
 const quickChildDirectoryName = ref("");
 const quickChildDirectoryError = ref("");
 const quickChildDirectorySubmitting = ref(false);
+const isMobileCatalogDrawerOpen = ref(false);
 const directoryItems = computed(() => props.directories ?? []);
 const selectedDirectoryId = ref("");
 const expandedDirectoryIds = ref<string[]>([]);
@@ -182,6 +183,7 @@ watch(
     showFileAdvancedFilters.value = false;
     selectedDirectoryId.value = "";
     expandedDirectoryIds.value = [];
+    isMobileCatalogDrawerOpen.value = false;
   }
 );
 
@@ -436,6 +438,15 @@ const selectDirectoryNode = (directoryId: string) => {
   }
   emit("update:activeTab", "files");
   handleFileSearch();
+};
+
+const openMobileCatalogDrawer = () => {
+  isMobileCatalogDrawerOpen.value = true;
+};
+
+const selectDirectoryNodeFromDrawer = (directoryId: string) => {
+  selectDirectoryNode(directoryId);
+  isMobileCatalogDrawerOpen.value = false;
 };
 
 watch(
@@ -796,7 +807,7 @@ const submitDirectoryForm = () => {
                   :class="{ 'is-selected-directory': selectedDirectoryId === '' }"
                   @click="selectDirectoryNode('')"
                 >
-                  <span class="knowledge-directory-node__marker">全</span>
+                  <span class="knowledge-directory-node__marker">▾</span>
                   <span class="knowledge-directory-node__label">全部资料</span>
                 </button>
 
@@ -854,11 +865,104 @@ const submitDirectoryForm = () => {
                 <el-empty v-else description="暂无目录，可先使用默认根目录。" :image-size="72" />
               </aside>
 
+              <el-drawer
+                v-model="isMobileCatalogDrawerOpen"
+                append-to-body
+                class="kb-mobile-directory-drawer"
+                direction="ltr"
+                size="min(86vw, 320px)"
+                title="目录"
+              >
+                <section v-loading="directoriesLoading" class="kb-mobile-directory-panel">
+                  <div class="knowledge-directory-sidebar__header">
+                    <div>
+                      <p class="section-kicker">目录</p>
+                      <h3>资料导航</h3>
+                      <span class="kb-sidebar__current">当前：{{ currentDirectoryTitle }}</span>
+                    </div>
+                    <div class="knowledge-directory-sidebar__actions">
+                      <el-button v-if="canManage" size="small" text @click="openDirectoryManager">
+                        管理目录
+                      </el-button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="knowledge-directory-node knowledge-directory-node--all"
+                    :class="{ 'is-selected-directory': selectedDirectoryId === '' }"
+                    @click="selectDirectoryNodeFromDrawer('')"
+                  >
+                    <span class="knowledge-directory-node__marker">▾</span>
+                    <span class="knowledge-directory-node__label">全部资料</span>
+                  </button>
+
+                  <div
+                    v-if="visibleDirectoryNodes.length > 0"
+                    class="knowledge-directory-tree"
+                    aria-label="资料目录树"
+                  >
+                    <div
+                      v-for="directory in visibleDirectoryNodes"
+                      :key="directory.id"
+                      class="knowledge-directory-node"
+                      :class="{
+                        'is-selected-directory': selectedDirectoryId === directory.id,
+                        'is-disabled-directory': directory.status === 'disabled'
+                      }"
+                      :style="{ paddingLeft: `${12 + directory.level * 18}px` }"
+                      role="button"
+                      tabindex="0"
+                      @click="selectDirectoryNodeFromDrawer(directory.id)"
+                      @keydown.enter.prevent="selectDirectoryNodeFromDrawer(directory.id)"
+                      @keydown.space.prevent="selectDirectoryNodeFromDrawer(directory.id)"
+                    >
+                      <button
+                        v-if="directory.children.length > 0"
+                        type="button"
+                        class="knowledge-directory-node__toggle"
+                        :aria-expanded="expandedDirectoryIds.includes(directory.id)"
+                        @click.stop="toggleDirectoryNode(directory.id)"
+                      >
+                        {{ expandedDirectoryIds.includes(directory.id) ? "▾" : "▸" }}
+                      </button>
+                      <span v-else class="knowledge-directory-node__toggle-placeholder" />
+                      <span class="knowledge-directory-node__label">
+                        {{ getDirectoryDisplayName(directory) }}
+                      </span>
+                      <el-tag
+                        v-if="directory.isDefault"
+                        size="small"
+                        type="success"
+                        effect="plain"
+                      >
+                        默认
+                      </el-tag>
+                      <el-tag
+                        v-if="directory.status === 'disabled'"
+                        size="small"
+                        type="info"
+                        effect="plain"
+                      >
+                        已停用
+                      </el-tag>
+                    </div>
+                  </div>
+                  <el-empty v-else description="暂无目录，可先使用默认根目录。" :image-size="72" />
+                </section>
+              </el-drawer>
+
               <section class="knowledge-tab-panel knowledge-file-workspace kb-main">
                 <div class="knowledge-tab-header kb-main-toolbar">
-                  <div>
+                  <div class="kb-main-toolbar__title">
                     <p class="section-kicker">当前目录</p>
                     <h3>{{ currentDirectoryTitle }}</h3>
+                    <div class="kb-mobile-directory-entry" aria-label="移动端目录入口">
+                      <el-button size="small" @click="openMobileCatalogDrawer">
+                        ☰ 目录
+                      </el-button>
+                      <span>当前：{{ currentDirectoryTitle }}</span>
+                    </div>
                   </div>
                   <div class="knowledge-file-toolbar kb-main-toolbar__actions">
                     <div class="knowledge-primary-actions">
