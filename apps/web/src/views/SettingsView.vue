@@ -121,6 +121,10 @@ const currentUser = computed(() => authStore.currentUser);
 const currentRole = computed(() =>
   normalizeRole(authStore.currentRole ?? currentUser.value?.role)
 );
+const settingsBoundaryTitle = computed(
+  () =>
+    `环境与写入边界：当前环境 ${appStore.environmentLabel}。公司、产品线和项目档案会写入系统配置；Provider 密钥由后端环境变量管理，前端不展示完整值。`
+);
 const canManageProjectProfile = computed(() => currentRole.value === "platform_admin");
 const canManageCompanies = computed(() => currentRole.value === "platform_admin");
 const canManageProductLines = computed(
@@ -508,14 +512,13 @@ watch(
       </div>
     </section>
 
-    <section class="settings-write-boundary" aria-label="系统设置写入边界">
-      <div>
-        <strong>环境与写入边界</strong>
-        <span>
-          当前环境：{{ appStore.environmentLabel }}。公司、产品线和项目档案会写入系统配置；Provider 密钥由后端环境变量管理，前端不展示完整值。
-        </span>
-      </div>
-    </section>
+    <el-alert
+      class="settings-inline-boundary"
+      :title="settingsBoundaryTitle"
+      type="info"
+      :closable="false"
+      show-icon
+    />
 
     <AppErrorState v-if="errorMessage" :message="errorMessage" />
     <AppLoadingState v-if="loading && !profile" title="正在加载项目档案" />
