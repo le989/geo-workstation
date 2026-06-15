@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional
+} from "@nestjs/common";
 import { Prisma, type KnowledgeBase, type KnowledgeDirectory } from "@prisma/client";
 import type { CreateKnowledgeDirectoryDto } from "./dto/create-knowledge-directory.dto";
 import type { UpdateKnowledgeDirectoryDto } from "./dto/update-knowledge-directory.dto";
@@ -10,6 +17,7 @@ import {
   getCurrentCompanyId,
   type ResourceAccessContext
 } from "../auth/auth-policy";
+import { OperationLogsService } from "../usage/operation-logs.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 export const DEFAULT_KNOWLEDGE_DIRECTORY_NAME = "默认根目录";
@@ -41,7 +49,12 @@ type KnowledgeDirectoryWithBase = KnowledgeDirectory & {
 
 @Injectable()
 export class KnowledgeDirectoriesService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(OperationLogsService)
+    private readonly operationLogsService?: OperationLogsService
+  ) {}
 
   async findMany(
     knowledgeBaseId: string,
@@ -128,6 +141,17 @@ export class KnowledgeDirectoriesService {
       }
     });
 
+    // 只记录目录审计摘要，不记录请求原文、目录树快照或子文件列表。
+    await this.recordKnowledgeDirectoryOperation(
+      "knowledge_base.directory.created",
+      created,
+      {
+        statusAfter: created.status,
+        changedFields: ["name", "parentId"]
+      },
+      context
+    );
+
     return this.toDirectoryResponse(created);
   }
 
@@ -171,6 +195,18 @@ export class KnowledgeDirectoriesService {
           : {})
       }
     });
+
+    // 只记录字段名和状态摘要，不记录目录名新旧值或原始请求体。
+    await this.recordKnowledgeDirectoryOperation(
+      "knowledge_base.directory.updated",
+      updated,
+      {
+        statusBefore: existing.status,
+        statusAfter: updated.status,
+        changedFields: existing.name === updated.name ? [] : ["name"]
+      },
+      context
+    );
 
     return this.toDirectoryResponse(updated);
   }
@@ -219,6 +255,17 @@ export class KnowledgeDirectoriesService {
           : {})
       }
     });
+
+    // 只在首次停用成功后记录用户操作审计，重复停用沿用原有直接返回逻辑。
+    await this.recordKnowledgeDirectoryOperation(
+      "knowledge_base.directory.disabled",
+      updated,
+      {
+        statusBefore: existing.status,
+        statusAfter: updated.status
+      },
+      context
+    );
 
     return this.toDirectoryResponse(updated);
   }
@@ -506,6 +553,33 @@ export class KnowledgeDirectoriesService {
     }
 
     return name;
+  }
+
+  private async recordKnowledgeDirectoryOperation(
+    action: string,
+    directory: KnowledgeDirectory,
+    metadata: Record<string, unknown>,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "knowledge-bases",
+        action,
+        targetType: "knowledge_directory",
+        targetId: directory.id,
+        targetTitle: directory.name,
+        success: true,
+        metadata: {
+          knowledgeBaseId: directory.knowledgeBaseId,
+          directoryId: directory.id,
+          parentDirectoryId: directory.parentId,
+          titlePreview: directory.name,
+          directoryNamePreview: directory.name,
+          ...metadata
+        }
+      },
+      context
+    );
   }
 
   private resolveCompanyConnect(
