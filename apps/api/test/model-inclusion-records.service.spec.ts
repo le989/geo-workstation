@@ -2315,6 +2315,133 @@ describe("ModelInclusionRecordsService", () => {
     });
   });
 
+  it("records safe unified web-search operation logs for all batch outcomes", async () => {
+    const succeededPrompt = await createGeoPrompt("联网检测审计成功提示词");
+    kimiProvider.search.mockResolvedValueOnce({
+      finalAnswer: "联网检测成功回答",
+      rawAnswer: "联网检测成功原始回答，不应进入审计日志",
+      toolCalls: [],
+      citations: [],
+      searchResults: [{ title: "搜索结果原文不应进入审计日志" }]
+    });
+
+    await service.webSearchCheck({
+      geoPromptIds: [succeededPrompt.id],
+      provider: "kimi_web_search",
+      brandName: "海伯森"
+    });
+
+    const succeededActions = operationLogsService.recordOperation.mock.calls.map(
+      ([input]) => input.action
+    );
+    const succeededLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "model_inclusion.web_search.checked"
+    )?.[0];
+
+    expect(succeededActions).toEqual([
+      "web_search_check",
+      "model_inclusion.web_search.checked"
+    ]);
+    expect(succeededLog).toMatchObject({
+      action: "model_inclusion.web_search.checked",
+      success: true,
+      targetType: "model_inclusion_records",
+      targetTitle: "模型覆盖联网检测",
+      metadata: {
+        provider: "kimi_web_search",
+        model: "kimi-k2.6",
+        isMock: false,
+        checkType: "web_search",
+        searchStatus: "succeeded",
+        successCount: 1,
+        failedCount: 0,
+        requestCount: 1,
+        usageUnknown: true
+      }
+    });
+
+    operationLogsService.recordOperation.mockClear();
+    const partialSucceededPrompt = await createGeoPrompt("联网检测审计部分成功提示词");
+    const partialFailedPrompt = await createGeoPrompt("联网检测审计部分失败提示词");
+    kimiProvider.search
+      .mockResolvedValueOnce({
+        finalAnswer: "部分成功回答",
+        rawAnswer: "部分成功原始回答，不应进入审计日志",
+        toolCalls: [],
+        citations: [],
+        searchResults: []
+      })
+      .mockRejectedValueOnce(
+        new KimiProviderError(
+          "Provider 错误包含 promptText=客户问题和 token=secret-value",
+          "network_timeout"
+        )
+      );
+
+    await service.webSearchCheck({
+      geoPromptIds: [partialSucceededPrompt.id, partialFailedPrompt.id],
+      provider: "kimi_web_search",
+      brandName: "海伯森"
+    });
+
+    const partialLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "model_inclusion.web_search.checked"
+    )?.[0];
+
+    expect(partialLog).toMatchObject({
+      success: false,
+      metadata: {
+        searchStatus: "partial_failed",
+        successCount: 1,
+        failedCount: 1,
+        requestCount: 2,
+        errorCategory: "network_timeout"
+      }
+    });
+
+    operationLogsService.recordOperation.mockClear();
+    const failedPrompt = await createGeoPrompt("联网检测审计全部失败提示词");
+    kimiProvider.search.mockRejectedValueOnce(
+      new KimiProviderError("Provider 全部失败原始错误", "provider_incomplete_output")
+    );
+
+    await service.webSearchCheck({
+      geoPromptIds: [failedPrompt.id],
+      provider: "kimi_web_search",
+      brandName: "海伯森"
+    });
+
+    const failedActions = operationLogsService.recordOperation.mock.calls.map(
+      ([input]) => input.action
+    );
+    const failedLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "model_inclusion.web_search.checked"
+    )?.[0];
+    const serializedCheckedLog = JSON.stringify(failedLog);
+
+    expect(failedActions).toEqual([
+      "web_search_check",
+      "model_inclusion.web_search.checked"
+    ]);
+    expect(failedActions).not.toContain("model_inclusion.web_search.failed");
+    expect(failedLog).toMatchObject({
+      success: false,
+      metadata: {
+        searchStatus: "failed",
+        successCount: 0,
+        failedCount: 1,
+        requestCount: 1,
+        errorCategory: "provider_incomplete_output"
+      }
+    });
+    expect(serializedCheckedLog).not.toContain(succeededPrompt.promptText);
+    expect(serializedCheckedLog).not.toContain("原始回答");
+    expect(serializedCheckedLog).not.toContain("搜索结果原文");
+    expect(serializedCheckedLog).not.toContain("客户问题");
+    expect(serializedCheckedLog).not.toContain("secret-value");
+    expect(serializedCheckedLog).not.toContain("Provider 全部失败原始错误");
+  });
+
   it("stores retry metadata when a retried provider failure still fails", async () => {
     const prompt = await createGeoPrompt("Kimi 重试失败记录提示词");
     kimiProvider.search.mockRejectedValueOnce(
