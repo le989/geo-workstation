@@ -894,6 +894,35 @@ export class ModelInclusionRecordsService {
       },
       context
     );
+
+    const successCount = createdItems.length;
+    const failedCount = failedItems.length;
+    const searchStatus =
+      failedCount === 0 ? "succeeded" : successCount > 0 ? "partial_failed" : "failed";
+
+    // 保留旧 action 兼容历史审计，同时用统一命名记录摘要，不保存问法、回答或搜索结果原文。
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "model-inclusion-records",
+        action: "model_inclusion.web_search.checked",
+        targetType: "model_inclusion_records",
+        targetTitle: "模型覆盖联网检测",
+        success: failedCount === 0,
+        metadata: {
+          provider: providerRuntime.provider,
+          model: providerRuntime.model,
+          isMock: false,
+          checkType: "web_search",
+          searchStatus,
+          successCount,
+          failedCount,
+          requestCount: successCount + failedCount,
+          usageUnknown: true,
+          errorCategory: failedItems[0]?.errorCategory
+        }
+      },
+      context
+    );
   }
 
   async findUncoveredPrompts(
