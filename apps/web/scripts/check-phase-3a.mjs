@@ -37,7 +37,7 @@ const requiredMenuLabels = [
   "AI 拓词",
   "知识库",
   "指令库",
-  "GEO 内容生成",
+  "发布文章工作台",
   "AI 模型覆盖记录",
   "GEO 报表",
   "系统设置"
