@@ -8,11 +8,12 @@ import {
   type Company,
   type User
 } from "@prisma/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { ResourceAccessContext } from "../src/modules/auth/auth-policy";
 import { KnowledgeBasesService } from "../src/modules/geo-knowledge/knowledge-bases.service";
 import { KnowledgeDirectoriesService } from "../src/modules/geo-knowledge/knowledge-directories.service";
+import type { OperationLogsService } from "../src/modules/usage/operation-logs.service";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -22,6 +23,7 @@ describe("KnowledgeDirectoriesService", () => {
   let prisma: ReturnType<typeof createPrismaClient>;
   let knowledgeBasesService: KnowledgeBasesService;
   let knowledgeDirectoriesService: KnowledgeDirectoriesService;
+  let operationLogsService: { recordOperation: ReturnType<typeof vi.fn> };
   let companyA: Company;
   let companyB: Company;
   let companyAdmin: User;
@@ -35,6 +37,11 @@ describe("KnowledgeDirectoriesService", () => {
     knowledgeDirectoriesService = new KnowledgeDirectoriesService(
       prisma as unknown as PrismaService
     );
+    operationLogsService = {
+      recordOperation: vi.fn().mockResolvedValue(undefined)
+    };
+    (knowledgeDirectoriesService as unknown as { operationLogsService?: OperationLogsService })
+      .operationLogsService = operationLogsService as unknown as OperationLogsService;
 
     companyA = await prisma.company.create({
       data: {
@@ -123,6 +130,83 @@ describe("KnowledgeDirectoriesService", () => {
       context
     );
   }
+
+  it("records safe operation logs for custom directory mutations", async () => {
+    const context = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
+    const knowledgeBase = await createCompanyKnowledgeBase("审计目录", context);
+
+    // 默认根目录由系统维护，不作为用户目录操作写入审计日志。
+    await knowledgeDirectoriesService.findMany(knowledgeBase.id, context);
+    expect(operationLogsService.recordOperation).not.toHaveBeenCalled();
+
+    const created = await knowledgeDirectoriesService.create(
+      knowledgeBase.id,
+      {
+        name: "客户 FAQ 目录"
+      },
+      context
+    );
+    const updated = await knowledgeDirectoriesService.update(
+      created.id,
+      {
+        name: "售后 FAQ 目录"
+      },
+      context
+    );
+    await knowledgeDirectoriesService.disable(updated.id, context);
+    await knowledgeDirectoriesService.disable(updated.id, context);
+
+    const actions = operationLogsService.recordOperation.mock.calls.map(
+      ([input]) => input.action
+    );
+    expect(actions).toEqual([
+      "knowledge_base.directory.created",
+      "knowledge_base.directory.updated",
+      "knowledge_base.directory.disabled"
+    ]);
+
+    const createdLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "knowledge_base.directory.created"
+    )?.[0];
+    const updatedLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "knowledge_base.directory.updated"
+    )?.[0];
+    const disabledLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "knowledge_base.directory.disabled"
+    )?.[0];
+
+    expect(createdLog).toMatchObject({
+      moduleKey: "knowledge-bases",
+      targetType: "knowledge_directory",
+      targetId: created.id,
+      success: true,
+      metadata: {
+        knowledgeBaseId: knowledgeBase.id,
+        directoryId: created.id,
+        statusAfter: "active",
+        changedFields: ["name", "parentId"]
+      }
+    });
+    expect(updatedLog?.metadata).toMatchObject({
+      knowledgeBaseId: knowledgeBase.id,
+      directoryId: created.id,
+      statusBefore: "active",
+      statusAfter: "active",
+      changedFields: ["name"]
+    });
+    expect(disabledLog?.metadata).toMatchObject({
+      knowledgeBaseId: knowledgeBase.id,
+      directoryId: created.id,
+      parentDirectoryId: null,
+      statusBefore: "active",
+      statusAfter: "disabled"
+    });
+
+    const serializedCalls = JSON.stringify(operationLogsService.recordOperation.mock.calls);
+    expect(serializedCalls).not.toContain("requestBody");
+    expect(serializedCalls).not.toContain("children");
+    expect(serializedCalls).not.toContain("files");
+  });
 
   it("ensures a default root directory and manages custom directories", async () => {
     const context = contextFor(companyAdmin, companyA, MembershipRole.company_admin);
