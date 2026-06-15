@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { BadRequestException, ForbiddenException, Inject, Injectable, Optional } from "@nestjs/common";
 import {
   GeoPromptType,
@@ -58,6 +59,7 @@ import {
 import { buildOwnerCompanyReadWhere } from "../auth/owner-company-policy";
 import { AiUsageService } from "../usage/ai-usage.service";
 import { OperationLogsService } from "../usage/operation-logs.service";
+import { sanitizeLogTitle } from "../usage/usage-sanitizer";
 
 const SYSTEM_GEO_OPERATOR_EMAIL = "system-geo-operator@geo-workstation.local";
 const MAX_EXPORT_ROWS = 5000;
@@ -301,6 +303,17 @@ export class ModelInclusionRecordsService {
     const createdById = context?.user.id ?? (await this.resolveCreatedById(normalized.createdBy));
     const created = await this.createRecord(normalized, geoPrompt.id, createdById, context);
     await this.refreshLatestCoverageStatus(geoPrompt.id, context);
+    await this.recordModelInclusionOperation(
+      "model_inclusion.record.created",
+      {
+        ...created,
+        geoPrompt
+      },
+      {
+        statusAfter: this.resolveRecordAuditStatus(created)
+      },
+      context
+    );
 
     return this.toRecordResponse({
       ...created,
@@ -320,6 +333,7 @@ export class ModelInclusionRecordsService {
     }
 
     const normalized = normalizeUpdateModelInclusionRecord(input);
+    const changedFields = Object.keys(normalized);
 
     if (!this.hasUpdateRecordFields(normalized)) {
       throw new BadRequestException("至少需要提交一个可编辑结果字段");
@@ -336,6 +350,16 @@ export class ModelInclusionRecordsService {
       }
     });
     await this.refreshLatestCoverageStatus(updated.geoPromptId, context);
+    await this.recordModelInclusionOperation(
+      "model_inclusion.record.updated",
+      updated,
+      {
+        statusBefore: this.resolveRecordAuditStatus(record),
+        statusAfter: this.resolveRecordAuditStatus(updated),
+        changedFields
+      },
+      context
+    );
 
     return this.toRecordResponse(updated);
   }
@@ -390,6 +414,17 @@ export class ModelInclusionRecordsService {
       }
     });
     await this.refreshLatestCoverageStatus(updated.geoPromptId, context);
+    await this.recordModelInclusionOperation(
+      "model_inclusion.record.voided",
+      updated,
+      {
+        statusBefore: this.resolveRecordAuditStatus(record),
+        statusAfter: this.resolveRecordAuditStatus(updated),
+        voidReasonPreview: sanitizeLogTitle(voidReason),
+        changedFields: ["voidedAt", "voidReason"]
+      },
+      context
+    );
 
     return this.toRecordResponse(updated);
   }
@@ -438,6 +473,16 @@ export class ModelInclusionRecordsService {
       }
     });
     await this.refreshLatestCoverageStatus(updated.geoPromptId, context);
+    await this.recordModelInclusionOperation(
+      "model_inclusion.record.restored",
+      updated,
+      {
+        statusBefore: this.resolveRecordAuditStatus(record),
+        statusAfter: this.resolveRecordAuditStatus(updated),
+        changedFields: ["voidedAt", "voidReason"]
+      },
+      context
+    );
 
     return this.toRecordResponse(updated);
   }
@@ -706,8 +751,77 @@ export class ModelInclusionRecordsService {
       },
       context
     );
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "model-inclusion-records",
+        action: "model_inclusion.record.exported",
+        targetType: "model_inclusion_records",
+        targetTitle: "模型覆盖记录导出",
+        success: true,
+        metadata: {
+          exportCount: records.length,
+          modelName: normalized.model,
+          platform: normalized.platform,
+          sourceType: normalized.recordMethod,
+          checkType: normalized.detectionMethod,
+          entryPoint: normalized.entryPoint,
+          voidStatus: normalized.voidStatus
+        }
+      },
+      context
+    );
 
     return csv;
+  }
+
+  private async recordModelInclusionOperation(
+    action: string,
+    record: ModelInclusionRecordWithPrompt,
+    metadata: Record<string, unknown>,
+    context?: ResourceAccessContext
+  ): Promise<void> {
+    // 只记录审计定位摘要，不记录提示词、原始回答、搜索结果或请求正文。
+    await this.operationLogsService?.recordOperation(
+      {
+        moduleKey: "model-inclusion-records",
+        action,
+        targetType: "model_inclusion_record",
+        targetId: record.id,
+        targetTitle: this.buildRecordAuditTitle(record),
+        success: true,
+        metadata: {
+          ...this.buildRecordAuditMetadata(record),
+          ...metadata
+        }
+      },
+      context
+    );
+  }
+
+  private buildRecordAuditMetadata(record: ModelInclusionRecordWithPrompt): Record<string, unknown> {
+    return {
+      recordId: record.id,
+      modelName: record.model,
+      platform: record.platform ?? undefined,
+      sourceType: record.recordMethod,
+      checkType: record.detectionMethod ?? undefined,
+      titlePreview: this.buildRecordAuditTitle(record),
+      promptHash: this.hashPromptText(record.geoPrompt.promptText)
+    };
+  }
+
+  private buildRecordAuditTitle(record: Pick<ModelInclusionRecord, "model" | "platform">): string {
+    return [record.platform, record.model].filter(Boolean).join(" / ") || "模型覆盖记录";
+  }
+
+  private resolveRecordAuditStatus(
+    record: Pick<ModelInclusionRecord, "voidedAt">
+  ): "active" | "voided" {
+    return record.voidedAt ? "voided" : "active";
+  }
+
+  private hashPromptText(promptText: string): string {
+    return createHash("sha256").update(promptText).digest("hex").slice(0, 16);
   }
 
   private async recordWebSearchCheckLogs(

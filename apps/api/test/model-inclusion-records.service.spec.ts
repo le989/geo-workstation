@@ -23,6 +23,7 @@ import {
 import { AliyunBailianWebSearchProvider } from "../src/modules/model-inclusion/providers/aliyun-bailian-web-search.provider";
 import { VolcengineWebSearchProvider } from "../src/modules/model-inclusion/providers/volcengine-web-search.provider";
 import { analyzeGeoHitFromAnswer } from "../src/modules/model-inclusion/utils/analyze-geo-hit.util";
+import type { OperationLogsService } from "../src/modules/usage/operation-logs.service";
 import { createPrismaClient } from "../src/prisma/create-prisma-client";
 import type { PrismaService } from "../src/prisma/prisma.service";
 
@@ -43,6 +44,7 @@ describe("ModelInclusionRecordsService", () => {
   let aliyunProvider: {
     search: ReturnType<typeof vi.fn>;
   };
+  let operationLogsService: { recordOperation: ReturnType<typeof vi.fn> };
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??= databaseUrl;
@@ -63,6 +65,11 @@ describe("ModelInclusionRecordsService", () => {
       volcengineProvider as unknown as VolcengineWebSearchProvider,
       aliyunProvider as unknown as AliyunBailianWebSearchProvider
     );
+    operationLogsService = {
+      recordOperation: vi.fn().mockResolvedValue(undefined)
+    };
+    (service as unknown as { operationLogsService?: OperationLogsService }).operationLogsService =
+      operationLogsService as unknown as OperationLogsService;
 
     const user = await prisma.user.create({
       data: {
@@ -84,6 +91,7 @@ describe("ModelInclusionRecordsService", () => {
     kimiProvider.search.mockReset();
     volcengineProvider.search.mockReset();
     aliyunProvider.search.mockReset();
+    operationLogsService.recordOperation.mockClear();
   });
 
   function unique(label: string): string {
@@ -1233,6 +1241,93 @@ describe("ModelInclusionRecordsService", () => {
       }
     });
     expect(updatedPrompt.latestCoverageStatus).toBe("recommended");
+  });
+
+  it("records safe operation logs for manual model inclusion mutations and export", async () => {
+    const company = await createCompany("audit");
+    const companyAdmin = await createUser("audit-admin", UserRole.company_admin);
+    const context = buildContext(companyAdmin, company, MembershipRole.company_admin);
+    const prompt = await createCompanyGeoPrompt(
+      "审计模型覆盖记录13812345678",
+      company.id,
+      companyAdmin.id
+    );
+    const rawAnswer = "原始回答正文：客户手机号13812345678，微信号wxaudit123";
+    const searchResults = [{ title: "搜索结果包含敏感原文", url: "https://example.com/search" }];
+
+    const created = await service.create(
+      {
+        geoPromptId: prompt.id,
+        model: "deepseek-chat",
+        platform: "DeepSeek",
+        brandMentioned: true,
+        rawAnswer,
+        searchResults
+      },
+      context
+    );
+    await service.updateRecord(
+      created.id,
+      {
+        brandRecommended: true,
+        rawAnswer,
+        searchResults,
+        errorMessage: "上游错误携带 token=secret-value"
+      },
+      context
+    );
+    await service.voidRecord(
+      created.id,
+      {
+        voidReason: "作废原因含手机号13812345678和微信wxaudit123"
+      },
+      context
+    );
+    await service.restoreRecord(created.id, context);
+    await service.exportCsv(
+      {
+        model: "deepseek-chat"
+      },
+      context
+    );
+
+    const actions = operationLogsService.recordOperation.mock.calls.map(([input]) => input.action);
+    const updatedLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "model_inclusion.record.updated"
+    )?.[0];
+    const voidedLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "model_inclusion.record.voided"
+    )?.[0];
+    const exportedLog = operationLogsService.recordOperation.mock.calls.find(
+      ([input]) => input.action === "model_inclusion.record.exported"
+    )?.[0];
+    const serializedCalls = JSON.stringify(operationLogsService.recordOperation.mock.calls);
+
+    expect(actions).toEqual([
+      "model_inclusion.record.created",
+      "model_inclusion.record.updated",
+      "model_inclusion.record.voided",
+      "model_inclusion.record.restored",
+      "export",
+      "model_inclusion.record.exported"
+    ]);
+    expect(updatedLog?.metadata).toMatchObject({
+      recordId: created.id,
+      changedFields: expect.arrayContaining(["brandRecommended", "rawAnswer", "searchResults"])
+    });
+    expect(voidedLog?.metadata).toMatchObject({
+      recordId: created.id,
+      statusBefore: "active",
+      statusAfter: "voided"
+    });
+    expect(exportedLog?.metadata).toMatchObject({
+      exportCount: expect.any(Number),
+      modelName: "deepseek-chat"
+    });
+    expect(serializedCalls).not.toContain(prompt.promptText);
+    expect(serializedCalls).not.toContain(rawAnswer);
+    expect(serializedCalls).not.toContain("搜索结果包含敏感原文");
+    expect(serializedCalls).not.toContain("secret-value");
   });
 
   it("derives recommended hit level and preserves multi-entry GEO hit fields", async () => {
