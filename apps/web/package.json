@@ -23,6 +23,7 @@
     "test:users": "node scripts/check-users.mjs",
     "test:settings": "node scripts/check-phase-general1-settings.mjs",
     "test:usage": "node scripts/check-token-usage.mjs",
+    "test:ai-usage-ledger": "node scripts/check-ai-usage-ledger-ui.mjs",
     "test:ai-provider": "node scripts/check-ai-provider-safety.mjs",
     "test:logs-viewer": "node scripts/check-logs-viewer-ui.mjs",
     "test:help": "node scripts/check-phase-help1.mjs",
