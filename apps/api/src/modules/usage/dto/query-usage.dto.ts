@@ -42,13 +42,44 @@ export class QueryUsageDto {
   endDate?: string;
 }
 
+export class QueryUsageLedgerDto extends QueryUsageDto {
+  @IsOptional()
+  @IsString()
+  provider?: string;
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+}
+
 export class QueryUsageTrendDto extends QueryUsageDto {
   @IsOptional()
   @IsIn(["day", "week", "month"])
   granularity?: "day" | "week" | "month" = "day";
 }
 
+export class QueryUsageLedgerTrendDto extends QueryUsageLedgerDto {
+  @IsOptional()
+  @IsIn(["day", "week", "month"])
+  granularity?: "day" | "week" | "month" = "day";
+}
+
 export class QueryUsageListDto extends QueryUsageDto {
+  @IsOptional()
+  @Transform(({ value }) => toOptionalInt(value))
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Transform(({ value }) => toOptionalInt(value))
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize?: number = 20;
+}
+
+export class QueryUsageLedgerRecordsDto extends QueryUsageLedgerDto {
   @IsOptional()
   @Transform(({ value }) => toOptionalInt(value))
   @IsInt()

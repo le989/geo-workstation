@@ -13,7 +13,13 @@ import type {
   CurrentMembershipContext
 } from "../auth/auth.types";
 import { AiUsageService } from "./ai-usage.service";
-import { QueryUsageDto, QueryUsageTrendDto } from "./dto/query-usage.dto";
+import {
+  QueryUsageDto,
+  QueryUsageLedgerDto,
+  QueryUsageLedgerRecordsDto,
+  QueryUsageLedgerTrendDto,
+  QueryUsageTrendDto
+} from "./dto/query-usage.dto";
 
 @Controller("api/usage")
 export class UsageController {
@@ -40,6 +46,71 @@ export class UsageController {
     @CurrentMembership() currentMembership?: CurrentMembershipContext
   ) {
     return this.aiUsageService.queryAiSummary(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Get("ledger-summary")
+  getLedgerSummary(
+    @Query(createValidationPipe(QueryUsageLedgerDto)) query: QueryUsageLedgerDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.aiUsageService.queryLedgerSummary(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Get("ledger-trends")
+  getLedgerTrends(
+    @Query(createValidationPipe(QueryUsageLedgerTrendDto)) query: QueryUsageLedgerTrendDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.aiUsageService.queryLedgerTrends(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Get("by-provider")
+  getByProvider(
+    @Query(createValidationPipe(QueryUsageLedgerDto)) query: QueryUsageLedgerDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.aiUsageService.queryUsageByProvider(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Get("by-model")
+  getByModel(
+    @Query(createValidationPipe(QueryUsageLedgerDto)) query: QueryUsageLedgerDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.aiUsageService.queryUsageByModel(
+      query,
+      this.buildContext(user, currentCompany, currentMembership)
+    );
+  }
+
+  @Get("ledger-records")
+  getLedgerRecords(
+    @Query(createValidationPipe(QueryUsageLedgerRecordsDto)) query: QueryUsageLedgerRecordsDto,
+    @CurrentUser() user?: AuthUser,
+    @CurrentCompany() currentCompany?: AuthCompanyOption,
+    @CurrentMembership() currentMembership?: CurrentMembershipContext
+  ) {
+    return this.aiUsageService.queryLedgerRecords(
       query,
       this.buildContext(user, currentCompany, currentMembership)
     );

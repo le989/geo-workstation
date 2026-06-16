@@ -3,7 +3,14 @@ import type { AiUsageRecord, Prisma } from "@prisma/client";
 import { getCurrentCompanyId, getEffectiveRole, type ResourceAccessContext } from "../auth/auth-policy";
 import { PrismaService } from "../../prisma/prisma.service";
 import { sanitizeErrorMessage, sanitizeMetadata } from "./usage-sanitizer";
-import type { QueryUsageDto, QueryUsageListDto, QueryUsageTrendDto } from "./dto/query-usage.dto";
+import type {
+  QueryUsageDto,
+  QueryUsageLedgerDto,
+  QueryUsageLedgerRecordsDto,
+  QueryUsageLedgerTrendDto,
+  QueryUsageListDto,
+  QueryUsageTrendDto
+} from "./dto/query-usage.dto";
 
 export type RecordAiUsageInput = {
   companyId?: string | null;
@@ -56,6 +63,117 @@ export type UsageTrendResponse = {
 
 export type UsageRecordListResponse = {
   items: AiUsageRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type UsageLedgerSummaryResponse = {
+  totalRequestCount: number;
+  realRequestCount: number;
+  mockRequestCount: number;
+  successRequestCount: number;
+  failureRequestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  realPromptTokens: number;
+  realCompletionTokens: number;
+  realTotalTokens: number;
+  mockPromptTokens: number;
+  mockCompletionTokens: number;
+  mockTotalTokens: number;
+  usageUnknownCount: number;
+  uniqueProviderCount: number;
+  uniqueModelCount: number;
+  uniqueUserCount: number;
+  recordCount: number;
+};
+
+export type UsageLedgerTrendItem = {
+  date: string;
+  requestCount: number;
+  realRequestCount: number;
+  mockRequestCount: number;
+  totalTokens: number;
+  realTotalTokens: number;
+  mockTotalTokens: number;
+  successRequestCount: number;
+  failureRequestCount: number;
+  usageUnknownCount: number;
+  recordCount: number;
+};
+
+export type UsageLedgerTrendResponse = {
+  items: UsageLedgerTrendItem[];
+};
+
+export type UsageByProviderItem = {
+  provider: string;
+  requestCount: number;
+  realRequestCount: number;
+  mockRequestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  realTotalTokens: number;
+  mockTotalTokens: number;
+  successRequestCount: number;
+  failureRequestCount: number;
+  usageUnknownCount: number;
+  modelCount: number;
+  recordCount: number;
+};
+
+export type UsageByProviderResponse = {
+  items: UsageByProviderItem[];
+};
+
+export type UsageByModelItem = {
+  provider: string;
+  model: string | null;
+  requestCount: number;
+  realRequestCount: number;
+  mockRequestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  realTotalTokens: number;
+  mockTotalTokens: number;
+  successRequestCount: number;
+  failureRequestCount: number;
+  usageUnknownCount: number;
+  recordCount: number;
+};
+
+export type UsageByModelResponse = {
+  items: UsageByModelItem[];
+};
+
+export type UsageLedgerRecordItem = {
+  id: string;
+  logId: string;
+  createdAt: Date;
+  companyId: string | null;
+  departmentId: string | null;
+  userId: string | null;
+  userName: string | null;
+  moduleKey: string;
+  action: string;
+  provider: string;
+  model: string | null;
+  isMock: boolean;
+  success: boolean;
+  requestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  usageUnknown: boolean;
+  errorSummary: string | null;
+};
+
+export type UsageLedgerRecordsResponse = {
+  items: UsageLedgerRecordItem[];
   total: number;
   page: number;
   pageSize: number;
@@ -375,6 +493,143 @@ export class AiUsageService {
     };
   }
 
+  async queryLedgerSummary(
+    query: QueryUsageLedgerDto,
+    context: ResourceAccessContext
+  ): Promise<UsageLedgerSummaryResponse> {
+    const records = await this.findLedgerRecords(query, context);
+
+    return this.summarizeLedgerUsage(records);
+  }
+
+  async queryLedgerTrends(
+    query: QueryUsageLedgerTrendDto,
+    context: ResourceAccessContext
+  ): Promise<UsageLedgerTrendResponse> {
+    const granularity = query.granularity ?? "day";
+    const records = await this.findLedgerRecords(query, context);
+
+    return {
+      items: this.groupRecords(records, (record) => this.formatPeriod(record.createdAt, granularity)).map(
+        ([date, items]) => {
+          const summary = this.summarizeLedgerUsage(items);
+
+          return {
+            date,
+            requestCount: summary.totalRequestCount,
+            realRequestCount: summary.realRequestCount,
+            mockRequestCount: summary.mockRequestCount,
+            totalTokens: summary.totalTokens,
+            realTotalTokens: summary.realTotalTokens,
+            mockTotalTokens: summary.mockTotalTokens,
+            successRequestCount: summary.successRequestCount,
+            failureRequestCount: summary.failureRequestCount,
+            usageUnknownCount: summary.usageUnknownCount,
+            recordCount: summary.recordCount
+          };
+        }
+      )
+    };
+  }
+
+  async queryUsageByProvider(
+    query: QueryUsageLedgerDto,
+    context: ResourceAccessContext
+  ): Promise<UsageByProviderResponse> {
+    const records = await this.findLedgerRecords(query, context);
+
+    return {
+      items: this.groupRecords(records, (record) => record.provider).map(([provider, items]) => {
+        const summary = this.summarizeLedgerUsage(items);
+
+        return {
+          provider,
+          requestCount: summary.totalRequestCount,
+          realRequestCount: summary.realRequestCount,
+          mockRequestCount: summary.mockRequestCount,
+          promptTokens: summary.promptTokens,
+          completionTokens: summary.completionTokens,
+          totalTokens: summary.totalTokens,
+          realTotalTokens: summary.realTotalTokens,
+          mockTotalTokens: summary.mockTotalTokens,
+          successRequestCount: summary.successRequestCount,
+          failureRequestCount: summary.failureRequestCount,
+          usageUnknownCount: summary.usageUnknownCount,
+          modelCount: this.countUnique(items, (record) => record.model),
+          recordCount: summary.recordCount
+        };
+      })
+    };
+  }
+
+  async queryUsageByModel(
+    query: QueryUsageLedgerDto,
+    context: ResourceAccessContext
+  ): Promise<UsageByModelResponse> {
+    const records = await this.findLedgerRecords(query, context);
+
+    return {
+      items: this.groupRecords(records, (record) => `${record.provider}::${record.model ?? ""}`).map(
+        ([, items]) => {
+          const summary = this.summarizeLedgerUsage(items);
+
+          return {
+            provider: items[0]?.provider ?? "unknown",
+            model: items[0]?.model ?? null,
+            requestCount: summary.totalRequestCount,
+            realRequestCount: summary.realRequestCount,
+            mockRequestCount: summary.mockRequestCount,
+            promptTokens: summary.promptTokens,
+            completionTokens: summary.completionTokens,
+            totalTokens: summary.totalTokens,
+            realTotalTokens: summary.realTotalTokens,
+            mockTotalTokens: summary.mockTotalTokens,
+            successRequestCount: summary.successRequestCount,
+            failureRequestCount: summary.failureRequestCount,
+            usageUnknownCount: summary.usageUnknownCount,
+            recordCount: summary.recordCount
+          };
+        }
+      )
+    };
+  }
+
+  async queryLedgerRecords(
+    query: QueryUsageLedgerRecordsDto,
+    context: ResourceAccessContext
+  ): Promise<UsageLedgerRecordsResponse> {
+    const page = Math.max(query.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(query.pageSize ?? 20, 1), 100);
+    const where = this.buildLedgerWhere(query, context);
+    const [total, records] = await this.prisma.$transaction([
+      this.prisma.aiUsageRecord.count({ where }),
+      this.prisma.aiUsageRecord.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              name: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: "desc"
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+
+    return {
+      items: (records as AiUsageRecordWithUser[]).map((record) =>
+        this.toUsageLedgerRecordItem(record)
+      ),
+      total,
+      page,
+      pageSize
+    };
+  }
+
   private async findVisibleRecords(
     query: QueryUsageDto,
     context: ResourceAccessContext,
@@ -387,6 +642,34 @@ export class AiUsageService {
         createdAt: "asc"
       }
     });
+  }
+
+  private async findLedgerRecords(
+    query: QueryUsageLedgerDto,
+    context: ResourceAccessContext
+  ): Promise<AiUsageRecord[]> {
+    return this.prisma.aiUsageRecord.findMany({
+      where: this.buildLedgerWhere(query, context),
+      orderBy: {
+        createdAt: "asc"
+      }
+    });
+  }
+
+  private buildLedgerWhere(
+    query: QueryUsageLedgerDto,
+    context: ResourceAccessContext
+  ): Prisma.AiUsageRecordWhereInput {
+    const where = this.buildWhere(query, context);
+
+    if (query.provider) {
+      where.provider = query.provider;
+    }
+    if (query.model) {
+      where.model = query.model;
+    }
+
+    return where;
   }
 
   private buildWhere(
@@ -427,6 +710,108 @@ export class AiUsageService {
     }
 
     return where;
+  }
+
+  private summarizeLedgerUsage(records: AiUsageRecord[]): UsageLedgerSummaryResponse {
+    const providerKeys = new Set<string>();
+    const modelKeys = new Set<string>();
+    const userKeys = new Set<string>();
+
+    const summary = records.reduce<UsageLedgerSummaryResponse>(
+      (ledgerSummary, record) => {
+        ledgerSummary.recordCount += 1;
+        ledgerSummary.totalRequestCount += record.requestCount;
+        ledgerSummary.promptTokens += record.promptTokens;
+        ledgerSummary.completionTokens += record.completionTokens;
+        ledgerSummary.totalTokens += record.totalTokens;
+
+        if (record.provider) {
+          providerKeys.add(record.provider);
+        }
+        if (record.model) {
+          modelKeys.add(record.model);
+        }
+        if (record.userId) {
+          userKeys.add(record.userId);
+        }
+
+        if (record.isMock) {
+          ledgerSummary.mockRequestCount += record.requestCount;
+          ledgerSummary.mockPromptTokens += record.promptTokens;
+          ledgerSummary.mockCompletionTokens += record.completionTokens;
+          ledgerSummary.mockTotalTokens += record.totalTokens;
+        } else {
+          ledgerSummary.realRequestCount += record.requestCount;
+          ledgerSummary.realPromptTokens += record.promptTokens;
+          ledgerSummary.realCompletionTokens += record.completionTokens;
+          ledgerSummary.realTotalTokens += record.totalTokens;
+        }
+
+        if (record.success) {
+          ledgerSummary.successRequestCount += record.requestCount;
+        } else {
+          ledgerSummary.failureRequestCount += record.requestCount;
+        }
+
+        // 用量未知只按记录数标记，不根据模型或 Provider 反推 Token。
+        if (this.isLedgerUsageUnknown(record)) {
+          ledgerSummary.usageUnknownCount += 1;
+        }
+
+        return ledgerSummary;
+      },
+      {
+        totalRequestCount: 0,
+        realRequestCount: 0,
+        mockRequestCount: 0,
+        successRequestCount: 0,
+        failureRequestCount: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        realPromptTokens: 0,
+        realCompletionTokens: 0,
+        realTotalTokens: 0,
+        mockPromptTokens: 0,
+        mockCompletionTokens: 0,
+        mockTotalTokens: 0,
+        usageUnknownCount: 0,
+        uniqueProviderCount: 0,
+        uniqueModelCount: 0,
+        uniqueUserCount: 0,
+        recordCount: 0
+      }
+    );
+
+    summary.uniqueProviderCount = providerKeys.size;
+    summary.uniqueModelCount = modelKeys.size;
+    summary.uniqueUserCount = userKeys.size;
+
+    return summary;
+  }
+
+  private toUsageLedgerRecordItem(record: AiUsageRecordWithUser): UsageLedgerRecordItem {
+    return {
+      id: record.id,
+      logId: record.id,
+      createdAt: record.createdAt,
+      companyId: record.companyId,
+      departmentId: record.departmentId,
+      userId: record.userId,
+      userName: record.user?.name ?? (record.userId ? null : "系统任务"),
+      moduleKey: record.moduleKey,
+      action: record.action,
+      provider: record.provider,
+      model: record.model,
+      isMock: record.isMock,
+      success: record.success,
+      requestCount: record.requestCount,
+      promptTokens: record.promptTokens,
+      completionTokens: record.completionTokens,
+      totalTokens: record.totalTokens,
+      usageUnknown: this.isLedgerUsageUnknown(record),
+      errorSummary: this.toErrorSummary(record.errorMessage)
+    };
   }
 
   private assertCanQuery(context: ResourceAccessContext): void {
@@ -510,10 +895,24 @@ export class AiUsageService {
   }
 
   private isUsageUnknown(record: AiUsageRecord): boolean {
-    const metadata =
-      record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
-        ? (record.metadata as Record<string, unknown>)
-        : {};
+    const metadata = this.getMetadataObject(record.metadata);
+
+    if (metadata.usageUnknown === true || metadata.providerReturnedUsage === false) {
+      return true;
+    }
+    if (metadata.usageUnknown === false || metadata.providerReturnedUsage === true) {
+      return false;
+    }
+
+    return record.promptTokens + record.completionTokens + record.totalTokens === 0;
+  }
+
+  private isLedgerUsageUnknown(record: AiUsageRecord): boolean {
+    if (record.isMock) {
+      return false;
+    }
+
+    const metadata = this.getMetadataObject(record.metadata);
 
     if (metadata.usageUnknown === true || metadata.providerReturnedUsage === false) {
       return true;
@@ -566,6 +965,46 @@ export class AiUsageService {
     }
 
     return [...grouped.entries()].sort(([left], [right]) => left.localeCompare(right));
+  }
+
+  private countUnique<T extends AiUsageRecord>(
+    records: T[],
+    getValue: (record: T) => string | null
+  ): number {
+    const values = new Set<string>();
+
+    for (const record of records) {
+      const value = getValue(record);
+      if (value) {
+        values.add(value);
+      }
+    }
+
+    return values.size;
+  }
+
+  private getMetadataObject(metadata: Prisma.JsonValue | null): Record<string, unknown> {
+    return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {};
+  }
+
+  private toErrorSummary(errorMessage: string | null): string | null {
+    const sanitized = sanitizeErrorMessage(errorMessage);
+
+    if (!sanitized) {
+      return null;
+    }
+
+    // 账本页只展示排查摘要，敏感头和密钥字段名也不向前端透出。
+    const ledgerSafeSummary = sanitized
+      .replace(/Authorization(?:\s*[:=]\s*\S+)?/gi, "[secret_redacted]")
+      .replace(/API\s*key(?:\s+\[[^\]]+\]|\s*[:=]\s*\S+)?/gi, "[secret_redacted]")
+      .replace(/Bearer\s+\S+/gi, "[secret_redacted]");
+
+    return ledgerSafeSummary.length > 160
+      ? `${ledgerSafeSummary.slice(0, 157)}...`
+      : ledgerSafeSummary;
   }
 
   private buildDateRange(
