@@ -104,10 +104,16 @@ const dashboardScopeText = computed(() => {
   return `统计范围：当前公司 · ${companyName}`;
 });
 
-const formatNumber = (value: number | undefined | null) => `${value ?? 0}`;
+// 后端空数据或字段缺失时，展示层统一把异常数字兜底为 0，避免页面出现 NaN。
+const toSafeNumber = (value: unknown, fallback = 0) => {
+  const numericValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numericValue) ? numericValue : fallback;
+};
+
+const formatNumber = (value: unknown) => `${toSafeNumber(value)}`;
 
 const formatPercent = (value: number | undefined | null) => {
-  if (value === undefined || value === null || Number.isNaN(value)) {
+  if (value === undefined || value === null || !Number.isFinite(value)) {
     return "--";
   }
 
@@ -115,15 +121,15 @@ const formatPercent = (value: number | undefined | null) => {
 };
 
 const getPercentValue = (value: number | undefined | null) => {
-  if (value === undefined || value === null || Number.isNaN(value)) {
+  if (value === undefined || value === null || !Number.isFinite(value)) {
     return 0;
   }
 
   return Math.max(0, Math.min(100, value * 100));
 };
 
-const getCountTone = (value: number, warningThreshold = 1) => {
-  if (value >= warningThreshold) {
+const getCountTone = (value: unknown, warningThreshold = 1) => {
+  if (toSafeNumber(value) >= warningThreshold) {
     return "warning" as const;
   }
 
@@ -194,7 +200,7 @@ const secondaryMetrics = computed(() => [
   {
     label: "GEO 提示词",
     value: formatNumber(report.value.promptTotal),
-    description: `${report.value.trackedPromptCount} 追踪 / ${report.value.highPriorityPromptCount} 高优先级`,
+    description: `${formatNumber(report.value.trackedPromptCount)} 追踪 / ${formatNumber(report.value.highPriorityPromptCount)} 高优先级`,
     to: "/geo-prompts"
   },
   {
@@ -207,8 +213,8 @@ const secondaryMetrics = computed(() => [
     label: "发布文章",
     value: `${formatNumber(report.value.contentTaskCount)} / ${formatNumber(report.value.contentItemCount)}`,
     description:
-      report.value.failedContentTaskCount > 0
-        ? `${report.value.failedContentTaskCount} 个失败任务待处理`
+      toSafeNumber(report.value.failedContentTaskCount) > 0
+        ? `${formatNumber(report.value.failedContentTaskCount)} 个失败任务待处理`
         : "暂无失败任务",
     to: "/geo-content"
   },
@@ -355,6 +361,20 @@ const contentGapCount = computed(
       ["prompt_without_content", "prompt_not_mentioned"].includes(item.type)
     ).length
 );
+const failedContentTaskCount = computed(() => toSafeNumber(report.value.failedContentTaskCount));
+const uncoveredTrackedPromptCount = computed(() =>
+  toSafeNumber(report.value.uncoveredTrackedPromptCount)
+);
+const contentRemediationCount = computed(
+  () => contentGapCount.value + failedContentTaskCount.value
+);
+const pendingRemediationCount = computed(
+  () =>
+    uncoveredTrackedPromptCount.value +
+    knowledgeGapItems.value.length +
+    contentGapCount.value +
+    failedContentTaskCount.value
+);
 
 const visibilityMetrics = computed(() => [
   {
@@ -391,41 +411,17 @@ const visibilityMetrics = computed(() => [
   },
   {
     label: "待补救问题",
-    value: formatNumber(
-      report.value.uncoveredTrackedPromptCount +
-        knowledgeGapItems.value.length +
-        contentGapCount.value +
-        report.value.failedContentTaskCount
-    ),
+    value: formatNumber(pendingRemediationCount.value),
     description: "汇总待补问法、证据、文章和复盘项",
-    percent: Math.min(
-      100,
-      (report.value.uncoveredTrackedPromptCount +
-        knowledgeGapItems.value.length +
-        contentGapCount.value +
-        report.value.failedContentTaskCount) *
-        20
-    ),
-    status:
-      report.value.uncoveredTrackedPromptCount +
-        knowledgeGapItems.value.length +
-        contentGapCount.value +
-        report.value.failedContentTaskCount >
-      0
-        ? "待处理"
-        : "稳定",
+    percent: Math.min(100, pendingRemediationCount.value * 20),
+    status: pendingRemediationCount.value > 0 ? "待处理" : "稳定",
     to: "/model-inclusion-records",
-    tone: getCountTone(
-      report.value.uncoveredTrackedPromptCount +
-        knowledgeGapItems.value.length +
-        contentGapCount.value +
-        report.value.failedContentTaskCount
-    )
+    tone: getCountTone(pendingRemediationCount.value)
   }
 ]);
 
 const getPrimaryRecoveryAction = () => {
-  if (report.value.uncoveredTrackedPromptCount > 0) {
+  if (uncoveredTrackedPromptCount.value > 0) {
     return {
       title: "先复盘模型覆盖",
       description: "有追踪问法还缺检测记录，先补模型覆盖结果，再判断补问法、证据或文章。",
@@ -443,7 +439,7 @@ const getPrimaryRecoveryAction = () => {
     };
   }
 
-  if (contentGapCount.value > 0 || report.value.failedContentTaskCount > 0) {
+  if (contentRemediationCount.value > 0) {
     return {
       title: "先补发布文章",
       description: "已有问法或内容任务需要补内容资产，优先处理 AI 引用友好度和发布稿。",
@@ -471,13 +467,13 @@ const dashboardConclusion = computed<DashboardConclusion>(() => {
   if (report.value.citedOfficialSiteCount <= 0) {
     weakness.push("官网引用需要继续补可引用段落");
   }
-  if (report.value.uncoveredTrackedPromptCount > 0) {
+  if (uncoveredTrackedPromptCount.value > 0) {
     weakness.push("部分追踪问法缺少模型覆盖记录");
   }
   if (knowledgeGapItems.value.length > 0) {
     weakness.push("知识库证据存在缺口");
   }
-  if (contentGapCount.value > 0 || report.value.failedContentTaskCount > 0) {
+  if (contentRemediationCount.value > 0) {
     weakness.push("发布文章和内容资产需要补齐");
   }
   if (report.value.competitorMentionedCount > 0) {
@@ -525,32 +521,26 @@ const todayTasks = computed<DashboardTask[]>(() => [
   },
   {
     title: "补文章",
-    count: formatNumber(contentGapCount.value + report.value.failedContentTaskCount),
+    count: formatNumber(contentRemediationCount.value),
     description: "内容不足时，优先处理发布稿和 AI 引用友好检查。",
-    status: contentGapCount.value + report.value.failedContentTaskCount > 0 ? "待处理" : "正常",
+    status: contentRemediationCount.value > 0 ? "待处理" : "正常",
     to: "/geo-content",
-    tone:
-      contentGapCount.value + report.value.failedContentTaskCount > 0 ? "warning" : "default",
+    tone: contentRemediationCount.value > 0 ? "warning" : "default",
     icon: EditPen
   },
   {
     title: "复盘模型",
-    count: formatNumber(report.value.uncoveredTrackedPromptCount),
+    count: formatNumber(uncoveredTrackedPromptCount.value),
     description: "未推荐或未命中时，展开覆盖记录看未推荐原因复盘。",
-    status: report.value.uncoveredTrackedPromptCount > 0 ? "待处理" : "正常",
+    status: uncoveredTrackedPromptCount.value > 0 ? "待处理" : "正常",
     to: "/model-inclusion-records",
-    tone: getCountTone(report.value.uncoveredTrackedPromptCount),
+    tone: getCountTone(uncoveredTrackedPromptCount.value),
     icon: TrendCharts
   }
 ]);
 
-const dashboardTaskTotal = computed(
-  () =>
-    knowledgeGapItems.value.length +
-    contentGapCount.value +
-    report.value.failedContentTaskCount +
-    report.value.uncoveredTrackedPromptCount
-);
+const dashboardTaskTotal = computed(() => pendingRemediationCount.value);
+const dashboardTaskTotalText = computed(() => formatNumber(dashboardTaskTotal.value));
 
 const recentActivities = computed(() => [
   {
@@ -574,7 +564,7 @@ const recentActivities = computed(() => [
   {
     time: "待办",
     title: "待补检测提醒",
-    description: `${formatNumber(report.value.uncoveredTrackedPromptCount)} 个追踪词仍需补检测。`,
+    description: `${formatNumber(uncoveredTrackedPromptCount.value)} 个追踪词仍需补检测。`,
     meta: "当前数据摘要"
   }
 ]);
@@ -695,7 +685,7 @@ const scenarioTags = [
           </RouterLink>
         </div>
         <div class="dashboard-refresh-ops-summary">
-          <strong>{{ dashboardTaskTotal }} 项待复盘</strong>
+          <strong>{{ dashboardTaskTotalText }} 项待复盘</strong>
           <span>推荐、证据、文章和模型记录</span>
         </div>
         <ul class="dashboard-refresh-action-list" aria-label="高优待办">
