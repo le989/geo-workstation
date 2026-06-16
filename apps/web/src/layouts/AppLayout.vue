@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, type Component } from "vue";
 import { useRoute } from "vue-router";
 import {
   ArrowDown,
   Connection,
   Expand,
   Fold,
+  MagicStick,
   OfficeBuilding,
+  PieChart,
+  Setting,
   SwitchButton
 } from "@element-plus/icons-vue";
 import { navigationItems } from "@/config/navigation";
@@ -37,6 +40,7 @@ const activeMenu = computed(() => {
 });
 const isSidebarCollapsed = ref(defaultSidebarCollapsed);
 const isNarrowLayout = ref(false);
+const openedSupportGroupKeys = ref<string[]>([]);
 
 let sidebarMediaQuery: MediaQueryList | undefined;
 
@@ -66,62 +70,126 @@ const getNavigationItemsByPath = (paths: string[]) =>
     .map((path) => navigationItems.find((item) => item.path === path))
     .filter((item): item is (typeof navigationItems)[number] => Boolean(item));
 
-const navigationGroups = [
+type NavigationItem = (typeof navigationItems)[number];
+
+type PrimaryNavigationGroup = {
+  key: string;
+  label: string;
+  items: NavigationItem[];
+};
+
+type SupportNavigationGroup = PrimaryNavigationGroup & {
+  icon: Component;
+};
+
+const primaryNavigationGroups: PrimaryNavigationGroup[] = [
   {
-    label: "GEO 主流程",
+    key: "core-workflow",
+    label: "核心工作流",
+    items: getNavigationItemsByPath(["/dashboard"])
+  },
+  {
+    key: "content-publish",
+    label: "内容与发布",
+    items: getNavigationItemsByPath(["/geo-content", "/model-inclusion-records"])
+  },
+  {
+    key: "knowledge-instructions",
+    label: "知识与指令",
     items: getNavigationItemsByPath([
-      "/dashboard",
-      "/geo-prompts",
       "/knowledge-bases",
-      "/geo-content",
-      "/model-inclusion-records"
+      "/geo-prompts",
+      "/instruction-templates"
     ])
   },
   {
-    label: "复盘分析",
+    key: "geo-diagnosis-review",
+    label: "GEO 诊断与复盘",
     items: getNavigationItemsByPath([
-      "/evidence-citations",
-      "/competitor-occupancy",
       "/geo-analysis",
-      "/geo-reports"
+      "/geo-reports",
+      "/evidence-citations",
+      "/competitor-occupancy"
     ])
-  },
-  {
-    label: "辅助工具",
-    items: getNavigationItemsByPath([
-      "/expansion",
-      "/aftersales-qa",
-      "/instruction-templates",
-      "/usage-analytics",
-      "/operation-logs",
-      "/users",
-      "/departments",
-      "/settings"
-    ])
-  },
-  {
-    label: "帮助与交接",
-    items: getNavigationItemsByPath(["/help"])
   }
 ];
 
-const visibleNavigationGroups = computed(() => {
+const supportNavigationGroups: SupportNavigationGroup[] = [
+  {
+    key: "support-tools",
+    label: "辅助工具",
+    icon: MagicStick,
+    items: getNavigationItemsByPath(["/expansion", "/aftersales-qa"])
+  },
+  {
+    key: "stats-logs",
+    label: "统计与日志",
+    icon: PieChart,
+    items: getNavigationItemsByPath(["/usage-analytics", "/operation-logs"])
+  },
+  {
+    key: "system-management",
+    label: "系统管理",
+    icon: Setting,
+    items: getNavigationItemsByPath(["/users", "/departments", "/settings"])
+  }
+];
+
+const helpNavigationItem = navigationItems.find((item) => item.path === "/help");
+
+const canShowNavigationItem = (item: NavigationItem) => {
   const role = authStore.currentRole ?? authStore.currentUser?.role;
 
-  return navigationGroups
+  return canAccessRoute(
+    item.path,
+    role,
+    item.allowedRoles,
+    authStore.currentCompany?.accessibleModules
+  );
+};
+
+const visiblePrimaryNavigationGroups = computed(() =>
+  primaryNavigationGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) =>
-        canAccessRoute(
-          item.path,
-          role,
-          item.allowedRoles,
-          authStore.currentCompany?.accessibleModules
-        )
-      )
+      items: group.items.filter(canShowNavigationItem)
     }))
-    .filter((group) => group.items.length > 0);
+    .filter((group) => group.items.length > 0)
+);
+
+const visibleSupportNavigationGroups = computed(() =>
+  supportNavigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(canShowNavigationItem)
+    }))
+    .filter((group) => group.items.length > 0)
+);
+
+const visibleHelpNavigationItem = computed(() => {
+  if (!helpNavigationItem || !canShowNavigationItem(helpNavigationItem)) {
+    return null;
+  }
+
+  return helpNavigationItem;
 });
+
+const isActivePathInGroup = (group: PrimaryNavigationGroup) =>
+  group.items.some((item) => item.path === activeMenu.value);
+
+const isSupportGroupOpen = (group: SupportNavigationGroup) =>
+  isActivePathInGroup(group) || openedSupportGroupKeys.value.includes(group.key);
+
+const toggleSupportGroup = (group: SupportNavigationGroup) => {
+  // 当前路由所在的低频分组始终展开，避免用户进入页面后找不到当前位置。
+  if (isActivePathInGroup(group)) {
+    return;
+  }
+
+  openedSupportGroupKeys.value = openedSupportGroupKeys.value.includes(group.key)
+    ? openedSupportGroupKeys.value.filter((key) => key !== group.key)
+    : [...openedSupportGroupKeys.value, group.key];
+};
 
 const roleLabel = computed(() => {
   const role = authStore.currentRole ?? authStore.currentUser?.role;
@@ -199,7 +267,11 @@ const handleCompanyCommand = (command: string | number | object) => {
         router
         class="sidebar-menu"
       >
-        <div v-for="group in visibleNavigationGroups" :key="group.label" class="sidebar-menu-group">
+        <div
+          v-for="group in visiblePrimaryNavigationGroups"
+          :key="group.key"
+          class="sidebar-menu-group"
+        >
           <p class="sidebar-menu-group__label">{{ group.label }}</p>
           <el-menu-item
             v-for="item in group.items"
@@ -213,7 +285,72 @@ const handleCompanyCommand = (command: string | number | object) => {
             <span>{{ item.label }}</span>
           </el-menu-item>
         </div>
+
+        <div
+          v-if="visibleSupportNavigationGroups.length > 0"
+          class="sidebar-support-section"
+        >
+          <p class="sidebar-menu-group__label sidebar-menu-group__label--section">
+            支持与管理
+          </p>
+          <div
+            v-for="group in visibleSupportNavigationGroups"
+            :key="group.key"
+            class="sidebar-support-group"
+            :class="{ 'sidebar-support-group--open': isSupportGroupOpen(group) }"
+          >
+            <button
+              class="sidebar-support-toggle"
+              type="button"
+              :aria-expanded="isSupportGroupOpen(group)"
+              :title="group.label"
+              @click="toggleSupportGroup(group)"
+            >
+              <el-icon>
+                <component :is="group.icon" />
+              </el-icon>
+              <span>{{ group.label }}</span>
+              <el-icon class="sidebar-support-toggle__chevron">
+                <ArrowDown />
+              </el-icon>
+            </button>
+
+            <div v-show="isSupportGroupOpen(group)" class="sidebar-sub-menu">
+              <el-menu-item
+                v-for="item in group.items"
+                :key="item.path"
+                :index="item.path"
+                :title="item.label"
+              >
+                <el-icon>
+                  <component :is="item.icon" />
+                </el-icon>
+                <span>{{ item.label }}</span>
+              </el-menu-item>
+            </div>
+          </div>
+        </div>
       </el-menu>
+
+      <div v-if="visibleHelpNavigationItem" class="sidebar-help-slot">
+        <el-menu
+          :default-active="activeMenu"
+          :collapse="isSidebarCollapseActive"
+          :collapse-transition="false"
+          router
+          class="sidebar-bottom-menu"
+        >
+          <el-menu-item
+            :index="visibleHelpNavigationItem.path"
+            :title="visibleHelpNavigationItem.label"
+          >
+            <el-icon>
+              <component :is="visibleHelpNavigationItem.icon" />
+            </el-icon>
+            <span>{{ visibleHelpNavigationItem.label }}</span>
+          </el-menu-item>
+        </el-menu>
+      </div>
 
       <div
         v-if="authStore.currentUser"
