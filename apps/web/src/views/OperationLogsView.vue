@@ -99,6 +99,51 @@ const purposeLabelMap = Object.fromEntries(purposeOptions.map((item) => [item.va
 const relatedTypeLabelMap = Object.fromEntries(
   relatedTypeOptions.map((item) => [item.value, item.label])
 );
+const detailLabelMap: Record<string, string> = {
+  companyId: "公司 ID",
+  departmentId: "部门 ID",
+  userId: "操作人 ID",
+  userName: "操作人",
+  createdById: "创建人 ID",
+  createdByName: "创建人",
+  moduleKey: "业务模块",
+  action: "操作动作",
+  purpose: "调用目的",
+  targetType: "对象类型",
+  targetId: "对象 ID",
+  targetTitle: "对象标题",
+  relatedType: "关联类型",
+  relatedId: "关联 ID",
+  provider: "Provider",
+  model: "模型",
+  isMock: "是否 Mock",
+  isMockInferred: "Mock 推断",
+  requestCount: "请求次数",
+  requestCountLabel: "请求说明",
+  promptTokens: "输入 Token",
+  completionTokens: "输出 Token",
+  totalTokens: "Token 总计",
+  tokenInput: "输入 Token",
+  tokenOutput: "输出 Token",
+  success: "结果",
+  status: "状态",
+  errorSummary: "错误摘要",
+  metadataKeys: "元数据键",
+  metadataSummary: "安全元数据摘要",
+  hasIp: "IP 记录",
+  hasUserAgent: "UserAgent 记录"
+};
+const metadataSummaryLabelMap: Record<string, string> = {
+  usageUnknown: "用量未知",
+  providerReturnedUsage: "Provider 返回用量",
+  latencyMs: "延迟",
+  errorType: "错误类型"
+};
+const callStatusTextMap: Record<string, string> = {
+  succeeded: "成功",
+  failed: "失败",
+  pending: "处理中"
+};
 
 const activeTab = ref<LogsTabKey>("operation");
 const drawerSize = ref("560px");
@@ -186,6 +231,10 @@ const getPurposeLabel = (purpose?: string | null) =>
 const getRelatedTypeLabel = (relatedType?: string | null) =>
   relatedType ? (relatedTypeLabelMap[relatedType] ?? relatedType) : "未关联";
 
+const getDetailLabel = (label: string) => detailLabelMap[label] ?? label;
+
+const getMetadataSummaryLabel = (label: string) => metadataSummaryLabelMap[label] ?? label;
+
 const formatTime = (value?: string | null) =>
   value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "-";
 
@@ -211,6 +260,20 @@ const formatNullable = (value?: string | number | boolean | null) => {
 
 const formatUser = (name?: string | null, id?: string | null) => name ?? id ?? "系统";
 
+const formatProviderModel = (provider?: string | null, model?: string | null) =>
+  `${provider || "-"} / ${model || "-"}`;
+
+const formatCallStatusText = (status?: string | null) =>
+  status ? (callStatusTextMap[status] ?? status) : "-";
+
+const formatMockDisplay = (isMock: boolean, inferred = false) => {
+  if (inferred) {
+    return isMock ? "Mock 推断" : "真实 Provider";
+  }
+
+  return isMock ? "Mock" : "真实调用";
+};
+
 const formatObjectSummary = (type?: string | null, id?: string | null, title?: string | null) => {
   if (title) {
     return title;
@@ -222,6 +285,8 @@ const formatObjectSummary = (type?: string | null, id?: string | null, title?: s
 };
 
 const formatError = (errorSummary?: string | null) => errorSummary || "-";
+
+const detailRow = (label: string, value: string): DetailRow => ({ label, value });
 
 const successFilterToBoolean = (value: SuccessFilterValue) => {
   if (value === "all") {
@@ -558,7 +623,7 @@ const formatSummaryValue = (value: LogsViewerMetadataSummaryValue): string => {
 
 const formatSafeSummaryRows = (summary?: LogsViewerMetadataSummary): DetailRow[] =>
   Object.entries(summary ?? {}).map(([key, value]) => ({
-    label: key,
+    label: getMetadataSummaryLabel(key),
     value: formatSummaryValue(value)
   }));
 
@@ -568,7 +633,7 @@ const detailStatusText = computed(() => {
     return "-";
   }
   if (detailKind.value === "call") {
-    return (record as LogsViewerAiCallLogDetail).status;
+    return formatCallStatusText((record as LogsViewerAiCallLogDetail).status);
   }
 
   return (record as LogsViewerOperationLogDetail | LogsViewerAiUsageRecordDetail).success
@@ -597,23 +662,23 @@ const basicDetailRows = computed<DetailRow[]>(() => {
   if (detailKind.value === "call") {
     const callRecord = record as LogsViewerAiCallLogDetail;
     return [
-      { label: "Log ID", value: callRecord.id },
-      { label: "时间", value: formatTime(callRecord.createdAt) },
-      { label: "创建人", value: formatUser(callRecord.createdByName, callRecord.createdById) },
-      { label: "companyId", value: formatNullable(callRecord.companyId) },
-      { label: "purpose", value: getPurposeLabel(callRecord.purpose) }
+      detailRow("Log ID", callRecord.id),
+      detailRow("时间", formatTime(callRecord.createdAt)),
+      detailRow("createdByName", formatUser(callRecord.createdByName, callRecord.createdById)),
+      detailRow("companyId", formatNullable(callRecord.companyId)),
+      detailRow("purpose", getPurposeLabel(callRecord.purpose))
     ];
   }
 
   const commonRecord = record as LogsViewerOperationLogDetail | LogsViewerAiUsageRecordDetail;
   return [
-    { label: "Log ID", value: commonRecord.id },
-    { label: "时间", value: formatTime(commonRecord.createdAt) },
-    { label: "操作人", value: formatUser(commonRecord.userName, commonRecord.userId) },
-    { label: "companyId", value: formatNullable(commonRecord.companyId) },
-    { label: "departmentId", value: formatNullable(commonRecord.departmentId) },
-    { label: "moduleKey", value: getModuleLabel(commonRecord.moduleKey) },
-    { label: "action", value: getActionLabel(commonRecord.action) }
+    detailRow("Log ID", commonRecord.id),
+    detailRow("时间", formatTime(commonRecord.createdAt)),
+    detailRow("userName", formatUser(commonRecord.userName, commonRecord.userId)),
+    detailRow("companyId", formatNullable(commonRecord.companyId)),
+    detailRow("departmentId", formatNullable(commonRecord.departmentId)),
+    detailRow("moduleKey", getModuleLabel(commonRecord.moduleKey)),
+    detailRow("action", getActionLabel(commonRecord.action))
   ];
 });
 
@@ -626,17 +691,17 @@ const objectDetailRows = computed<DetailRow[]>(() => {
   if (detailKind.value === "operation") {
     const operationRecord = record as LogsViewerOperationLogDetail;
     return [
-      { label: "targetType", value: formatNullable(operationRecord.targetType) },
-      { label: "targetId", value: formatNullable(operationRecord.targetId) },
-      { label: "targetTitle", value: formatNullable(operationRecord.targetTitle) }
+      detailRow("targetType", formatNullable(operationRecord.targetType)),
+      detailRow("targetId", formatNullable(operationRecord.targetId)),
+      detailRow("targetTitle", formatNullable(operationRecord.targetTitle))
     ];
   }
 
   if (detailKind.value === "call") {
     const callRecord = record as LogsViewerAiCallLogDetail;
     return [
-      { label: "relatedType", value: getRelatedTypeLabel(callRecord.relatedType) },
-      { label: "relatedId", value: formatNullable(callRecord.relatedId) }
+      detailRow("relatedType", getRelatedTypeLabel(callRecord.relatedType)),
+      detailRow("relatedId", formatNullable(callRecord.relatedId))
     ];
   }
 
@@ -652,24 +717,24 @@ const aiDetailRows = computed<DetailRow[]>(() => {
   if (detailKind.value === "usage") {
     const usageRecord = record as LogsViewerAiUsageRecordDetail;
     return [
-      { label: "provider", value: usageRecord.provider },
-      { label: "model", value: formatNullable(usageRecord.model) },
-      { label: "是否 Mock", value: usageRecord.isMock ? "是" : "否" },
-      { label: "requestCount", value: formatNumber(usageRecord.requestCount) },
-      { label: "promptTokens", value: formatNumber(usageRecord.promptTokens) },
-      { label: "completionTokens", value: formatNumber(usageRecord.completionTokens) },
-      { label: "totalTokens", value: formatNumber(usageRecord.totalTokens) }
+      detailRow("provider", usageRecord.provider),
+      detailRow("model", formatNullable(usageRecord.model)),
+      detailRow("isMock", formatMockDisplay(usageRecord.isMock)),
+      detailRow("requestCount", formatNumber(usageRecord.requestCount)),
+      detailRow("promptTokens", formatNumber(usageRecord.promptTokens)),
+      detailRow("completionTokens", formatNumber(usageRecord.completionTokens)),
+      detailRow("totalTokens", formatNumber(usageRecord.totalTokens))
     ];
   }
 
   const callRecord = record as LogsViewerAiCallLogDetail;
   return [
-    { label: "provider", value: callRecord.provider },
-    { label: "model", value: callRecord.model },
-    { label: "是否 Mock", value: callRecord.isMockInferred ? "是" : "否" },
-    { label: "requestCount", value: callRecord.requestCountLabel },
-    { label: "tokenInput", value: formatNullable(callRecord.tokenInput) },
-    { label: "tokenOutput", value: formatNullable(callRecord.tokenOutput) }
+    detailRow("provider", callRecord.provider),
+    detailRow("model", callRecord.model),
+    detailRow("isMockInferred", formatMockDisplay(callRecord.isMockInferred, true)),
+    detailRow("requestCountLabel", callRecord.requestCountLabel),
+    detailRow("tokenInput", formatNullable(callRecord.tokenInput)),
+    detailRow("tokenOutput", formatNullable(callRecord.tokenOutput))
   ];
 });
 
@@ -682,15 +747,15 @@ const securityDetailRows = computed<DetailRow[]>(() => {
   if (detailKind.value === "operation") {
     const operationRecord = record as LogsViewerOperationLogDetail;
     return [
-      { label: "错误摘要", value: formatError(operationRecord.errorSummary) },
-      { label: "IP 记录", value: operationRecord.hasIp ? "已记录" : "未记录" },
-      { label: "UserAgent 记录", value: operationRecord.hasUserAgent ? "已记录" : "未记录" }
+      detailRow("errorSummary", formatError(operationRecord.errorSummary)),
+      detailRow("hasIp", operationRecord.hasIp ? "已记录" : "未记录"),
+      detailRow("hasUserAgent", operationRecord.hasUserAgent ? "已记录" : "未记录")
     ];
   }
 
   if (detailKind.value === "usage") {
     const usageRecord = record as LogsViewerAiUsageRecordDetail;
-    return [{ label: "错误摘要", value: formatError(usageRecord.errorSummary) }];
+    return [detailRow("errorSummary", formatError(usageRecord.errorSummary))];
   }
 
   return [];
@@ -756,7 +821,7 @@ onBeforeUnmount(() => {
 
     <section class="filter-panel">
       <el-form v-if="activeTab === 'operation'" inline class="compact-filter-form">
-        <el-form-item label="时间范围">
+        <el-form-item label="时间范围" class="date-filter-item">
           <el-date-picker
             v-model="operationDateRange"
             type="daterange"
@@ -799,7 +864,7 @@ onBeforeUnmount(() => {
       </el-form>
 
       <el-form v-else-if="activeTab === 'usage'" inline class="compact-filter-form">
-        <el-form-item label="时间范围">
+        <el-form-item label="时间范围" class="date-filter-item">
           <el-date-picker
             v-model="usageDateRange"
             type="daterange"
@@ -849,7 +914,7 @@ onBeforeUnmount(() => {
       </el-form>
 
       <el-form v-else inline class="compact-filter-form">
-        <el-form-item label="时间范围">
+        <el-form-item label="时间范围" class="date-filter-item">
           <el-date-picker
             v-model="callDateRange"
             type="daterange"
@@ -1011,10 +1076,12 @@ onBeforeUnmount(() => {
             <el-table-column label="模型 / 状态" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">
                 <div class="tag-stack">
-                  <span>{{ row.provider }} / {{ row.model || "-" }}</span>
+                  <span class="provider-model-text" :title="formatProviderModel(row.provider, row.model)">
+                    {{ formatProviderModel(row.provider, row.model) }}
+                  </span>
                   <div>
                     <el-tag size="small" :type="row.isMock ? 'info' : 'warning'" effect="plain">
-                      {{ row.isMock ? "Mock" : "真实" }}
+                      {{ formatMockDisplay(row.isMock) }}
                     </el-tag>
                     <el-tag size="small" :type="getSuccessTagType(row.success)" effect="plain">
                       {{ row.success ? "成功" : "失败" }}
@@ -1053,7 +1120,9 @@ onBeforeUnmount(() => {
               </el-tag>
             </div>
             <p>{{ formatTime(row.createdAt) }} · {{ formatUser(row.userName, row.userId) }}</p>
-            <p>{{ row.provider }} / {{ row.model || "-" }}</p>
+            <p class="provider-model-text" :title="formatProviderModel(row.provider, row.model)">
+              {{ formatProviderModel(row.provider, row.model) }}
+            </p>
             <p>请求 {{ formatNumber(row.requestCount) }} 次 / {{ formatTokens(row.totalTokens) }} Tokens</p>
             <el-button text type="primary" @click="openDetailDrawer('usage', row.id)">
               查看详情
@@ -1092,9 +1161,11 @@ onBeforeUnmount(() => {
             <el-table-column label="Provider / Model" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">
                 <div class="tag-stack">
-                  <span>{{ row.provider }} / {{ row.model }}</span>
+                  <span class="provider-model-text" :title="formatProviderModel(row.provider, row.model)">
+                    {{ formatProviderModel(row.provider, row.model) }}
+                  </span>
                   <el-tag size="small" :type="row.isMockInferred ? 'info' : 'warning'" effect="plain">
-                    {{ row.isMockInferred ? "Mock" : "真实" }}
+                    {{ formatMockDisplay(row.isMockInferred, true) }}
                   </el-tag>
                 </div>
               </template>
@@ -1103,7 +1174,7 @@ onBeforeUnmount(() => {
               <template #default="{ row }">
                 <div class="stacked-cell">
                   <el-tag :type="getCallStatusTagType(row.status)" effect="plain">
-                    {{ row.status }}
+                    {{ formatCallStatusText(row.status) }}
                   </el-tag>
                   <span>输入 {{ formatNullable(row.tokenInput) }} / 输出 {{ formatNullable(row.tokenOutput) }}</span>
                 </div>
@@ -1134,10 +1205,14 @@ onBeforeUnmount(() => {
           <article v-for="row in callLogs" :key="row.id" class="log-mobile-card">
             <div class="mobile-card-head">
               <strong>{{ getPurposeLabel(row.purpose) }}</strong>
-              <el-tag :type="getCallStatusTagType(row.status)" effect="plain">{{ row.status }}</el-tag>
+              <el-tag :type="getCallStatusTagType(row.status)" effect="plain">
+                {{ formatCallStatusText(row.status) }}
+              </el-tag>
             </div>
             <p>{{ formatTime(row.createdAt) }} · {{ formatUser(row.createdByName, row.createdById) }}</p>
-            <p>{{ row.provider }} / {{ row.model }}</p>
+            <p class="provider-model-text" :title="formatProviderModel(row.provider, row.model)">
+              {{ formatProviderModel(row.provider, row.model) }}
+            </p>
             <p>{{ getRelatedTypeLabel(row.relatedType) }} / {{ row.relatedId || "-" }}</p>
             <el-button text type="primary" @click="openDetailDrawer('call', row.id)">
               查看详情
@@ -1187,7 +1262,7 @@ onBeforeUnmount(() => {
           <h3>基础信息</h3>
           <dl class="detail-grid">
             <template v-for="row in basicDetailRows" :key="row.label">
-              <dt>{{ row.label }}</dt>
+              <dt>{{ getDetailLabel(row.label) }}</dt>
               <dd>{{ row.value }}</dd>
             </template>
           </dl>
@@ -1197,7 +1272,7 @@ onBeforeUnmount(() => {
           <h3>业务对象</h3>
           <dl class="detail-grid">
             <template v-for="row in objectDetailRows" :key="row.label">
-              <dt>{{ row.label }}</dt>
+              <dt>{{ getDetailLabel(row.label) }}</dt>
               <dd>{{ row.value }}</dd>
             </template>
           </dl>
@@ -1207,7 +1282,7 @@ onBeforeUnmount(() => {
           <h3>AI 调度信息</h3>
           <dl class="detail-grid">
             <template v-for="row in aiDetailRows" :key="row.label">
-              <dt>{{ row.label }}</dt>
+              <dt>{{ getDetailLabel(row.label) }}</dt>
               <dd>{{ row.value }}</dd>
             </template>
           </dl>
@@ -1217,7 +1292,7 @@ onBeforeUnmount(() => {
           <h3>安全与审计信息</h3>
           <dl class="detail-grid">
             <template v-for="row in securityDetailRows" :key="row.label">
-              <dt>{{ row.label }}</dt>
+              <dt>{{ getDetailLabel(row.label) }}</dt>
               <dd>{{ row.value }}</dd>
             </template>
           </dl>
@@ -1226,7 +1301,7 @@ onBeforeUnmount(() => {
             <span>安全摘要字段</span>
             <div class="safe-tag-list">
               <el-tag v-for="key in metadataKeyList" :key="key" size="small" effect="plain">
-                {{ key }}
+                {{ getMetadataSummaryLabel(key) }}
               </el-tag>
             </div>
           </div>
@@ -1235,7 +1310,7 @@ onBeforeUnmount(() => {
             <span>白名单摘要</span>
             <dl class="detail-grid">
               <template v-for="row in metadataSummaryRows" :key="row.label">
-                <dt>{{ row.label }}</dt>
+                <dt>{{ getDetailLabel(row.label) }}</dt>
                 <dd>{{ row.value }}</dd>
               </template>
             </dl>
@@ -1370,6 +1445,14 @@ onBeforeUnmount(() => {
   width: 320px;
 }
 
+.date-filter-item {
+  min-width: 320px;
+}
+
+.date-filter-item :deep(.el-form-item__content) {
+  min-width: 0;
+}
+
 .logs-table-panel {
   overflow: hidden;
   padding: 14px;
@@ -1405,6 +1488,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.provider-model-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pagination-row {
@@ -1547,6 +1638,18 @@ onBeforeUnmount(() => {
   .date-control {
     width: 100%;
   }
+
+  .date-filter-item {
+    flex: 1 1 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .date-filter-item :deep(.el-form-item__content),
+  .date-filter-item :deep(.el-date-editor--daterange) {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1565,6 +1668,24 @@ onBeforeUnmount(() => {
 
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .log-mobile-card .provider-model-text {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 480px) {
+  .date-filter-item :deep(.el-form-item__label) {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .date-filter-item :deep(.el-range-input) {
+    min-width: 0;
   }
 }
 </style>

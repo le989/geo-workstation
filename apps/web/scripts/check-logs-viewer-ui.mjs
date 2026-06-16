@@ -65,6 +65,17 @@ for (const snippet of [
   "handleTabChange",
   "openDetailDrawer",
   "copyLogId",
+  "getDetailLabel",
+  "formatCallStatusText",
+  "formatMockDisplay",
+  "formatProviderModel",
+  "公司 ID",
+  "关联类型",
+  "输入 Token",
+  "输出 Token",
+  "Provider 返回用量",
+  "provider-model-text",
+  "date-filter-item",
   "getLogsViewerOperationLogs",
   "getLogsViewerAiUsageRecords",
   "getLogsViewerAiCallLogs"
@@ -83,7 +94,18 @@ for (const forbidden of [
   "prompt 原文",
   "response 原文",
   "完整 IP",
-  "完整 userAgent"
+  "完整 userAgent",
+  '{ label: "companyId"',
+  '{ label: "departmentId"',
+  '{ label: "moduleKey"',
+  '{ label: "action"',
+  '{ label: "purpose"',
+  '{ label: "relatedType"',
+  '{ label: "relatedId"',
+  '{ label: "tokenInput"',
+  '{ label: "tokenOutput"',
+  "{{ row.status }}",
+  "return (record as LogsViewerAiCallLogDetail).status;"
 ]) {
   assert(!viewSource.includes(forbidden), `Logs viewer page must not expose ${forbidden}`);
 }
