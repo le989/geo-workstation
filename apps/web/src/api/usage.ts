@@ -16,6 +16,16 @@ export type UsageTrendQuery = UsageQuery & {
   granularity?: "day" | "week" | "month";
 };
 
+export type UsageLedgerQuery = UsageQuery & {
+  provider?: string;
+  model?: string;
+};
+
+export type UsageLedgerRecordsQuery = UsageLedgerQuery & {
+  page?: number;
+  pageSize?: number;
+};
+
 export type UsageSummary = {
   totalRequests: number;
   totalTokens: number;
@@ -103,6 +113,99 @@ export type AiUsageSummary = {
   byDepartment: AiUsageDepartmentSummaryItem[];
 };
 
+export type UsageLedgerSummary = {
+  totalRequestCount: number;
+  realRequestCount: number;
+  mockRequestCount: number;
+  successRequestCount: number;
+  failureRequestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  realPromptTokens: number;
+  realCompletionTokens: number;
+  realTotalTokens: number;
+  mockPromptTokens: number;
+  mockCompletionTokens: number;
+  mockTotalTokens: number;
+  usageUnknownCount: number;
+  uniqueProviderCount: number;
+  uniqueModelCount: number;
+  uniqueUserCount: number;
+  recordCount: number;
+};
+
+export type UsageByProviderItem = {
+  provider: string;
+  requestCount: number;
+  realRequestCount: number;
+  mockRequestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  realTotalTokens: number;
+  mockTotalTokens: number;
+  successRequestCount: number;
+  failureRequestCount: number;
+  usageUnknownCount: number;
+  modelCount: number;
+  recordCount: number;
+};
+
+export type UsageByProviderResponse = {
+  items: UsageByProviderItem[];
+};
+
+export type UsageByModelItem = {
+  provider: string;
+  model: string | null;
+  requestCount: number;
+  realRequestCount: number;
+  mockRequestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  realTotalTokens: number;
+  mockTotalTokens: number;
+  successRequestCount: number;
+  failureRequestCount: number;
+  usageUnknownCount: number;
+  recordCount: number;
+};
+
+export type UsageByModelResponse = {
+  items: UsageByModelItem[];
+};
+
+export type UsageLedgerRecordItem = {
+  id: string;
+  logId: string;
+  createdAt: string;
+  companyId: string | null;
+  departmentId: string | null;
+  userId: string | null;
+  userName: string | null;
+  moduleKey: string;
+  action: string;
+  provider: string;
+  model: string | null;
+  isMock: boolean;
+  success: boolean;
+  requestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  usageUnknown: boolean;
+  errorSummary: string | null;
+};
+
+export type UsageLedgerRecordsResponse = {
+  items: UsageLedgerRecordItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type OperationLogQuery = {
   moduleKey?: string;
   action?: string;
@@ -169,6 +272,21 @@ const buildUsageQuery = (query: UsageQuery = {}) =>
     endDate: query.endDate
   });
 
+const buildUsageLedgerQuery = (query: UsageLedgerQuery = {}) =>
+  toQueryString({
+    moduleKey: query.moduleKey,
+    action: query.action,
+    userId: query.userId,
+    departmentId: query.departmentId,
+    companyId: query.companyId,
+    provider: query.provider,
+    model: query.model,
+    isMock: query.isMock,
+    success: query.success,
+    startDate: query.startDate,
+    endDate: query.endDate
+  });
+
 export const getUsageSummary = (query: UsageQuery = {}) =>
   apiGet<UsageSummary>(`/api/usage/summary${buildUsageQuery(query)}`);
 
@@ -191,6 +309,34 @@ export const getUsageByModule = (query: UsageQuery = {}) =>
 
 export const getAiUsageSummary = (query: UsageQuery = {}) =>
   apiGet<AiUsageSummary>(`/api/usage/ai-summary${buildUsageQuery(query)}`);
+
+export const getUsageLedgerSummary = (query: UsageLedgerQuery = {}) =>
+  apiGet<UsageLedgerSummary>(`/api/usage/ledger-summary${buildUsageLedgerQuery(query)}`);
+
+export const getUsageByProvider = (query: UsageLedgerQuery = {}) =>
+  apiGet<UsageByProviderResponse>(`/api/usage/by-provider${buildUsageLedgerQuery(query)}`);
+
+export const getUsageByModel = (query: UsageLedgerQuery = {}) =>
+  apiGet<UsageByModelResponse>(`/api/usage/by-model${buildUsageLedgerQuery(query)}`);
+
+export const getUsageLedgerRecords = (query: UsageLedgerRecordsQuery = {}) =>
+  apiGet<UsageLedgerRecordsResponse>(
+    `/api/usage/ledger-records${toQueryString({
+      moduleKey: query.moduleKey,
+      action: query.action,
+      userId: query.userId,
+      departmentId: query.departmentId,
+      companyId: query.companyId,
+      provider: query.provider,
+      model: query.model,
+      isMock: query.isMock,
+      success: query.success,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      page: query.page,
+      pageSize: query.pageSize
+    })}`
+  );
 
 export const getOperationLogs = (query: OperationLogQuery = {}) =>
   apiGet<OperationLogListResponse>(

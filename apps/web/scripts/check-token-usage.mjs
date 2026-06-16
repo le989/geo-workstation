@@ -24,21 +24,20 @@ for (const snippet of ["AiUsageSummary", "/api/usage/ai-summary", "getAiUsageSum
 
 const usageViewSource = await readSource("src/views/UsageAnalyticsView.vue");
 for (const snippet of [
-  "AI 用量统计用于查看真实 AI 接口调用情况。",
-  "部分 Provider 不返回 token，本页会标记为未知，不会伪造成 0。",
-  "AI 调用总次数",
-  "成功 / 失败",
-  "已知 token",
-  "token 未知次数",
-  "Provider 统计",
-  "功能模块统计",
-  "详细统计",
-  "存在部分真实调用未返回 token 用量，暂不能用于精确成本核算。"
+  "AI 用量统计",
+  "本页仅展示系统底层 AI 请求次数与 Token 用量。Mock 拦截不计入真实调用，当前版本不涉及财务核算与真实扣点。",
+  "请求总数",
+  "Token 消耗总计",
+  "异常排查",
+  "消耗 Top Provider",
+  "消耗 Top Model",
+  "明细记录",
+  "用量未知"
 ]) {
   assert(usageViewSource.includes(snippet), `Usage page missing AI usage copy: ${snippet}`);
 }
 
-for (const forbidden of ["硬性额度限制", "价格模型", "账单入口", "扣费逻辑"]) {
+for (const forbidden of ["硬性额度限制", "价格模型", "账单入口", "扣费逻辑", "人民币", "发票"]) {
   assert(!usageViewSource.includes(forbidden), `Usage page must not add forbidden feature: ${forbidden}`);
 }
 
