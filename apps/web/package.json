@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:phase3a": "node scripts/check-phase-3a.mjs",
     "test:dashboard": "node scripts/check-phase-3b.mjs",
+    "test:dashboard-empty-fallback": "node scripts/check-dashboard-empty-data-fallback.mjs",
     "test:geo-prompts": "node scripts/check-phase-3c.mjs",
     "test:expansion": "node scripts/check-phase-3d.mjs",
     "test:knowledge": "node scripts/check-phase-3e.mjs",
