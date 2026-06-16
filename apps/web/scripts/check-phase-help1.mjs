@@ -16,7 +16,7 @@ const chromePath =
   process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const disconnectedApiBaseUrl = process.env.VITE_API_BASE_URL || stubApiBaseUrl;
 const helpPageTitle = "使用教程";
-const helpPageDescription = "查看 GEO 工作站的快速开始";
+const helpPageDescription = "按 GEO 日常运营闭环查看页面用途、风险边界和常见问题。";
 
 const requiredFiles = [
   "apps/web/src/views/HelpView.vue",
@@ -27,18 +27,18 @@ const requiredFiles = [
 ];
 
 const requiredPageSnippets = [
-  "快速开始",
-  "从 0 搭建正式数据",
-  "日常内容生产",
-  "GEO 诊断到内容补齐",
-  "核心资产关系",
-  "管理员维护重点",
-  "归档与清理规则",
-  "当前限制与注意事项",
+  "新手快速开始",
+  "日常 GEO 运营",
+  "风险边界清楚",
+  "帮助目录总览",
+  "高风险操作提醒",
+  "常见问题",
+  "用发布文章工作台生成发布稿",
+  "人工复核并手动发布",
   "AI 拓词",
   "知识库",
   "/geo-content",
-  "/geo-reports"
+  "GEO 报表"
 ];
 
 const requiredDocSnippets = [
@@ -47,15 +47,21 @@ const requiredDocSnippets = [
   "公司管理员",
   "运营人员",
   "查看者",
-  "确认公司 -> 维护产品线 -> 建提示词 -> AI 拓词 -> 建知识库 -> 建指令模板 -> 创建内容任务 -> 录入模型覆盖记录 -> 查看报表",
-  "GEO 诊断任务：可归档",
-  "GEO 内容任务：可归档",
-  "AI 模型覆盖记录支持编辑结果字段、软作废和恢复",
-  "基础 seed 与演示 seed 已分离",
-  "clean 库用于从 0 搭建正式数据",
+  `看 Dashboard
+→ 做 GEO 诊断
+→ 维护提示词策略库
+→ 用 AI 拓词补候选问题
+→ 补企业知识库资料
+→ 用发布文章工作台生成发布稿
+→ 人工复核并手动发布
+→ 录入模型覆盖记录
+→ 查看 GEO 报表复盘`,
+  "阶段用途完成后可归档诊断记录",
+  "发布文章相关历史记录。",
+  "模型覆盖记录用于人工维护不同 AI 平台、入口或检测方式下的品牌表现。",
   "/geo-content",
   "/geo-reports",
-  "项目档案只提供品牌和语气上下文，事实仍以知识库为准",
+  "项目档案提供品牌和语气上下文，但不能替代知识库事实",
   "候选词不会自动入库",
   "知识库是事实底座"
 ];
@@ -316,7 +322,13 @@ assert(routeSource.includes("HelpView"), "Routes must use HelpView");
 assert(routeSource.includes('item.path === "/help"'), "Missing explicit /help route mapping");
 
 const readme = await readFile(path.join(repoRoot, "README.md"), "utf8");
-for (const snippet of ["使用教程入口", "docs/help/user-guide.md", "docs/help/sop.md"]) {
+for (const snippet of [
+  "使用教程入口",
+  "docs/help/user-guide.md",
+  "docs/help/sop.md",
+  "默认管理员由基础 seed 创建",
+  "正式库和干净库不要执行演示 seed"
+]) {
   assert(readme.includes(snippet), `README missing help snippet: ${snippet}`);
 }
 
