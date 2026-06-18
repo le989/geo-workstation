@@ -8,7 +8,6 @@ const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const requiredFiles = [
   "src/api/geo-prompts.ts",
   "src/components/GeoPromptBulkImportDialog.vue",
-  "src/components/GeoPromptFilters.vue",
   "src/components/GeoPromptFormDialog.vue",
   "src/components/GeoPromptStatusTag.vue",
   "src/components/GeoPromptTypeTag.vue",
@@ -31,8 +30,8 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "提示词库",
-  "沉淀训练词、蒸馏词、品牌词和场景词",
-  "用户会怎么问 AI",
+  "管理真实问法、问法类型和追踪状态",
+  "搜索提示词、训练词或应用场景",
   "新增提示词",
   "批量导入",
   "导出 CSV",
@@ -78,7 +77,6 @@ for (const snippet of apiRequiredSnippets) {
 
 const pageSource = [
   await readSource("src/views/GeoPromptsView.vue"),
-  await readSource("src/components/GeoPromptFilters.vue"),
   await readSource("src/components/GeoPromptFormDialog.vue"),
   await readSource("src/components/GeoPromptBulkImportDialog.vue")
 ].join("\n");
