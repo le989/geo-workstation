@@ -7,10 +7,7 @@ const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
 const requiredFiles = [
   "src/api/reports.ts",
-  "src/components/CapabilityBoundaryCard.vue",
   "src/components/DashboardSection.vue",
-  "src/components/MetricCard.vue",
-  "src/components/OptimizationSuggestionList.vue",
   "src/components/QuickActionGrid.vue"
 ];
 
@@ -23,7 +20,8 @@ const dashboardRequiredText = [
   "统计范围：我的数据",
   "推荐、证据、文章和模型记录",
   "后端未连接，可先启动 API 服务",
-  "当前暂无明显待优化项",
+  "暂无未覆盖问题排行",
+  "暂无知识库缺口排行",
   "/geo-prompts",
   "/knowledge-bases",
   "/geo-content",
@@ -85,9 +83,8 @@ for (const field of overviewFields) {
 
 const dashboardSource = [
   await readSource("src/views/DashboardView.vue"),
-  await readSource("src/components/OptimizationSuggestionList.vue"),
-  await readSource("src/components/QuickActionGrid.vue"),
-  await readSource("src/components/CapabilityBoundaryCard.vue")
+  await readSource("src/components/DashboardSection.vue"),
+  await readSource("src/components/QuickActionGrid.vue")
 ].join("\n");
 for (const snippet of dashboardRequiredText) {
   assert(dashboardSource.includes(snippet), `Dashboard missing required text: ${snippet}`);

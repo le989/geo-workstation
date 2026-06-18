@@ -11,7 +11,6 @@ const requiredFiles = [
   "src/components/InstructionTemplateDuplicateDialog.vue",
   "src/components/InstructionTemplateFilters.vue",
   "src/components/InstructionTemplateFormDialog.vue",
-  "src/components/InstructionTemplateTypeTag.vue",
   "src/config/instruction-options.ts",
   "src/views/InstructionTemplatesView.vue"
 ];
@@ -29,7 +28,7 @@ const apiRequiredSnippets = [
 
 const pageRequiredSnippets = [
   "指令库",
-  "GEO 内容生成的指令模板",
+  "沉淀内容生成模板、品牌锚点和事实边界规则",
   "AI 问答素材",
   "需求决策指南",
   "对比与替代",
@@ -77,8 +76,7 @@ const pageSource = [
   await readSource("src/components/InstructionTemplateDetailDrawer.vue"),
   await readSource("src/components/InstructionTemplateDuplicateDialog.vue"),
   await readSource("src/components/InstructionTemplateFilters.vue"),
-  await readSource("src/components/InstructionTemplateFormDialog.vue"),
-  await readSource("src/components/InstructionTemplateTypeTag.vue")
+  await readSource("src/components/InstructionTemplateFormDialog.vue")
 ].join("\n");
 
 for (const snippet of pageRequiredSnippets) {
